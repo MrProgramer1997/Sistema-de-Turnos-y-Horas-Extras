@@ -1,0 +1,28 @@
+.indicador-card {
+  border: none;
+  border-radius: 14px;
+  color: white;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+.indicador-card h3 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 8px 0;
+}
+
+.indicador-1 {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+.indicador-2 {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+}
+
+.indicador-3 {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.indicador-4 {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+}

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login - Club Campestre Turnos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="../css/login.css" />
+</head>
+<body>
+
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-grid"></div>
+
+  <main class="login-page">
+    <div class="login-wrapper">
+
+      <!-- PANEL IZQUIERDO -->
+      <section class="login-side">
+        <div class="logo-box animate-fade delay-1">
+          <img
+            src="../assets/img/club campestre logo negro.png"
+            alt="Logo Club Campestre Pereira"
+            class="club-logo"
+          />
+        </div>
+
+        <span class="brand-badge animate-fade delay-2">Corporación Club Campestre de Pereira</span>
+
+        <h1 class="animate-fade delay-3">Gestión de Turnos y Horas Extras</h1>
+
+        <p class="animate-fade delay-4">
+          Plataforma interna para administrar programación, consulta de turnos
+          y validación operativa del personal autorizado.
+        </p>
+
+        <div class="side-highlights">
+          <div class="highlight-card animate-fade delay-5">
+            <div class="highlight-icon">🕒</div>
+            <div>
+              <strong>Turnos centralizados</strong>
+              <small>Consulta y control de programación en un solo lugar.</small>
+            </div>
+          </div>
+
+          <div class="highlight-card animate-fade delay-6">
+            <div class="highlight-icon">👥</div>
+            <div>
+              <strong>Acceso por perfiles</strong>
+              <small>Cada usuario visualiza solo la información correspondiente.</small>
+            </div>
+          </div>
+
+          <div class="highlight-card animate-fade delay-7">
+            <div class="highlight-icon">✅</div>
+            <div>
+              <strong>Proceso más ordenado</strong>
+              <small>Mejor experiencia para áreas administrativas y operativas.</small>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PANEL DERECHO -->
+      <section class="login-card animate-slide-right">
+        <div class="card-top">
+          <h2>Ingreso al Sistema</h2>
+          <p>Seleccione el tipo de acceso correspondiente</p>
+        </div>
+
+        <div id="mensajeLogin" class="mensaje-login hidden"></div>
+
+        <div class="tabs">
+          <button type="button" class="tab-btn active" id="tabAdmin" onclick="mostrarAdmin()">
+            Administradores
+          </button>
+          <button type="button" class="tab-btn" id="tabEmpleado" onclick="mostrarEmpleado()">
+            Empleados
+          </button>
+        </div>
+
+        <!-- FORMULARIO ADMIN -->
+        <div id="adminLogin" class="form-panel">
+          <div class="input-group">
+            <label for="usuario">Usuario / Cédula</label>
+            <div class="input-wrapper">
+              <span class="input-icon">👤</span>
+              <input type="text" id="usuario" placeholder="Ingrese su cédula" />
+            </div>
+            <small class="field-error" id="errorUsuario"></small>
+          </div>
+
+          <div class="input-group">
+            <label for="password">Contraseña</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🔒</span>
+              <input type="password" id="password" placeholder="Ingrese su contraseña" />
+              <button type="button" class="toggle-password" onclick="togglePassword()" aria-label="Mostrar contraseña">
+                👁
+              </button>
+            </div>
+            <small class="field-error" id="errorPassword"></small>
+          </div>
+
+          <div class="input-group">
+            <label for="rol">Rol</label>
+            <div class="input-wrapper select-wrapper no-icon">
+              <select id="rol">
+                <option value="">Seleccione rol</option>
+                <option value="admin">Administrador</option>
+                <option value="gerencia">Gerencia</option>
+                <option value="bienestar">Bienestar Institucional</option>
+                <option value="direccion_financiera">Dirección Administrativa y Financiera</option>
+                <option value="ayb">Alimentos y Bebidas</option>
+              </select>
+              <span class="select-arrow">⌄</span>
+            </div>
+            <small class="field-error" id="errorRol"></small>
+          </div>
+
+          <label class="remember-box">
+            <input type="checkbox" id="recordarUsuario" />
+            <span>Recordar usuario en este equipo</span>
+          </label>
+
+          <button type="button" class="btn-primary" onclick="loginAdminConUI()">
+            Ingresar al panel
+          </button>
+        </div>
+
+        <!-- FORMULARIO EMPLEADO -->
+        <div id="empleadoLogin" class="form-panel" style="display: none;">
+          <div class="input-group">
+            <label for="cedula">Cédula</label>
+            <div class="input-wrapper">
+              <span class="input-icon">🪪</span>
+              <input type="text" id="cedula" placeholder="Ingrese su cédula" />
+            </div>
+            <small class="field-error" id="errorCedula"></small>
+          </div>
+
+          <button type="button" class="btn-primary" onclick="consultarTurnosConUI()">
+            Consultar Turnos
+          </button>
+        </div>
+
+        <div class="login-footer">
+          <small>Acceso restringido para personal autorizado</small>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- LOADER -->
+  <div id="loaderOverlay" class="loader-overlay hidden">
+    <div class="loader-box">
+      <div class="spinner"></div>
+      <p>Validando información...</p>
+    </div>
+  </div>
+
+  <script>
+    function mostrarAdmin() {
+      document.getElementById("adminLogin").style.display = "flex";
+      document.getElementById("empleadoLogin").style.display = "none";
+
+      document.getElementById("tabAdmin").classList.add("active");
+      document.getElementById("tabEmpleado").classList.remove("active");
+
+      limpiarMensaje();
+      limpiarErrores();
+      ocultarLoader();
+    }
+
+    function mostrarEmpleado() {
+      document.getElementById("adminLogin").style.display = "none";
+      document.getElementById("empleadoLogin").style.display = "flex";
+
+      document.getElementById("tabEmpleado").classList.add("active");
+      document.getElementById("tabAdmin").classList.remove("active");
+
+      limpiarMensaje();
+      limpiarErrores();
+      ocultarLoader();
+    }
+
+    function togglePassword() {
+      const passwordInput = document.getElementById("password");
+      const toggleBtn = document.querySelector(".toggle-password");
+
+      if (passwordInput.type === "password") {
+        passwordInput.type = "text";
+        toggleBtn.textContent = "🙈";
+      } else {
+        passwordInput.type = "password";
+        toggleBtn.textContent = "👁";
+      }
+    }
+
+    function mostrarLoader() {
+      document.getElementById("loaderOverlay").classList.remove("hidden");
+    }
+
+    function ocultarLoader() {
+      document.getElementById("loaderOverlay").classList.add("hidden");
+    }
+
+    function mostrarMensaje(tipo, texto) {
+      const box = document.getElementById("mensajeLogin");
+      box.className = "mensaje-login";
+      box.classList.add(tipo);
+      box.innerHTML = texto;
+      box.classList.remove("hidden");
+    }
+
+    function limpiarMensaje() {
+      const box = document.getElementById("mensajeLogin");
+      box.className = "mensaje-login hidden";
+      box.innerHTML = "";
+    }
+
+    function limpiarErrores() {
+      const errores = document.querySelectorAll(".field-error");
+      errores.forEach(el => el.textContent = "");
+
+      document.querySelectorAll(".input-error").forEach(el => {
+        el.classList.remove("input-error");
+      });
+    }
+
+    function marcarError(idCampo, idError, mensaje) {
+      const campo = document.getElementById(idCampo);
+      const error = document.getElementById(idError);
+
+      if (campo) campo.classList.add("input-error");
+      if (error) error.textContent = mensaje;
+    }
+
+    function validarAdminUI() {
+      limpiarErrores();
+      let valido = true;
+
+      const usuario = document.getElementById("usuario").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const rol = document.getElementById("rol").value;
+
+      if (!usuario) {
+        marcarError("usuario", "errorUsuario", "Debe ingresar el usuario o cédula.");
+        valido = false;
+      }
+
+      if (!password) {
+        marcarError("password", "errorPassword", "Debe ingresar la contraseña.");
+        valido = false;
+      }
+
+      if (!rol) {
+        marcarError("rol", "errorRol", "Debe seleccionar un rol.");
+        valido = false;
+      }
+
+      return valido;
+    }
+
+    function validarEmpleadoUI() {
+      limpiarErrores();
+      let valido = true;
+
+      const cedula = document.getElementById("cedula").value.trim();
+
+      if (!cedula) {
+        marcarError("cedula", "errorCedula", "Debe ingresar la cédula.");
+        valido = false;
+      }
+
+      return valido;
+    }
+
+    async function loginAdminConUI() {
+      limpiarMensaje();
+
+      if (!validarAdminUI()) {
+        mostrarMensaje("error", "Por favor complete correctamente los campos requeridos.");
+        return;
+      }
+
+      try {
+        mostrarLoader();
+        guardarUsuarioRecordado();
+
+        if (typeof loginAdmin === "function") {
+          await loginAdmin();
+        } else {
+          ocultarLoader();
+          mostrarMensaje("error", "No se encontró la función de inicio de sesión administrativo.");
+        }
+      } catch (error) {
+        ocultarLoader();
+        mostrarMensaje("error", "Ocurrió un error al intentar iniciar sesión.");
+        console.error(error);
+      }
+    }
+
+    async function consultarTurnosConUI() {
+      limpiarMensaje();
+
+      if (!validarEmpleadoUI()) {
+        mostrarMensaje("error", "Debe ingresar la cédula para consultar los turnos.");
+        return;
+      }
+
+      try {
+        mostrarLoader();
+
+        if (typeof consultarTurnos === "function") {
+          await consultarTurnos();
+        } else {
+          ocultarLoader();
+          mostrarMensaje("error", "No se encontró la función de consulta de turnos.");
+        }
+      } catch (error) {
+        ocultarLoader();
+        mostrarMensaje("error", "Ocurrió un error al consultar los turnos.");
+        console.error(error);
+      }
+    }
+
+    function guardarUsuarioRecordado() {
+      const checkbox = document.getElementById("recordarUsuario");
+      const usuario = document.getElementById("usuario").value.trim();
+
+      if (checkbox.checked && usuario) {
+        localStorage.setItem("usuarioRecordadoTurnos", usuario);
+      } else {
+        localStorage.removeItem("usuarioRecordadoTurnos");
+      }
+    }
+
+    function cargarUsuarioRecordado() {
+      const usuarioGuardado = localStorage.getItem("usuarioRecordadoTurnos");
+
+      if (usuarioGuardado) {
+        document.getElementById("usuario").value = usuarioGuardado;
+        document.getElementById("recordarUsuario").checked = true;
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      cargarUsuarioRecordado();
+
+      const usuario = document.getElementById("usuario");
+      const password = document.getElementById("password");
+      const rol = document.getElementById("rol");
+      const cedula = document.getElementById("cedula");
+
+      if (usuario) {
+        usuario.addEventListener("input", () => {
+          usuario.classList.remove("input-error");
+          document.getElementById("errorUsuario").textContent = "";
+        });
+      }
+
+      if (password) {
+        password.addEventListener("input", () => {
+          password.classList.remove("input-error");
+          document.getElementById("errorPassword").textContent = "";
+        });
+      }
+
+      if (rol) {
+        rol.addEventListener("change", () => {
+          rol.classList.remove("input-error");
+          document.getElementById("errorRol").textContent = "";
+        });
+      }
+
+      if (cedula) {
+        cedula.addEventListener("input", () => {
+          cedula.classList.remove("input-error");
+          document.getElementById("errorCedula").textContent = "";
+        });
+      }
+    });
+  </script>
+
+  <script type="module" src="../js/auth.js"></script>
+</body>
+</html>

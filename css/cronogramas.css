@@ -1,0 +1,10 @@
+.cronograma-table th {
+  background: #0f766e;
+  color: #fff;
+  text-align: center;
+}
+
+.cronograma-table td {
+  vertical-align: middle;
+  font-size: .88rem;
+}

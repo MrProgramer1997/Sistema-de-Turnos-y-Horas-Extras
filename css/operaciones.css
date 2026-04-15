@@ -1,0 +1,34 @@
+.resumen-operaciones {
+  border: none;
+  border-radius: 14px;
+  color: white;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+.resumen-operaciones h3 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 8px 0;
+}
+
+.card-op-1 { background: linear-gradient(135deg, #0f766e, #0d9488); }
+.card-op-2 { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+.card-op-3 { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.card-op-4 { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
+
+.tabla-operaciones th {
+  background-color: #0f766e;
+  color: white;
+  text-align: center;
+  vertical-align: middle;
+  font-size: 0.9rem;
+}
+
+.tabla-operaciones td {
+  font-size: 0.88rem;
+  vertical-align: middle;
+}
+
+.tabla-operaciones tbody tr:hover {
+  background-color: #f0fdfa;
+}

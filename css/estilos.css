@@ -1,0 +1,33 @@
+body {
+  background-color: #f4f6f9;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.sidebar {
+  background-color: #111827;
+  min-height: 100vh;
+}
+
+.sidebar .nav-link {
+  color: #d1d5db;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  padding: 10px 12px;
+}
+
+.sidebar .nav-link:hover,
+.sidebar .nav-link.active {
+  background-color: #1f2937;
+  color: #ffffff;
+}
+
+.fondo-modulo {
+  background-color: #f8fafc;
+  min-height: 100vh;
+}
+
+.card-soft {
+  border: 1px solid #dbe2ea;
+  border-radius: 16px;
+  box-shadow: 0 6px 14px rgba(0,0,0,.06);
+}

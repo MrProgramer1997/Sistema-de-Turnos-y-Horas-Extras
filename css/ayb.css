@@ -1,0 +1,48 @@
+.topbar-ayb {
+  background: linear-gradient(90deg, #0f172a, #1e3a8a);
+  color: white;
+  padding: 16px 24px;
+}
+
+.ayb-card {
+  border: none;
+  border-radius: 16px;
+  color: white;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+}
+
+.ayb-card h3 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 8px 0;
+}
+
+.ayb-card-1 { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+.ayb-card-2 { background: linear-gradient(135deg, #16a34a, #15803d); }
+.ayb-card-3 { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.ayb-card-4 { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+
+.calendario-ayb th{
+  background:#1e3a8a;
+  color:white;
+  text-align:center;
+  font-size:0.9rem;
+}
+
+.calendario-ayb td{
+  min-width:140px;
+  height:90px;
+  vertical-align:top;
+  font-size:0.85rem;
+}
+
+.restaurante{
+  background:#f1f5f9;
+  font-weight:bold;
+}
+
+.novedad{
+  background:#fee2e2;
+  color:#991b1b;
+  font-weight:bold;
+}

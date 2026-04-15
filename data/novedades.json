@@ -1,0 +1,33 @@
+{
+  "novedades_generales": [
+    "DESCANSO",
+    "VACACIONES",
+    "INCAPACIDAD",
+    "LICENCIA_NO_REMUNERADA",
+    "CITA",
+    "DIA_FAMILIA"
+  ],
+  "tipos_operaciones": [
+    "turno_operativo",
+    "actividad_aseo",
+    "actividad_aseo_profundo",
+    "vacacion",
+    "incapacidad",
+    "descanso",
+    "evento",
+    "apoyo_evento",
+    "logistica"
+  ],
+  "operaciones_estados": [
+    "DESCANSO",
+    "VACACIONES",
+    "INCAPACIDAD",
+    "DESAYUNO",
+    "COMIDA",
+    "APOYO",
+    "REVISION",
+    "HIDROLAVADO",
+    "ASEO_PROFUNDIDAD",
+    "EVENTO"
+  ]
+}

@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard | Sistema de Turnos Club</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/estilos.css" />
+  <link rel="stylesheet" href="../css/dashboard.css" />
+  <style>
+    .mini-badge-fecha {
+      display: inline-block;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      background: #eef3ff;
+      color: #1d4ed8;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .resumen-extra-card,
+    .analitica-card,
+    .filtro-card,
+    .grafica-card,
+    .novedad-card,
+    .preview-card,
+    .alerta-card {
+      border-radius: 1rem;
+      border: 1px solid #e9ecef;
+      background: #fff;
+      height: 100%;
+    }
+
+    .resumen-extra-card .titulo,
+    .analitica-card .titulo,
+    .novedad-card .titulo,
+    .preview-card .titulo,
+    .alerta-card .titulo {
+      font-size: 0.9rem;
+      color: #6c757d;
+    }
+
+    .resumen-extra-card .valor,
+    .analitica-card .valor,
+    .novedad-card .valor,
+    .preview-card .valor,
+    .alerta-card .valor {
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .dashboard-bloque {
+      border-radius: 1rem;
+      overflow: hidden;
+    }
+
+    .tabla-ranking td,
+    .tabla-ranking th {
+      vertical-align: middle;
+    }
+
+    .kpi-subtexto {
+      font-size: 0.85rem;
+      color: #6c757d;
+      margin-top: 0.35rem;
+      margin-bottom: 0;
+    }
+
+    .badge-soft {
+      display: inline-block;
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: #f1f3f5;
+      color: #495057;
+    }
+
+    .texto-vacio {
+      color: #6c757d;
+      text-align: center;
+      padding: 1rem 0;
+    }
+
+    .filtro-card label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 0.35rem;
+    }
+
+    .bloque-scroll {
+      max-height: 360px;
+      overflow: auto;
+    }
+
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 320px;
+    }
+
+    .chart-wrap.chart-sm {
+      height: 280px;
+    }
+
+    .chart-wrap.chart-xs {
+      height: 240px;
+    }
+
+    .chart-wrap canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    .seccion-dashboard {
+      margin-bottom: 1.25rem;
+    }
+
+    .kpi-comparativo {
+      font-size: 0.82rem;
+      font-weight: 700;
+      margin-top: 0.5rem;
+    }
+
+    .kpi-comparativo.sube {
+      color: #198754;
+    }
+
+    .kpi-comparativo.baja {
+      color: #dc3545;
+    }
+
+    .kpi-comparativo.neutro {
+      color: #6c757d;
+    }
+
+    .badge-novedad {
+      display: inline-block;
+      padding: 0.3rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+
+    .badge-incapacidad {
+      background: #fde2e1;
+      color: #b42318;
+    }
+
+    .badge-vacaciones {
+      background: #fff1d6;
+      color: #b54708;
+    }
+
+    .badge-licencia {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .badge-descanso {
+      background: #e8fff2;
+      color: #067647;
+    }
+
+    .badge-otra {
+      background: #eceff3;
+      color: #344054;
+    }
+
+    .fila-alerta {
+      background: #fff8db;
+    }
+
+    .fila-critica {
+      background: #fff1f3;
+    }
+
+    .preview-empty {
+      border: 1px dashed #d0d5dd;
+      border-radius: 1rem;
+      padding: 1rem;
+      color: #667085;
+      background: #fcfcfd;
+      font-size: 0.92rem;
+    }
+
+    .alerta-semaforo {
+      display: inline-block;
+      min-width: 86px;
+      text-align: center;
+      padding: 0.32rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .alerta-rojo {
+      background: #fee4e2;
+      color: #b42318;
+    }
+
+    .alerta-amarillo {
+      background: #fef3c7;
+      color: #b54708;
+    }
+
+    .alerta-verde {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    @media (max-width: 768px) {
+      .chart-wrap {
+        height: 260px;
+      }
+
+      .chart-wrap.chart-sm {
+        height: 240px;
+      }
+
+      .chart-wrap.chart-xs {
+        height: 220px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container-fluid">
+    <div class="row min-vh-100">
+      <aside class="col-12 col-md-3 col-lg-2 sidebar p-3">
+        <h4 class="text-white mb-4">Turnos Club</h4>
+        <nav class="nav flex-column">
+          <a class="nav-link active" href="dashboard.html">Dashboard</a>
+          <a class="nav-link" href="empleados.html">Empleados</a>
+          <a class="nav-link" href="programacion-ayb.html">Programación A&B</a>
+          <a class="nav-link" href="programacion-administrativo.html">Programación Administrativo</a>
+          <a class="nav-link" href="programacion-operaciones.html">Programación Operaciones</a>
+          <a class="nav-link" href="mis-turnos-ayb.html">Mis Turnos A&B</a>
+          <a class="nav-link" href="mis-turnos-administrativo.html">Mis Turnos Administrativo</a>
+          <a class="nav-link" href="mis-turnos-operaciones.html">Mis Turnos Operaciones</a>
+          <a class="nav-link" href="cronograma-aseo-diario.html">Cronograma Aseo Diario</a>
+          <a class="nav-link" href="cronograma-aseo-profundo.html">Cronograma Aseo Profundo</a>
+          <a class="nav-link" href="eventos-operaciones.html">Eventos Operaciones</a>
+          <a class="nav-link" href="usuarios.html">Usuarios</a>
+          <a class="nav-link" href="reportes.html">Reportes</a>
+          <a class="nav-link" href="configuracion.html">Configuración</a>
+          <a class="nav-link text-danger" href="login.html">Cerrar sesión</a>
+        </nav>
+      </aside>
+
+      <main class="col-12 col-md-9 col-lg-10 p-4 fondo-modulo">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+          <div>
+            <h2 class="mb-1">Dashboard General</h2>
+            <p class="text-muted mb-1">
+              Bienvenido, <span id="nombreUsuario">Usuario</span> |
+              Rol: <span id="rolUsuario">Sin rol</span>
+            </p>
+            <p class="text-muted mb-0">
+              Cargo: <span id="cargoUsuario">Sin cargo</span> |
+              Área base: <span id="centroCostosUsuario">Sin área</span>
+            </p>
+          </div>
+
+          <div class="text-end">
+            <div class="mini-badge-fecha mb-2" id="fechaDashboard">Cargando fecha...</div>
+            <div class="d-flex gap-2 justify-content-end flex-wrap">
+              <button class="btn btn-outline-secondary" id="btnLimpiarFiltros">Limpiar filtros</button>
+              <button class="btn btn-primary" id="btnActualizarTablero">Actualizar tablero</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
+          <div class="card-header bg-white fw-bold">Filtros analíticos</div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-12 col-md-6 col-xl-2">
+                <div class="filtro-card p-3">
+                  <label for="filtroFechaInicio">Fecha inicio</label>
+                  <input type="date" class="form-control" id="filtroFechaInicio" />
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6 col-xl-2">
+                <div class="filtro-card p-3">
+                  <label for="filtroFechaFin">Fecha fin</label>
+                  <input type="date" class="form-control" id="filtroFechaFin" />
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6 col-xl-2">
+                <div class="filtro-card p-3">
+                  <label for="filtroArea">Área</label>
+                  <select class="form-select" id="filtroArea">
+                    <option value="">Todas</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6 col-xl-2">
+                <div class="filtro-card p-3">
+                  <label for="filtroSubarea">Subárea / Punto</label>
+                  <select class="form-select" id="filtroSubarea">
+                    <option value="">Todas</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6 col-xl-4">
+                <div class="filtro-card p-3">
+                  <label for="filtroEmpleado">Empleado</label>
+                  <select class="form-select" id="filtroEmpleado">
+                    <option value="">Todos</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <span class="badge-soft" id="badgeRangoActivo">Rango activo: mes actual</span>
+              <span class="badge-soft" id="badgeRegistrosAnalizados">Registros analizados: 0</span>
+              <span class="badge-soft" id="badgeEmpleadosAnalizados">Empleados: 0</span>
+              <span class="badge-soft" id="badgeDiasAnalizados">Días con registros: 0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card indicador-card indicador-1">
+              <div class="card-body">
+                <small>Programados hoy</small>
+                <h3 id="kpiProgramadosHoy">0</h3>
+                <p class="mb-0">Registros del día</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card indicador-card indicador-2">
+              <div class="card-body">
+                <small>Subáreas activas hoy</small>
+                <h3 id="kpiPresentes">0</h3>
+                <p class="mb-0">Puntos con asignación</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card indicador-card indicador-3">
+              <div class="card-body">
+                <small>Novedades hoy</small>
+                <h3 id="kpiAusentes">0</h3>
+                <p class="mb-0">Vacaciones, incapacidad y más</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card indicador-card indicador-4">
+              <div class="card-body">
+                <small>Semana activa</small>
+                <h3 id="kpiValidaciones">0</h3>
+                <p class="mb-0">Asignaciones de martes a lunes</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="resumen-extra-card shadow-sm p-3">
+              <div class="titulo">A&B en semana</div>
+              <div class="valor" id="kpiSemanaAyb">0</div>
+              <div class="text-muted small">Asignaciones del módulo A&B</div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="resumen-extra-card shadow-sm p-3">
+              <div class="titulo">Administrativo en semana</div>
+              <div class="valor" id="kpiSemanaAdmin">0</div>
+              <div class="text-muted small">Asignaciones administrativas</div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="resumen-extra-card shadow-sm p-3">
+              <div class="titulo">Operaciones en semana</div>
+              <div class="valor" id="kpiSemanaOperaciones">0</div>
+              <div class="text-muted small">Operación y servicios</div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="resumen-extra-card shadow-sm p-3">
+              <div class="titulo">Empleados únicos en semana</div>
+              <div class="valor" id="kpiSemanaEmpleados">0</div>
+              <div class="text-muted small">Colaboradores con programación</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Total del periodo</div>
+              <div class="valor" id="kpiTotalPeriodo">0</div>
+              <p class="kpi-subtexto">Registros filtrados</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Promedio diario</div>
+              <div class="valor" id="kpiPromedioDiario">0</div>
+              <p class="kpi-subtexto">Asignaciones por día con registros</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Empleados activos</div>
+              <div class="valor" id="kpiEmpleadosActivos">0</div>
+              <p class="kpi-subtexto">Colaboradores en el periodo</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Días con registros</div>
+              <div class="valor" id="kpiDiasConRegistros">0</div>
+              <p class="kpi-subtexto">Fechas con actividad</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="novedad-card p-3">
+              <div class="titulo">Incapacidades</div>
+              <div class="valor" id="kpiIncapacidades">0</div>
+              <p class="kpi-subtexto">Registros de incapacidad</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="novedad-card p-3">
+              <div class="titulo">Vacaciones</div>
+              <div class="valor" id="kpiVacaciones">0</div>
+              <p class="kpi-subtexto">Registros de vacaciones</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="novedad-card p-3">
+              <div class="titulo">Licencias</div>
+              <div class="valor" id="kpiLicencias">0</div>
+              <p class="kpi-subtexto">Licencias o permisos</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="novedad-card p-3">
+              <div class="titulo">Otras novedades</div>
+              <div class="valor" id="kpiOtrasNovedades">0</div>
+              <p class="kpi-subtexto">Novedades distintas</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="alerta-card p-3">
+              <div class="titulo">Ausentes hoy</div>
+              <div class="valor" id="kpiAusentesHoy">0</div>
+              <p class="kpi-subtexto">Empleados con novedad en la fecha actual</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="alerta-card p-3">
+              <div class="titulo">Novedad más larga</div>
+              <div class="valor fs-4" id="kpiNovedadMasLarga">Sin datos</div>
+              <p class="kpi-subtexto" id="kpiNovedadMasLargaDetalle">0 días</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="alerta-card p-3">
+              <div class="titulo">Área con más ausencias</div>
+              <div class="valor fs-4" id="kpiAreaMasAusencias">Sin datos</div>
+              <p class="kpi-subtexto" id="kpiAreaMasAusenciasDetalle">0 novedades</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="alerta-card p-3">
+              <div class="titulo">Casos críticos</div>
+              <div class="valor" id="kpiCasosCriticos">0</div>
+              <p class="kpi-subtexto">Novedades de 5 días o más</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-bold">Resumen analítico del periodo</span>
+            <span class="text-muted small">Vista visual con gráficas integradas</span>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="analitica-card p-3">
+                  <div class="titulo">Empleado con más asignaciones</div>
+                  <div class="valor fs-5" id="kpiTopEmpleado">Sin datos</div>
+                  <p class="kpi-subtexto" id="kpiTopEmpleadoDetalle">0 registros</p>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="analitica-card p-3">
+                  <div class="titulo">Día con mayor carga</div>
+                  <div class="valor fs-5" id="kpiTopDia">Sin datos</div>
+                  <p class="kpi-subtexto" id="kpiTopDiaDetalle">0 asignaciones</p>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="analitica-card p-3">
+                  <div class="titulo">Área más activa</div>
+                  <div class="valor fs-5" id="kpiTopArea">Sin datos</div>
+                  <p class="kpi-subtexto" id="kpiTopAreaDetalle">0 registros</p>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6 col-xl-3">
+                <div class="analitica-card p-3">
+                  <div class="titulo">Punto / subárea más usado</div>
+                  <div class="valor fs-5" id="kpiTopSubarea">Sin datos</div>
+                  <p class="kpi-subtexto" id="kpiTopSubareaDetalle">0 registros</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque grafica-card">
+              <div class="card-header bg-white fw-bold">Carga por área</div>
+              <div class="card-body">
+                <div class="chart-wrap">
+                  <canvas id="graficaAreas"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque grafica-card">
+              <div class="card-header bg-white fw-bold">Carga por día de la semana</div>
+              <div class="card-body">
+                <div class="chart-wrap">
+                  <canvas id="graficaDias"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque grafica-card">
+              <div class="card-header bg-white fw-bold">Top empleados por asignaciones</div>
+              <div class="card-body">
+                <div class="chart-wrap chart-sm">
+                  <canvas id="graficaTopEmpleados"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque grafica-card">
+              <div class="card-header bg-white fw-bold">Distribución por áreas</div>
+              <div class="card-body">
+                <div class="chart-wrap chart-sm">
+                  <canvas id="graficaDistribucionAreas"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-xl-8">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque grafica-card">
+              <div class="card-header bg-white fw-bold">Tendencia por fecha</div>
+              <div class="card-body">
+                <div class="chart-wrap">
+                  <canvas id="graficaTendenciaFechas"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-4">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque">
+              <div class="card-header bg-white fw-bold">Comparativo del periodo</div>
+              <div class="card-body">
+                <div class="analitica-card p-3 mb-3">
+                  <div class="titulo">Mes actual vs mes anterior</div>
+                  <div class="valor fs-4" id="kpiMesActual">0</div>
+                  <p class="kpi-subtexto" id="kpiMesActualDetalle">Periodo mensual</p>
+                  <div class="kpi-comparativo neutro" id="kpiMesComparativo">Sin comparación</div>
+                </div>
+
+                <div class="analitica-card p-3">
+                  <div class="titulo">Año actual vs año anterior</div>
+                  <div class="valor fs-4" id="kpiAnioActual">0</div>
+                  <p class="kpi-subtexto" id="kpiAnioActualDetalle">Periodo anual</p>
+                  <div class="kpi-comparativo neutro" id="kpiAnioComparativo">Sin comparación</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque grafica-card">
+              <div class="card-header bg-white fw-bold">Comparativo mensual</div>
+              <div class="card-body">
+                <div class="chart-wrap chart-sm">
+                  <canvas id="graficaMeses"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque grafica-card">
+              <div class="card-header bg-white fw-bold">Comparativo anual</div>
+              <div class="card-body">
+                <div class="chart-wrap chart-sm">
+                  <canvas id="graficaAnios"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque">
+              <div class="card-header bg-white fw-bold">Empleados con novedades activas</div>
+              <div class="card-body bloque-scroll">
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>#</th>
+                        <th>Empleado</th>
+                        <th>Área</th>
+                        <th>Novedad</th>
+                        <th>Fechas</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyNovedadesActivas">
+                      <tr>
+                        <td colspan="5" class="texto-vacio">Cargando análisis...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque">
+              <div class="card-header bg-white fw-bold">Detalle de incapacidades y fechas</div>
+              <div class="card-body bloque-scroll">
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>#</th>
+                        <th>Empleado</th>
+                        <th>Área</th>
+                        <th>Días</th>
+                        <th>Fechas</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyIncapacidades">
+                      <tr>
+                        <td colspan="5" class="texto-vacio">Cargando análisis...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque">
+              <div class="card-header bg-white fw-bold">Ausentes hoy</div>
+              <div class="card-body bloque-scroll">
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>#</th>
+                        <th>Empleado</th>
+                        <th>Área</th>
+                        <th>Motivo</th>
+                        <th>Fecha</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyAusentesHoy">
+                      <tr>
+                        <td colspan="5" class="texto-vacio">Cargando análisis...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque">
+              <div class="card-header bg-white fw-bold">Alertas de novedades críticas</div>
+              <div class="card-body bloque-scroll">
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>#</th>
+                        <th>Empleado</th>
+                        <th>Novedad</th>
+                        <th>Días consecutivos</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyAlertasCriticas">
+                      <tr>
+                        <td colspan="5" class="texto-vacio">Cargando análisis...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque">
+              <div class="card-header bg-white fw-bold">Resumen operativo del día</div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-bordered align-middle mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Área</th>
+                        <th>Programados</th>
+                        <th>Novedades</th>
+                        <th>Subáreas activas</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyResumenOperativo">
+                      <tr>
+                        <td colspan="4" class="text-center text-muted">Cargando resumen...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque">
+              <div class="card-header bg-white fw-bold">Marcaciones reales (preparado)</div>
+              <div class="card-body">
+                <div class="preview-empty">
+                  Esta sección queda lista para la siguiente fase del proyecto. Aquí luego se mostrarán:
+                  <strong>horas trabajadas</strong>, <strong>horas extra</strong>, <strong>tardanzas</strong>,
+                  <strong>ausencias reales</strong> y <strong>permanencia por punto</strong>.
+                  <div class="mt-3">
+                    <div class="preview-card p-3 mb-2">
+                      <div class="titulo">Horas trabajadas del periodo</div>
+                      <div class="valor">Próximamente</div>
+                      <p class="kpi-subtexto mb-0">Pendiente de conexión con marcaciones</p>
+                    </div>
+                    <div class="preview-card p-3">
+                      <div class="titulo">Horas extra del periodo</div>
+                      <div class="valor">Próximamente</div>
+                      <p class="kpi-subtexto mb-0">Pendiente de conexión con biométrico / tabla procesada</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque">
+              <div class="card-header bg-white fw-bold">Top 10 empleados por asignaciones</div>
+              <div class="card-body bloque-scroll">
+                <div class="table-responsive">
+                  <table class="table table-hover tabla-ranking mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>#</th>
+                        <th>Empleado</th>
+                        <th>Cédula</th>
+                        <th>Asignaciones</th>
+                        <th>Días</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyTopEmpleados">
+                      <tr>
+                        <td colspan="5" class="texto-vacio">Cargando análisis...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque">
+              <div class="card-header bg-white fw-bold">Empleados con más días asistidos</div>
+              <div class="card-body bloque-scroll">
+                <div class="table-responsive">
+                  <table class="table table-hover tabla-ranking mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>#</th>
+                        <th>Empleado</th>
+                        <th>Área base</th>
+                        <th>Días asistidos</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyTopAsistencia">
+                      <tr>
+                        <td colspan="4" class="texto-vacio">Cargando análisis...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque">
+              <div class="card-header bg-white fw-bold">Subáreas / puntos con más movimiento</div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>#</th>
+                        <th>Subárea / Punto</th>
+                        <th>Registros</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyTopSubareas">
+                      <tr>
+                        <td colspan="3" class="texto-vacio">Cargando análisis...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque">
+              <div class="card-header bg-white fw-bold">Novedades por área</div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                      <tr>
+                        <th>#</th>
+                        <th>Área</th>
+                        <th>Novedades</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyNovedadesArea">
+                      <tr>
+                        <td colspan="3" class="texto-vacio">Cargando análisis...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="module" src="../js/dashboard.js"></script>
+</body>
+
+</html>

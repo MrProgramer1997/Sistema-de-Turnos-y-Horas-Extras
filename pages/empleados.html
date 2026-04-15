@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestión de Empleados</title>
+
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+
+  <style>
+    body {
+      background: #f5f7fb;
+    }
+
+    .page-wrap {
+      max-width: 1450px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+
+    .card-soft {
+      border: 0;
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    .required::after {
+      content: " *";
+      color: #dc3545;
+    }
+
+    .small-muted {
+      font-size: 0.9rem;
+      color: #6c757d;
+    }
+
+    .table thead th {
+      white-space: nowrap;
+    }
+
+    .estado-badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .estado-activo {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .estado-inactivo {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .toolbar-left,
+    .toolbar-right {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .sticky-actions {
+      position: sticky;
+      bottom: 0;
+      background: #fff;
+      padding-top: 12px;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: #0f172a;
+    }
+
+    .check-card {
+      border: 1px solid #dee2e6;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+
+    .check-card.disabled {
+      opacity: 0.65;
+    }
+
+    .check-card input[type="checkbox"] {
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrap">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h2 class="mb-1">Gestión de empleados</h2>
+        <div class="small-muted">Registro de empleados desde el módulo web</div>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" onclick="history.back()">Volver</button>
+        <button class="btn btn-outline-primary" id="btnRecargar">Recargar</button>
+      </div>
+    </div>
+
+    <div class="card card-soft mb-4">
+      <div class="card-body">
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <div>
+              <div class="fw-semibold">Sesión actual</div>
+              <div id="infoSesion" class="small-muted">Cargando...</div>
+            </div>
+          </div>
+
+          <div class="toolbar-right">
+            <input
+              type="text"
+              id="filtroBusqueda"
+              class="form-control"
+              placeholder="Buscar por cédula, nombre, cargo o centro de costos"
+              style="min-width: 320px;"
+            />
+            <select id="filtroArea" class="form-select" style="min-width: 240px;">
+              <option value="">Todas las áreas</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="contenedorAlertas" class="mb-3"></div>
+
+    <div class="row g-4">
+      <div class="col-xl-5">
+        <div class="card card-soft">
+          <div class="card-body">
+            <h5 class="mb-3">Nuevo empleado</h5>
+
+            <form id="formEmpleado" novalidate>
+              <div class="section-title">Datos básicos</div>
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Código</label>
+                  <input type="text" class="form-control" id="codigo" maxlength="20" readonly />
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label required">Cédula</label>
+                  <input type="text" class="form-control" id="cedula" maxlength="20" required />
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label required">Nombres</label>
+                  <input type="text" class="form-control" id="nombres" required />
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label required">Apellidos</label>
+                  <input type="text" class="form-control" id="apellidos" required />
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label required">Cargo</label>
+                  <input type="text" class="form-control" id="cargo" required />
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label required">Rol</label>
+                  <select class="form-select" id="rol" required>
+                    <option value="empleado" selected>Empleado</option>
+                    <option value="administrativo">Administrativo</option>
+                    <option value="jefe_area">Jefe de área</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label required">Centro de costos</label>
+                  <input type="text" class="form-control" id="centro_costos" required />
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">Área</label>
+                  <select class="form-select" id="area"></select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label required">Fecha de ingreso</label>
+                  <input type="date" class="form-control" id="fecha_ingreso" required />
+                </div>
+              </div>
+
+              <div class="section-title mt-4">Contacto</div>
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Teléfono</label>
+                  <input type="text" class="form-control" id="telefono" maxlength="20" />
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">Correo</label>
+                  <input type="email" class="form-control" id="correo" />
+                </div>
+              </div>
+
+              <div class="section-title mt-4">Permisos</div>
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label required">Estado</label>
+                  <select class="form-select" id="estado" required>
+                    <option value="true" selected>Activo</option>
+                    <option value="false">Inactivo</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">¿Puede ver todo?</label>
+                  <select class="form-select" id="puede_ver_todo">
+                    <option value="false" selected>No</option>
+                    <option value="true">Sí</option>
+                  </select>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label">Áreas permitidas</label>
+                  <div class="row row-cols-1 row-cols-md-2 g-2" id="contenedorAreasPermitidas"></div>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label">Módulos permitidos</label>
+                  <div class="row row-cols-1 row-cols-md-2 g-2" id="contenedorModulosPermitidos"></div>
+                </div>
+              </div>
+
+              <div class="sticky-actions mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar empleado</button>
+                <button type="button" class="btn btn-outline-secondary" id="btnLimpiar">Limpiar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-7">
+        <div class="card card-soft">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">Listado de empleados</h5>
+              <span id="contadorRegistros" class="small-muted">0 registros</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Cédula</th>
+                    <th>Nombre</th>
+                    <th>Cargo</th>
+                    <th>Centro costos</th>
+                    <th>Estado</th>
+                    <th>Fecha ingreso</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaEmpleados">
+                  <tr>
+                    <td colspan="7" class="text-center text-muted py-4">Cargando...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = "https://kzxveqrgvuchcgwrjwjb.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6eHZlcXJndnVjaGNnd3Jqd2piIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzYzMjUsImV4cCI6MjA4OTAxMjMyNX0.DhYtYlQdUN_r7AD-glgUIG7y-_wrGWqYqyA3MZBzPuw";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const AREAS_SISTEMA = [
+      "Alimentos y Bebidas",
+      "Servicios Generales",
+      "Bienestar Institucional",
+      "Dirección Administrativa y Financiera",
+      "Auditoría",
+      "Sistemas",
+      "Contabilidad",
+      "Cartera",
+      "Compras",
+      "Cocina",
+      "Restaurantes",
+      "Bar",
+      "Eventos",
+      "Administración"
+    ];
+
+    const MODULOS_SISTEMA = [
+      "dashboard",
+      "empleados",
+      "mis_turnos",
+      "programacion",
+      "marcaciones",
+      "horas_extras",
+      "reportes"
+    ];
+
+    let usuarioActual = null;
+    let empleadosMemoria = [];
+
+    function mostrarAlerta(mensaje, tipo = "success") {
+      const contenedor = document.getElementById("contenedorAlertas");
+      contenedor.innerHTML = `
+        <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+          ${mensaje}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      `;
+    }
+
+    function texto(valor) {
+      return (valor || "").toString().trim();
+    }
+
+    function aBoolean(valor) {
+      if (typeof valor === "boolean") return valor;
+      return String(valor).toLowerCase() === "true";
+    }
+
+    function formatearFecha(fecha) {
+      if (!fecha) return "";
+      const date = new Date(fecha + "T00:00:00");
+      if (Number.isNaN(date.getTime())) return fecha;
+      return date.toLocaleDateString("es-CO");
+    }
+
+    function pintarEstado(estado) {
+      if (estado === true) {
+        return `<span class="estado-badge estado-activo">Activo</span>`;
+      }
+      return `<span class="estado-badge estado-inactivo">Inactivo</span>`;
+    }
+
+    function nombreCompleto(emp) {
+      return `${emp.nombres || ""} ${emp.apellidos || ""}`.trim();
+    }
+
+    function obtenerUsuarioActual() {
+      const posiblesLlaves = [
+        "usuarioActual",
+        "empleadoActual",
+        "sessionUser",
+        "userData",
+        "authUser"
+      ];
+
+      for (const llave of posiblesLlaves) {
+        const valor = localStorage.getItem(llave);
+        if (!valor) continue;
+
+        try {
+          const obj = JSON.parse(valor);
+          if (obj && (obj.id || obj.cedula || obj.correo)) {
+            return obj;
+          }
+        } catch (e) {}
+      }
+
+      return null;
+    }
+
+    function puedeCrearEmpleados(usuario) {
+      if (!usuario) return true;
+
+      if (usuario.puede_ver_todo === true) return true;
+
+      const rol = texto(usuario.rol).toLowerCase();
+      return [
+        "admin",
+        "administrador",
+        "jefe_area",
+        "jefe",
+        "administrativo",
+        "gerencia"
+      ].includes(rol);
+    }
+
+    function obtenerAreasPermitidasUsuario(usuario) {
+      if (!usuario) return [...AREAS_SISTEMA];
+
+      if (usuario.puede_ver_todo === true) {
+        return [...AREAS_SISTEMA];
+      }
+
+      if (Array.isArray(usuario.areas_permitidas) && usuario.areas_permitidas.length) {
+        return usuario.areas_permitidas;
+      }
+
+      if (texto(usuario.area)) {
+        return [usuario.area];
+      }
+
+      if (texto(usuario.centro_costos)) {
+        return [usuario.centro_costos];
+      }
+
+      return [...AREAS_SISTEMA];
+    }
+
+    function renderAreasPermitidas() {
+      const contenedor = document.getElementById("contenedorAreasPermitidas");
+      contenedor.innerHTML = AREAS_SISTEMA.map((area, index) => `
+        <div class="col">
+          <label class="check-card d-block" for="area_perm_${index}">
+            <input class="form-check-input area-permitida-check" type="checkbox" value="${area}" id="area_perm_${index}">
+            ${area}
+          </label>
+        </div>
+      `).join("");
+    }
+
+    function renderModulosPermitidos() {
+      const contenedor = document.getElementById("contenedorModulosPermitidos");
+      contenedor.innerHTML = MODULOS_SISTEMA.map((modulo, index) => `
+        <div class="col">
+          <label class="check-card d-block" for="mod_perm_${index}">
+            <input class="form-check-input modulo-permitido-check" type="checkbox" value="${modulo}" id="mod_perm_${index}">
+            ${modulo.replaceAll("_", " ")}
+          </label>
+        </div>
+      `).join("");
+    }
+
+    function cargarSelectAreas() {
+      const areasUsuario = obtenerAreasPermitidasUsuario(usuarioActual);
+      const selectArea = document.getElementById("area");
+      const filtroArea = document.getElementById("filtroArea");
+
+      selectArea.innerHTML = areasUsuario.map(area => `
+        <option value="${area}">${area}</option>
+      `).join("");
+
+      filtroArea.innerHTML = `<option value="">Todas las áreas</option>` + areasUsuario.map(area => `
+        <option value="${area}">${area}</option>
+      `).join("");
+    }
+
+    function obtenerAreasPermitidasFormulario() {
+      return Array.from(document.querySelectorAll(".area-permitida-check:checked")).map(x => x.value);
+    }
+
+    function obtenerModulosPermitidosFormulario() {
+      return Array.from(document.querySelectorAll(".modulo-permitido-check:checked")).map(x => x.value);
+    }
+
+    function construirPayload() {
+      const cedula = texto(document.getElementById("cedula").value);
+      const codigoManual = texto(document.getElementById("codigo").value);
+      const nombres = texto(document.getElementById("nombres").value);
+      const apellidos = texto(document.getElementById("apellidos").value);
+      const cargo = texto(document.getElementById("cargo").value);
+      const centro_costos = texto(document.getElementById("centro_costos").value);
+      const telefono = texto(document.getElementById("telefono").value);
+      const correo = texto(document.getElementById("correo").value);
+      const estado = aBoolean(document.getElementById("estado").value);
+      const rol = texto(document.getElementById("rol").value) || "empleado";
+      const area = texto(document.getElementById("area").value) || null;
+      const fecha_ingreso = texto(document.getElementById("fecha_ingreso").value) || null;
+      const puede_ver_todo = aBoolean(document.getElementById("puede_ver_todo").value);
+      const areas_permitidas = obtenerAreasPermitidasFormulario();
+      const modulos_permitidos = obtenerModulosPermitidosFormulario();
+
+      const codigo = codigoManual || cedula;
+      document.getElementById("codigo").value = codigo;
+
+      const errores = [];
+
+      if (!cedula) errores.push("La cédula es obligatoria.");
+      if (!nombres) errores.push("Los nombres son obligatorios.");
+      if (!apellidos) errores.push("Los apellidos son obligatorios.");
+      if (!cargo) errores.push("El cargo es obligatorio.");
+      if (!centro_costos) errores.push("El centro de costos es obligatorio.");
+      if (!fecha_ingreso) errores.push("La fecha de ingreso es obligatoria.");
+
+      if (correo) {
+        const regexCorreo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!regexCorreo.test(correo)) {
+          errores.push("El correo no tiene un formato válido.");
+        }
+      }
+
+      return {
+        errores,
+        payload: {
+          codigo,
+          cedula,
+          nombres,
+          apellidos,
+          cargo,
+          centro_costos,
+          telefono: telefono || null,
+          correo: correo || null,
+          estado,
+          rol,
+          password: null,
+          areas_permitidas,
+          modulos_permitidos,
+          puede_ver_todo,
+          area,
+          fecha_ingreso,
+          creado_por: usuarioActual?.id || null
+        }
+      };
+    }
+
+    async function validarCedulaExistente(cedula) {
+      const { data, error } = await sb
+        .from("empleados")
+        .select("id, cedula")
+        .eq("cedula", cedula)
+        .limit(1);
+
+      if (error) throw error;
+      return Array.isArray(data) && data.length > 0;
+    }
+
+    async function guardarEmpleado(event) {
+      event.preventDefault();
+
+      if (!puedeCrearEmpleados(usuarioActual)) {
+        mostrarAlerta("Tu usuario no tiene permisos para registrar empleados.", "danger");
+        return;
+      }
+
+      const boton = document.getElementById("btnGuardar");
+      boton.disabled = true;
+      boton.textContent = "Guardando...";
+
+      try {
+        const { errores, payload } = construirPayload();
+
+        if (errores.length) {
+          mostrarAlerta(errores.join("<br>"), "danger");
+          return;
+        }
+
+        const yaExiste = await validarCedulaExistente(payload.cedula);
+        if (yaExiste) {
+          mostrarAlerta("Ya existe un empleado con esa cédula.", "warning");
+          return;
+        }
+
+        const { data, error } = await sb
+          .from("empleados")
+          .insert([payload])
+          .select();
+
+        if (error) {
+          console.error(error);
+          mostrarAlerta("Error al guardar en Supabase: " + error.message, "danger");
+          return;
+        }
+
+        console.log("Empleado guardado en Supabase:", data);
+        mostrarAlerta("Empleado registrado correctamente en Supabase.", "success");
+        limpiarFormulario();
+        await cargarEmpleados();
+      } catch (error) {
+        console.error(error);
+        mostrarAlerta("No se pudo registrar el empleado: " + error.message, "danger");
+      } finally {
+        boton.disabled = false;
+        boton.textContent = "Guardar empleado";
+      }
+    }
+
+    async function cargarEmpleados() {
+      try {
+        const filtroBusqueda = texto(document.getElementById("filtroBusqueda").value).toLowerCase();
+        const filtroArea = texto(document.getElementById("filtroArea").value);
+
+        let query = sb
+          .from("empleados")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (filtroArea) {
+          query = query.eq("area", filtroArea);
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error(error);
+          document.getElementById("tablaEmpleados").innerHTML = `
+            <tr>
+              <td colspan="7" class="text-center text-danger py-4">
+                Error cargando empleados: ${error.message}
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        empleadosMemoria = Array.isArray(data) ? data : [];
+
+        let visibles = empleadosMemoria;
+
+        if (filtroBusqueda) {
+          visibles = visibles.filter(emp => {
+            const bolsa = [
+              emp.codigo,
+              emp.cedula,
+              emp.nombres,
+              emp.apellidos,
+              emp.cargo,
+              emp.centro_costos,
+              emp.area
+            ].join(" ").toLowerCase();
+
+            return bolsa.includes(filtroBusqueda);
+          });
+        }
+
+        pintarTabla(visibles);
+      } catch (error) {
+        console.error(error);
+        document.getElementById("tablaEmpleados").innerHTML = `
+          <tr>
+            <td colspan="7" class="text-center text-danger py-4">
+              Error inesperado cargando empleados.
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    function pintarTabla(lista) {
+      const tabla = document.getElementById("tablaEmpleados");
+      const contador = document.getElementById("contadorRegistros");
+
+      contador.textContent = `${lista.length} registro(s)`;
+
+      if (!lista.length) {
+        tabla.innerHTML = `
+          <tr>
+            <td colspan="7" class="text-center text-muted py-4">
+              No hay empleados para mostrar.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tabla.innerHTML = lista.map(emp => `
+        <tr>
+          <td>${emp.codigo || ""}</td>
+          <td>${emp.cedula || ""}</td>
+          <td>${nombreCompleto(emp)}</td>
+          <td>${emp.cargo || ""}</td>
+          <td>${emp.centro_costos || ""}</td>
+          <td>${pintarEstado(emp.estado)}</td>
+          <td>${formatearFecha(emp.fecha_ingreso)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function desmarcarChecks() {
+      document.querySelectorAll(".area-permitida-check").forEach(el => el.checked = false);
+      document.querySelectorAll(".modulo-permitido-check").forEach(el => el.checked = false);
+    }
+
+    function limpiarFormulario() {
+      document.getElementById("formEmpleado").reset();
+      desmarcarChecks();
+      document.getElementById("estado").value = "true";
+      document.getElementById("rol").value = "empleado";
+      document.getElementById("puede_ver_todo").value = "false";
+      document.getElementById("codigo").value = "";
+
+      const areas = obtenerAreasPermitidasUsuario(usuarioActual);
+      if (areas.length) {
+        document.getElementById("area").value = areas[0];
+      }
+    }
+
+    function actualizarCodigoAutomatico() {
+      const cedula = texto(document.getElementById("cedula").value);
+      document.getElementById("codigo").value = cedula;
+    }
+
+    function bindEventos() {
+      document.getElementById("formEmpleado").addEventListener("submit", guardarEmpleado);
+      document.getElementById("btnLimpiar").addEventListener("click", limpiarFormulario);
+      document.getElementById("btnRecargar").addEventListener("click", cargarEmpleados);
+      document.getElementById("filtroBusqueda").addEventListener("input", cargarEmpleados);
+      document.getElementById("filtroArea").addEventListener("change", cargarEmpleados);
+      document.getElementById("cedula").addEventListener("input", actualizarCodigoAutomatico);
+    }
+
+    function cargarInfoSesion() {
+      const info = document.getElementById("infoSesion");
+      usuarioActual = obtenerUsuarioActual();
+
+      if (!usuarioActual) {
+        info.innerHTML = "No se detectó sesión local. El formulario seguirá funcionando.";
+        return;
+      }
+
+      info.innerHTML = `
+        ${usuarioActual.nombres || ""} ${usuarioActual.apellidos || ""} ·
+        Rol: <strong>${usuarioActual.rol || "sin rol"}</strong> ·
+        Puede ver todo: <strong>${usuarioActual.puede_ver_todo ? "Sí" : "No"}</strong>
+      `;
+    }
+
+    async function init() {
+      bindEventos();
+      renderAreasPermitidas();
+      renderModulosPermitidos();
+      cargarInfoSesion();
+      cargarSelectAreas();
+      limpiarFormulario();
+      await cargarEmpleados();
+    }
+
+    init();
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

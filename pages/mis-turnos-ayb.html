@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mis Turnos A&B</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../css/estilos.css">
+
+  <style>
+    :root {
+      --bg-app: #f4f7fb;
+      --card-bg: #ffffff;
+      --card-border: #e6ebf2;
+      --text-main: #1f2937;
+      --text-soft: #6b7280;
+      --primary-soft: #eef4ff;
+      --primary-border: #cfe0ff;
+      --primary-strong: #0d6efd;
+      --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+
+    body {
+      background: var(--bg-app);
+      color: var(--text-main);
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, #152238 0%, #1b2f4c 100%);
+      min-height: 100vh;
+      box-shadow: inset -1px 0 0 rgba(255,255,255,0.05);
+    }
+
+    .brand-box {
+      padding: 1rem 0.25rem 1.25rem;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      margin-bottom: 1.5rem;
+    }
+
+    .brand-title {
+      color: #fff;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+      font-size: 1.3rem;
+    }
+
+    .brand-subtitle {
+      color: rgba(255,255,255,0.72);
+      font-size: 0.92rem;
+      margin: 0;
+    }
+
+    .page-shell {
+      max-width: 1450px;
+      margin: 0 auto;
+    }
+
+    .header-panel {
+      background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+      border: 1px solid var(--card-border);
+      border-radius: 1.4rem;
+      box-shadow: var(--shadow-soft);
+      padding: 1.35rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .header-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.42rem 0.8rem;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      border: 1px solid var(--primary-border);
+      color: #244a9a;
+      font-size: 0.86rem;
+      font-weight: 600;
+      margin-bottom: 0.8rem;
+    }
+
+    .page-title {
+      font-size: clamp(1.6rem, 2vw, 2.2rem);
+      font-weight: 800;
+      margin-bottom: 0.25rem;
+      color: #14213d;
+    }
+
+    .page-subtitle {
+      color: var(--text-soft);
+      margin: 0;
+      font-size: 0.98rem;
+    }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    .btn-soft {
+      border-radius: 0.85rem;
+      font-weight: 600;
+      padding: 0.72rem 1rem;
+      border: 1px solid #dbe5f0;
+      background: #fff;
+      color: #1e3a5f;
+      transition: 0.2s ease;
+    }
+
+    .btn-soft:hover {
+      background: #f4f8fd;
+      border-color: #c9d8ea;
+      transform: translateY(-1px);
+    }
+
+    .btn-main {
+      border-radius: 0.85rem;
+      font-weight: 700;
+      padding: 0.72rem 1rem;
+      box-shadow: 0 8px 18px rgba(13, 110, 253, 0.16);
+    }
+
+    .btn-danger-soft,
+    .btn-back-soft {
+      border-radius: 0.85rem;
+      font-weight: 600;
+      padding: 0.72rem 1rem;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .summary-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 1.2rem;
+      box-shadow: var(--shadow-soft);
+      padding: 1.1rem 1.15rem;
+      height: 100%;
+    }
+
+    .summary-card.today-highlight {
+      background: linear-gradient(135deg, #f7fbff 0%, #edf5ff 100%);
+      border: 1px solid #d4e5ff;
+    }
+
+    .summary-label {
+      font-size: 0.82rem;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.35rem;
+      font-weight: 700;
+    }
+
+    .summary-value {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #16233b;
+      line-height: 1.2;
+    }
+
+    .summary-subvalue {
+      margin-top: 0.4rem;
+      color: var(--text-soft);
+      font-size: 0.93rem;
+    }
+
+    .today-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      width: fit-content;
+      padding: 0.38rem 0.72rem;
+      border-radius: 999px;
+      background: #dff3e7;
+      color: #17633a;
+      font-size: 0.8rem;
+      font-weight: 700;
+      border: 1px solid #bce3ca;
+      margin-bottom: 0.55rem;
+    }
+
+    .section-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 1.4rem;
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.2rem;
+      border-bottom: 1px solid #edf1f6;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+    }
+
+    .section-title {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #18253d;
+    }
+
+    .section-text {
+      margin: 0.15rem 0 0;
+      color: var(--text-soft);
+      font-size: 0.92rem;
+    }
+
+    .week-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .week-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.45rem 0.8rem;
+      border-radius: 999px;
+      background: #f6f8fb;
+      border: 1px solid #e5ebf3;
+      color: #42526b;
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+
+    .week-body {
+      padding: 1rem;
+    }
+
+    /* IMPORTANTE:
+       No obligamos al JS a usar grid nuevo.
+       Dejamos el contenedor flexible para que acepte lo que ya renderiza tu JS. */
+    #contenedorSemanaEmpleado {
+      min-height: 120px;
+    }
+
+    /* DECORACIÓN SEGURA para columnas y tarjetas que ya inserta tu JS */
+    #contenedorSemanaEmpleado > [class*="col-"] {
+      display: flex;
+    }
+
+    #contenedorSemanaEmpleado .dia-card,
+    #contenedorSemanaEmpleado .turno-card,
+    #contenedorSemanaEmpleado .novedad-card {
+      width: 100%;
+      border-radius: 1rem;
+      border: 1px solid #dde6f0;
+      background: #ffffff;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+      padding: 1rem;
+      transition: 0.2s ease;
+    }
+
+    #contenedorSemanaEmpleado .dia-card:hover,
+    #contenedorSemanaEmpleado .turno-card:hover,
+    #contenedorSemanaEmpleado .novedad-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+    }
+
+    /* separadores internos para que no se vea texto corrido */
+    #contenedorSemanaEmpleado .dia-card hr,
+    #contenedorSemanaEmpleado .turno-card hr,
+    #contenedorSemanaEmpleado .novedad-card hr {
+      margin: 0.75rem 0;
+      border-color: #e7edf5;
+      opacity: 1;
+    }
+
+    /* bloques de texto */
+    #contenedorSemanaEmpleado .dia-card strong,
+    #contenedorSemanaEmpleado .turno-card strong,
+    #contenedorSemanaEmpleado .novedad-card strong {
+      color: #15233b;
+    }
+
+    /* si el JS agrega hoy, descanso o novedad por clase */
+    #contenedorSemanaEmpleado .dia-card.hoy,
+    #contenedorSemanaEmpleado .dia-card.today {
+      background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+      border-color: #b9d4ff;
+      position: relative;
+    }
+
+    #contenedorSemanaEmpleado .dia-card.hoy::before,
+    #contenedorSemanaEmpleado .dia-card.today::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 5px;
+      background: #0d6efd;
+      border-top-left-radius: 1rem;
+      border-top-right-radius: 1rem;
+    }
+
+    #contenedorSemanaEmpleado .dia-card.descanso {
+      background: linear-gradient(180deg, #fcfcfd 0%, #f4f6f8 100%);
+      border-color: #dce3ea;
+    }
+
+    #contenedorSemanaEmpleado .dia-card.novedad {
+      background: linear-gradient(180deg, #fffdf5 0%, #fff6db 100%);
+      border-color: #ffe08a;
+    }
+
+    .legend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-top: 1rem;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.48rem 0.75rem;
+      border-radius: 999px;
+      background: #f7f9fc;
+      border: 1px solid #e7edf4;
+      font-size: 0.82rem;
+      color: #4b5563;
+      font-weight: 600;
+    }
+
+    .legend-dot {
+      width: 0.72rem;
+      height: 0.72rem;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .dot-blue { background: #0d6efd; }
+    .dot-gray { background: #98a2b3; }
+    .dot-yellow { background: #f0b429; }
+
+    .modal-content {
+      border: 0;
+      border-radius: 1.15rem;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+    }
+
+    .modal-header {
+      border-bottom: 1px solid #edf1f5;
+      background: #fbfcfe;
+    }
+
+    .modal-footer-sticky {
+      position: sticky;
+      bottom: 0;
+      background: #fff;
+      z-index: 2;
+      border-top: 1px solid #dee2e6;
+    }
+
+    @media (max-width: 1399.98px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 991.98px) {
+      .header-actions {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 767.98px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header-panel {
+        padding: 1rem;
+      }
+
+      .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .btn-soft,
+      .btn-main,
+      .btn-danger-soft,
+      .btn-back-soft {
+        width: 100%;
+      }
+
+      .header-actions {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container-fluid">
+    <div class="row min-vh-100">
+      <aside class="col-12 col-md-3 col-lg-2 sidebar p-3">
+        <div class="brand-box">
+          <div class="brand-title">Turnos Club</div>
+          <p class="brand-subtitle">Consulta rápida de programación A&B</p>
+        </div>
+      </aside>
+
+      <main class="col-12 col-md-9 col-lg-10 p-3 p-lg-4 fondo-modulo">
+        <div class="page-shell">
+
+          <section class="header-panel">
+            <div class="row g-3 align-items-center">
+              <div class="col-12 col-xl-7">
+                <div class="header-chip">Área de Alimentos y Bebidas</div>
+                <h1 class="page-title">Mis Turnos A&B</h1>
+                <p class="page-subtitle" id="subtituloMisTurnosAyb">Consultando programación...</p>
+              </div>
+
+              <div class="col-12 col-xl-5">
+                <div class="header-actions">
+                  <button class="btn btn-outline-secondary btn-back-soft d-none" id="btnVolverModuloAnterior">← Volver al módulo anterior</button>
+                  <button class="btn btn-soft" id="btnSemanaAnteriorEmpleado">← Semana anterior</button>
+                  <button class="btn btn-soft" id="btnSemanaSiguienteEmpleado">Semana siguiente →</button>
+                  <button class="btn btn-primary btn-main" id="btnVerTurnosCatalogo">Ver equivalencia de turnos</button>
+                  <button class="btn btn-outline-danger btn-danger-soft" id="btnCerrarSesionEmpleado">Cerrar sesión</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="summary-grid">
+            <div class="summary-card today-highlight">
+              <div class="today-badge">● Hoy</div>
+              <div class="summary-label">Empleado</div>
+              <div class="summary-value" id="nombreEmpleadoAybVista">-</div>
+              <div class="summary-subvalue">
+                <strong>Cargo:</strong> <span id="cargoEmpleadoAybVista">-</span>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <div class="summary-label">Periodo consultado</div>
+              <div class="summary-value" id="mesAnioEmpleadoAyb">-</div>
+              <div class="summary-subvalue">
+                <strong>Semana:</strong> <span id="rangoSemanaEmpleadoAyb">-</span>
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <div class="summary-label">Resumen semanal</div>
+              <div class="summary-value">
+                <span id="resumenTurnosEmpleado">0</span> turnos
+              </div>
+              <div class="summary-subvalue">
+                <strong id="resumenNovedadesEmpleado">0</strong> novedades registradas
+              </div>
+            </div>
+
+            <div class="summary-card">
+              <div class="summary-label">Asignación</div>
+              <div class="summary-value">
+                <span id="resumenPuntosEmpleado">0</span> subáreas
+              </div>
+              <div class="summary-subvalue">
+                Distribución de puntos en la semana
+              </div>
+            </div>
+          </section>
+
+          <section class="section-card">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">Programación semanal</h2>
+                <p class="section-text">Consulta tu turno del día y revisa toda la semana de forma clara.</p>
+              </div>
+
+              <div class="week-meta">
+                <div class="week-pill">Vista semanal</div>
+                <div class="week-pill" id="rangoSemanaEmpleadoAybPill">Semana en curso</div>
+              </div>
+            </div>
+
+            <div class="week-body">
+              <div class="row g-3" id="contenedorSemanaEmpleado">
+                <div class="col-12">
+                  <div class="text-center text-muted py-4">Cargando turnos...</div>
+                </div>
+              </div>
+
+              <div class="legend-row">
+                <div class="legend-item">
+                  <span class="legend-dot dot-blue"></span>
+                  Día actual
+                </div>
+                <div class="legend-item">
+                  <span class="legend-dot dot-gray"></span>
+                  Descanso
+                </div>
+                <div class="legend-item">
+                  <span class="legend-dot dot-yellow"></span>
+                  Día con novedad
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalCatalogoTurnos" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Equivalencia de turnos A&B</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="table-responsive">
+            <table class="table table-bordered align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Turno</th>
+                  <th>Horario</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>1</td><td>5:30am - 1:30pm</td></tr>
+                <tr><td>2</td><td>6:00am - 2:00pm</td></tr>
+                <tr><td>3</td><td>7:00am - 3:00pm</td></tr>
+                <tr><td>4</td><td>8:00am - 4:00pm</td></tr>
+                <tr><td>5</td><td>9:00am - 5:00pm</td></tr>
+                <tr><td>6</td><td>10:00am - 6:00pm</td></tr>
+                <tr><td>7</td><td>11:00am - 7:00pm</td></tr>
+                <tr><td>8</td><td>12:00pm - 8:00pm</td></tr>
+                <tr><td>9</td><td>1:00pm - 9:00pm</td></tr>
+                <tr><td>10</td><td>2:00pm - 10:00pm</td></tr>
+                <tr><td>11</td><td>3:00pm - 11:00pm</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-footer modal-footer-sticky">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const rangoSemanaEmpleadoAyb = document.getElementById('rangoSemanaEmpleadoAyb');
+    const rangoSemanaEmpleadoAybPill = document.getElementById('rangoSemanaEmpleadoAybPill');
+
+    const observerSemana = new MutationObserver(() => {
+      const texto = (rangoSemanaEmpleadoAyb?.textContent || '').trim();
+      if (texto && rangoSemanaEmpleadoAybPill) {
+        rangoSemanaEmpleadoAybPill.textContent = texto;
+      }
+    });
+
+    if (rangoSemanaEmpleadoAyb) {
+      observerSemana.observe(rangoSemanaEmpleadoAyb, { childList: true, subtree: true, characterData: true });
+    }
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module" src="../js/mis-turnos-ayb.js"></script>
+</body>
+</html>

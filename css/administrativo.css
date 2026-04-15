@@ -1,0 +1,12 @@
+.admin-card {
+  border: none;
+  border-radius: 14px;
+  color: white;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+}
+
+.admin-card h3 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin: 8px 0;
+}

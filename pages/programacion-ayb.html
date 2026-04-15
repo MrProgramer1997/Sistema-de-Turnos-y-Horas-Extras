@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Programación A&B</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../css/estilos.css">
+  <link rel="stylesheet" href="../css/ayb.css">
+
+  <style>
+    .modal-footer-sticky {
+      position: sticky;
+      bottom: 0;
+      background: #fff;
+      z-index: 2;
+      border-top: 1px solid #dee2e6;
+    }
+
+    .banner-turno-copiado {
+      border: 1px dashed #86b7fe;
+      background: #eef5ff;
+      border-radius: 0.75rem;
+      padding: 0.85rem 1rem;
+    }
+
+    .acciones-celda {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.35rem;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .subarea-label {
+      font-weight: 700;
+    }
+
+    .subarea-meta {
+      font-size: 0.8rem;
+      color: #6c757d;
+    }
+
+    .turno-card-compact,
+    .novedad-card-compact {
+      border-radius: 0.6rem;
+      padding: 0.6rem;
+      border: 1px solid #dee2e6;
+      margin-bottom: 0.55rem;
+      background: #fff;
+    }
+
+    .turno-card-compact {
+      background: #f8f9fa;
+    }
+
+    .novedad-inc {
+      background: #fee2e2;
+      border-color: #fca5a5;
+    }
+
+    .novedad-vac {
+      background: #ffedd5;
+      border-color: #fdba74;
+    }
+
+    .novedad-lr {
+      background: #fef9c3;
+      border-color: #fde047;
+    }
+
+    .novedad-default {
+      background: #dbeafe;
+      border-color: #93c5fd;
+    }
+
+    .extra-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.18rem 0.45rem;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .extra-zero {
+      background: #e9ecef;
+      color: #495057;
+    }
+
+    .extra-positive {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .kpi-card-ayb {
+      border: 0;
+      border-radius: 1rem;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.06);
+    }
+
+    .kpi-card-ayb .card-body {
+      padding: 1rem 1.1rem;
+    }
+
+    .kpi-card-ayb .kpi-label {
+      font-size: 0.85rem;
+      color: #6c757d;
+      margin-bottom: 0.25rem;
+    }
+
+    .kpi-card-ayb .kpi-value {
+      font-size: 1.7rem;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .resumen-card {
+      border-radius: 1rem;
+      border: 0;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.06);
+    }
+
+    .ayb-help-box {
+      font-size: 0.9rem;
+    }
+
+    .table-ranking td,
+    .table-ranking th {
+      vertical-align: middle;
+    }
+
+    .compact-nombre {
+      font-size: 0.9rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .compact-cargo {
+      font-size: 0.78rem;
+      color: #6c757d;
+      line-height: 1.15;
+    }
+
+    .compact-line {
+      font-size: 0.8rem;
+      line-height: 1.2;
+    }
+
+    .detalle-grid .item {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 0.75rem;
+      padding: 0.75rem;
+      height: 100%;
+    }
+
+    .detalle-grid .label {
+      font-size: 0.8rem;
+      color: #6c757d;
+      margin-bottom: 0.2rem;
+    }
+
+    .detalle-grid .value {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .modal-detalle-title {
+      line-height: 1.2;
+    }
+
+    @media (max-width: 991.98px) {
+      .modal-dialog {
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar-ayb d-flex justify-content-between align-items-center flex-wrap">
+    <div>
+      <h3 class="mb-0 fw-bold">Sistema de Turnos y Horas Extras</h3>
+      <small>Módulo web A&B · Corporación Club Campestre de Pereira</small>
+    </div>
+    <div class="text-end">
+      <div class="fw-semibold">Semana actual</div>
+      <div class="fw-bold" id="textoMesAnioAyb">Cargando mes...</div>
+      <small id="textoSemanaAyb">Cargando semana...</small>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+    <div class="row min-vh-100">
+      <aside class="col-12 col-md-3 col-lg-2 sidebar p-3">
+        <h4 class="text-white mb-4">Turnos Club</h4>
+        <nav class="nav flex-column">
+          <a class="nav-link" href="dashboard.html">Dashboard</a>
+          <a class="nav-link active" href="programacion-ayb.html">Programación A&B</a>
+          <a class="nav-link" href="programacion-administrativo.html">Programación Administrativo</a>
+          <a class="nav-link" href="programacion-operaciones.html">Programación Operaciones</a>
+          <a class="nav-link" href="mis-turnos-ayb.html">Mis Turnos A&B</a>
+          <a class="nav-link" href="mis-turnos-administrativo.html">Mis Turnos Administrativo</a>
+          <a class="nav-link" href="mis-turnos-operaciones.html">Mis Turnos Operaciones</a>
+          <a class="nav-link" href="empleados.html">Empleados</a>
+          <a class="nav-link" href="usuarios.html">Usuarios</a>
+          <a class="nav-link" href="reportes.html">Reportes</a>
+          <a class="nav-link" href="configuracion.html">Configuración</a>
+          <a class="nav-link text-danger" href="login.html">Cerrar sesión</a>
+        </nav>
+      </aside>
+
+      <main class="col-12 col-md-9 col-lg-10 p-4 fondo-modulo">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+          <div>
+            <h2 class="mb-1">Programación A&B</h2>
+            <p class="text-muted mb-0" id="subtituloAyb">Calendario semanal por restaurante</p>
+          </div>
+          <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-outline-primary" id="btnSemanaAnterior">Semana anterior</button>
+            <button class="btn btn-outline-primary" id="btnSemanaSiguiente">Semana siguiente</button>
+            <button class="btn btn-primary" id="btnNuevaAsignacion">Nueva asignación</button>
+            <button class="btn btn-outline-danger" id="btnPdfGeneral">PDF general</button>
+          </div>
+        </div>
+
+        <div id="bannerTurnoCopiadoAyb" class="banner-turno-copiado d-none mb-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <div class="fw-semibold">Turno copiado</div>
+              <div id="textoTurnoCopiadoAyb" class="small text-muted">No hay turno copiado</div>
+            </div>
+            <button id="btnLimpiarTurnoCopiadoAyb" class="btn btn-sm btn-outline-secondary" type="button">
+              Limpiar copia
+            </button>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card kpi-card-ayb">
+              <div class="card-body">
+                <div class="kpi-label">Horas netas programadas</div>
+                <div class="kpi-value" id="kpiHorasNetasAyb">0.0</div>
+                <div class="small text-muted">Semana visible</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card kpi-card-ayb">
+              <div class="card-body">
+                <div class="kpi-label">Horas extra estimadas</div>
+                <div class="kpi-value" id="kpiHorasExtraAyb">0.0</div>
+                <div class="small text-muted">Programación teórica</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card kpi-card-ayb">
+              <div class="card-body">
+                <div class="kpi-label">Empleado con mayor extra</div>
+                <div class="kpi-value" id="kpiTopEmpleadoHorasAyb">-</div>
+                <div class="small text-muted" id="kpiTopEmpleadoDetalleAyb">Sin datos</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="card kpi-card-ayb">
+              <div class="card-body">
+                <div class="kpi-label">Registros programados</div>
+                <div class="kpi-value" id="kpiRegistrosAyb">0</div>
+                <div class="small text-muted">Turnos y novedades</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-12 col-xl-7">
+            <div class="card resumen-card">
+              <div class="card-header bg-white fw-bold">Resumen semanal de horas extra estimadas</div>
+              <div class="card-body">
+                <div id="resumenSemanalAyb" class="text-muted">Cargando resumen...</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-5">
+            <div class="card resumen-card">
+              <div class="card-header bg-white fw-bold">PDF por empleado</div>
+              <div class="card-body">
+                <label for="selectEmpleadoPdfAyb" class="form-label">Selecciona un empleado</label>
+                <select id="selectEmpleadoPdfAyb" class="form-select mb-3">
+                  <option value="">Seleccione</option>
+                </select>
+                <button class="btn btn-outline-danger w-100" id="btnPdfEmpleado">Descargar PDF del empleado</button>
+                <div class="small text-muted mt-2">
+                  Descarga la programación de la semana visible para el empleado seleccionado.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mt-4">
+          <div class="card-header bg-white fw-bold">Calendario semanal A&B</div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-bordered calendario-ayb">
+                <thead>
+                  <tr>
+                    <th>Restaurante / Subárea</th>
+                    <th id="thDia1">Martes</th>
+                    <th id="thDia2">Miércoles</th>
+                    <th id="thDia3">Jueves</th>
+                    <th id="thDia4">Viernes</th>
+                    <th id="thDia5">Sábado</th>
+                    <th id="thDia6">Domingo</th>
+                    <th id="thDia7">Lunes</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyProgramacionAYB">
+                  <tr>
+                    <td colspan="8" class="text-center text-muted py-4">Cargando programación...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalAsignacionAyb" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-fullscreen-lg-down modal-dialog-scrollable">
+      <div class="modal-content">
+        <form id="formAsignacionAyb">
+          <div class="modal-header">
+            <h5 class="modal-title" id="tituloModalAyb">Nueva asignación A&B</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+
+          <div class="modal-body">
+            <div class="alert alert-danger d-none" id="alertaErrorAyb"></div>
+            <div class="alert alert-success d-none" id="alertaOkAyb"></div>
+
+            <input type="hidden" id="registroIdAyb">
+
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label for="tipoRegistroAyb" class="form-label">Tipo de registro</label>
+                <select class="form-select" id="tipoRegistroAyb" required>
+                  <option value="turno">Turno</option>
+                  <option value="novedad">Novedad / día especial</option>
+                </select>
+              </div>
+
+              <div class="col-md-8">
+                <label for="busquedaEmpleadoAyb" class="form-label">Buscar empleado A&B por cédula o nombre</label>
+                <input type="text" class="form-control" id="busquedaEmpleadoAyb" list="listaEmpleadosAyb" placeholder="Escriba cédula o nombre">
+                <datalist id="listaEmpleadosAyb"></datalist>
+              </div>
+
+              <div class="col-md-3">
+                <label for="cedulaEmpleadoAyb" class="form-label">Cédula</label>
+                <input type="text" class="form-control" id="cedulaEmpleadoAyb" required>
+              </div>
+
+              <div class="col-md-5">
+                <label for="nombreEmpleadoAyb" class="form-label">Nombre del empleado</label>
+                <input type="text" class="form-control" id="nombreEmpleadoAyb" required>
+              </div>
+
+              <div class="col-md-4">
+                <label for="cargoEmpleadoAyb" class="form-label">Cargo</label>
+                <input type="text" class="form-control" id="cargoEmpleadoAyb" readonly>
+              </div>
+
+              <div class="col-md-6" id="bloqueSubareaAyb">
+                <label for="subareaAyb" class="form-label">Restaurante / Subárea bloque 1</label>
+                <select class="form-select" id="subareaAyb" required>
+                  <option value="">Seleccione</option>
+                  <option value="Rialto">R · Rialto</option>
+                  <option value="Hoyo 19">H · Hoyo 19</option>
+                  <option value="Bar Deportivo">BD · Bar Deportivo</option>
+                  <option value="Tenis">Tenis</option>
+                  <option value="Samanes">Samanes</option>
+                  <option value="Piscina">Piscina</option>
+                  <option value="Café">Café</option>
+                  <option value="Carro Bar">Carro Bar</option>
+                  <option value="Heladería">Heladería</option>
+                  <option value="Mesa y Bar">Mesa y Bar</option>
+                  <option value="Eventos">Eventos</option>
+                  <option value="Cocina">Cocina</option>
+                </select>
+              </div>
+
+              <div class="col-md-6">
+                <label for="fechaAyb" class="form-label">Fecha</label>
+                <input type="date" class="form-control" id="fechaAyb" required>
+              </div>
+
+              <div class="col-12" id="bloqueInfoSubareaAyb">
+                <div class="small text-muted border rounded p-2 bg-light ayb-help-box" id="infoHorarioSubarea">
+                  Selecciona una subárea para ver el horario guía.
+                </div>
+              </div>
+
+              <div class="col-12" id="bloqueTurnoNormal">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label for="turnoAyb" class="form-label">Turno bloque 1</label>
+                    <select class="form-select" id="turnoAyb">
+                      <option value="">Seleccione</option>
+                    </select>
+                  </div>
+
+                  <div class="col-md-4">
+                    <label for="horaInicioAyb" class="form-label">Hora inicio bloque 1</label>
+                    <input type="time" class="form-control" id="horaInicioAyb">
+                  </div>
+
+                  <div class="col-md-4">
+                    <label for="horaFinAyb" class="form-label">Hora fin bloque 1</label>
+                    <input type="time" class="form-control" id="horaFinAyb">
+                  </div>
+
+                  <div class="col-12">
+                    <div class="form-check mt-2">
+                      <input class="form-check-input" type="checkbox" id="checkTurnoPartido">
+                      <label class="form-check-label" for="checkTurnoPartido">
+                        Este registro es partido / segundo bloque
+                      </label>
+                    </div>
+                  </div>
+
+                  <div class="col-12 d-none" id="bloqueTurnoPartido">
+                    <div class="row g-3">
+                      <div class="col-md-3">
+                        <label for="subarea2Ayb" class="form-label">Restaurante / Subárea bloque 2</label>
+                        <select class="form-select" id="subarea2Ayb">
+                          <option value="">Seleccione</option>
+                          <option value="Rialto">R · Rialto</option>
+                          <option value="Hoyo 19">H · Hoyo 19</option>
+                          <option value="Bar Deportivo">BD · Bar Deportivo</option>
+                          <option value="Tenis">Tenis</option>
+                          <option value="Samanes">Samanes</option>
+                          <option value="Piscina">Piscina</option>
+                          <option value="Café">Café</option>
+                          <option value="Carro Bar">Carro Bar</option>
+                          <option value="Heladería">Heladería</option>
+                          <option value="Mesa y Bar">Mesa y Bar</option>
+                          <option value="Eventos">Eventos</option>
+                          <option value="Cocina">Cocina</option>
+                        </select>
+                      </div>
+
+                      <div class="col-md-3">
+                        <label for="turno2Ayb" class="form-label">Turno bloque 2</label>
+                        <select class="form-select" id="turno2Ayb">
+                          <option value="">Seleccione</option>
+                        </select>
+                      </div>
+
+                      <div class="col-md-3">
+                        <label for="horaInicio2Ayb" class="form-label">Hora inicio bloque 2</label>
+                        <input type="time" class="form-control" id="horaInicio2Ayb">
+                      </div>
+
+                      <div class="col-md-3">
+                        <label for="horaFin2Ayb" class="form-label">Hora fin bloque 2</label>
+                        <input type="time" class="form-control" id="horaFin2Ayb">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12 d-none" id="bloqueNovedad">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label for="novedadCodigoAyb" class="form-label">Novedad / día especial</label>
+                    <select class="form-select" id="novedadCodigoAyb">
+                      <option value="">Seleccione</option>
+                      <option value="VAC">VAC · Vacaciones</option>
+                      <option value="INC">INC · Incapacidad</option>
+                      <option value="F">F · Día de la familia</option>
+                      <option value="LR">LR · Licencia no remunerada</option>
+                      <option value="NC">NC · No compensatorio</option>
+                      <option value="SP">SP · Suspensión</option>
+                      <option value="CITA">CITA · Cita</option>
+                      <option value="COMP">COMP · Compensatorio</option>
+                      <option value="ELECCION">ELECCION · Elección</option>
+                      <option value="PASA">PASA · Pasa a otro punto</option>
+                    </select>
+                  </div>
+
+                  <div class="col-md-6">
+                    <label for="novedadDescripcionAyb" class="form-label">Descripción de la novedad</label>
+                    <input type="text" class="form-control" id="novedadDescripcionAyb" placeholder="Opcional">
+                  </div>
+
+                  <div class="col-12">
+                    <div class="small text-muted border rounded p-2 bg-light ayb-help-box">
+                      Las novedades no llevan restaurante, subárea ni horas. Aquí entran vacaciones, incapacidad, día de la familia, licencia no remunerada, suspensión y demás días especiales.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12">
+                <label for="observacionAyb" class="form-label">Observación</label>
+                <textarea class="form-control" id="observacionAyb" rows="3" placeholder="Opcional"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer modal-footer-sticky">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btnSubmitAsignacionAyb">Guardar asignación</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalDetalleRegistroAyb" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title modal-detalle-title mb-1" id="detalleNombreRegistroAyb">Detalle del registro</h5>
+            <div class="text-muted small" id="detalleSubtituloRegistroAyb">Información detallada</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body" id="detalleContenidoRegistroAyb">
+          Cargando...
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script type="module" src="../js/programacion-ayb.js"></script>
+</body>
+</html>
