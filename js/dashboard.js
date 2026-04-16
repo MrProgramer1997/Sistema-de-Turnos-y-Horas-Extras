@@ -7,7 +7,8 @@ let filtrosActuales = {
   fechaFin: "",
   area: "",
   subarea: "",
-  empleado: ""
+  empleado: "",
+  estadoExtra: ""
 };
 
 let chartAreas = null;
@@ -17,6 +18,12 @@ let chartDistribucionAreas = null;
 let chartTendenciaFechas = null;
 let chartMeses = null;
 let chartAnios = null;
+let chartHorasTipo = null;
+let chartHorasExtraEmpleados = null;
+
+const HORA_INICIO_NOCTURNO = 19 * 60;
+const HORA_FIN_NOCTURNO = 6 * 60;
+const DESCANSO_ESTANDAR_HORAS = 0.5;
 
 document.addEventListener("DOMContentLoaded", async () => {
   const sesion = JSON.parse(localStorage.getItem("ccp_sesion") || "null");
@@ -35,6 +42,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   protegerPaginaActual(sesion);
   configurarCerrarSesion();
   configurarBotonActualizar();
+  configurarBotonExportarPDF();
+  configurarBotonExportarExcel();
   configurarFiltros();
 
   await cargarDashboardReal(sesion);
@@ -73,10 +82,11 @@ async function cargarDashboardReal(sesion) {
       return;
     }
 
-    registrosBase = filtrarRegistrosPorPermisos(data || [], sesion);
+    registrosBase = filtrarRegistrosPorPermisos(data || [], sesion).map(enriquecerRegistroDashboard);
 
     inicializarFiltrosRango();
     poblarOpcionesFiltros(registrosBase);
+    actualizarBadgeFiltroUsuario();
 
     const registrosHoy = registrosBase.filter((item) => String(item.fecha || "") === fechaHoy);
     const registrosSemana = registrosBase.filter((item) => fechasSemana.includes(String(item.fecha || "")));
@@ -112,15 +122,188 @@ async function cargarDashboardReal(sesion) {
   }
 }
 
+function enriquecerRegistroDashboard(registro) {
+  const estadoExtraNormalizado = normalizarEstadoExtra(registro.estado_extra);
+
+  if (esNovedad(registro)) {
+    return {
+      ...registro,
+      estado_extra: estadoExtraNormalizado,
+      aprobado_por: registro.aprobado_por || "",
+      fecha_aprobacion: registro.fecha_aprobacion || null,
+      observacion_aprobacion: registro.observacion_aprobacion || "",
+      horas_diurnas: Number(registro.horas_diurnas || 0),
+      horas_nocturnas: Number(registro.horas_nocturnas || 0),
+      horas_netas: Number(registro.horas_netas || 0),
+      extra_diurna: Number(registro.extra_diurna || 0),
+      extra_nocturna: Number(registro.extra_nocturna || 0),
+      horas_extra_estimadas: Number(registro.horas_extra_estimadas || 0)
+    };
+  }
+
+  const yaTieneCampos = [
+    registro.horas_diurnas,
+    registro.horas_nocturnas,
+    registro.extra_diurna,
+    registro.extra_nocturna,
+    registro.horas_netas
+  ].some((v) => v !== null && v !== undefined);
+
+  if (yaTieneCampos) {
+    return {
+      ...registro,
+      estado_extra: estadoExtraNormalizado,
+      aprobado_por: registro.aprobado_por || "",
+      fecha_aprobacion: registro.fecha_aprobacion || null,
+      observacion_aprobacion: registro.observacion_aprobacion || "",
+      horas_diurnas: Number(registro.horas_diurnas || 0),
+      horas_nocturnas: Number(registro.horas_nocturnas || 0),
+      horas_netas: Number(registro.horas_netas || 0),
+      extra_diurna: Number(registro.extra_diurna || 0),
+      extra_nocturna: Number(registro.extra_nocturna || 0),
+      horas_extra_estimadas: Number(registro.horas_extra_estimadas || 0)
+    };
+  }
+
+  const calculado = calcularMetricasRegistroDashboard(registro);
+
+  return {
+    ...registro,
+    estado_extra: estadoExtraNormalizado,
+    aprobado_por: registro.aprobado_por || "",
+    fecha_aprobacion: registro.fecha_aprobacion || null,
+    observacion_aprobacion: registro.observacion_aprobacion || "",
+    ...calculado
+  };
+}
+
+function normalizarEstadoExtra(valor) {
+  const estado = String(valor || "").trim().toLowerCase();
+  if (estado === "aprobado" || estado === "rechazado" || estado === "pendiente") {
+    return estado;
+  }
+  return "pendiente";
+}
+
+function calcularMetricasRegistroDashboard(registro) {
+  const b1 = calcularHorasTurnoProtegiendoNocturnas(registro.hora_inicio, registro.hora_fin);
+  const b2 = calcularHorasTurnoProtegiendoNocturnas(registro.hora_inicio_2, registro.hora_fin_2);
+
+  const horasDiurnas = redondearHoras(b1.diurnas + b2.diurnas);
+  const horasNocturnas = redondearHoras(b1.nocturnas + b2.nocturnas);
+  const horasNetas = redondearHoras(horasDiurnas + horasNocturnas);
+  const jornadaInfo = obtenerJornadaEsperadaPorFecha(registro.fecha);
+  const jornada = jornadaInfo.horas;
+
+  const horasExtraEstimadas = redondearHoras(Math.max(0, horasNetas - jornada));
+
+  let extraDiurna = 0;
+  let extraNocturna = 0;
+
+  if (horasExtraEstimadas > 0) {
+    const ordinariasDiurnas = Math.min(horasDiurnas, jornada);
+    extraDiurna = redondearHoras(Math.max(0, horasDiurnas - ordinariasDiurnas));
+    extraNocturna = redondearHoras(Math.max(0, horasExtraEstimadas - extraDiurna));
+  }
+
+  return {
+    horas_diurnas: horasDiurnas,
+    horas_nocturnas: horasNocturnas,
+    horas_netas: horasNetas,
+    extra_diurna: extraDiurna,
+    extra_nocturna: extraNocturna,
+    horas_extra_estimadas: horasExtraEstimadas
+  };
+}
+
+function calcularHorasTurnoProtegiendoNocturnas(inicio, fin) {
+  if (!inicio || !fin) {
+    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
+  }
+
+  const inicioMin = horaTextoAMinutos(inicio);
+  let finMin = horaTextoAMinutos(fin);
+
+  if (inicioMin === null || finMin === null) {
+    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
+  }
+
+  if (finMin < inicioMin) {
+    finMin += 24 * 60;
+  }
+
+  let minutosDiurnos = 0;
+  let minutosNocturnos = 0;
+
+  for (let m = inicioMin; m < finMin; m++) {
+    const minutoDelDia = m % (24 * 60);
+    if (esMinutoNocturno(minutoDelDia)) {
+      minutosNocturnos += 1;
+    } else {
+      minutosDiurnos += 1;
+    }
+  }
+
+  const minutosTotales = minutosDiurnos + minutosNocturnos;
+  if (minutosTotales === 0) {
+    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
+  }
+
+  let descuentoMinutos = DESCANSO_ESTANDAR_HORAS * 60;
+
+  if (minutosDiurnos >= descuentoMinutos) {
+    minutosDiurnos -= descuentoMinutos;
+  } else {
+    const restante = descuentoMinutos - minutosDiurnos;
+    minutosDiurnos = 0;
+    minutosNocturnos = Math.max(0, minutosNocturnos - restante);
+  }
+
+  return {
+    total: redondearHoras(minutosTotales / 60),
+    diurnas: redondearHoras(minutosDiurnos / 60),
+    nocturnas: redondearHoras(minutosNocturnos / 60),
+    netas: redondearHoras((minutosDiurnos + minutosNocturnos) / 60)
+  };
+}
+
+function obtenerJornadaEsperadaPorFecha(fechaISO) {
+  if (!fechaISO) {
+    return { horas: 7.5, tipo: "Martes a viernes / día hábil" };
+  }
+
+  const fecha = new Date(`${fechaISO}T00:00:00`);
+  const dia = fecha.getDay();
+
+  if (dia === 6 || dia === 0) {
+    return { horas: 8.5, tipo: "Sábado/Domingo" };
+  }
+
+  return { horas: 7.5, tipo: "Martes a viernes / día hábil" };
+}
+
+function horaTextoAMinutos(horaTexto) {
+  if (!horaTexto) return null;
+  const partes = String(horaTexto).split(":").map(Number);
+  if (partes.length < 2 || partes.some(Number.isNaN)) return null;
+  const [h, m] = partes;
+  return (h * 60) + m;
+}
+
+function esMinutoNocturno(minutoDelDia) {
+  return minutoDelDia >= HORA_INICIO_NOCTURNO || minutoDelDia < HORA_FIN_NOCTURNO;
+}
+
 function configurarFiltros() {
   const filtroFechaInicio = document.getElementById("filtroFechaInicio");
   const filtroFechaFin = document.getElementById("filtroFechaFin");
   const filtroArea = document.getElementById("filtroArea");
   const filtroSubarea = document.getElementById("filtroSubarea");
   const filtroEmpleado = document.getElementById("filtroEmpleado");
+  const filtroEstadoExtra = document.getElementById("filtroEstadoExtra");
   const btnLimpiar = document.getElementById("btnLimpiarFiltros");
 
-  [filtroFechaInicio, filtroFechaFin, filtroArea, filtroSubarea, filtroEmpleado].forEach((elemento) => {
+  [filtroFechaInicio, filtroFechaFin, filtroArea, filtroSubarea, filtroEmpleado, filtroEstadoExtra].forEach((elemento) => {
     if (!elemento) return;
 
     elemento.addEventListener("change", () => {
@@ -129,6 +312,7 @@ function configurarFiltros() {
       filtrosActuales.area = filtroArea?.value || "";
       filtrosActuales.subarea = filtroSubarea?.value || "";
       filtrosActuales.empleado = filtroEmpleado?.value || "";
+      filtrosActuales.estadoExtra = filtroEstadoExtra?.value || "";
       aplicarFiltrosAnaliticos();
     });
   });
@@ -144,6 +328,7 @@ function configurarFiltros() {
 function inicializarFiltrosRango() {
   const filtroFechaInicio = document.getElementById("filtroFechaInicio");
   const filtroFechaFin = document.getElementById("filtroFechaFin");
+  const filtroEstadoExtra = document.getElementById("filtroEstadoExtra");
 
   if (!filtroFechaInicio || !filtroFechaFin) return;
 
@@ -159,6 +344,10 @@ function inicializarFiltrosRango() {
   } else {
     filtroFechaInicio.value = filtrosActuales.fechaInicio;
     filtroFechaFin.value = filtrosActuales.fechaFin;
+  }
+
+  if (filtroEstadoExtra) {
+    filtroEstadoExtra.value = filtrosActuales.estadoExtra || "";
   }
 }
 
@@ -198,6 +387,30 @@ function poblarOpcionesFiltros(registros) {
   filtroEmpleado.value = filtrosActuales.empleado || "";
 }
 
+function actualizarBadgeFiltroUsuario() {
+  const sesion = sesionActiva || {};
+  const partes = [];
+
+  if (sesion.puede_ver_todo === true) {
+    partes.push("Acceso total");
+  } else {
+    const areas = Array.isArray(sesion.areas_permitidas) ? sesion.areas_permitidas.filter(Boolean) : [];
+    if (areas.length) {
+      partes.push(`Áreas: ${areas.join(", ")}`);
+    }
+
+    if (sesion.centro_costos) {
+      partes.push(`Centro costos: ${sesion.centro_costos}`);
+    }
+  }
+
+  if (sesion.rol) {
+    partes.push(`Rol: ${traducirRol(sesion.rol)}`);
+  }
+
+  setText("badgeFiltroUsuario", `Filtro usuario: ${partes.join(" | ") || "Automático"}`);
+}
+
 function limpiarFiltros() {
   const hoy = new Date();
   const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
@@ -207,43 +420,35 @@ function limpiarFiltros() {
   const filtroArea = document.getElementById("filtroArea");
   const filtroSubarea = document.getElementById("filtroSubarea");
   const filtroEmpleado = document.getElementById("filtroEmpleado");
+  const filtroEstadoExtra = document.getElementById("filtroEstadoExtra");
 
   if (filtroFechaInicio) filtroFechaInicio.value = formatearFechaISO(inicioMes);
   if (filtroFechaFin) filtroFechaFin.value = formatearFechaISO(hoy);
   if (filtroArea) filtroArea.value = "";
   if (filtroSubarea) filtroSubarea.value = "";
   if (filtroEmpleado) filtroEmpleado.value = "";
+  if (filtroEstadoExtra) filtroEstadoExtra.value = "";
 
   filtrosActuales = {
     fechaInicio: filtroFechaInicio?.value || "",
     fechaFin: filtroFechaFin?.value || "",
     area: "",
     subarea: "",
-    empleado: ""
+    empleado: "",
+    estadoExtra: ""
   };
 }
 
 function aplicarFiltrosAnaliticos() {
-  const registrosFiltrados = registrosBase.filter((item) => {
-    const fecha = String(item.fecha || "");
-    const area = obtenerAreaAmigable(item);
-    const subarea = String(item.subarea || "").trim();
-    const empleado = obtenerNombreEmpleado(item);
-
-    if (filtrosActuales.fechaInicio && fecha < filtrosActuales.fechaInicio) return false;
-    if (filtrosActuales.fechaFin && fecha > filtrosActuales.fechaFin) return false;
-    if (filtrosActuales.area && area !== filtrosActuales.area) return false;
-    if (filtrosActuales.subarea && subarea !== filtrosActuales.subarea) return false;
-    if (filtrosActuales.empleado && empleado !== filtrosActuales.empleado) return false;
-
-    return true;
-  });
+  const registrosFiltrados = obtenerRegistrosFiltrados();
 
   actualizarBadgesAnaliticos(registrosFiltrados);
   renderKPIsGeneralesAnaliticos(registrosFiltrados);
   renderKPIsAnaliticos(registrosFiltrados);
+  renderKPIsHoras(registrosFiltrados);
   renderKPIsNovedades(registrosFiltrados);
   renderKPIsAlertas(registrosFiltrados);
+  renderKPIsValidacion(registrosFiltrados);
   renderComparativosPeriodo();
   renderTopEmpleados(registrosFiltrados);
   renderTopAsistencia(registrosFiltrados);
@@ -253,14 +458,36 @@ function aplicarFiltrosAnaliticos() {
   renderTablaIncapacidades(registrosFiltrados);
   renderTablaAusentesHoy(registrosFiltrados);
   renderTablaAlertasCriticas(registrosFiltrados);
+  renderTablaValidacionExtras(registrosFiltrados);
 
   renderGraficaAreas(registrosFiltrados);
   renderGraficaDias(registrosFiltrados);
+  renderGraficaHorasTipo(registrosFiltrados);
+  renderGraficaHorasExtraEmpleados(registrosFiltrados);
   renderGraficaTopEmpleados(registrosFiltrados);
   renderGraficaDistribucionAreas(registrosFiltrados);
   renderGraficaTendenciaFechas(registrosFiltrados);
   renderGraficaMeses(registrosBase);
   renderGraficaAnios(registrosBase);
+}
+
+function obtenerRegistrosFiltrados() {
+  return registrosBase.filter((item) => {
+    const fecha = String(item.fecha || "");
+    const area = obtenerAreaAmigable(item);
+    const subarea = String(item.subarea || "").trim();
+    const empleado = obtenerNombreEmpleado(item);
+    const estadoExtra = normalizarEstadoExtra(item.estado_extra);
+
+    if (filtrosActuales.fechaInicio && fecha < filtrosActuales.fechaInicio) return false;
+    if (filtrosActuales.fechaFin && fecha > filtrosActuales.fechaFin) return false;
+    if (filtrosActuales.area && area !== filtrosActuales.area) return false;
+    if (filtrosActuales.subarea && subarea !== filtrosActuales.subarea) return false;
+    if (filtrosActuales.empleado && empleado !== filtrosActuales.empleado) return false;
+    if (filtrosActuales.estadoExtra && estadoExtra !== filtrosActuales.estadoExtra) return false;
+
+    return true;
+  });
 }
 
 function actualizarBadgesAnaliticos(registros) {
@@ -293,6 +520,37 @@ function renderKPIsGeneralesAnaliticos(registros) {
   setText("kpiPromedioDiario", formatearNumero(promedioDiario));
   setText("kpiEmpleadosActivos", empleados);
   setText("kpiDiasConRegistros", dias);
+}
+
+function renderKPIsHoras(registros) {
+  const soloTurnos = registros.filter((r) => !esNovedad(r));
+
+  const horasDiurnas = redondearHoras(soloTurnos.reduce((acc, r) => acc + Number(r.horas_diurnas || 0), 0));
+  const horasNocturnas = redondearHoras(soloTurnos.reduce((acc, r) => acc + Number(r.horas_nocturnas || 0), 0));
+  const horasNetas = redondearHoras(soloTurnos.reduce((acc, r) => acc + Number(r.horas_netas || 0), 0));
+  const extraDiurna = redondearHoras(soloTurnos.reduce((acc, r) => acc + Number(r.extra_diurna || 0), 0));
+  const extraNocturna = redondearHoras(soloTurnos.reduce((acc, r) => acc + Number(r.extra_nocturna || 0), 0));
+  const extraTotal = redondearHoras(soloTurnos.reduce((acc, r) => acc + Number(r.horas_extra_estimadas || 0), 0));
+
+  setText("kpiHorasDiurnas", formatearNumero(horasDiurnas));
+  setText("kpiHorasNocturnas", formatearNumero(horasNocturnas));
+  setText("kpiExtraDiurna", formatearNumero(extraDiurna));
+  setText("kpiExtraNocturna", formatearNumero(extraNocturna));
+  setText("kpiPreviewHorasNetas", formatearNumero(horasNetas));
+  setText("kpiPreviewHorasExtra", formatearNumero(extraTotal));
+}
+
+function renderKPIsValidacion(registros) {
+  const extras = obtenerRegistrosConExtras(registros);
+  const pendientes = extras.filter((r) => normalizarEstadoExtra(r.estado_extra) === "pendiente");
+  const aprobados = extras.filter((r) => normalizarEstadoExtra(r.estado_extra) === "aprobado");
+  const rechazados = extras.filter((r) => normalizarEstadoExtra(r.estado_extra) === "rechazado");
+  const horasAprobadas = redondearHoras(aprobados.reduce((acc, r) => acc + Number(r.horas_extra_estimadas || 0), 0));
+
+  setText("kpiExtrasPendientes", pendientes.length);
+  setText("kpiExtrasAprobadas", aprobados.length);
+  setText("kpiExtrasRechazadas", rechazados.length);
+  setText("kpiHorasExtraAprobadas", formatearNumero(horasAprobadas));
 }
 
 function renderKPIsAnaliticos(registros) {
@@ -636,6 +894,174 @@ function renderTablaAlertasCriticas(registros) {
   `).join("");
 }
 
+function renderTablaValidacionExtras(registros) {
+  const tbody = document.getElementById("tbodyValidacionExtras");
+  if (!tbody) return;
+
+  const extras = obtenerRegistrosConExtras(registros)
+    .sort((a, b) => {
+      const estadoDiff = prioridadEstado(a.estado_extra) - prioridadEstado(b.estado_extra);
+      if (estadoDiff !== 0) return estadoDiff;
+      return String(b.fecha || "").localeCompare(String(a.fecha || ""));
+    });
+
+  if (!extras.length) {
+    tbody.innerHTML = `<tr><td colspan="14" class="texto-vacio">No hay registros con horas extra en el filtro actual.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = extras.map((item, index) => {
+    const puedeValidar = usuarioPuedeValidarRegistro(sesionActiva, item);
+    const estado = normalizarEstadoExtra(item.estado_extra);
+
+    return `
+      <tr class="${estado === "pendiente" ? "fila-alerta" : ""}">
+        <td>${index + 1}</td>
+        <td>${escaparHtml(obtenerNombreEmpleado(item))}</td>
+        <td>${escaparHtml(item.cedula || "")}</td>
+        <td>${escaparHtml(formatearFechaCorta(item.fecha))}</td>
+        <td>${escaparHtml(obtenerAreaAmigable(item))}</td>
+        <td>${escaparHtml(String(item.subarea || "").trim() || "-")}</td>
+        <td>${formatearNumero(item.extra_diurna || 0)}</td>
+        <td>${formatearNumero(item.extra_nocturna || 0)}</td>
+        <td>${formatearNumero(item.horas_extra_estimadas || 0)}</td>
+        <td>${crearBadgeEstadoExtra(estado)}</td>
+        <td>${escaparHtml(item.aprobado_por || "-")}</td>
+        <td>${escaparHtml(formatearFechaHora(item.fecha_aprobacion) || "-")}</td>
+        <td>${escaparHtml(item.observacion_aprobacion || "-")}</td>
+        <td class="columna-acciones">
+          ${puedeValidar ? `
+            <div class="acciones-validacion">
+              <button
+                class="btn btn-sm btn-success btn-aprobar-extra"
+                data-id="${item.id}"
+              >
+                Aprobar
+              </button>
+              <button
+                class="btn btn-sm btn-outline-danger btn-rechazar-extra"
+                data-id="${item.id}"
+              >
+                Rechazar
+              </button>
+            </div>
+          ` : `<span class="text-muted small">Sin acción</span>`}
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  enlazarEventosValidacion();
+}
+
+function enlazarEventosValidacion() {
+  document.querySelectorAll(".btn-aprobar-extra").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const observacion = window.prompt("Observación de aprobación (opcional):", "") || "";
+      await actualizarEstadoExtraRegistro(id, "aprobado", observacion);
+    });
+  });
+
+  document.querySelectorAll(".btn-rechazar-extra").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const observacion = window.prompt("Motivo del rechazo:", "") || "";
+      await actualizarEstadoExtraRegistro(id, "rechazado", observacion);
+    });
+  });
+}
+
+async function actualizarEstadoExtraRegistro(id, estado, observacion) {
+  try {
+    const registroLocal = registrosBase.find((item) => String(item.id) === String(id));
+    if (!registroLocal) {
+      alert("No se encontró el registro a actualizar.");
+      return;
+    }
+
+    if (!usuarioPuedeValidarRegistro(sesionActiva, registroLocal)) {
+      alert("No tienes permisos para validar este registro.");
+      return;
+    }
+
+    const payload = {
+      estado_extra: estado,
+      aprobado_por: sesionActiva?.nombre_completo || sesionActiva?.usuario || "Usuario",
+      fecha_aprobacion: new Date().toISOString(),
+      observacion_aprobacion: String(observacion || "").trim() || null
+    };
+
+    const { error } = await supabase
+      .from("programacion_turnos")
+      .update(payload)
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error actualizando estado_extra:", error);
+      alert("No fue posible actualizar el estado de validación.");
+      return;
+    }
+
+    await cargarDashboardReal(sesionActiva);
+  } catch (error) {
+    console.error("Error general validando extra:", error);
+    alert("Ocurrió un error al validar el registro.");
+  }
+}
+
+function prioridadEstado(estado) {
+  const valor = normalizarEstadoExtra(estado);
+  if (valor === "pendiente") return 0;
+  if (valor === "aprobado") return 1;
+  if (valor === "rechazado") return 2;
+  return 9;
+}
+
+function obtenerRegistrosConExtras(registros) {
+  return registros.filter((item) => Number(item.horas_extra_estimadas || 0) > 0);
+}
+
+function usuarioPuedeValidarRegistro(sesion, registro) {
+  if (!sesion) return false;
+  if (sesion.puede_ver_todo === true) return true;
+
+  const rol = String(sesion.rol || "").trim().toLowerCase();
+  const rolesConValidacion = [
+    "admin",
+    "gerencia",
+    "bienestar",
+    "direccion_financiera",
+    "ayb",
+    "servicios_generales"
+  ];
+
+  if (!rolesConValidacion.includes(rol)) {
+    return false;
+  }
+
+  const areasPermitidas = Array.isArray(sesion.areas_permitidas) ? sesion.areas_permitidas : [];
+  if (!areasPermitidas.length) return false;
+
+  const areaRegistro = String(registro.area || "").toUpperCase();
+  const subareaRegistro = String(registro.subarea || "").toUpperCase();
+
+  return areasPermitidas.some((permitida) => {
+    const permiso = String(permitida || "").toUpperCase();
+    return areaRegistro.includes(permiso) || subareaRegistro.includes(permiso);
+  });
+}
+
+function crearBadgeEstadoExtra(estado) {
+  const valor = normalizarEstadoExtra(estado);
+  const clase =
+    valor === "aprobado" ? "estado-aprobado" :
+      valor === "rechazado" ? "estado-rechazado" :
+        "estado-pendiente";
+
+  return `<span class="badge-estado ${clase}">${escaparHtml(valor)}</span>`;
+}
+
 function renderGraficaAreas(registros) {
   const canvas = document.getElementById("graficaAreas");
   if (!canvas) return;
@@ -725,6 +1151,91 @@ function renderGraficaDias(registros) {
         y: {
           beginAtZero: true,
           ticks: { precision: 0 }
+        }
+      }
+    }
+  });
+}
+
+function renderGraficaHorasTipo(registros) {
+  const canvas = document.getElementById("graficaHorasTipo");
+  if (!canvas) return;
+
+  destruirGrafica("horasTipo");
+
+  const soloTurnos = registros.filter((r) => !esNovedad(r));
+  const horasDiurnas = redondearHoras(soloTurnos.reduce((acc, r) => acc + Number(r.horas_diurnas || 0), 0));
+  const horasNocturnas = redondearHoras(soloTurnos.reduce((acc, r) => acc + Number(r.horas_nocturnas || 0), 0));
+
+  chartHorasTipo = new Chart(canvas, {
+    type: "doughnut",
+    data: {
+      labels: ["Horas diurnas", "Horas nocturnas"],
+      datasets: [{
+        data: [horasDiurnas, horasNocturnas],
+        backgroundColor: [
+          "rgba(13,110,253,0.85)",
+          "rgba(111,66,193,0.85)"
+        ],
+        borderWidth: 2,
+        borderColor: "#ffffff"
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom" }
+      }
+    }
+  });
+}
+
+function renderGraficaHorasExtraEmpleados(registros) {
+  const canvas = document.getElementById("graficaHorasExtraEmpleados");
+  if (!canvas) return;
+
+  destruirGrafica("horasExtraEmpleados");
+
+  const mapa = {};
+
+  registros.filter((r) => !esNovedad(r)).forEach((item) => {
+    const clave = String(item.cedula || obtenerNombreEmpleado(item));
+    if (!mapa[clave]) {
+      mapa[clave] = {
+        nombre: obtenerNombreEmpleado(item),
+        total: 0
+      };
+    }
+
+    mapa[clave].total += Number(item.horas_extra_estimadas || 0);
+  });
+
+  const ranking = Object.values(mapa)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 8);
+
+  chartHorasExtraEmpleados = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: ranking.map((item) => recortarTexto(item.nombre, 18)),
+      datasets: [{
+        label: "Horas extra",
+        data: ranking.map((item) => redondearHoras(item.total)),
+        backgroundColor: "rgba(255,193,7,0.8)",
+        borderColor: "rgba(255,193,7,1)",
+        borderWidth: 1.5,
+        borderRadius: 8
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          beginAtZero: true
         }
       }
     }
@@ -1101,14 +1612,20 @@ function renderVaciosAnaliticos() {
   renderTablaIncapacidades([]);
   renderTablaAusentesHoy([]);
   renderTablaAlertasCriticas([]);
+  renderTablaValidacionExtras([]);
   renderKPIsGeneralesAnaliticos([]);
   renderKPIsAnaliticos([]);
+  renderKPIsHoras([]);
   renderKPIsNovedades([]);
+  renderKPIsAlertas([]);
+  renderKPIsValidacion([]);
   actualizarBadgesAnaliticos([]);
 
   [
     "areas",
     "dias",
+    "horasTipo",
+    "horasExtraEmpleados",
     "topEmpleados",
     "distribucionAreas",
     "tendenciaFechas",
@@ -1126,6 +1643,16 @@ function destruirGrafica(tipo) {
   if (tipo === "dias" && chartDias) {
     chartDias.destroy();
     chartDias = null;
+  }
+
+  if (tipo === "horasTipo" && chartHorasTipo) {
+    chartHorasTipo.destroy();
+    chartHorasTipo = null;
+  }
+
+  if (tipo === "horasExtraEmpleados" && chartHorasExtraEmpleados) {
+    chartHorasExtraEmpleados.destroy();
+    chartHorasExtraEmpleados = null;
   }
 
   if (tipo === "topEmpleados" && chartTopEmpleados) {
@@ -1180,12 +1707,49 @@ function esNovedad(item) {
 }
 
 function clasificarNovedad(item) {
-  const texto = `${String(item.novedad_codigo || "")} ${String(item.tipo_registro || "")} ${String(item.novedad || "")} ${String(item.observacion || "")}`.toLowerCase();
+  const codigo = String(item.novedad_codigo || "").trim().toLowerCase();
+  const novedad = String(item.novedad || "").trim().toLowerCase();
+  const tipoRegistro = String(item.tipo_registro || "").trim().toLowerCase();
+  const observacion = String(item.observacion || "").trim().toLowerCase();
 
-  if (texto.includes("incap")) return "incapacidad";
-  if (texto.includes("vacac")) return "vacaciones";
-  if (texto.includes("licen") || texto.includes("permiso")) return "licencia";
-  if (texto.includes("descanso")) return "descanso";
+  const texto = `${codigo} ${tipoRegistro} ${novedad} ${observacion}`.toLowerCase();
+
+  if (
+    codigo === "inc" ||
+    codigo === "inca" ||
+    texto.includes("incap") ||
+    texto.includes("incapacidad") ||
+    texto.includes("incapacitado")
+  ) {
+    return "incapacidad";
+  }
+
+  if (
+    codigo === "vac" ||
+    codigo === "vaca" ||
+    texto.includes("vacac") ||
+    texto.includes("vacaciones")
+  ) {
+    return "vacaciones";
+  }
+
+  if (
+    codigo === "lic" ||
+    codigo === "perm" ||
+    texto.includes("licen") ||
+    texto.includes("licencia") ||
+    texto.includes("permiso")
+  ) {
+    return "licencia";
+  }
+
+  if (
+    codigo === "des" ||
+    texto.includes("descanso")
+  ) {
+    return "descanso";
+  }
+
   return "otra";
 }
 
@@ -1279,25 +1843,149 @@ function esAdministrativo(item) {
   return !esAyb(item) && !esOperaciones(item);
 }
 
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = value;
+function configurarCerrarSesion() {
+  const linksCerrar = document.querySelectorAll('.nav-link[href="login.html"]');
+
+  linksCerrar.forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      localStorage.removeItem("ccp_sesion");
+      window.location.href = "login.html";
+    });
+  });
 }
 
-function recortarTexto(texto, maximo = 20) {
-  const valor = String(texto || "");
-  return valor.length <= maximo ? valor : `${valor.slice(0, maximo)}...`;
+function configurarBotonActualizar() {
+  const btnActualizar = document.getElementById("btnActualizarTablero");
+  if (!btnActualizar) return;
+
+  btnActualizar.addEventListener("click", async () => {
+    await cargarDashboardReal(sesionActiva);
+  });
 }
 
-function formatearNumero(valor) {
-  const numero = Number(valor || 0);
-  return numero % 1 === 0 ? String(numero) : numero.toFixed(1);
+function configurarBotonExportarPDF() {
+  const btnExportarPDF = document.getElementById("btnExportarPDF");
+  if (!btnExportarPDF) return;
+
+  btnExportarPDF.addEventListener("click", async () => {
+    await exportarDashboardAPDF();
+  });
 }
 
-function formatearMesAnio(clave) {
-  const [anio, mes] = String(clave).split("-");
-  if (!anio || !mes) return clave;
-  return `${obtenerNombreMes(Number(mes) - 1).slice(0, 3)} ${anio}`;
+function configurarBotonExportarExcel() {
+  const btnExportarExcel = document.getElementById("btnExportarExcel");
+  if (!btnExportarExcel) return;
+
+  btnExportarExcel.addEventListener("click", () => {
+    exportarExcelAprobados();
+  });
+}
+
+function exportarExcelAprobados() {
+  try {
+    const registrosFiltrados = obtenerRegistrosFiltrados();
+    const aprobados = obtenerRegistrosConExtras(registrosFiltrados)
+      .filter((item) => normalizarEstadoExtra(item.estado_extra) === "aprobado");
+
+    if (!aprobados.length) {
+      alert("No hay registros aprobados para exportar con los filtros actuales.");
+      return;
+    }
+
+    const data = aprobados.map((item) => ({
+      Nombre: obtenerNombreEmpleado(item),
+      Cédula: item.cedula || "",
+      Fecha: item.fecha || "",
+      Área: obtenerAreaAmigable(item),
+      "Subárea": String(item.subarea || "").trim(),
+      "Horas diurnas": Number(item.horas_diurnas || 0),
+      "Horas nocturnas": Number(item.horas_nocturnas || 0),
+      "Extra diurna": Number(item.extra_diurna || 0),
+      "Extra nocturna": Number(item.extra_nocturna || 0),
+      "Total extra": Number(item.horas_extra_estimadas || 0),
+      Estado: normalizarEstadoExtra(item.estado_extra),
+      "Aprobado por": item.aprobado_por || "",
+      "Fecha aprobación": formatearFechaHora(item.fecha_aprobacion) || "",
+      "Observación": item.observacion_aprobacion || ""
+    }));
+
+    const worksheet = window.XLSX.utils.json_to_sheet(data);
+    const workbook = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(workbook, worksheet, "Horas extra aprobadas");
+
+    const fecha = new Date();
+    const nombreArchivo = `horas_extra_aprobadas_${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}.xlsx`;
+
+    window.XLSX.writeFile(workbook, nombreArchivo);
+  } catch (error) {
+    console.error("Error exportando Excel:", error);
+    alert("Ocurrió un error al exportar el Excel.");
+  }
+}
+
+async function exportarDashboardAPDF() {
+  const contenedor = document.getElementById("dashboardExportable");
+  const btn = document.getElementById("btnExportarPDF");
+
+  if (!contenedor || !window.html2canvas || !window.jspdf) {
+    alert("No fue posible exportar el PDF.");
+    return;
+  }
+
+  const textoOriginal = btn ? btn.textContent : "";
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Generando PDF...";
+    }
+
+    const canvas = await window.html2canvas(contenedor, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+      scrollY: -window.scrollY
+    });
+
+    const imgData = canvas.toDataURL("image/png");
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("p", "mm", "a4");
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    const margin = 8;
+    const usableWidth = pageWidth - (margin * 2);
+    const usableHeight = pageHeight - (margin * 2);
+
+    const imgWidth = usableWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    let heightLeft = imgHeight;
+    let position = margin;
+
+    pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
+    heightLeft -= usableHeight;
+
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight + margin;
+      pdf.addPage();
+      pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
+      heightLeft -= usableHeight;
+    }
+
+    const fecha = new Date();
+    const nombreArchivo = `dashboard_turnos_${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}.pdf`;
+    pdf.save(nombreArchivo);
+  } catch (error) {
+    console.error("Error exportando PDF:", error);
+    alert("Ocurrió un error al generar el PDF.");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = textoOriginal || "Exportar PDF";
+    }
+  }
 }
 
 function traducirRol(rol) {
@@ -1381,27 +2069,6 @@ function obtenerClaveModulo(href) {
   return href;
 }
 
-function configurarCerrarSesion() {
-  const linksCerrar = document.querySelectorAll('.nav-link[href="login.html"]');
-
-  linksCerrar.forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      localStorage.removeItem("ccp_sesion");
-      window.location.href = "login.html";
-    });
-  });
-}
-
-function configurarBotonActualizar() {
-  const btnActualizar = document.getElementById("btnActualizarTablero");
-  if (!btnActualizar) return;
-
-  btnActualizar.addEventListener("click", async () => {
-    await cargarDashboardReal(sesionActiva);
-  });
-}
-
 function obtenerInicioSemanaOperativa(fechaBase) {
   const fecha = new Date(fechaBase);
   const dia = fecha.getDay();
@@ -1437,6 +2104,20 @@ function formatearFechaCorta(fechaIso) {
   return `${day}/${month}/${year}`;
 }
 
+function formatearFechaHora(fechaIso) {
+  if (!fechaIso) return "";
+  const fecha = new Date(fechaIso);
+  if (Number.isNaN(fecha.getTime())) return String(fechaIso);
+
+  const dd = String(fecha.getDate()).padStart(2, "0");
+  const mm = String(fecha.getMonth() + 1).padStart(2, "0");
+  const yyyy = fecha.getFullYear();
+  const hh = String(fecha.getHours()).padStart(2, "0");
+  const min = String(fecha.getMinutes()).padStart(2, "0");
+
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
 function obtenerNombreDia(fecha) {
   const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   return dias[fecha.getDay()];
@@ -1448,6 +2129,31 @@ function obtenerNombreMes(index) {
     "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
   ];
   return meses[index];
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function recortarTexto(texto, maximo = 20) {
+  const valor = String(texto || "");
+  return valor.length <= maximo ? valor : `${valor.slice(0, maximo)}...`;
+}
+
+function formatearNumero(valor) {
+  const numero = Number(valor || 0);
+  return numero % 1 === 0 ? String(numero) : numero.toFixed(1);
+}
+
+function formatearMesAnio(clave) {
+  const [anio, mes] = String(clave).split("-");
+  if (!anio || !mes) return clave;
+  return `${obtenerNombreMes(Number(mes) - 1).slice(0, 3)} ${anio}`;
+}
+
+function redondearHoras(valor) {
+  return Math.round((Number(valor || 0) + Number.EPSILON) * 100) / 100;
 }
 
 function escaparHtml(valor) {

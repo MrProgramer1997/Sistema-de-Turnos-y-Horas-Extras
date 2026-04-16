@@ -1,23 +1,45 @@
 import { supabase } from "../supabase/supabaseClient.js";
 
 window.mostrarAdmin = function () {
-  document.getElementById("adminLogin").style.display = "block";
+  document.getElementById("adminLogin").style.display = "flex";
   document.getElementById("empleadoLogin").style.display = "none";
+
+  const tabAdmin = document.getElementById("tabAdmin");
+  const tabEmpleado = document.getElementById("tabEmpleado");
+
+  if (tabAdmin) tabAdmin.classList.add("active");
+  if (tabEmpleado) tabEmpleado.classList.remove("active");
+
+  if (typeof limpiarMensaje === "function") limpiarMensaje();
+  if (typeof limpiarErrores === "function") limpiarErrores();
+  if (typeof ocultarLoader === "function") ocultarLoader();
 };
 
 window.mostrarEmpleado = function () {
   document.getElementById("adminLogin").style.display = "none";
-  document.getElementById("empleadoLogin").style.display = "block";
+  document.getElementById("empleadoLogin").style.display = "flex";
+
+  const tabAdmin = document.getElementById("tabAdmin");
+  const tabEmpleado = document.getElementById("tabEmpleado");
+
+  if (tabEmpleado) tabEmpleado.classList.add("active");
+  if (tabAdmin) tabAdmin.classList.remove("active");
+
+  if (typeof limpiarMensaje === "function") limpiarMensaje();
+  if (typeof limpiarErrores === "function") limpiarErrores();
+  if (typeof ocultarLoader === "function") ocultarLoader();
 };
 
 window.loginAdmin = async function () {
-  const usuario = document.getElementById("usuario").value.trim();
-  const password = document.getElementById("password").value.trim();
-  const rol = document.getElementById("rol").value.trim();
+  const usuario = document.getElementById("usuario")?.value.trim() || "";
+  const password = document.getElementById("password")?.value.trim() || "";
+  const rol = document.getElementById("rol")?.value.trim() || "";
 
   if (!usuario || !password || !rol) {
-    alert("Complete todos los campos.");
-    return;
+    if (typeof mostrarMensaje === "function") {
+      mostrarMensaje("error", "Complete usuario, contraseña y rol.");
+    }
+    return false;
   }
 
   try {
@@ -31,8 +53,12 @@ window.loginAdmin = async function () {
 
     if (error || !data) {
       console.error("Error login admin:", error);
-      alert("Credenciales incorrectas o usuario no autorizado.");
-      return;
+
+      if (typeof mostrarMensaje === "function") {
+        mostrarMensaje("error", "Credenciales incorrectas o usuario no autorizado.");
+      }
+
+      return false;
     }
 
     const modulosBase =
@@ -65,27 +91,42 @@ window.loginAdmin = async function () {
       rol: data.rol || "",
       puede_ver_todo: data.puede_ver_todo || false,
       areas_permitidas: data.areas_permitidas || [],
-      modulos_permitidos: Array.from(new Set([
-        ...modulosBase,
-        "empleados"
-      ])),
+      modulos_permitidos: Array.from(
+        new Set([
+          ...modulosBase,
+          "empleados"
+        ])
+      ),
       tipo_ingreso: "admin"
     };
 
     localStorage.setItem("ccp_sesion", JSON.stringify(sesion));
+
+    if (typeof mostrarMensaje === "function") {
+      mostrarMensaje("success", "Ingreso correcto. Redirigiendo...");
+    }
+
     window.location.href = "dashboard.html";
+    return true;
   } catch (err) {
     console.error("Excepción login admin:", err);
-    alert("Ocurrió un error al iniciar sesión.");
+
+    if (typeof mostrarMensaje === "function") {
+      mostrarMensaje("error", "Ocurrió un error al iniciar sesión.");
+    }
+
+    return false;
   }
 };
 
 window.consultarTurnos = async function () {
-  const cedula = document.getElementById("cedula").value.trim();
+  const cedula = document.getElementById("cedula")?.value.trim() || "";
 
   if (!cedula) {
-    alert("Ingrese la cédula.");
-    return;
+    if (typeof mostrarMensaje === "function") {
+      mostrarMensaje("error", "Ingrese la cédula.");
+    }
+    return false;
   }
 
   try {
@@ -97,8 +138,12 @@ window.consultarTurnos = async function () {
 
     if (error || !data) {
       console.error("Error consulta empleado:", error);
-      alert("No se encontró un empleado con esa cédula.");
-      return;
+
+      if (typeof mostrarMensaje === "function") {
+        mostrarMensaje("error", "No se encontró un empleado con esa cédula.");
+      }
+
+      return false;
     }
 
     const sesionEmpleado = {
@@ -147,19 +192,29 @@ window.consultarTurnos = async function () {
       cargo.includes("OPERACIONES") ||
       cargo.includes("SERVICIOS GENERALES");
 
+    if (typeof mostrarMensaje === "function") {
+      mostrarMensaje("success", "Empleado encontrado. Redirigiendo...");
+    }
+
     if (esAyb) {
       window.location.href = "mis-turnos-ayb.html";
-      return;
+      return true;
     }
 
     if (esOperaciones) {
       window.location.href = "mis-turnos-operaciones.html";
-      return;
+      return true;
     }
 
     window.location.href = "mis-turnos-administrativo.html";
+    return true;
   } catch (err) {
     console.error("Excepción consulta empleado:", err);
-    alert("Ocurrió un error al consultar la información del empleado.");
+
+    if (typeof mostrarMensaje === "function") {
+      mostrarMensaje("error", "Ocurrió un error al consultar la información del empleado.");
+    }
+
+    return false;
   }
 };

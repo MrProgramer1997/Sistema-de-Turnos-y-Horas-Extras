@@ -9,86 +9,220 @@
 
   <style>
     :root {
-      --bg-app: #f4f7fb;
+      --bg-app: #eef3f9;
+      --bg-soft: #f8fbff;
       --card-bg: #ffffff;
-      --card-border: #e6ebf2;
-      --text-main: #1f2937;
+      --card-border: #dfe7f1;
+      --text-main: #182230;
       --text-soft: #6b7280;
-      --primary-soft: #eef4ff;
-      --primary-border: #cfe0ff;
-      --primary-strong: #0d6efd;
-      --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.06);
+      --text-muted: #8a94a6;
+
+      --navy-1: #11213a;
+      --navy-2: #1c3557;
+      --navy-3: #27476f;
+
+      --primary: #0d6efd;
+      --primary-soft: #eaf2ff;
+      --primary-border: #c9ddff;
+      --primary-dark: #0a4fb8;
+
+      --success-soft: #e8f7ee;
+      --success-text: #177245;
+      --success-border: #bde4cd;
+
+      --warning-soft: #fff7dc;
+      --warning-text: #9a6700;
+      --warning-border: #ffe08a;
+
+      --gray-soft: #f3f5f7;
+      --gray-text: #667085;
+      --gray-border: #e3e8ef;
+
+      --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.07);
+      --shadow-card: 0 12px 28px rgba(15, 23, 42, 0.06);
+      --radius-xl: 1.4rem;
+      --radius-lg: 1.05rem;
+      --radius-md: 0.9rem;
     }
 
-    body {
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
       background: var(--bg-app);
       color: var(--text-main);
     }
 
-    .sidebar {
-      background: linear-gradient(180deg, #152238 0%, #1b2f4c 100%);
+    body {
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .app-layout {
       min-height: 100vh;
-      box-shadow: inset -1px 0 0 rgba(255,255,255,0.05);
+      background: linear-gradient(180deg, #f4f8fd 0%, #eef3f9 100%);
+    }
+
+    .sidebar {
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.10), transparent 28%),
+        linear-gradient(180deg, var(--navy-1) 0%, var(--navy-2) 55%, #223d61 100%);
+      min-height: 100vh;
+      box-shadow: inset -1px 0 0 rgba(255,255,255,0.04);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sidebar::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      bottom: -40px;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+      filter: blur(4px);
     }
 
     .brand-box {
-      padding: 1rem 0.25rem 1.25rem;
+      padding: 1.15rem 0.35rem 1.25rem;
       border-bottom: 1px solid rgba(255,255,255,0.08);
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .brand-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.38rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.92);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.10);
+      margin-bottom: 0.9rem;
     }
 
     .brand-title {
-      color: #fff;
-      font-weight: 700;
-      margin-bottom: 0.25rem;
-      font-size: 1.3rem;
+      color: #ffffff;
+      font-weight: 800;
+      margin-bottom: 0.35rem;
+      font-size: 1.85rem;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
     }
 
     .brand-subtitle {
-      color: rgba(255,255,255,0.72);
-      font-size: 0.92rem;
+      color: rgba(255,255,255,0.76);
+      font-size: 0.98rem;
       margin: 0;
+      line-height: 1.45;
+      max-width: 260px;
+    }
+
+    .sidebar-mini-info {
+      display: grid;
+      gap: 0.8rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .sidebar-mini-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 1rem;
+      padding: 0.85rem 0.9rem;
+      backdrop-filter: blur(8px);
+    }
+
+    .sidebar-mini-label {
+      color: rgba(255,255,255,0.62);
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+
+    .sidebar-mini-value {
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.97rem;
+      line-height: 1.35;
+    }
+
+    .main-panel {
+      background: transparent;
     }
 
     .page-shell {
-      max-width: 1450px;
+      max-width: 1500px;
       margin: 0 auto;
     }
 
-    .header-panel {
-      background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
+    .hero-panel {
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top right, rgba(13, 110, 253, 0.12), transparent 28%),
+        linear-gradient(135deg, #ffffff 0%, #f7fbff 55%, #f4f8ff 100%);
       border: 1px solid var(--card-border);
-      border-radius: 1.4rem;
+      border-radius: 1.6rem;
       box-shadow: var(--shadow-soft);
       padding: 1.35rem;
-      margin-bottom: 1.25rem;
+      margin-bottom: 1.15rem;
+    }
+
+    .hero-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(90deg, rgba(255,255,255,0.6), transparent 55%);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
     }
 
     .header-chip {
       display: inline-flex;
       align-items: center;
       gap: 0.45rem;
-      padding: 0.42rem 0.8rem;
+      padding: 0.42rem 0.82rem;
       border-radius: 999px;
       background: var(--primary-soft);
       border: 1px solid var(--primary-border);
-      color: #244a9a;
-      font-size: 0.86rem;
-      font-weight: 600;
-      margin-bottom: 0.8rem;
+      color: #1d4fba;
+      font-size: 0.84rem;
+      font-weight: 700;
+      margin-bottom: 0.85rem;
     }
 
     .page-title {
-      font-size: clamp(1.6rem, 2vw, 2.2rem);
+      font-size: clamp(1.8rem, 2vw, 2.5rem);
       font-weight: 800;
-      margin-bottom: 0.25rem;
-      color: #14213d;
+      line-height: 1.08;
+      margin-bottom: 0.3rem;
+      color: #10213a;
+      letter-spacing: -0.03em;
     }
 
     .page-subtitle {
       color: var(--text-soft);
       margin: 0;
-      font-size: 0.98rem;
+      font-size: 1rem;
+      line-height: 1.5;
+      max-width: 760px;
     }
 
     .header-actions {
@@ -100,98 +234,121 @@
     }
 
     .btn-soft {
-      border-radius: 0.85rem;
-      font-weight: 600;
-      padding: 0.72rem 1rem;
-      border: 1px solid #dbe5f0;
+      border-radius: 0.95rem;
+      font-weight: 700;
+      padding: 0.78rem 1rem;
+      border: 1px solid #d6e1ee;
       background: #fff;
-      color: #1e3a5f;
+      color: #193556;
       transition: 0.2s ease;
     }
 
     .btn-soft:hover {
       background: #f4f8fd;
-      border-color: #c9d8ea;
+      border-color: #c6d6ea;
       transform: translateY(-1px);
     }
 
     .btn-main {
-      border-radius: 0.85rem;
-      font-weight: 700;
-      padding: 0.72rem 1rem;
-      box-shadow: 0 8px 18px rgba(13, 110, 253, 0.16);
+      border-radius: 0.95rem;
+      font-weight: 800;
+      padding: 0.78rem 1rem;
+      box-shadow: 0 10px 24px rgba(13, 110, 253, 0.18);
     }
 
     .btn-danger-soft,
     .btn-back-soft {
-      border-radius: 0.85rem;
-      font-weight: 600;
-      padding: 0.72rem 1rem;
+      border-radius: 0.95rem;
+      font-weight: 700;
+      padding: 0.78rem 1rem;
     }
 
     .summary-grid {
       display: grid;
-      grid-template-columns: 1.2fr 1fr 1fr 1fr;
+      grid-template-columns: 1.3fr 1fr 1fr 1fr;
       gap: 1rem;
-      margin-bottom: 1.25rem;
+      margin-bottom: 1.2rem;
     }
 
     .summary-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 1.2rem;
-      box-shadow: var(--shadow-soft);
-      padding: 1.1rem 1.15rem;
+      border-radius: 1.25rem;
+      box-shadow: var(--shadow-card);
+      padding: 1.08rem 1.12rem;
       height: 100%;
+      position: relative;
+      overflow: hidden;
     }
 
     .summary-card.today-highlight {
-      background: linear-gradient(135deg, #f7fbff 0%, #edf5ff 100%);
-      border: 1px solid #d4e5ff;
+      background: linear-gradient(135deg, #f7fbff 0%, #ebf4ff 100%);
+      border-color: #d2e4ff;
+    }
+
+    .summary-card::after {
+      content: "";
+      position: absolute;
+      right: -20px;
+      bottom: -24px;
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      background: rgba(13, 110, 253, 0.04);
     }
 
     .summary-label {
-      font-size: 0.82rem;
+      position: relative;
+      z-index: 1;
+      font-size: 0.79rem;
       color: var(--text-soft);
       text-transform: uppercase;
-      letter-spacing: 0.04em;
-      margin-bottom: 0.35rem;
-      font-weight: 700;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.4rem;
+      font-weight: 800;
     }
 
     .summary-value {
-      font-size: 1.15rem;
+      position: relative;
+      z-index: 1;
+      font-size: 1.14rem;
       font-weight: 800;
       color: #16233b;
-      line-height: 1.2;
+      line-height: 1.22;
+      word-break: break-word;
     }
 
     .summary-subvalue {
-      margin-top: 0.4rem;
+      position: relative;
+      z-index: 1;
+      margin-top: 0.42rem;
       color: var(--text-soft);
       font-size: 0.93rem;
+      line-height: 1.45;
     }
 
     .today-badge {
+      position: relative;
+      z-index: 1;
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.45rem;
       width: fit-content;
-      padding: 0.38rem 0.72rem;
+      padding: 0.38rem 0.74rem;
       border-radius: 999px;
-      background: #dff3e7;
-      color: #17633a;
+      background: var(--success-soft);
+      color: var(--success-text);
       font-size: 0.8rem;
-      font-weight: 700;
-      border: 1px solid #bce3ca;
-      margin-bottom: 0.55rem;
+      font-weight: 800;
+      border: 1px solid var(--success-border);
+      margin-bottom: 0.6rem;
     }
 
     .section-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 1.4rem;
-      box-shadow: var(--shadow-soft);
+      border-radius: 1.45rem;
+      box-shadow: var(--shadow-card);
       overflow: hidden;
     }
 
@@ -200,122 +357,240 @@
       justify-content: space-between;
       align-items: center;
       gap: 1rem;
-      padding: 1rem 1.2rem;
-      border-bottom: 1px solid #edf1f6;
-      background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+      padding: 1.05rem 1.2rem;
+      border-bottom: 1px solid #edf2f7;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
     }
 
     .section-title {
       margin: 0;
-      font-size: 1.15rem;
+      font-size: 1.17rem;
       font-weight: 800;
       color: #18253d;
+      letter-spacing: -0.01em;
     }
 
     .section-text {
-      margin: 0.15rem 0 0;
+      margin: 0.18rem 0 0;
       color: var(--text-soft);
-      font-size: 0.92rem;
+      font-size: 0.93rem;
+      line-height: 1.45;
     }
 
     .week-meta {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem;
+      gap: 0.55rem;
+      align-items: center;
     }
 
     .week-pill {
       display: inline-flex;
       align-items: center;
-      padding: 0.45rem 0.8rem;
+      padding: 0.48rem 0.82rem;
       border-radius: 999px;
-      background: #f6f8fb;
-      border: 1px solid #e5ebf3;
-      color: #42526b;
+      background: #f5f8fc;
+      border: 1px solid #e4ebf3;
+      color: #40526c;
       font-size: 0.84rem;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .week-body {
       padding: 1rem;
     }
 
-    /* IMPORTANTE:
-       No obligamos al JS a usar grid nuevo.
-       Dejamos el contenedor flexible para que acepte lo que ya renderiza tu JS. */
     #contenedorSemanaEmpleado {
-      min-height: 120px;
+      min-height: 140px;
     }
 
-    /* DECORACIÓN SEGURA para columnas y tarjetas que ya inserta tu JS */
     #contenedorSemanaEmpleado > [class*="col-"] {
       display: flex;
     }
 
-    #contenedorSemanaEmpleado .dia-card,
-    #contenedorSemanaEmpleado .turno-card,
-    #contenedorSemanaEmpleado .novedad-card {
+    .dia-card,
+    .turno-card,
+    .novedad-card {
       width: 100%;
-      border-radius: 1rem;
-      border: 1px solid #dde6f0;
+      border-radius: 1.1rem;
+      border: 1px solid var(--card-border);
       background: #ffffff;
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
-      padding: 1rem;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
       transition: 0.2s ease;
     }
 
-    #contenedorSemanaEmpleado .dia-card:hover,
-    #contenedorSemanaEmpleado .turno-card:hover,
-    #contenedorSemanaEmpleado .novedad-card:hover {
+    .dia-card {
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dia-card:hover,
+    .turno-card:hover,
+    .novedad-card:hover {
       transform: translateY(-2px);
       box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
     }
 
-    /* separadores internos para que no se vea texto corrido */
-    #contenedorSemanaEmpleado .dia-card hr,
-    #contenedorSemanaEmpleado .turno-card hr,
-    #contenedorSemanaEmpleado .novedad-card hr {
-      margin: 0.75rem 0;
-      border-color: #e7edf5;
+    .dia-head {
+      padding: 1rem 1rem 0.95rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.8rem;
+      border-bottom: 1px solid #e8eef6;
+      background: linear-gradient(180deg, #fbfdff 0%, #f7faff 100%);
+    }
+
+    .dia-head-left {
+      min-width: 0;
+    }
+
+    .dia-nombre {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #11213a;
+      line-height: 1.15;
+      margin-bottom: 0.18rem;
+    }
+
+    .dia-fecha {
+      font-size: 0.92rem;
+      color: var(--text-soft);
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .dia-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      padding: 0.35rem 0.64rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      border: 1px solid transparent;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .badge-hoy {
+      background: var(--primary-soft);
+      color: var(--primary-dark);
+      border-color: var(--primary-border);
+    }
+
+    .badge-descanso {
+      background: var(--gray-soft);
+      color: var(--gray-text);
+      border-color: var(--gray-border);
+    }
+
+    .badge-novedad {
+      background: var(--warning-soft);
+      color: var(--warning-text);
+      border-color: var(--warning-border);
+    }
+
+    .dia-body {
+      padding: 0.95rem;
+      display: grid;
+      gap: 0.8rem;
+      flex: 1;
+    }
+
+    .turno-card,
+    .novedad-card {
+      padding: 0.95rem;
+    }
+
+    .turno-card {
+      border-color: #dde6f0;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
+    }
+
+    .novedad-card {
+      background: linear-gradient(180deg, #fffdf6 0%, #fff8e7 100%);
+      border-color: #ffe2a8;
+    }
+
+    .turno-line,
+    .novedad-line {
+      margin: 0 0 0.42rem;
+      color: #243247;
+      line-height: 1.42;
+      font-size: 0.97rem;
+    }
+
+    .turno-line:last-child,
+    .novedad-line:last-child {
+      margin-bottom: 0;
+    }
+
+    .turno-card hr,
+    .novedad-card hr {
+      margin: 0.78rem 0;
+      border-color: #e8eef6;
       opacity: 1;
     }
 
-    /* bloques de texto */
-    #contenedorSemanaEmpleado .dia-card strong,
-    #contenedorSemanaEmpleado .turno-card strong,
-    #contenedorSemanaEmpleado .novedad-card strong {
-      color: #15233b;
+    .turno-card .fw-semibold {
+      color: #183252;
     }
 
-    /* si el JS agrega hoy, descanso o novedad por clase */
-    #contenedorSemanaEmpleado .dia-card.hoy,
-    #contenedorSemanaEmpleado .dia-card.today {
-      background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
-      border-color: #b9d4ff;
-      position: relative;
+    .turno-observacion,
+    .novedad-observacion {
+      margin-top: 0.65rem;
+      padding-top: 0.65rem;
+      border-top: 1px dashed #dce5ef;
+      color: var(--text-soft);
+      font-size: 0.88rem;
+      line-height: 1.45;
     }
 
-    #contenedorSemanaEmpleado .dia-card.hoy::before,
-    #contenedorSemanaEmpleado .dia-card.today::before {
+    .dia-card.today {
+      border-color: #bcd5ff;
+      background: linear-gradient(180deg, #fafdff 0%, #f2f7ff 100%);
+    }
+
+    .dia-card.today .dia-head {
+      background: linear-gradient(180deg, #eef5ff 0%, #e7f0ff 100%);
+      border-bottom-color: #d5e4ff;
+    }
+
+    .dia-card.today::before {
       content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
+      display: block;
+      width: 100%;
       height: 5px;
-      background: #0d6efd;
-      border-top-left-radius: 1rem;
-      border-top-right-radius: 1rem;
+      background: linear-gradient(90deg, #0d6efd, #5aa0ff);
     }
 
-    #contenedorSemanaEmpleado .dia-card.descanso {
-      background: linear-gradient(180deg, #fcfcfd 0%, #f4f6f8 100%);
-      border-color: #dce3ea;
+    .dia-card.descanso {
+      background: linear-gradient(180deg, #ffffff 0%, #f6f8fa 100%);
+      border-color: #e2e8ef;
     }
 
-    #contenedorSemanaEmpleado .dia-card.novedad {
-      background: linear-gradient(180deg, #fffdf5 0%, #fff6db 100%);
+    .dia-card.descanso .dia-head {
+      background: linear-gradient(180deg, #fafbfd 0%, #f4f6f8 100%);
+    }
+
+    .dia-card.novedad {
       border-color: #ffe08a;
+      background: linear-gradient(180deg, #ffffff 0%, #fffaf0 100%);
+    }
+
+    .dia-card.novedad .dia-head {
+      background: linear-gradient(180deg, #fffdf7 0%, #fff8e8 100%);
+      border-bottom-color: #ffe7a8;
+    }
+
+    .dia-empty {
+      color: var(--text-soft);
+      font-size: 0.98rem;
+      line-height: 1.5;
     }
 
     .legend-row {
@@ -329,13 +604,13 @@
       display: inline-flex;
       align-items: center;
       gap: 0.45rem;
-      padding: 0.48rem 0.75rem;
+      padding: 0.5rem 0.78rem;
       border-radius: 999px;
       background: #f7f9fc;
       border: 1px solid #e7edf4;
       font-size: 0.82rem;
       color: #4b5563;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .legend-dot {
@@ -351,7 +626,7 @@
 
     .modal-content {
       border: 0;
-      border-radius: 1.15rem;
+      border-radius: 1.2rem;
       overflow: hidden;
       box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
     }
@@ -382,12 +657,66 @@
     }
 
     @media (max-width: 767.98px) {
-      .summary-grid {
-        grid-template-columns: 1fr;
+      .app-layout {
+        background: linear-gradient(180deg, #eef4fb 0%, #eef3f9 100%);
       }
 
-      .header-panel {
+      .sidebar {
+        min-height: auto;
+        box-shadow: none;
+        border-bottom-left-radius: 1.2rem;
+        border-bottom-right-radius: 1.2rem;
+      }
+
+      .sidebar::after {
+        width: 120px;
+        height: 120px;
+        right: -28px;
+        bottom: -30px;
+      }
+
+      .brand-box {
+        padding: 1.1rem 0.2rem 1rem;
+        margin-bottom: 0.9rem;
+      }
+
+      .brand-title {
+        font-size: 2rem;
+      }
+
+      .brand-subtitle {
+        max-width: 100%;
+        font-size: 1rem;
+      }
+
+      .sidebar-mini-info {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.7rem;
+      }
+
+      .sidebar-mini-card {
+        padding: 0.75rem 0.8rem;
+      }
+
+      .main-panel {
+        padding-top: 0.95rem !important;
+      }
+
+      .hero-panel {
         padding: 1rem;
+        border-radius: 1.25rem;
+      }
+
+      .page-title {
+        font-size: 1.75rem;
+      }
+
+      .page-subtitle {
+        font-size: 0.96rem;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
       }
 
       .section-header {
@@ -405,37 +734,122 @@
       .header-actions {
         width: 100%;
       }
+
+      .header-actions .btn {
+        min-height: 48px;
+      }
+
+      .week-body {
+        padding: 0.85rem;
+      }
+
+      .dia-head {
+        padding: 0.95rem 0.95rem 0.85rem;
+      }
+
+      .dia-nombre {
+        font-size: 1.13rem;
+      }
+
+      .dia-fecha {
+        font-size: 0.95rem;
+      }
+
+      .dia-body {
+        padding: 0.85rem;
+      }
+
+      .turno-card,
+      .novedad-card {
+        padding: 0.88rem;
+      }
+
+      .legend-row {
+        gap: 0.5rem;
+      }
+    }
+
+    @media (max-width: 575.98px) {
+      .container-fluid {
+        padding-left: 0;
+        padding-right: 0;
+      }
+
+      .main-panel {
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+      }
+
+      .sidebar {
+        padding: 1rem !important;
+      }
+
+      .sidebar-mini-info {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-card {
+        padding: 1rem;
+      }
+
+      .week-pill {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .dia-head {
+        flex-direction: row;
+        align-items: flex-start;
+      }
+
+      .dia-badge {
+        font-size: 0.7rem;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container-fluid">
+  <div class="container-fluid app-layout">
     <div class="row min-vh-100">
       <aside class="col-12 col-md-3 col-lg-2 sidebar p-3">
         <div class="brand-box">
+          <div class="brand-kicker">Turnos A&B</div>
           <div class="brand-title">Turnos Club</div>
-          <p class="brand-subtitle">Consulta rápida de programación A&B</p>
+          <p class="brand-subtitle">Consulta rápida, clara y cómoda de tu programación semanal.</p>
+        </div>
+
+        <div class="sidebar-mini-info">
+          <div class="sidebar-mini-card">
+            <div class="sidebar-mini-label">Vista</div>
+            <div class="sidebar-mini-value">Programación semanal</div>
+          </div>
+          <div class="sidebar-mini-card">
+            <div class="sidebar-mini-label">Módulo</div>
+            <div class="sidebar-mini-value">Mis turnos A&amp;B</div>
+          </div>
         </div>
       </aside>
 
-      <main class="col-12 col-md-9 col-lg-10 p-3 p-lg-4 fondo-modulo">
+      <main class="col-12 col-md-9 col-lg-10 p-3 p-lg-4 main-panel">
         <div class="page-shell">
 
-          <section class="header-panel">
-            <div class="row g-3 align-items-center">
-              <div class="col-12 col-xl-7">
-                <div class="header-chip">Área de Alimentos y Bebidas</div>
-                <h1 class="page-title">Mis Turnos A&B</h1>
-                <p class="page-subtitle" id="subtituloMisTurnosAyb">Consultando programación...</p>
-              </div>
+          <section class="hero-panel">
+            <div class="hero-content">
+              <div class="row g-3 align-items-center">
+                <div class="col-12 col-xl-7">
+                  <div class="header-chip">Área de Alimentos y Bebidas</div>
+                  <h1 class="page-title">Mis Turnos A&amp;B</h1>
+                  <p class="page-subtitle" id="subtituloMisTurnosAyb">Consultando programación...</p>
+                </div>
 
-              <div class="col-12 col-xl-5">
-                <div class="header-actions">
-                  <button class="btn btn-outline-secondary btn-back-soft d-none" id="btnVolverModuloAnterior">← Volver al módulo anterior</button>
-                  <button class="btn btn-soft" id="btnSemanaAnteriorEmpleado">← Semana anterior</button>
-                  <button class="btn btn-soft" id="btnSemanaSiguienteEmpleado">Semana siguiente →</button>
-                  <button class="btn btn-primary btn-main" id="btnVerTurnosCatalogo">Ver equivalencia de turnos</button>
-                  <button class="btn btn-outline-danger btn-danger-soft" id="btnCerrarSesionEmpleado">Cerrar sesión</button>
+                <div class="col-12 col-xl-5">
+                  <div class="header-actions">
+                    <button class="btn btn-outline-secondary btn-back-soft d-none" id="btnVolverModuloAnterior">← Volver al módulo anterior</button>
+                    <button class="btn btn-soft" id="btnSemanaAnteriorEmpleado">← Semana anterior</button>
+                    <button class="btn btn-soft" id="btnSemanaSiguienteEmpleado">Semana siguiente →</button>
+                    <button class="btn btn-primary btn-main" id="btnVerTurnosCatalogo">Ver equivalencia de turnos</button>
+                    <button class="btn btn-outline-danger btn-danger-soft" id="btnCerrarSesionEmpleado">Cerrar sesión</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -484,7 +898,7 @@
             <div class="section-header">
               <div>
                 <h2 class="section-title">Programación semanal</h2>
-                <p class="section-text">Consulta tu turno del día y revisa toda la semana de forma clara.</p>
+                <p class="section-text">Consulta tu turno del día y revisa toda la semana de forma clara y ordenada.</p>
               </div>
 
               <div class="week-meta">
@@ -507,7 +921,7 @@
                 </div>
                 <div class="legend-item">
                   <span class="legend-dot dot-gray"></span>
-                  Descanso
+                  Sin programación
                 </div>
                 <div class="legend-item">
                   <span class="legend-dot dot-yellow"></span>
@@ -526,7 +940,7 @@
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Equivalencia de turnos A&B</h5>
+          <h5 class="modal-title">Equivalencia de turnos A&amp;B</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
 

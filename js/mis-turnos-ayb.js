@@ -61,6 +61,7 @@ function configurarBotones() {
       semanaActual = construirSemana(fechaInicioSemana);
       cargarDatosEncabezado();
       await cargarMisTurnosAyb();
+      desplazarArriba();
     });
   }
 
@@ -70,6 +71,7 @@ function configurarBotones() {
       semanaActual = construirSemana(fechaInicioSemana);
       cargarDatosEncabezado();
       await cargarMisTurnosAyb();
+      desplazarArriba();
     });
   }
 
@@ -238,15 +240,41 @@ function renderSemanaEmpleado(registros) {
   const html = semanaActual.map((dia) => {
     const itemsDia = mapaPorFecha[dia.fecha] || [];
     const esHoy = dia.fecha === formatearFechaISO(new Date());
+    const tieneNovedad = itemsDia.some((item) => item.tipo_registro === "novedad");
+
+    let claseDia = "";
+    let badgeTexto = "";
+    let badgeClase = "";
+
+    if (esHoy) {
+      claseDia = "today";
+      badgeTexto = "Hoy";
+      badgeClase = "badge-hoy";
+    } else if (itemsDia.length === 0) {
+      claseDia = "descanso";
+      badgeTexto = "Sin programación";
+      badgeClase = "badge-descanso";
+    } else if (tieneNovedad) {
+      claseDia = "novedad";
+      badgeTexto = "Con novedad";
+      badgeClase = "badge-novedad";
+    }
 
     if (itemsDia.length === 0) {
       return `
         <div class="col-12 col-md-6 col-xl-4">
-          <div class="turno-card dia-card ${esHoy ? "today" : "descanso"}">
-            <div class="small text-muted">${dia.nombre}</div>
-            <div class="fw-bold mb-2">${dia.fecha}</div>
-            <hr>
-            <div class="text-muted">Sin programación registrada</div>
+          <div class="dia-card ${claseDia}">
+            <div class="dia-head">
+              <div class="dia-head-left">
+                <div class="dia-nombre">${dia.nombre}</div>
+                <div class="dia-fecha">${formatearFechaBonita(dia.fecha)}</div>
+              </div>
+              <div class="dia-badge ${badgeClase}">${badgeTexto}</div>
+            </div>
+
+            <div class="dia-body">
+              <div class="dia-empty">Sin programación registrada para este día.</div>
+            </div>
           </div>
         </div>
       `;
@@ -258,58 +286,77 @@ function renderSemanaEmpleado(registros) {
 
       if (item.tipo_registro === "novedad") {
         novedades.push(item);
-        const clase = obtenerClaseNovedad(item.novedad_codigo);
+
         const nombreNovedad = obtenerNombreNovedad(item.novedad_codigo, item.novedad_descripcion);
 
         return `
-          <div class="novedad-card ${clase} mb-2">
-            <div><strong>${escaparHtml(nombreNovedad)}</strong></div>
-            <hr>
-            <div class="small">Subárea: ${escaparHtml(item.subarea || "-")}</div>
-            ${item.observacion ? `<div class="small text-muted mt-2">${escaparHtml(item.observacion)}</div>` : ""}
+          <div class="novedad-card">
+            <p class="novedad-line"><strong>Novedad:</strong> ${escaparHtml(nombreNovedad)}</p>
+            <p class="novedad-line"><strong>Subárea:</strong> ${escaparHtml(item.subarea || "-")}</p>
+            ${
+              item.observacion
+                ? `<div class="novedad-observacion">${escaparHtml(item.observacion)}</div>`
+                : ""
+            }
           </div>
         `;
       }
 
       turnos.push(item);
 
-      const horario1 = item.hora_inicio && item.hora_fin ? `${item.hora_inicio} - ${item.hora_fin}` : "-";
+      const horario1 =
+        item.hora_inicio && item.hora_fin
+          ? `${item.hora_inicio} - ${item.hora_fin}`
+          : "-";
+
+      const horario2 =
+        item.hora_inicio_2 && item.hora_fin_2
+          ? `${item.hora_inicio_2} - ${item.hora_fin_2}`
+          : "-";
+
       const tieneBloque2 = item.turno_2 || item.hora_inicio_2 || item.hora_fin_2 || item.subarea_2;
 
       return `
-        <div class="turno-card mb-2">
-          <div><strong>Subárea:</strong> ${escaparHtml(item.subarea || "-")}</div>
-          <div><strong>Turno:</strong> ${escaparHtml(item.turno || "-")}</div>
-          <div><strong>Horario:</strong> ${escaparHtml(horario1)}</div>
+        <div class="turno-card">
+          <p class="turno-line"><strong>Subárea:</strong> ${escaparHtml(item.subarea || "-")}</p>
+          <p class="turno-line"><strong>Turno:</strong> ${escaparHtml(item.turno || "-")}</p>
+          <p class="turno-line"><strong>Horario:</strong> ${escaparHtml(horario1)}</p>
 
           ${
             tieneBloque2
               ? `
                 <hr>
-                <div class="fw-semibold mb-1">Bloque 2</div>
-                <div><strong>Subárea:</strong> ${escaparHtml(item.subarea_2 || "-")}</div>
-                <div><strong>Turno:</strong> ${escaparHtml(item.turno_2 || "-")}</div>
-                <div><strong>Horario:</strong> ${escaparHtml(
-                  item.hora_inicio_2 && item.hora_fin_2 ? `${item.hora_inicio_2} - ${item.hora_fin_2}` : "-"
-                )}</div>
+                <div class="fw-semibold mb-2">Bloque 2</div>
+                <p class="turno-line"><strong>Subárea:</strong> ${escaparHtml(item.subarea_2 || "-")}</p>
+                <p class="turno-line"><strong>Turno:</strong> ${escaparHtml(item.turno_2 || "-")}</p>
+                <p class="turno-line"><strong>Horario:</strong> ${escaparHtml(horario2)}</p>
               `
               : ""
           }
 
-          ${item.observacion ? `<div class="small text-muted mt-2">${escaparHtml(item.observacion)}</div>` : ""}
+          ${
+            item.observacion
+              ? `<div class="turno-observacion">${escaparHtml(item.observacion)}</div>`
+              : ""
+          }
         </div>
       `;
     }).join("");
 
-    const tieneNovedad = itemsDia.some((item) => item.tipo_registro === "novedad");
-    const claseDia = esHoy ? "today" : tieneNovedad ? "novedad" : "";
-
     return `
       <div class="col-12 col-md-6 col-xl-4">
         <div class="dia-card ${claseDia}">
-          <div class="small text-muted">${dia.nombre}</div>
-          <div class="fw-bold mb-2">${dia.fecha}</div>
-          ${contenido}
+          <div class="dia-head">
+            <div class="dia-head-left">
+              <div class="dia-nombre">${dia.nombre}</div>
+              <div class="dia-fecha">${formatearFechaBonita(dia.fecha)}</div>
+            </div>
+            ${badgeTexto ? `<div class="dia-badge ${badgeClase}">${badgeTexto}</div>` : ""}
+          </div>
+
+          <div class="dia-body">
+            ${contenido}
+          </div>
         </div>
       </div>
     `;
@@ -327,6 +374,13 @@ function actualizarResumen(turnos, novedades, subareas = new Set()) {
   if (resumenTurnos) resumenTurnos.textContent = turnos.length;
   if (resumenNovedades) resumenNovedades.textContent = novedades.length;
   if (resumenPuntos) resumenPuntos.textContent = subareas.size;
+}
+
+function desplazarArriba() {
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
 }
 
 function normalizarCedula(valor) {
@@ -362,6 +416,11 @@ function formatearFechaISO(fecha) {
   return `${year}-${month}-${day}`;
 }
 
+function formatearFechaBonita(fechaISO) {
+  const [year, month, day] = String(fechaISO).split("-");
+  return `${day}/${month}/${year}`;
+}
+
 function obtenerNombreDia(fecha) {
   const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
   return dias[fecha.getDay()];
@@ -378,18 +437,6 @@ function obtenerNombreMes(index) {
 function obtenerNombreNovedad(codigo, descripcion) {
   const c = String(codigo || "").toUpperCase();
   return NOVEDADES_LABELS[c] || descripcion || c || "Novedad";
-}
-
-function obtenerClaseNovedad(codigo) {
-  const c = String(codigo || "").toUpperCase();
-  if (c === "COMP") return "novedad-comp";
-  if (c === "INC") return "novedad-inc";
-  if (c === "SP") return "novedad-sp";
-  if (c === "VAC") return "novedad-vac";
-  if (c === "LR") return "novedad-lr";
-  if (c === "NC") return "novedad-nc";
-  if (c === "F") return "novedad-f";
-  return "novedad-default";
 }
 
 function escaparHtml(valor) {

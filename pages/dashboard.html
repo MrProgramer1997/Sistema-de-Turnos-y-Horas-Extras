@@ -25,7 +25,8 @@
     .grafica-card,
     .novedad-card,
     .preview-card,
-    .alerta-card {
+    .alerta-card,
+    .validacion-card {
       border-radius: 1rem;
       border: 1px solid #e9ecef;
       background: #fff;
@@ -36,7 +37,8 @@
     .analitica-card .titulo,
     .novedad-card .titulo,
     .preview-card .titulo,
-    .alerta-card .titulo {
+    .alerta-card .titulo,
+    .validacion-card .titulo {
       font-size: 0.9rem;
       color: #6c757d;
     }
@@ -45,7 +47,8 @@
     .analitica-card .valor,
     .novedad-card .valor,
     .preview-card .valor,
-    .alerta-card .valor {
+    .alerta-card .valor,
+    .validacion-card .valor {
       font-size: 1.8rem;
       font-weight: 700;
       line-height: 1.1;
@@ -92,7 +95,7 @@
     }
 
     .bloque-scroll {
-      max-height: 360px;
+      max-height: 420px;
       overflow: auto;
     }
 
@@ -173,6 +176,30 @@
       color: #344054;
     }
 
+    .badge-estado {
+      display: inline-block;
+      padding: 0.32rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .estado-pendiente {
+      background: #fef3c7;
+      color: #b54708;
+    }
+
+    .estado-aprobado {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .estado-rechazado {
+      background: #fee2e2;
+      color: #b42318;
+    }
+
     .fila-alerta {
       background: #fff8db;
     }
@@ -216,6 +243,150 @@
       color: #15803d;
     }
 
+    .dashboard-bloque .card-header {
+      border-bottom: 1px solid #e7edf5;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%) !important;
+    }
+
+    .dashboard-bloque .table {
+      margin-bottom: 0;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .dashboard-bloque .table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: linear-gradient(180deg, #1f4ea3 0%, #2d63c8 100%) !important;
+      color: #ffffff !important;
+      border-bottom: 0 !important;
+      font-size: 0.82rem;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .dashboard-bloque .table tbody tr:nth-child(odd):not(.fila-alerta):not(.fila-critica) {
+      background: #fcfdff;
+    }
+
+    .dashboard-bloque .table tbody tr:nth-child(even):not(.fila-alerta):not(.fila-critica) {
+      background: #f5f9ff;
+    }
+
+    .dashboard-bloque .table tbody td {
+      border-bottom: 1px solid #e8eef6;
+      vertical-align: middle;
+    }
+
+    .dashboard-bloque .table tbody td:first-child {
+      font-weight: 700;
+      color: #1d4ed8;
+      background: rgba(29, 78, 216, 0.05);
+      border-right: 1px solid #e8eef6;
+      width: 58px;
+      text-align: center;
+    }
+
+    .dashboard-bloque .table tbody tr:hover:not(.fila-alerta):not(.fila-critica) {
+      background: #eaf2ff !important;
+      transition: background 0.2s ease;
+    }
+
+    .dashboard-bloque .table tbody tr.fila-alerta td {
+      background: #fff7d6 !important;
+    }
+
+    .dashboard-bloque .table tbody tr.fila-critica td {
+      background: #ffe4ea !important;
+    }
+
+    .dashboard-bloque .table-responsive {
+      border: 1px solid #e7edf5;
+      border-radius: 0.9rem;
+      overflow: auto;
+      background: #ffffff;
+    }
+
+    .dashboard-bloque .table tbody td:nth-child(2) {
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .dashboard-bloque .table tbody td:last-child {
+      font-weight: 600;
+    }
+
+    .seccion-titulo {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .seccion-titulo h5 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #1d4ed8;
+    }
+
+    .subtexto-validacion {
+      font-size: 0.86rem;
+      color: #6c757d;
+    }
+
+    .acciones-validacion {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .acciones-validacion .btn {
+      min-width: 90px;
+    }
+
+    #btnExportarPDF,
+    #btnExportarExcel {
+      min-width: 150px;
+      font-weight: 600;
+    }
+
+    @media print {
+      .sidebar,
+      #btnActualizarTablero,
+      #btnLimpiarFiltros,
+      #btnExportarPDF,
+      #btnExportarExcel,
+      .columna-acciones,
+      .acciones-validacion {
+        display: none !important;
+      }
+
+      body,
+      .container-fluid,
+      .row,
+      main {
+        background: #ffffff !important;
+      }
+
+      .dashboard-bloque,
+      .card,
+      .grafica-card,
+      .analitica-card,
+      .resumen-extra-card,
+      .novedad-card,
+      .alerta-card,
+      .preview-card,
+      .validacion-card {
+        box-shadow: none !important;
+        break-inside: avoid;
+      }
+    }
+
     @media (max-width: 768px) {
       .chart-wrap {
         height: 260px;
@@ -233,7 +404,7 @@
 </head>
 
 <body>
-  <div class="container-fluid">
+  <div class="container-fluid" id="dashboardExportable">
     <div class="row min-vh-100">
       <aside class="col-12 col-md-3 col-lg-2 sidebar p-3">
         <h4 class="text-white mb-4">Turnos Club</h4>
@@ -274,6 +445,8 @@
             <div class="mini-badge-fecha mb-2" id="fechaDashboard">Cargando fecha...</div>
             <div class="d-flex gap-2 justify-content-end flex-wrap">
               <button class="btn btn-outline-secondary" id="btnLimpiarFiltros">Limpiar filtros</button>
+              <button class="btn btn-outline-success" id="btnExportarExcel">Exportar Excel</button>
+              <button class="btn btn-outline-dark" id="btnExportarPDF">Exportar PDF</button>
               <button class="btn btn-primary" id="btnActualizarTablero">Actualizar tablero</button>
             </div>
           </div>
@@ -315,11 +488,23 @@
                 </div>
               </div>
 
-              <div class="col-12 col-md-6 col-xl-4">
+              <div class="col-12 col-md-6 col-xl-2">
                 <div class="filtro-card p-3">
                   <label for="filtroEmpleado">Empleado</label>
                   <select class="form-select" id="filtroEmpleado">
                     <option value="">Todos</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6 col-xl-2">
+                <div class="filtro-card p-3">
+                  <label for="filtroEstadoExtra">Estado extra</label>
+                  <select class="form-select" id="filtroEstadoExtra">
+                    <option value="">Todos</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="aprobado">Aprobado</option>
+                    <option value="rechazado">Rechazado</option>
                   </select>
                 </div>
               </div>
@@ -330,8 +515,14 @@
               <span class="badge-soft" id="badgeRegistrosAnalizados">Registros analizados: 0</span>
               <span class="badge-soft" id="badgeEmpleadosAnalizados">Empleados: 0</span>
               <span class="badge-soft" id="badgeDiasAnalizados">Días con registros: 0</span>
+              <span class="badge-soft" id="badgeFiltroUsuario">Filtro usuario: automático</span>
             </div>
           </div>
+        </div>
+
+        <div class="seccion-titulo">
+          <h5>Resumen ejecutivo</h5>
+          <span class="subtexto-validacion">Vista general del periodo y del día</span>
         </div>
 
         <div class="row g-3 mb-4 seccion-dashboard">
@@ -410,6 +601,86 @@
           </div>
         </div>
 
+        <div class="seccion-titulo">
+          <h5>Control de horas extra</h5>
+          <span class="subtexto-validacion">Aprobación, rechazo y exportación para nómina</span>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="validacion-card p-3">
+              <div class="titulo">Pendientes</div>
+              <div class="valor" id="kpiExtrasPendientes">0</div>
+              <p class="kpi-subtexto">Registros con extra por validar</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="validacion-card p-3">
+              <div class="titulo">Aprobados</div>
+              <div class="valor" id="kpiExtrasAprobadas">0</div>
+              <p class="kpi-subtexto">Registros aprobados en el filtro</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="validacion-card p-3">
+              <div class="titulo">Rechazados</div>
+              <div class="valor" id="kpiExtrasRechazadas">0</div>
+              <p class="kpi-subtexto">Registros rechazados en el filtro</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="validacion-card p-3">
+              <div class="titulo">Horas extra aprobadas</div>
+              <div class="valor" id="kpiHorasExtraAprobadas">0.0</div>
+              <p class="kpi-subtexto">Diurna + nocturna</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-bold">Validación de horas extra</span>
+            <span class="text-muted small">Solo se listan registros con horas extra estimadas</span>
+          </div>
+          <div class="card-body bloque-scroll">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>#</th>
+                    <th>Empleado</th>
+                    <th>Cédula</th>
+                    <th>Fecha</th>
+                    <th>Área</th>
+                    <th>Subárea</th>
+                    <th>Extra diurna</th>
+                    <th>Extra nocturna</th>
+                    <th>Total extra</th>
+                    <th>Estado</th>
+                    <th>Aprobado por</th>
+                    <th>Fecha aprobación</th>
+                    <th>Observación</th>
+                    <th class="columna-acciones">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyValidacionExtras">
+                  <tr>
+                    <td colspan="14" class="texto-vacio">Cargando validaciones...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="seccion-titulo">
+          <h5>Indicadores analíticos</h5>
+          <span class="subtexto-validacion">Totales del periodo filtrado</span>
+        </div>
+
         <div class="row g-3 mb-4 seccion-dashboard">
           <div class="col-12 col-md-6 col-xl-3">
             <div class="analitica-card p-3">
@@ -440,6 +711,40 @@
               <div class="titulo">Días con registros</div>
               <div class="valor" id="kpiDiasConRegistros">0</div>
               <p class="kpi-subtexto">Fechas con actividad</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Horas diurnas</div>
+              <div class="valor" id="kpiHorasDiurnas">0.0</div>
+              <p class="kpi-subtexto">Total del periodo filtrado</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Horas nocturnas</div>
+              <div class="valor" id="kpiHorasNocturnas">0.0</div>
+              <p class="kpi-subtexto">Desde las 7:00 p. m.</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Extra diurna</div>
+              <div class="valor" id="kpiExtraDiurna">0.0</div>
+              <p class="kpi-subtexto">Exceso diurno estimado</p>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Extra nocturna</div>
+              <div class="valor" id="kpiExtraNocturna">0.0</div>
+              <p class="kpi-subtexto">Exceso nocturno estimado</p>
             </div>
           </div>
         </div>
@@ -572,6 +877,30 @@
               <div class="card-body">
                 <div class="chart-wrap">
                   <canvas id="graficaDias"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque grafica-card">
+              <div class="card-header bg-white fw-bold">Horas diurnas vs nocturnas</div>
+              <div class="card-body">
+                <div class="chart-wrap chart-sm">
+                  <canvas id="graficaHorasTipo"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xl-6">
+            <div class="card shadow-sm border-0 h-100 dashboard-bloque grafica-card">
+              <div class="card-header bg-white fw-bold">Top empleados por horas extra</div>
+              <div class="card-body">
+                <div class="chart-wrap chart-sm">
+                  <canvas id="graficaHorasExtraEmpleados"></canvas>
                 </div>
               </div>
             </div>
@@ -796,22 +1125,20 @@
 
           <div class="col-12 col-xl-6">
             <div class="card shadow-sm border-0 h-100 dashboard-bloque">
-              <div class="card-header bg-white fw-bold">Marcaciones reales (preparado)</div>
+              <div class="card-header bg-white fw-bold">Vista de horas del periodo</div>
               <div class="card-body">
                 <div class="preview-empty">
-                  Esta sección queda lista para la siguiente fase del proyecto. Aquí luego se mostrarán:
-                  <strong>horas trabajadas</strong>, <strong>horas extra</strong>, <strong>tardanzas</strong>,
-                  <strong>ausencias reales</strong> y <strong>permanencia por punto</strong>.
+                  Esta sección ya refleja la lógica de programación actual.
                   <div class="mt-3">
                     <div class="preview-card p-3 mb-2">
-                      <div class="titulo">Horas trabajadas del periodo</div>
-                      <div class="valor">Próximamente</div>
-                      <p class="kpi-subtexto mb-0">Pendiente de conexión con marcaciones</p>
+                      <div class="titulo">Horas netas del periodo</div>
+                      <div class="valor" id="kpiPreviewHorasNetas">0.0</div>
+                      <p class="kpi-subtexto mb-0">Programación filtrada</p>
                     </div>
                     <div class="preview-card p-3">
                       <div class="titulo">Horas extra del periodo</div>
-                      <div class="valor">Próximamente</div>
-                      <p class="kpi-subtexto mb-0">Pendiente de conexión con biométrico / tabla procesada</p>
+                      <div class="valor" id="kpiPreviewHorasExtra">0.0</div>
+                      <p class="kpi-subtexto mb-0">Diurna + nocturna</p>
                     </div>
                   </div>
                 </div>
@@ -927,6 +1254,9 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script type="module" src="../js/dashboard.js"></script>
 </body>
 
