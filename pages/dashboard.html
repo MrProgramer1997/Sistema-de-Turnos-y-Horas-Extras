@@ -8,6 +8,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="../css/estilos.css" />
   <link rel="stylesheet" href="../css/dashboard.css" />
+  <link rel="stylesheet" href="../css/layout.css" />
   <style>
     .mini-badge-fecha {
       display: inline-block;
@@ -355,6 +356,58 @@
       font-weight: 600;
     }
 
+
+
+.lectura-ejecutiva-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.lectura-ejecutiva-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  height: 100%;
+}
+
+.lectura-ejecutiva-card .label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.lectura-ejecutiva-card .valor {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.lectura-ejecutiva-card .detalle {
+  margin-top: 6px;
+  font-size: 0.86rem;
+  color: #64748b;
+}
+
+.lectura-ejecutiva-card.alerta {
+  border-color: #fbbf24;
+  background: linear-gradient(135deg, #fffbeb, #ffffff);
+}
+
+.lectura-ejecutiva-card.ok {
+  border-color: #86efac;
+  background: linear-gradient(135deg, #f0fdf4, #ffffff);
+}
+
+.lectura-ejecutiva-card.critico {
+  border-color: #fca5a5;
+  background: linear-gradient(135deg, #fef2f2, #ffffff);
+}
     @media print {
       .sidebar,
       #btnActualizarTablero,
@@ -404,30 +457,10 @@
 </head>
 
 <body>
-  <div class="container-fluid" id="dashboardExportable">
-    <div class="row min-vh-100">
-      <aside class="col-12 col-md-3 col-lg-2 sidebar p-3">
-        <h4 class="text-white mb-4">Turnos Club</h4>
-        <nav class="nav flex-column">
-          <a class="nav-link active" href="dashboard.html">Dashboard</a>
-          <a class="nav-link" href="empleados.html">Empleados</a>
-          <a class="nav-link" href="programacion-ayb.html">Programación A&B</a>
-          <a class="nav-link" href="programacion-administrativo.html">Programación Administrativo</a>
-          <a class="nav-link" href="programacion-operaciones.html">Programación Operaciones</a>
-          <a class="nav-link" href="mis-turnos-ayb.html">Mis Turnos A&B</a>
-          <a class="nav-link" href="mis-turnos-administrativo.html">Mis Turnos Administrativo</a>
-          <a class="nav-link" href="mis-turnos-operaciones.html">Mis Turnos Operaciones</a>
-          <a class="nav-link" href="cronograma-aseo-diario.html">Cronograma Aseo Diario</a>
-          <a class="nav-link" href="cronograma-aseo-profundo.html">Cronograma Aseo Profundo</a>
-          <a class="nav-link" href="eventos-operaciones.html">Eventos Operaciones</a>
-          <a class="nav-link" href="usuarios.html">Usuarios</a>
-          <a class="nav-link" href="reportes.html">Reportes</a>
-          <a class="nav-link" href="configuracion.html">Configuración</a>
-          <a class="nav-link text-danger" href="login.html">Cerrar sesión</a>
-        </nav>
-      </aside>
+  <div id="sidebar-container"></div>
 
-      <main class="col-12 col-md-9 col-lg-10 p-4 fondo-modulo">
+  <div class="container-fluid" id="dashboardExportable">
+    <main class="main-content p-4 fondo-modulo">
         <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
           <div>
             <h2 class="mb-1">Dashboard General</h2>
@@ -519,6 +552,40 @@
             </div>
           </div>
         </div>
+
+<div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span class="fw-bold">Lectura ejecutiva del tablero</span>
+    <span class="text-muted small" id="dashboardUltimaActualizacion">Última actualización: cargando...</span>
+  </div>
+  <div class="card-body">
+    <div class="lectura-ejecutiva-grid">
+      <div class="lectura-ejecutiva-card" id="cardInsightValidacion">
+        <div class="label">Validación de extras</div>
+        <div class="valor" id="insightValidacionExtras">Sin datos</div>
+        <div class="detalle" id="insightValidacionExtrasDetalle">Pendientes, aprobados y rechazados del filtro actual.</div>
+      </div>
+
+      <div class="lectura-ejecutiva-card" id="cardInsightNomina">
+        <div class="label">Listo para nómina</div>
+        <div class="valor" id="insightNomina">0 registros aprobados</div>
+        <div class="detalle" id="insightNominaDetalle">Exporta únicamente horas extra aprobadas.</div>
+      </div>
+
+      <div class="lectura-ejecutiva-card" id="cardInsightBienestar">
+        <div class="label">Bienestar</div>
+        <div class="valor" id="insightBienestar">Sin alertas</div>
+        <div class="detalle" id="insightBienestarDetalle">Solicitudes y novedades filtradas por usuario.</div>
+      </div>
+
+      <div class="lectura-ejecutiva-card" id="cardInsightCobertura">
+        <div class="label">Cobertura del periodo</div>
+        <div class="valor" id="insightCobertura">0 empleados</div>
+        <div class="detalle" id="insightCoberturaDetalle">Empleados únicos y días con programación.</div>
+      </div>
+    </div>
+  </div>
+</div>
 
         <div class="seccion-titulo">
           <h5>Resumen ejecutivo</h5>
@@ -669,6 +736,120 @@
                 <tbody id="tbodyValidacionExtras">
                   <tr>
                     <td colspan="14" class="texto-vacio">Cargando validaciones...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="seccion-titulo">
+          <h5>Dashboard de Bienestar</h5>
+          <span class="subtexto-validacion">Indicadores calculados desde solicitudes_empleado y cruzados con programación</span>
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Solicitudes pendientes</div>
+              <div class="valor" id="kpiBienestarPendientes">0</div>
+              <p class="kpi-subtexto">Pendientes de gestión</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Incapacidades del mes</div>
+              <div class="valor" id="kpiBienestarIncapacidadesMes">0</div>
+              <p class="kpi-subtexto">Según fecha de solicitud/novedad</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Aprobadas / rechazadas</div>
+              <div class="valor" id="kpiBienestarAprobadasRechazadas">0 / 0</div>
+              <p class="kpi-subtexto">Resultado del periodo filtrado</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Pendientes por documentos</div>
+              <div class="valor" id="kpiBienestarPendientesDocs">0</div>
+              <p class="kpi-subtexto">Requieren soporte o adjunto</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="analitica-card p-3">
+              <div class="titulo">Fuera de tiempo</div>
+              <div class="valor" id="kpiBienestarFueraTiempo">0</div>
+              <p class="kpi-subtexto">Solicitudes radicadas tarde</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-bold">Ranking de empleados con más novedades</span>
+            <span class="text-muted small">Base: solicitudes_empleado en el periodo filtrado</span>
+          </div>
+          <div class="card-body bloque-scroll">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>#</th>
+                    <th>Empleado</th>
+                    <th>Cédula</th>
+                    <th>Área</th>
+                    <th>Total</th>
+                    <th>Pendientes</th>
+                    <th>Aprobadas</th>
+                    <th>Rechazadas</th>
+                    <th>Incapacidades</th>
+                    <th>Última solicitud</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyRankingNovedadesBienestar">
+                  <tr>
+                    <td colspan="10" class="texto-vacio">Cargando ranking de novedades...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="seccion-titulo">
+          <h5>Empleados con menor carga registrada</h5>
+          <span class="subtexto-validacion">Ranking preventivo de baja programación/asistencia en el periodo filtrado</span>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-bold">Análisis de baja carga / baja asistencia</span>
+            <span class="text-muted small">No representa sanción automática; requiere revisión de novedades, vacaciones, incapacidades y programación</span>
+          </div>
+          <div class="card-body bloque-scroll">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>#</th>
+                    <th>Empleado</th>
+                    <th>Cédula</th>
+                    <th>Área</th>
+                    <th>Días programados</th>
+                    <th>Horas netas</th>
+                    <th>Promedio diario</th>
+                    <th>Novedades</th>
+                    <th>Última programación</th>
+                    <th>Estado</th>
+                    <th>Causa probable</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyMenorCarga">
+                  <tr>
+                    <td colspan="11" class="texto-vacio">Cargando análisis de menor carga...</td>
                   </tr>
                 </tbody>
               </table>
@@ -1249,15 +1430,79 @@
             </div>
           </div>
         </div>
-      </main>
-    </div>
+    </main>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="../js/layout.js"></script>
   <script type="module" src="../js/dashboard.js"></script>
+
+  <script>
+    function usuarioPuedeVerSolicitudesBienestarDashboard(sesion) {
+      if (!sesion) return false;
+
+      const cedula = String(sesion.cedula || sesion.usuario || sesion.username || "").trim();
+      const nombre = String(sesion.nombre_completo || `${sesion.nombres || ""} ${sesion.apellidos || ""}`).toLowerCase();
+      const rol = String(sesion.rol || "").trim().toLowerCase();
+      const cargo = String(sesion.cargo || "").trim().toLowerCase();
+      const centroCostos = String(sesion.centro_costos || sesion.area || "").trim().toLowerCase();
+      const areasPermitidas = Array.isArray(sesion.areas_permitidas)
+        ? sesion.areas_permitidas.map((area) => String(area || "").toLowerCase()).join(" ")
+        : "";
+      const modulosPermitidos = Array.isArray(sesion.modulos_permitidos) ? sesion.modulos_permitidos : [];
+
+      const esJhonnier =
+        cedula === "1088029438" ||
+        nombre.includes("jhonnier") ||
+        nombre.includes("villada");
+
+      const perteneceBienestar =
+        rol.includes("bienestar") ||
+        cargo.includes("bienestar") ||
+        centroCostos.includes("bienestar") ||
+        areasPermitidas.includes("bienestar");
+
+      const esAdministradorBienestar =
+        perteneceBienestar &&
+        (
+          rol.includes("admin") ||
+          rol.includes("administrador") ||
+          rol.includes("bienestar") ||
+          modulosPermitidos.includes("solicitudes-bienestar")
+        );
+
+      return esJhonnier || esAdministradorBienestar;
+    }
+
+    function aplicarAccesoSolicitudesBienestarDashboard() {
+      const link = document.getElementById("navSolicitudesBienestar");
+      if (!link) return;
+
+      let sesion = null;
+      try {
+        sesion = JSON.parse(localStorage.getItem("ccp_sesion") || "null");
+      } catch (error) {
+        sesion = null;
+      }
+
+      if (usuarioPuedeVerSolicitudesBienestarDashboard(sesion)) {
+        link.classList.remove("d-none");
+        link.style.display = "";
+      } else {
+        link.classList.add("d-none");
+        link.style.display = "none";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      aplicarAccesoSolicitudesBienestarDashboard();
+      setTimeout(aplicarAccesoSolicitudesBienestarDashboard, 300);
+      setTimeout(aplicarAccesoSolicitudesBienestarDashboard, 900);
+    });
+  </script>
 </body>
 
 </html>

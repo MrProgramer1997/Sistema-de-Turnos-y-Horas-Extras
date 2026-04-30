@@ -9,6 +9,7 @@
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
     rel="stylesheet"
   />
+  <link rel="stylesheet" href="../css/layout.css">
 
   <style>
     body {
@@ -16,9 +17,11 @@
     }
 
     .page-wrap {
-      max-width: 1450px;
-      margin: 24px auto;
-      padding: 0 16px;
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      padding: 24px;
+      box-sizing: border-box;
     }
 
     .card-soft {
@@ -103,10 +106,65 @@
     .check-card input[type="checkbox"] {
       margin-right: 8px;
     }
+
+    /* Corrección definitiva del módulo Empleados */
+    .empleados-stack {
+      width: 100%;
+      margin-left: 0;
+      margin-right: 0;
+    }
+
+    .empleados-stack > .col-12 {
+      min-width: 0;
+    }
+
+    .tabla-empleados-scroll {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tabla-empleados-scroll table {
+      min-width: 980px;
+      margin-bottom: 0;
+    }
+
+    .toolbar-right {
+      min-width: 0;
+    }
+
+    @media (max-width: 767.98px) {
+      .page-wrap {
+        padding: 72px 12px 16px;
+      }
+
+      .toolbar,
+      .toolbar-left,
+      .toolbar-right {
+        width: 100%;
+      }
+
+      .toolbar-right input,
+      .toolbar-right select {
+        width: 100% !important;
+        min-width: 0 !important;
+      }
+
+      .d-flex.justify-content-between.align-items-center.mb-3 {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 12px;
+      }
+    }
+
   </style>
 </head>
 <body>
-  <div class="page-wrap">
+  <button class="btn-toggle-sidebar d-md-none" type="button">☰</button>
+  <div id="sidebar-container"></div>
+
+  <main class="main-content fondo-modulo">
+    <div class="page-wrap">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
         <h2 class="mb-1">Gestión de empleados</h2>
@@ -147,8 +205,8 @@
 
     <div id="contenedorAlertas" class="mb-3"></div>
 
-    <div class="row g-4">
-      <div class="col-xl-5">
+    <div class="row g-4 empleados-stack">
+      <div class="col-12">
         <div class="card card-soft">
           <div class="card-body">
             <h5 class="mb-3">Nuevo empleado</h5>
@@ -261,7 +319,7 @@
         </div>
       </div>
 
-      <div class="col-xl-7">
+      <div class="col-12">
         <div class="card card-soft">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -269,7 +327,7 @@
               <span id="contadorRegistros" class="small-muted">0 registros</span>
             </div>
 
-            <div class="table-responsive">
+            <div class="table-responsive tabla-empleados-scroll">
               <table class="table table-hover align-middle">
                 <thead>
                   <tr>
@@ -293,13 +351,15 @@
         </div>
       </div>
     </div>
-  </div>
+    </div>
+  </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const SUPABASE_URL = "https://kzxveqrgvuchcgwrjwjb.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6eHZlcXJndnVjaGNnd3Jqd2piIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzYzMjUsImV4cCI6MjA4OTAxMjMyNX0.DhYtYlQdUN_r7AD-glgUIG7y-_wrGWqYqyA3MZBzPuw";
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  <script type="module">
+    import {
+      crearEmpleado,
+      existeEmpleadoPorCedula,
+      obtenerEmpleados
+    } from "../supabase/empleados.js";
 
     const AREAS_SISTEMA = [
       "Alimentos y Bebidas",
@@ -537,14 +597,7 @@
     }
 
     async function validarCedulaExistente(cedula) {
-      const { data, error } = await sb
-        .from("empleados")
-        .select("id, cedula")
-        .eq("cedula", cedula)
-        .limit(1);
-
-      if (error) throw error;
-      return Array.isArray(data) && data.length > 0;
+      return await existeEmpleadoPorCedula(cedula);
     }
 
     async function guardarEmpleado(event) {
@@ -573,16 +626,7 @@
           return;
         }
 
-        const { data, error } = await sb
-          .from("empleados")
-          .insert([payload])
-          .select();
-
-        if (error) {
-          console.error(error);
-          mostrarAlerta("Error al guardar en Supabase: " + error.message, "danger");
-          return;
-        }
+        const data = await crearEmpleado(payload);
 
         console.log("Empleado guardado en Supabase:", data);
         mostrarAlerta("Empleado registrado correctamente en Supabase.", "success");
@@ -602,30 +646,7 @@
         const filtroBusqueda = texto(document.getElementById("filtroBusqueda").value).toLowerCase();
         const filtroArea = texto(document.getElementById("filtroArea").value);
 
-        let query = sb
-          .from("empleados")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (filtroArea) {
-          query = query.eq("area", filtroArea);
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-          console.error(error);
-          document.getElementById("tablaEmpleados").innerHTML = `
-            <tr>
-              <td colspan="7" class="text-center text-danger py-4">
-                Error cargando empleados: ${error.message}
-              </td>
-            </tr>
-          `;
-          return;
-        }
-
-        empleadosMemoria = Array.isArray(data) ? data : [];
+        empleadosMemoria = await obtenerEmpleados({ area: filtroArea });
 
         let visibles = empleadosMemoria;
 
@@ -749,6 +770,7 @@
 
     init();
   </script>
+  <script src="../js/layout.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

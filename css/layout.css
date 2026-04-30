@@ -1,0 +1,79 @@
+/* css/layout.css */
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* SIDEBAR */
+.sidebar-global {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  background: #1f2937;
+  color: white;
+  padding: 1rem;
+  overflow-y: auto;
+  z-index: 1000;
+  transition: transform 0.3s ease;
+}
+
+/* NAV */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav .nav-link {
+  color: #cbd5e1;
+  text-decoration: none;
+  padding: 0.6rem 0.5rem;
+  border-radius: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.sidebar-nav .nav-link:hover {
+  background: #374151;
+  color: white;
+}
+
+.sidebar-nav .nav-link.active {
+  background: #2563eb;
+  color: white;
+}
+
+/* CONTENIDO */
+.main-content {
+  margin-left: 250px;
+  padding: 20px;
+}
+
+/* 🔴 MOBILE */
+@media (max-width: 768px) {
+
+  .sidebar-global {
+    transform: translateX(-100%);
+  }
+
+  .sidebar-global.open {
+    transform: translateX(0);
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+
+  .btn-toggle-sidebar {
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 1100;
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+  }
+}

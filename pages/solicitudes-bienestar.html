@@ -1,0 +1,2832 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solicitudes Bienestar</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/layout.css" />
+
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      --radius: 18px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .page-wrap {
+      max-width: 1720px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+
+    .card-soft {
+      border: 0;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      background: var(--card);
+    }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+
+    .small-muted {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .required::after {
+      content: " *";
+      color: #dc2626;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .toolbar-left,
+    .toolbar-right {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .kpi-box {
+      border-radius: 16px;
+      padding: 18px;
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, #ffffff, #f8fbff);
+      height: 100%;
+    }
+
+    .kpi-number {
+      font-size: 1.7rem;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-top: 8px;
+    }
+
+    .alert-inline {
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      border: 1px solid transparent;
+      margin-bottom: 10px;
+    }
+
+    .bg-soft-info {
+      background: #dbeafe;
+      color: #1d4ed8;
+      border-color: #bfdbfe;
+    }
+
+    .bg-soft-success {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #86efac;
+    }
+
+    .bg-soft-warning {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fcd34d;
+    }
+
+    .bg-soft-danger {
+      background: #fee2e2;
+      color: #991b1b;
+      border-color: #fca5a5;
+    }
+
+    .estado-badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .estado-pendiente {
+      background: #fff7cc;
+      color: #7a5d00;
+    }
+
+    .estado-pendiente-documentos {
+      background: #ffe7c2;
+      color: #8a4b00;
+    }
+
+    .estado-en-revision {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .estado-aprobada {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .estado-rechazada {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .estado-fuera-de-tiempo {
+      background: #fce7f3;
+      color: #9d174d;
+    }
+
+    .estado-aplicada-programacion {
+      background: #ede9fe;
+      color: #5b21b6;
+    }
+
+    .estado-cerrada {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .sticky-actions {
+      position: sticky;
+      bottom: 0;
+      background: #fff;
+      padding-top: 12px;
+      z-index: 2;
+    }
+
+    .doc-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .doc-chip {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #eef2ff;
+      color: #3730a3;
+      margin: 0 6px 6px 0;
+    }
+
+    .doc-file-row {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      background: #f8fafc;
+      margin-bottom: 10px;
+    }
+
+    .doc-file-name {
+      font-weight: 700;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .table thead th {
+      white-space: nowrap;
+      font-size: 0.92rem;
+    }
+
+    .table tbody td {
+      vertical-align: middle;
+      font-size: 0.93rem;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .search-wrap {
+      position: relative;
+    }
+
+    .autocomplete-list {
+      position: absolute;
+      width: 100%;
+      z-index: 50;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-top: 6px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .autocomplete-item {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer;
+    }
+
+    .autocomplete-item:last-child {
+      border-bottom: 0;
+    }
+
+    .autocomplete-item:hover {
+      background: #f8fafc;
+    }
+
+    .employee-pill {
+      border-radius: 14px;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      padding: 12px 14px;
+    }
+
+    .employee-label {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .employee-value {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .confirm-box {
+      border-radius: 14px;
+      padding: 14px 16px;
+      border: 1px solid #86efac;
+      background: #ecfdf5;
+      color: #166534;
+      display: none;
+      margin-top: 14px;
+      font-weight: 700;
+    }
+
+    .table-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .cell-docs {
+      max-width: 320px;
+      white-space: normal;
+    }
+
+    .summary-box {
+      border: 1px dashed #cbd5e1;
+      border-radius: 14px;
+      padding: 12px;
+      background: #f8fafc;
+    }
+
+    .btn-soft {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
+
+    .btn-soft:hover {
+      background: #dbeafe;
+      color: #1e40af;
+      border-color: #93c5fd;
+    }
+
+    .mini-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .mini-kpi {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
+    .mini-kpi .label {
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .mini-kpi .value {
+      font-size: 1.1rem;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+
+    .notificacion-item {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+    }
+
+    .notificacion-no-leida {
+      border-left: 5px solid #dc2626;
+      background: #fffdf7;
+    }
+
+    .notificacion-leida {
+      opacity: 0.88;
+    }
+
+    .notificacion-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .notificacion-title {
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .notificacion-meta {
+      font-size: 0.84rem;
+      color: var(--muted);
+    }
+
+    .prioridad-badge {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: capitalize;
+    }
+
+    .prioridad-baja {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .prioridad-media {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .prioridad-alta {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .prioridad-critica {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+
+    @media (max-width: 992px) {
+      .mini-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="sidebar-container"></div>
+
+  <main class="main-content">
+  <div class="page-wrap">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <div>
+        <h2 class="mb-1">Solicitudes Bienestar</h2>
+        <div class="small-muted">
+          Gestión de incapacidades, calamidades, permisos y beneficios del empleado
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-outline-secondary" onclick="history.back()">Volver</button>
+        <button class="btn btn-outline-primary" id="btnRecargarTodo">Recargar</button>
+      </div>
+    </div>
+
+    <div class="card card-soft mb-4">
+      <div class="card-body">
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <div>
+              <div class="fw-semibold">Sesión actual</div>
+              <div id="infoSesion" class="small-muted">Cargando...</div>
+            </div>
+          </div>
+
+          <div class="toolbar-right">
+            <div class="small-muted">
+              Módulo central para Bienestar. Integrable con dashboard, programación y mis turnos.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-soft mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div>
+            <h5 class="mb-0">Notificaciones del módulo</h5>
+            <div class="small-muted">Centro interno de alertas para Bienestar y Nómina</div>
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap align-items-center">
+            <select id="filtroRolNotificacion" class="form-select" style="width: 180px;">
+              <option value="">Todos</option>
+              <option value="admin">Administrador</option>
+              <option value="bienestar">Bienestar</option>
+              <option value="nomina">Nómina</option>
+            </select>
+
+            <span class="badge text-bg-danger fs-6" id="badgeNotificaciones">0</span>
+            <button class="btn btn-outline-secondary btn-sm" id="btnRecargarNotificaciones"
+              type="button">Recargar</button>
+          </div>
+        </div>
+
+        <div id="panelNotificacionesVacio" class="small-muted">Cargando notificaciones...</div>
+        <div id="listaNotificaciones" class="d-flex flex-column gap-2"></div>
+      </div>
+    </div>
+
+    <div id="contenedorAlertas" class="mb-3"></div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="kpi-box">
+          <div class="small-muted">Solicitudes del año</div>
+          <div class="kpi-number" id="kpiSolicitudesAnio">0</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="kpi-box">
+          <div class="small-muted">Pendientes / revisión</div>
+          <div class="kpi-number" id="kpiPendientes">0</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="kpi-box">
+          <div class="small-muted">Aprobadas</div>
+          <div class="kpi-number" id="kpiAprobadas">0</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="kpi-box">
+          <div class="small-muted">Incapacidades del año</div>
+          <div class="kpi-number" id="kpiIncapacidades">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-xl-5">
+        <div class="card card-soft">
+          <div class="card-body">
+            <h5 class="mb-3">Nueva solicitud</h5>
+
+            <div class="alert-inline bg-soft-info">
+              Todas las solicitudes requieren revisión y aprobación por Bienestar. El Día de la Familia no exige
+              documento por ahora. Las incapacidades deben radicarse máximo dentro de los <strong>15 días</strong> desde
+              la fecha inicial.
+            </div>
+
+            <div class="section-title mt-3">Búsqueda del empleado</div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-8">
+                <label class="form-label required">Buscar por cédula, nombres o apellidos</label>
+                <div class="search-wrap">
+                  <input type="text" id="buscarEmpleado" class="form-control"
+                    placeholder="Ej: 1094, Gerardo, María, Juan David" autocomplete="off" />
+                  <div id="listaSugerencias" class="autocomplete-list hidden"></div>
+                </div>
+                <div class="small-muted mt-1" id="estadoCargaEmpleados">Cargando base de empleados...</div>
+              </div>
+              <div class="col-md-4 d-flex align-items-end gap-2">
+                <button class="btn btn-soft w-100" id="btnCargarSesion" type="button">Cargar mi sesión</button>
+              </div>
+            </div>
+
+            <div id="bloqueEmpleadoSeleccionado" class="employee-pill hidden mb-4">
+              <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div>
+                  <div class="fw-bold">Empleado seleccionado</div>
+                  <div class="small-muted">Información tomada directamente desde la tabla <strong>empleados</strong> de
+                    Supabase.</div>
+                </div>
+                <button class="btn btn-sm btn-outline-danger" id="btnLimpiarEmpleado" type="button">Quitar</button>
+              </div>
+
+              <div class="row g-3 mt-2">
+                <div class="col-md-4">
+                  <div class="employee-label">Cédula</div>
+                  <div class="employee-value" id="viewCedula">-</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="employee-label">Código</div>
+                  <div class="employee-value" id="viewCodigo">-</div>
+                </div>
+                <div class="col-md-4">
+                  <div class="employee-label">Cargo</div>
+                  <div class="employee-value" id="viewCargo">-</div>
+                </div>
+                <div class="col-md-6">
+                  <div class="employee-label">Nombres</div>
+                  <div class="employee-value" id="viewNombres">-</div>
+                </div>
+                <div class="col-md-6">
+                  <div class="employee-label">Apellidos</div>
+                  <div class="employee-value" id="viewApellidos">-</div>
+                </div>
+                <div class="col-md-6">
+                  <div class="employee-label">Área</div>
+                  <div class="employee-value" id="viewArea">-</div>
+                </div>
+                <div class="col-md-6">
+                  <div class="employee-label">Centro de costos</div>
+                  <div class="employee-value" id="viewCentroCostos">-</div>
+                </div>
+              </div>
+            </div>
+
+            <form id="formSolicitud" novalidate>
+              <div class="section-title">Datos de la solicitud</div>
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label required">Tipo de solicitud</label>
+                  <select class="form-select" id="tipoSolicitud" required>
+                    <option value="">Seleccione...</option>
+                    <option value="incapacidad">Incapacidad</option>
+                    <option value="calamidad">Calamidad</option>
+                    <option value="permiso_no_remunerado">Permiso no remunerado</option>
+                    <option value="dia_familia">Día de la familia</option>
+                    <option value="dia_grado">Día de grado</option>
+                    <option value="cumpleanos">Cumpleaños</option>
+                    <option value="matrimonio">Matrimonio</option>
+                    <option value="luto">Luto</option>
+                    <option value="graduacion">Graduación</option>
+                  </select>
+                </div>
+
+                <div class="col-md-6 hidden" id="wrapSubtipo">
+                  <label class="form-label">Subtipo</label>
+                  <select class="form-select" id="subtipoSolicitud">
+                    <option value="">Seleccione...</option>
+                  </select>
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label required">Fecha inicio</label>
+                  <input type="date" class="form-control" id="fechaInicio" required />
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label required">Fecha fin</label>
+                  <input type="date" class="form-control" id="fechaFin" required />
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label">Días solicitados</label>
+                  <input type="number" class="form-control" id="diasSolicitados" min="1" />
+                  <div class="small-muted mt-1">Se calcula automáticamente al elegir fechas, pero puedes ajustarlo si se
+                    requiere.</div>
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label">Fecha radicación</label>
+                  <input type="date" class="form-control" id="fechaRadicacion" readonly />
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label">Estado inicial</label>
+                  <input type="text" class="form-control" id="estadoInicial" readonly />
+                </div>
+
+                <div class="col-md-4">
+                  <label class="form-label">Código tipo</label>
+                  <input type="text" class="form-control" id="codigoTipo" readonly />
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label">Observación del solicitante</label>
+                  <textarea class="form-control" id="observacionEmpleado" rows="3"
+                    placeholder="Describe la solicitud y cualquier contexto relevante"></textarea>
+                </div>
+
+                <div class="col-12">
+                  <div class="doc-card">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                      <div class="fw-semibold">Documentación requerida</div>
+                      <div class="small-muted" id="resumenDocumentos">Sin definir</div>
+                    </div>
+
+                    <div id="listaDocumentosRequeridos" class="mb-2"></div>
+
+                    <label class="form-label">Adjuntar soportes</label>
+                    <input type="file" class="form-control" id="inputDocumentos" multiple />
+                    <div class="small-muted mt-2">
+                      En esta fase se guarda la metadata de los archivos seleccionados. La carga física a Storage se
+                      integra después.
+                    </div>
+
+                    <div class="mt-3">
+                      <div class="fw-semibold mb-2">Archivos seleccionados</div>
+                      <div id="listaDocumentosCargados" class="small-muted">No se han seleccionado archivos.</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <div id="alertasValidacionSolicitud"></div>
+                </div>
+              </div>
+
+              <div class="sticky-actions mt-4 d-flex gap-2 flex-wrap">
+                <button type="submit" class="btn btn-primary" id="btnGuardarSolicitud">Radicar solicitud</button>
+                <button type="button" class="btn btn-outline-secondary" id="btnLimpiarSolicitud">Limpiar
+                  formulario</button>
+              </div>
+
+              <div class="confirm-box" id="confirmacionGuardado">
+                La solicitud fue radicada correctamente.
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-7">
+        <div class="card card-soft mb-4">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+              <div>
+                <h5 class="mb-0">Historial del empleado seleccionado</h5>
+                <div class="small-muted">Vista rápida del historial del colaborador elegido</div>
+              </div>
+              <span id="contadorMisSolicitudes" class="small-muted">0 registros</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead>
+                  <tr>
+                    <th>Radicación</th>
+                    <th>Tipo</th>
+                    <th>Rango</th>
+                    <th>Días</th>
+                    <th>Estado</th>
+                    <th>Docs</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaMisSolicitudes">
+                  <tr>
+                    <td colspan="6" class="text-center text-muted py-4">Selecciona un empleado para visualizar su
+                      historial.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card card-soft" id="panelGestion">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+              <div>
+                <h5 class="mb-0">Gestión Bienestar</h5>
+                <div class="small-muted">Panel de revisión, aprobación y seguimiento</div>
+              </div>
+              <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+                <button class="btn btn-sm btn-outline-success" id="btnExportarSolicitudesExcel" type="button">
+                  Descargar Excel
+                </button>
+                <span id="contadorGestion" class="small-muted">0 registros</span>
+              </div>
+            </div>
+
+            <div class="mini-kpi-grid">
+              <div class="mini-kpi">
+                <div class="label">Pendientes</div>
+                <div class="value" id="miniPendientes">0</div>
+              </div>
+              <div class="mini-kpi">
+                <div class="label">En revisión</div>
+                <div class="value" id="miniRevision">0</div>
+              </div>
+              <div class="mini-kpi">
+                <div class="label">Aprobadas</div>
+                <div class="value" id="miniAprobadas">0</div>
+              </div>
+              <div class="mini-kpi">
+                <div class="label">Rechazadas</div>
+                <div class="value" id="miniRechazadas">0</div>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-3">
+                <label class="form-label">Buscar</label>
+                <input type="text" id="filtroGestionBusqueda" class="form-control"
+                  placeholder="Cédula, nombre, cargo" />
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Tipo</label>
+                <select id="filtroGestionTipo" class="form-select">
+                  <option value="">Todos</option>
+                  <option value="incapacidad">Incapacidad</option>
+                  <option value="calamidad">Calamidad</option>
+                  <option value="permiso_no_remunerado">Permiso no remunerado</option>
+                  <option value="dia_familia">Día de la familia</option>
+                  <option value="dia_grado">Día de grado</option>
+                  <option value="cumpleanos">Cumpleaños</option>
+                  <option value="matrimonio">Matrimonio</option>
+                  <option value="luto">Luto</option>
+                  <option value="graduacion">Graduación</option>
+                </select>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Estado</label>
+                <select id="filtroGestionEstado" class="form-select">
+                  <option value="">Todos</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="pendiente_documentos">Pendiente documentos</option>
+                  <option value="en_revision_bienestar">En revisión</option>
+                  <option value="aprobada">Aprobada</option>
+                  <option value="rechazada">Rechazada</option>
+                  <option value="fuera_de_tiempo">Fuera de tiempo</option>
+                  <option value="aplicada_programacion">Aplicada a programación</option>
+                  <option value="cerrada">Cerrada</option>
+                </select>
+              </div>
+
+              <div class="col-md-3">
+                <label class="form-label">Área</label>
+                <select id="filtroGestionArea" class="form-select">
+                  <option value="">Todas</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead>
+                  <tr>
+                    <th>Empleado</th>
+                    <th>Tipo</th>
+                    <th>Rango</th>
+                    <th>Días</th>
+                    <th>Estado</th>
+                    <th>Documentación</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaGestionSolicitudes">
+                  <tr>
+                    <td colspan="7" class="text-center text-muted py-4">Cargando...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalGestionSolicitud" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" style="max-width: 1050px;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Revisión de solicitud</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <div id="detalleSolicitudGestion"></div>
+
+          <div class="row g-3 mt-2">
+            <div class="col-md-4">
+              <label class="form-label">Nuevo estado</label>
+              <select id="gestionNuevoEstado" class="form-select">
+                <option value="pendiente">Pendiente</option>
+                <option value="pendiente_documentos">Pendiente documentos</option>
+                <option value="en_revision_bienestar">En revisión</option>
+                <option value="aprobada">Aprobada</option>
+                <option value="rechazada">Rechazada</option>
+                <option value="fuera_de_tiempo">Fuera de tiempo</option>
+                <option value="aplicada_programacion">Aplicada a programación</option>
+                <option value="cerrada">Cerrada</option>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">¿Aplicada a programación?</label>
+              <select id="gestionAplicadaProgramacion" class="form-select">
+                <option value="false">No</option>
+                <option value="true">Sí</option>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Aprobado por</label>
+              <input type="text" id="gestionAprobadoPor" class="form-control" readonly />
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Observación de revisión</label>
+              <textarea id="gestionObservacion" class="form-control" rows="4"
+                placeholder="Registra la observación de Bienestar"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+          <button class="btn btn-primary" id="btnGuardarRevision">Guardar revisión</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </main>
+
+  <script src="../js/layout.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <script>
+    const SUPABASE_URL = "https://kzxveqrgvuchcgwrjwjb.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6eHZlcXJndnVjaGNnd3Jqd2piIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzYzMjUsImV4cCI6MjA4OTAxMjMyNX0.DhYtYlQdUN_r7AD-glgUIG7y-_wrGWqYqyA3MZBzPuw";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const AREAS_SISTEMA = [
+      "Alimentos y Bebidas",
+      "Servicios Generales",
+      "Bienestar Institucional",
+      "Dirección Administrativa y Financiera",
+      "Auditoría",
+      "Sistemas",
+      "Contabilidad",
+      "Cartera",
+      "Compras",
+      "Cocina",
+      "Restaurantes",
+      "Bar",
+      "Eventos",
+      "Administración"
+    ];
+
+    const CATALOG_TIPOS = {
+      incapacidad: { codigo: "INC", requiere_documentos: true, afecta_programacion: true },
+      calamidad: { codigo: "CAL", requiere_documentos: true, afecta_programacion: true },
+      permiso_no_remunerado: { codigo: "PNR", requiere_documentos: true, afecta_programacion: true },
+      dia_familia: { codigo: "DFAM", requiere_documentos: false, afecta_programacion: true },
+      dia_grado: { codigo: "DGR", requiere_documentos: true, afecta_programacion: true },
+      cumpleanos: { codigo: "CUMP", requiere_documentos: false, afecta_programacion: true },
+      matrimonio: { codigo: "MATR", requiere_documentos: true, afecta_programacion: true },
+      luto: { codigo: "LUTO", requiere_documentos: true, afecta_programacion: true },
+      graduacion: { codigo: "GRAD", requiere_documentos: true, afecta_programacion: true }
+    };
+
+    const MAPA_DOCUMENTOS = {
+      incapacidad: {
+        enfermedad_general: [
+          { condicion: (dias) => dias <= 2, documentos: ["Certificado de incapacidad"] },
+          { condicion: (dias) => dias >= 3, documentos: ["Certificado de incapacidad", "Historia clínica"] }
+        ],
+        accidente_transito: [
+          { condicion: (dias) => dias <= 2, documentos: ["Certificado de incapacidad"] },
+          { condicion: (dias) => dias >= 3, documentos: ["Certificado de incapacidad", "Historia clínica", "FURIPS", "Copia del SOAT vigente"] }
+        ],
+        accidente_trabajo: [
+          { condicion: () => true, documentos: ["Certificado de incapacidad", "Historia clínica"] }
+        ],
+        licencia_maternidad: [
+          {
+            condicion: (dias) => dias >= 1 && dias <= 126,
+            documentos: ["Certificado de incapacidad", "Historia clínica", "Certificado nacido vivo", "Registro civil"],
+            nota: "En la historia clínica debe estar especificada la fecha probable de parto y número de semanas de embarazo."
+          }
+        ],
+        licencia_paternidad: [
+          {
+            condicion: () => true,
+            documentos: ["Certificado de incapacidad e historia clínica de la mamá", "Certificado nacido vivo", "Registro civil"]
+          }
+        ]
+      },
+      calamidad: {
+        _default: [{ condicion: () => true, documentos: ["Documento soporte de calamidad o evento", "Soporte adicional si aplica"] }]
+      },
+      permiso_no_remunerado: {
+        _default: [{ condicion: () => true, documentos: ["Solicitud o soporte justificativo del permiso no remunerado"] }]
+      },
+      dia_familia: {
+        _default: [{ condicion: () => true, documentos: [] }]
+      },
+      dia_grado: {
+        _default: [{ condicion: () => true, documentos: ["Soporte o constancia del grado"] }]
+      },
+      cumpleanos: {
+        _default: [{ condicion: () => true, documentos: [] }]
+      },
+      matrimonio: {
+        _default: [{ condicion: () => true, documentos: ["Registro civil o documento soporte del matrimonio"] }]
+      },
+      luto: {
+        _default: [{ condicion: () => true, documentos: ["Documento soporte del parentesco o del evento"] }]
+      },
+      graduacion: {
+        _default: [{ condicion: () => true, documentos: ["Acta, diploma o soporte de graduación"] }]
+      }
+    };
+
+    let usuarioActual = null;
+    let empleadosCache = [];
+    let empleadoSeleccionado = null;
+    let archivosSeleccionados = [];
+    let historialEmpleado = [];
+    let solicitudesGestion = [];
+    let solicitudesGestionFiltradas = [];
+    let modalGestion = null;
+    let solicitudGestionActual = null;
+    let notificacionesModulo = [];
+
+    const DEV_PERMITIR_GESTION_SIN_SESION = false;
+
+    function mostrarAlerta(mensaje, tipo = "success") {
+      const contenedor = document.getElementById("contenedorAlertas");
+      contenedor.innerHTML = `
+        <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+          ${mensaje}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      `;
+    }
+
+    function texto(valor) {
+      return (valor || "").toString().trim();
+    }
+
+    function aBoolean(valor) {
+      if (typeof valor === "boolean") return valor;
+      return String(valor).toLowerCase() === "true";
+    }
+
+    function hoyISO() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function escaparHtml(str) {
+      return String(str || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function formatearFecha(fecha) {
+      if (!fecha) return "";
+      const d = new Date(fecha + "T00:00:00");
+      if (Number.isNaN(d.getTime())) return fecha;
+      return d.toLocaleDateString("es-CO");
+    }
+
+    function formatearFechaHora(fecha) {
+      if (!fecha) return "";
+      const d = new Date(fecha);
+      if (Number.isNaN(d.getTime())) return fecha;
+      return d.toLocaleString("es-CO");
+    }
+
+    function diasEntreFechas(inicio, fin) {
+      if (!inicio || !fin) return 0;
+      const f1 = new Date(inicio + "T00:00:00");
+      const f2 = new Date(fin + "T00:00:00");
+      if (Number.isNaN(f1.getTime()) || Number.isNaN(f2.getTime())) return 0;
+      const diff = Math.floor((f2 - f1) / (1000 * 60 * 60 * 24));
+      return diff >= 0 ? diff + 1 : 0;
+    }
+
+    function diasDesdeFecha(fecha) {
+      if (!fecha) return 0;
+      const inicio = new Date(fecha + "T00:00:00");
+      const hoy = new Date(hoyISO() + "T00:00:00");
+      if (Number.isNaN(inicio.getTime())) return 0;
+      return Math.floor((hoy - inicio) / (1000 * 60 * 60 * 24));
+    }
+
+    function obtenerUsuarioActual() {
+      const posiblesLlaves = [
+        "ccp_sesion",
+        "usuarioActual",
+        "empleadoActual",
+        "sessionUser",
+        "userData",
+        "authUser"
+      ];
+
+      for (const llave of posiblesLlaves) {
+        const valor = localStorage.getItem(llave) || sessionStorage.getItem(llave);
+        if (!valor) continue;
+
+        try {
+          const obj = JSON.parse(valor);
+          if (obj && (obj.id || obj.cedula || obj.usuario || obj.nombre_completo || obj.correo || obj.rol)) {
+            return obj;
+          }
+        } catch (e) { }
+      }
+
+      return null;
+    }
+
+    function esUsuarioAutorizadoSolicitudesBienestar(usuario) {
+      if (!usuario) return false;
+
+      const cedula = texto(usuario.cedula || usuario.usuario || usuario.username || "");
+      const nombre = String(usuario.nombre_completo || `${usuario.nombres || ""} ${usuario.apellidos || ""}`).toLowerCase();
+      const rol = texto(usuario.rol).toLowerCase();
+      const cargo = texto(usuario.cargo).toLowerCase();
+      const centroCostos = texto(usuario.centro_costos || usuario.area).toLowerCase();
+      const areasPermitidas = Array.isArray(usuario.areas_permitidas)
+        ? usuario.areas_permitidas.map(area => String(area || "").toLowerCase()).join(" ")
+        : "";
+      const modulosPermitidos = Array.isArray(usuario.modulos_permitidos) ? usuario.modulos_permitidos : [];
+
+      const esJhonnier =
+        cedula === "1088029438" ||
+        nombre.includes("jhonnier") ||
+        nombre.includes("villada");
+
+      const perteneceBienestar =
+        rol.includes("bienestar") ||
+        cargo.includes("bienestar") ||
+        centroCostos.includes("bienestar") ||
+        areasPermitidas.includes("bienestar");
+
+      const esAdministradorBienestar =
+        perteneceBienestar &&
+        (
+          rol.includes("admin") ||
+          rol.includes("administrador") ||
+          rol.includes("bienestar") ||
+          modulosPermitidos.includes("solicitudes-bienestar")
+        );
+
+      return esJhonnier || esAdministradorBienestar;
+    }
+
+
+    function esUsuarioAccesoTotalBienestar(usuario) {
+      if (!usuario) return false;
+
+      const cedula = texto(usuario.cedula || usuario.usuario || usuario.username || "");
+      const nombre = String(usuario.nombre_completo || `${usuario.nombres || ""} ${usuario.apellidos || ""}`).toLowerCase();
+      const rol = texto(usuario.rol).toLowerCase();
+      const cargo = texto(usuario.cargo).toLowerCase();
+      const centroCostos = texto(usuario.centro_costos || usuario.area).toLowerCase();
+      const areasPermitidas = Array.isArray(usuario.areas_permitidas)
+        ? usuario.areas_permitidas.map(area => String(area || "").toLowerCase()).join(" ")
+        : "";
+
+      if (usuario.puede_ver_todo === true || aBoolean(usuario.puede_ver_todo)) return true;
+      if (cedula === "1088029438") return true;
+      if (nombre.includes("jhonnier") || nombre.includes("villada")) return true;
+      if (rol.includes("admin") || rol.includes("administrador")) return true;
+      if (rol.includes("bienestar")) return true;
+      if (cargo.includes("bienestar")) return true;
+      if (centroCostos.includes("bienestar")) return true;
+      if (areasPermitidas.includes("bienestar")) return true;
+
+      return false;
+    }
+
+    function protegerAccesoSolicitudesBienestar() {
+      if (!esUsuarioAutorizadoSolicitudesBienestar(usuarioActual)) {
+        alert("No tienes permisos para acceder al módulo de Solicitudes Bienestar.");
+        window.location.href = "dashboard.html";
+        return false;
+      }
+
+      return true;
+    }
+
+    function nombreCompleto(obj) {
+      if (obj?.nombre_completo) return String(obj.nombre_completo).trim();
+      return `${obj?.nombres || ""} ${obj?.apellidos || ""}`.replace(/\s+/g, " ").trim();
+    }
+
+    function labelTipo(tipo) {
+      const mapa = {
+        incapacidad: "Incapacidad",
+        calamidad: "Calamidad",
+        permiso_no_remunerado: "Permiso no remunerado",
+        dia_familia: "Día de la familia",
+        dia_grado: "Día de grado",
+        cumpleanos: "Cumpleaños",
+        matrimonio: "Matrimonio",
+        luto: "Luto",
+        graduacion: "Graduación"
+      };
+      return mapa[tipo] || tipo || "";
+    }
+
+    function labelSubtipo(subtipo) {
+      const mapa = {
+        enfermedad_general: "Enfermedad general",
+        accidente_transito: "Accidente de tránsito",
+        accidente_trabajo: "Accidente de trabajo",
+        licencia_maternidad: "Licencia de maternidad",
+        licencia_paternidad: "Licencia de paternidad"
+      };
+      return mapa[subtipo] || subtipo || "";
+    }
+
+    function labelEstadoPlano(estado) {
+      const mapa = {
+        pendiente: "Pendiente",
+        pendiente_documentos: "Pendiente documentos",
+        en_revision_bienestar: "En revisión",
+        aprobada: "Aprobada",
+        rechazada: "Rechazada",
+        fuera_de_tiempo: "Fuera de tiempo",
+        aplicada_programacion: "Aplicada a programación",
+        cerrada: "Cerrada"
+      };
+      return mapa[estado] || estado;
+    }
+
+    function obtenerAreasPermitidasUsuario(usuario) {
+      if (!usuario) return [];
+      if (esUsuarioAccesoTotalBienestar(usuario)) return [...AREAS_SISTEMA];
+      if (Array.isArray(usuario.areas_permitidas) && usuario.areas_permitidas.length) return usuario.areas_permitidas;
+      if (texto(usuario.area)) return [usuario.area];
+      if (texto(usuario.centro_costos)) return [usuario.centro_costos];
+      return [];
+    }
+
+    function puedeGestionar(usuario) {
+      return esUsuarioAutorizadoSolicitudesBienestar(usuario);
+    }
+
+    function pintarEstado(estado) {
+      const mapa = {
+        pendiente: ["Pendiente", "estado-badge estado-pendiente"],
+        pendiente_documentos: ["Pendiente docs", "estado-badge estado-pendiente-documentos"],
+        en_revision_bienestar: ["En revisión", "estado-badge estado-en-revision"],
+        aprobada: ["Aprobada", "estado-badge estado-aprobada"],
+        rechazada: ["Rechazada", "estado-badge estado-rechazada"],
+        fuera_de_tiempo: ["Fuera de tiempo", "estado-badge estado-fuera-de-tiempo"],
+        aplicada_programacion: ["Aplicada programación", "estado-badge estado-aplicada-programacion"],
+        cerrada: ["Cerrada", "estado-badge estado-cerrada"]
+      };
+      const [label, cls] = mapa[estado] || [estado || "Sin estado", "estado-badge estado-pendiente"];
+      return `<span class="${cls}">${label}</span>`;
+    }
+
+    function clasePrioridad(prioridad) {
+      const mapa = {
+        baja: "prioridad-badge prioridad-baja",
+        media: "prioridad-badge prioridad-media",
+        alta: "prioridad-badge prioridad-alta",
+        critica: "prioridad-badge prioridad-critica"
+      };
+      return mapa[prioridad] || "prioridad-badge prioridad-media";
+    }
+
+    function cargarInfoSesion() {
+      usuarioActual = obtenerUsuarioActual();
+      const info = document.getElementById("infoSesion");
+
+      if (!usuarioActual) {
+        if (DEV_PERMITIR_GESTION_SIN_SESION) {
+          info.innerHTML = "Modo desarrollo activo. No se detectó sesión local, pero la gestión de Bienestar está habilitada para pruebas.";
+          return;
+        }
+
+        info.innerHTML = "No se detectó sesión local. El módulo seguirá funcionando por búsqueda de empleados.";
+        return;
+      }
+
+      info.innerHTML = `
+        ${escaparHtml(nombreCompleto(usuarioActual) || "Usuario")}
+        · Rol: <strong>${escaparHtml(usuarioActual.rol || "sin rol")}</strong>
+        · Puede ver todo: <strong>${esUsuarioAccesoTotalBienestar(usuarioActual) ? "Sí" : "No"}</strong>
+      `;
+    }
+
+    function poblarFiltroAreas() {
+      const filtro = document.getElementById("filtroGestionArea");
+      const verTodo = esUsuarioAccesoTotalBienestar(usuarioActual);
+      const areas = verTodo ? [...AREAS_SISTEMA] : obtenerAreasPermitidasUsuario(usuarioActual);
+      filtro.innerHTML = `<option value="">Todas</option>` + [...new Set(areas)].map(a => `<option value="${escaparHtml(a)}">${escaparHtml(a)}</option>`).join("");
+    }
+
+    async function cargarEmpleadosDesdeSupabase() {
+      const estado = document.getElementById("estadoCargaEmpleados");
+      estado.textContent = "Cargando base de empleados...";
+
+      try {
+        const { data, error } = await sb
+          .from("empleados")
+          .select("id,codigo,cedula,nombres,apellidos,cargo,area,centro_costos,estado")
+          .order("nombres", { ascending: true });
+
+        if (error) {
+          console.error(error);
+          estado.textContent = "Error cargando empleados desde Supabase.";
+          mostrarAlerta("No se pudieron cargar los empleados desde Supabase: " + error.message, "danger");
+          return;
+        }
+
+        empleadosCache = Array.isArray(data) ? data : [];
+        estado.textContent = `Base de empleados cargada: ${empleadosCache.length} registro(s).`;
+      } catch (error) {
+        console.error(error);
+        estado.textContent = "Error cargando empleados desde Supabase.";
+        mostrarAlerta("Error inesperado cargando empleados.", "danger");
+      }
+    }
+
+    function actualizarSubtipos() {
+      const tipo = texto(document.getElementById("tipoSolicitud").value);
+      const select = document.getElementById("subtipoSolicitud");
+      const wrap = document.getElementById("wrapSubtipo");
+
+      if (tipo === "incapacidad") {
+        wrap.classList.remove("hidden");
+        select.innerHTML = `
+          <option value="">Seleccione...</option>
+          <option value="enfermedad_general">Enfermedad general</option>
+          <option value="accidente_transito">Accidente de tránsito</option>
+          <option value="accidente_trabajo">Accidente de trabajo</option>
+          <option value="licencia_maternidad">Licencia de maternidad</option>
+          <option value="licencia_paternidad">Licencia de paternidad</option>
+        `;
+      } else {
+        wrap.classList.add("hidden");
+        select.innerHTML = `<option value="">No aplica</option>`;
+      }
+
+      actualizarResumenSolicitud();
+    }
+
+    function obtenerDocumentosRequeridos(tipo, subtipo, dias) {
+      const grupo = MAPA_DOCUMENTOS[tipo];
+      if (!grupo) return { documentos: [], nota: "" };
+
+      const reglas = grupo[subtipo] || grupo._default || [];
+      for (const regla of reglas) {
+        if (typeof regla.condicion === "function" && regla.condicion(dias)) {
+          return {
+            documentos: regla.documentos || [],
+            nota: regla.nota || ""
+          };
+        }
+      }
+
+      return { documentos: [], nota: "" };
+    }
+
+    function renderDocumentosRequeridos() {
+      const tipo = texto(document.getElementById("tipoSolicitud").value);
+      const subtipo = texto(document.getElementById("subtipoSolicitud").value);
+      const dias = Number(document.getElementById("diasSolicitados").value || 0);
+
+      const { documentos, nota } = obtenerDocumentosRequeridos(tipo, subtipo, dias);
+      const lista = document.getElementById("listaDocumentosRequeridos");
+      const resumen = document.getElementById("resumenDocumentos");
+
+      if (!tipo) {
+        lista.innerHTML = `<div class="small-muted">Selecciona el tipo de solicitud para definir los soportes requeridos.</div>`;
+        resumen.textContent = "Sin definir";
+        return;
+      }
+
+      if (!documentos.length) {
+        lista.innerHTML = `<div class="small-muted">Este tipo de solicitud no exige documento en esta fase.</div>`;
+        resumen.textContent = "No requiere documento";
+        if (nota) lista.innerHTML += `<div class="small-muted mt-2">${escaparHtml(nota)}</div>`;
+        return;
+      }
+
+      lista.innerHTML = documentos.map(doc => `<span class="doc-chip">${escaparHtml(doc)}</span>`).join("");
+      if (nota) lista.innerHTML += `<div class="small-muted mt-2">${escaparHtml(nota)}</div>`;
+      resumen.textContent = `${documentos.length} documento(s) requerido(s)`;
+    }
+
+    function obtenerDocumentosActualesRequeridos() {
+      const tipo = texto(document.getElementById("tipoSolicitud").value);
+      const subtipo = texto(document.getElementById("subtipoSolicitud").value);
+      const dias = Number(document.getElementById("diasSolicitados").value || 0);
+      return obtenerDocumentosRequeridos(tipo, subtipo, dias).documentos || [];
+    }
+
+    function obtenerDiagnosticoDocumentos() {
+      const tipo = texto(document.getElementById("tipoSolicitud").value);
+      const config = CATALOG_TIPOS[tipo] || {};
+      const documentosRequeridos = obtenerDocumentosActualesRequeridos();
+
+      if (!config.requiere_documentos || !documentosRequeridos.length) {
+        return {
+          requiere: false,
+          documentosRequeridos,
+          tiposSeleccionados: [],
+          faltantes: [],
+          sinClasificar: [],
+          estadoDocumental: "completa",
+          completa: true
+        };
+      }
+
+      const tiposSeleccionados = archivosSeleccionados
+        .map(item => texto(item.tipo_documento))
+        .filter(Boolean);
+
+      const faltantes = documentosRequeridos.filter(doc => !tiposSeleccionados.includes(doc));
+      const sinClasificar = archivosSeleccionados.filter(item => !texto(item.tipo_documento));
+
+      let estadoDocumental = "completa";
+      if (!archivosSeleccionados.length) estadoDocumental = "pendiente_documentos";
+      else if (faltantes.length || sinClasificar.length) estadoDocumental = "incompleta";
+
+      return {
+        requiere: true,
+        documentosRequeridos,
+        tiposSeleccionados,
+        faltantes,
+        sinClasificar,
+        estadoDocumental,
+        completa: estadoDocumental === "completa"
+      };
+    }
+
+    function actualizarTipoDocumentoArchivo(index, tipoDocumento) {
+      if (!archivosSeleccionados[index]) return;
+      archivosSeleccionados[index].tipo_documento = tipoDocumento;
+      renderArchivosSeleccionados();
+      actualizarResumenSolicitud();
+    }
+
+    function renderArchivosSeleccionados() {
+      const contenedor = document.getElementById("listaDocumentosCargados");
+
+      if (!archivosSeleccionados.length) {
+        contenedor.innerHTML = `<span class="small-muted">No se han seleccionado archivos.</span>`;
+        return;
+      }
+
+      const documentosRequeridos = obtenerDocumentosActualesRequeridos();
+
+      contenedor.innerHTML = archivosSeleccionados.map((item, index) => {
+        const file = item.file || item;
+        const kb = Math.round((file.size || 0) / 1024);
+        const tipoSeleccionado = texto(item.tipo_documento);
+
+        if (!documentosRequeridos.length) {
+          return `
+            <div class="doc-file-row">
+              <div class="doc-file-name">${escaparHtml(file.name)}</div>
+              <div class="small-muted">${kb} KB · Este tipo de solicitud no exige clasificación documental.</div>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="doc-file-row">
+            <div class="row g-2 align-items-center">
+              <div class="col-md-6">
+                <div class="doc-file-name">${escaparHtml(file.name)}</div>
+                <div class="small-muted">${kb} KB</div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small-muted mb-1">Tipo de documento</label>
+                <select class="form-select form-select-sm" onchange="actualizarTipoDocumentoArchivo(${index}, this.value)">
+                  <option value="">Seleccione el documento que corresponde...</option>
+                  ${documentosRequeridos.map(doc => `<option value="${escaparHtml(doc)}" ${doc === tipoSeleccionado ? "selected" : ""}>${escaparHtml(doc)}</option>`).join("")}
+                </select>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      const diagnostico = obtenerDiagnosticoDocumentos();
+      if (diagnostico.requiere) {
+        if (diagnostico.estadoDocumental === "pendiente_documentos") {
+          contenedor.innerHTML += `<div class="alert-inline bg-soft-warning mt-2">La solicitud requiere documentos y aún no tiene archivos adjuntos.</div>`;
+        } else if (diagnostico.estadoDocumental === "incompleta") {
+          const mensajes = [];
+          if (diagnostico.sinClasificar.length) mensajes.push(`${diagnostico.sinClasificar.length} archivo(s) sin tipo de documento seleccionado`);
+          if (diagnostico.faltantes.length) mensajes.push(`faltan: ${diagnostico.faltantes.map(escaparHtml).join(", ")}`);
+          contenedor.innerHTML += `<div class="alert-inline bg-soft-warning mt-2">Documentación incompleta: ${mensajes.join("; ")}.</div>`;
+        } else {
+          contenedor.innerHTML += `<div class="alert-inline bg-soft-success mt-2">Documentación completa según los documentos requeridos.</div>`;
+        }
+      }
+    }
+
+    function pintarAlertasValidacion(tipo, subtipo, dias, fechaInicio) {
+      const contenedor = document.getElementById("alertasValidacionSolicitud");
+      const alertas = [];
+
+      if (!tipo) {
+        contenedor.innerHTML = "";
+        return;
+      }
+
+      if (tipo === "incapacidad" && fechaInicio) {
+        const transcurridos = diasDesdeFecha(fechaInicio);
+
+        if (transcurridos < 0) {
+          alertas.push(`<div class="alert-inline bg-soft-info">La incapacidad tiene fecha futura. El control del plazo de 15 días aplicará a partir de la fecha inicial.</div>`);
+        } else if (transcurridos > 15) {
+          alertas.push(`<div class="alert-inline bg-soft-danger">La incapacidad supera el plazo de 15 días. Se radicará en estado <strong>fuera de tiempo</strong>.</div>`);
+        } else {
+          alertas.push(`<div class="alert-inline bg-soft-warning">La incapacidad lleva ${transcurridos} día(s) desde la fecha inicial. El máximo permitido para radicar es 15 días.</div>`);
+        }
+      }
+
+      if (tipo === "cumpleanos") {
+        alertas.push(`<div class="alert-inline bg-soft-info">El permiso de cumpleaños exige aprobación de Bienestar y solo debe registrarse <strong>1 vez por año</strong>.</div>`);
+      }
+
+      if (tipo === "dia_familia") {
+        alertas.push(`<div class="alert-inline bg-soft-info">El Día de la Familia no exige documento en esta fase, pero requiere aprobación de Bienestar.</div>`);
+      }
+
+      if (tipo === "matrimonio") {
+        alertas.push(`<div class="alert-inline bg-soft-info">La licencia por matrimonio tiene máximo <strong>2 días</strong>.</div>`);
+      }
+
+      if ((tipo === "graduacion" || tipo === "dia_grado") && dias > 1) {
+        alertas.push(`<div class="alert-inline bg-soft-danger">El beneficio por grado o graduación no debe superar 1 día.</div>`);
+      }
+
+      if (subtipo === "licencia_maternidad" && dias > 126) {
+        alertas.push(`<div class="alert-inline bg-soft-danger">La licencia de maternidad no puede superar 126 días.</div>`);
+      }
+
+      contenedor.innerHTML = alertas.join("");
+    }
+
+    function actualizarResumenSolicitud() {
+      const tipo = texto(document.getElementById("tipoSolicitud").value);
+      const inicio = texto(document.getElementById("fechaInicio").value);
+      const fin = texto(document.getElementById("fechaFin").value);
+
+      const diasAuto = diasEntreFechas(inicio, fin);
+      if (diasAuto > 0) {
+        document.getElementById("diasSolicitados").value = diasAuto;
+      }
+
+      const config = CATALOG_TIPOS[tipo] || null;
+      document.getElementById("codigoTipo").value = config?.codigo || "";
+
+      let estado = "pendiente";
+      if (tipo === "incapacidad" && inicio) {
+        const transcurridos = diasDesdeFecha(inicio);
+        if (transcurridos > 15) estado = "fuera_de_tiempo";
+      }
+
+      document.getElementById("estadoInicial").value = estado;
+      renderDocumentosRequeridos();
+      if (archivosSeleccionados.length) renderArchivosSeleccionados();
+      pintarAlertasValidacion(tipo, texto(document.getElementById("subtipoSolicitud").value), Number(document.getElementById("diasSolicitados").value || 0), inicio);
+    }
+
+    function ocultarSugerencias() {
+      const lista = document.getElementById("listaSugerencias");
+      lista.classList.add("hidden");
+      lista.innerHTML = "";
+    }
+
+    function renderSugerencias(lista) {
+      const contenedor = document.getElementById("listaSugerencias");
+
+      if (!lista.length) {
+        contenedor.innerHTML = `<div class="autocomplete-item small-muted">No se encontraron coincidencias.</div>`;
+        contenedor.classList.remove("hidden");
+        return;
+      }
+
+      contenedor.innerHTML = lista.map(emp => `
+        <div class="autocomplete-item" data-id="${escaparHtml(emp.id)}">
+          <div class="fw-semibold">${escaparHtml(nombreCompleto(emp))}</div>
+          <div class="small-muted">
+            Cédula: ${escaparHtml(emp.cedula || "")}
+            · Cargo: ${escaparHtml(emp.cargo || "")}
+            · Área: ${escaparHtml(emp.area || emp.centro_costos || "")}
+          </div>
+        </div>
+      `).join("");
+
+      contenedor.classList.remove("hidden");
+
+      contenedor.querySelectorAll(".autocomplete-item[data-id]").forEach(el => {
+        el.addEventListener("click", () => {
+          const id = el.getAttribute("data-id");
+          const elegido = empleadosCache.find(x => String(x.id) === String(id));
+          if (elegido) seleccionarEmpleado(elegido);
+        });
+      });
+    }
+
+    function buscarEnCache(valor) {
+      const q = texto(valor).toLowerCase();
+
+      if (q.length < 2) {
+        ocultarSugerencias();
+        return;
+      }
+
+      const filtrados = empleadosCache.filter(emp => {
+        const bolsa = [
+          emp.cedula,
+          emp.nombres,
+          emp.apellidos,
+          nombreCompleto(emp),
+          emp.cargo,
+          emp.area,
+          emp.centro_costos,
+        ].join(" ").toLowerCase();
+
+        return bolsa.includes(q);
+      }).slice(0, 12);
+
+      renderSugerencias(filtrados);
+    }
+
+    function seleccionarEmpleado(emp) {
+      empleadoSeleccionado = emp || null;
+      ocultarSugerencias();
+
+      const bloque = document.getElementById("bloqueEmpleadoSeleccionado");
+
+      if (!emp) {
+        bloque.classList.add("hidden");
+        document.getElementById("buscarEmpleado").value = "";
+        document.getElementById("tablaMisSolicitudes").innerHTML = `
+          <tr><td colspan="6" class="text-center text-muted py-4">Selecciona un empleado para visualizar su historial.</td></tr>
+        `;
+        document.getElementById("contadorMisSolicitudes").textContent = "0 registros";
+        historialEmpleado = [];
+        return;
+      }
+
+      document.getElementById("buscarEmpleado").value = nombreCompleto(emp) || emp.cedula || "";
+      bloque.classList.remove("hidden");
+      document.getElementById("viewCedula").textContent = emp.cedula || "-";
+      document.getElementById("viewCodigo").textContent = emp.codigo || "-";
+      document.getElementById("viewCargo").textContent = emp.cargo || "-";
+      document.getElementById("viewNombres").textContent = emp.nombres || "-";
+      document.getElementById("viewApellidos").textContent = emp.apellidos || "-";
+      document.getElementById("viewArea").textContent = emp.area || "-";
+      document.getElementById("viewCentroCostos").textContent = emp.centro_costos || "-";
+
+      cargarHistorialEmpleadoSeleccionado();
+    }
+
+    async function cargarEmpleadoDesdeSesion() {
+      if (!usuarioActual) {
+        mostrarAlerta("No se encontró sesión local para autocompletar el empleado.", "warning");
+        return;
+      }
+
+      let emp = null;
+
+      const cedulaSesion = texto(usuarioActual.cedula || usuarioActual.usuario || usuarioActual.username);
+
+      if (cedulaSesion) {
+        emp = empleadosCache.find(x => texto(x.cedula) === cedulaSesion);
+      }
+
+      if (!emp && usuarioActual.id) {
+        emp = empleadosCache.find(x => String(x.id) === String(usuarioActual.id));
+      }
+
+      if (!emp) {
+        mostrarAlerta("No se encontró un empleado asociado a la sesión actual dentro de la base cargada.", "warning");
+        return;
+      }
+
+      seleccionarEmpleado(emp);
+    }
+
+    async function subirArchivosASupabase() {
+      if (!empleadoSeleccionado?.cedula) {
+        throw new Error("No hay empleado seleccionado para asociar los documentos.");
+      }
+
+      if (!archivosSeleccionados.length) {
+        return [];
+      }
+
+      const archivosSubidos = [];
+
+      for (const item of archivosSeleccionados) {
+        const file = item.file || item;
+        const tipo_documento = texto(item.tipo_documento);
+
+        const nombreLimpio = file.name
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/\s+/g, "_")
+          .replace(/[^\w.\-]/g, "");
+
+        const ruta = `${empleadoSeleccionado.cedula}/${Date.now()}_${nombreLimpio}`;
+
+        const { error: uploadError } = await sb.storage
+          .from("solicitudes-bienestar")
+          .upload(ruta, file, {
+            upsert: false
+          });
+
+        if (uploadError) {
+          throw new Error(`Error subiendo archivo ${file.name}: ${uploadError.message}`);
+        }
+
+        const { data: publicData } = sb.storage
+          .from("solicitudes-bienestar")
+          .getPublicUrl(ruta);
+
+        archivosSubidos.push({
+          name: file.name,
+          tipo_documento,
+          size: file.size,
+          type: file.type || null,
+          bucket: "solicitudes-bienestar",
+          path: ruta,
+          publicUrl: publicData?.publicUrl || null,
+          uploadedAt: new Date().toISOString()
+        });
+      }
+
+      return archivosSubidos;
+    }
+
+    async function construirPayloadSolicitud() {
+      const tipo = texto(document.getElementById("tipoSolicitud").value);
+      const subtipo = texto(document.getElementById("subtipoSolicitud").value);
+      const fecha_inicio = texto(document.getElementById("fechaInicio").value);
+      const fecha_fin = texto(document.getElementById("fechaFin").value);
+      const dias_solicitados = Number(document.getElementById("diasSolicitados").value || 0);
+      const observacion_empleado = texto(document.getElementById("observacionEmpleado").value);
+      const estadoInicial = texto(document.getElementById("estadoInicial").value) || "pendiente";
+      const config = CATALOG_TIPOS[tipo] || {};
+
+      const { documentos } = obtenerDocumentosRequeridos(tipo, subtipo, dias_solicitados);
+      const diagnosticoDocumentos = obtenerDiagnosticoDocumentos();
+      const documentos_cargados = await subirArchivosASupabase();
+
+      const requiere_documentos = !!config.requiere_documentos;
+      const documentacion_completa = diagnosticoDocumentos.completa;
+      const estado_documental = diagnosticoDocumentos.estadoDocumental;
+      const documentos_faltantes = diagnosticoDocumentos.faltantes.map(nombre => ({ nombre }));
+
+      let estado = estadoInicial;
+      if (!documentacion_completa && estado !== "fuera_de_tiempo") {
+        estado = "pendiente_documentos";
+      }
+
+      return {
+        empleado_id: empleadoSeleccionado?.id || null,
+        cedula: empleadoSeleccionado?.cedula || null,
+        codigo_empleado: empleadoSeleccionado?.codigo || empleadoSeleccionado?.cedula || null,
+        nombre_empleado: nombreCompleto(empleadoSeleccionado),
+        area: empleadoSeleccionado?.area || null,
+        cargo: empleadoSeleccionado?.cargo || null,
+        tipo_solicitud: tipo,
+        subtipo: tipo === "incapacidad" ? subtipo : null,
+        codigo_tipo: config.codigo || null,
+        afecta_programacion: !!config.afecta_programacion,
+        requiere_documentos: !!config.requiere_documentos,
+        fecha_inicio,
+        fecha_fin,
+        dias_solicitados,
+        fecha_radicacion: hoyISO(),
+        estado,
+        observacion_empleado,
+        observacion_revision: null,
+        documentos_requeridos: documentos.map(d => ({ nombre: d })),
+        documentos_cargados,
+        documentos_faltantes,
+        estado_documental,
+        documentacion_completa,
+        fuera_de_tiempo: estado === "fuera_de_tiempo",
+        aprobado_por: null,
+        fecha_aprobacion: null,
+        aplicada_programacion: false,
+        fecha_aplicacion_programacion: null
+      };
+    }
+
+    async function validarReglas(payload) {
+      const errores = [];
+      const advertencias = [];
+
+      if (!empleadoSeleccionado) errores.push("Debes seleccionar un empleado desde la base cargada de Supabase.");
+      if (!payload.tipo_solicitud) errores.push("Debes seleccionar el tipo de solicitud.");
+      if (!payload.fecha_inicio) errores.push("La fecha de inicio es obligatoria.");
+      if (!payload.fecha_fin) errores.push("La fecha de fin es obligatoria.");
+      if (!payload.dias_solicitados || payload.dias_solicitados < 1) errores.push("Los días solicitados deben ser mayores o iguales a 1.");
+
+      if (payload.fecha_inicio && payload.fecha_fin) {
+        const diasCalc = diasEntreFechas(payload.fecha_inicio, payload.fecha_fin);
+        if (diasCalc <= 0) errores.push("La fecha fin no puede ser menor a la fecha inicio.");
+      }
+
+      if (payload.requiere_documentos && payload.estado_documental === "pendiente_documentos") {
+        errores.push("Debes adjuntar al menos un archivo para esta solicitud.");
+      }
+
+      if (payload.requiere_documentos && payload.estado_documental === "incompleta") {
+        const faltantes = Array.isArray(payload.documentos_faltantes)
+          ? payload.documentos_faltantes.map(d => d.nombre || d).filter(Boolean)
+          : [];
+
+        if (faltantes.length) {
+          errores.push("La documentación está incompleta. Faltan: " + faltantes.join(", ") + ".");
+        } else {
+          errores.push("Debes seleccionar el tipo de documento para todos los archivos adjuntos.");
+        }
+      }
+
+      if (payload.tipo_solicitud === "incapacidad" && !payload.subtipo) {
+        errores.push("Debes seleccionar el subtipo de incapacidad.");
+      }
+
+      if (payload.tipo_solicitud === "cumpleanos" && payload.dias_solicitados !== 1) {
+        errores.push("El permiso de cumpleaños debe registrarse por exactamente 1 día.");
+      }
+
+      if (payload.tipo_solicitud === "dia_familia" && payload.dias_solicitados !== 1) {
+        errores.push("El Día de la Familia debe registrarse por exactamente 1 día.");
+      }
+
+      if ((payload.tipo_solicitud === "dia_grado" || payload.tipo_solicitud === "graduacion") && payload.dias_solicitados > 1) {
+        errores.push("El beneficio por grado o graduación no debe superar 1 día.");
+      }
+
+      if (payload.tipo_solicitud === "matrimonio" && payload.dias_solicitados > 2) {
+        errores.push("La licencia por matrimonio no puede superar 2 días.");
+      }
+
+      if (payload.tipo_solicitud === "incapacidad" && payload.subtipo === "licencia_maternidad" && payload.dias_solicitados > 126) {
+        errores.push("La licencia de maternidad no puede superar 126 días.");
+      }
+
+      if (payload.tipo_solicitud === "incapacidad") {
+        const transcurridos = diasDesdeFecha(payload.fecha_inicio);
+        if (transcurridos > 15) {
+          advertencias.push("La incapacidad será radicada como fuera de tiempo.");
+        }
+      }
+
+      if (payload.tipo_solicitud === "cumpleanos") {
+        const anio = new Date(payload.fecha_inicio + "T00:00:00").getFullYear();
+
+        const { data, error } = await sb
+          .from("solicitudes_empleado")
+          .select("id, estado")
+          .eq("cedula", payload.cedula)
+          .eq("tipo_solicitud", "cumpleanos")
+          .eq("anio", anio)
+          .in("estado", ["pendiente", "pendiente_documentos", "en_revision_bienestar", "aprobada", "aplicada_programacion", "cerrada"]);
+
+        if (error) throw error;
+        if (Array.isArray(data) && data.length) {
+          errores.push("El empleado ya tiene un permiso de cumpleaños registrado este año.");
+        }
+      }
+
+      return { errores, advertencias };
+    }
+
+    function construirDestinatariosNuevaSolicitud(payload) {
+      const destinatarios = [
+        {
+          cedula_destino: null,
+          nombre_destino: "Administrador",
+          rol_destino: "admin"
+        },
+        {
+          cedula_destino: null,
+          nombre_destino: "Bienestar",
+          rol_destino: "bienestar"
+        }
+      ];
+
+      if (payload.tipo_solicitud === "incapacidad") {
+        destinatarios.push({
+          cedula_destino: null,
+          nombre_destino: "Nómina",
+          rol_destino: "nomina"
+        });
+      }
+
+      return destinatarios;
+    }
+
+    function construirTipoNotificacionRegistro(payload) {
+      if (payload.tipo_solicitud === "incapacidad") return "incapacidad_radicada";
+      if (payload.estado === "fuera_de_tiempo") return "solicitud_fuera_de_tiempo";
+      if (payload.estado === "pendiente_documentos") return "solicitud_pendiente_documentos";
+      return "nueva_solicitud";
+    }
+
+    function construirPrioridadNotificacion(payload) {
+      if (payload.tipo_solicitud === "incapacidad") return "alta";
+      if (payload.estado === "fuera_de_tiempo") return "alta";
+      if (payload.estado === "pendiente_documentos") return "media";
+      return "media";
+    }
+
+    function construirTituloNotificacionRegistro(payload) {
+      if (payload.tipo_solicitud === "incapacidad") {
+        return `Nueva incapacidad radicada: ${payload.nombre_empleado}`;
+      }
+      return `Nueva solicitud de ${labelTipo(payload.tipo_solicitud)}: ${payload.nombre_empleado}`;
+    }
+
+    function construirMensajeNotificacionRegistro(payload) {
+      let mensaje = `${payload.nombre_empleado} radicó una solicitud de ${labelTipo(payload.tipo_solicitud)} para el rango ${formatearFecha(payload.fecha_inicio)} - ${formatearFecha(payload.fecha_fin)}.`;
+
+      if (payload.estado === "pendiente_documentos") {
+        mensaje += " La solicitud quedó pendiente por documentos.";
+      }
+
+      if (payload.estado === "fuera_de_tiempo") {
+        mensaje += " La solicitud fue registrada fuera de tiempo.";
+      }
+
+      return mensaje;
+    }
+
+    async function crearNotificacionesNuevaSolicitud(payload, solicitudId) {
+      const destinatarios = construirDestinatariosNuevaSolicitud(payload);
+      const tipo_notificacion = construirTipoNotificacionRegistro(payload);
+      const prioridad = construirPrioridadNotificacion(payload);
+      const titulo = construirTituloNotificacionRegistro(payload);
+      const mensaje = construirMensajeNotificacionRegistro(payload);
+
+      const registros = destinatarios.map(dest => ({
+        cedula_destino: dest.cedula_destino,
+        nombre_destino: dest.nombre_destino,
+        rol_destino: dest.rol_destino,
+        tipo_notificacion,
+        titulo,
+        mensaje,
+        modulo: "solicitudes-bienestar",
+        referencia_id: solicitudId,
+        estado_lectura: false,
+        canal: "interno",
+        prioridad
+      }));
+
+      const { error } = await sb.from("notificaciones_sistema").insert(registros);
+
+      if (error) {
+        console.error("Error creando notificaciones:", error);
+        throw new Error("La solicitud se guardó, pero falló la creación de notificaciones: " + error.message);
+      }
+    }
+
+    async function crearNotificacionEmpleadoCambioEstado(solicitud, nuevoEstado, observacionRevision = "") {
+      if (!solicitud?.cedula) return;
+
+      const tipoMap = {
+        aprobada: "solicitud_aprobada",
+        rechazada: "solicitud_rechazada",
+        pendiente_documentos: "solicitud_pendiente_documentos",
+        fuera_de_tiempo: "solicitud_fuera_de_tiempo"
+      };
+
+      const tituloMap = {
+        aprobada: `Tu solicitud de ${labelTipo(solicitud.tipo_solicitud)} fue aprobada`,
+        rechazada: `Tu solicitud de ${labelTipo(solicitud.tipo_solicitud)} fue rechazada`,
+        pendiente_documentos: `Tu solicitud de ${labelTipo(solicitud.tipo_solicitud)} requiere documentos`,
+        fuera_de_tiempo: `Tu solicitud de ${labelTipo(solicitud.tipo_solicitud)} fue registrada fuera de tiempo`
+      };
+
+      const prioridadMap = {
+        aprobada: "media",
+        rechazada: "alta",
+        pendiente_documentos: "alta",
+        fuera_de_tiempo: "alta"
+      };
+
+      if (!tipoMap[nuevoEstado]) return;
+
+      let mensaje = `Tu solicitud de ${labelTipo(solicitud.tipo_solicitud)} para el rango ${formatearFecha(solicitud.fecha_inicio)} - ${formatearFecha(solicitud.fecha_fin)} quedó en estado ${labelEstadoPlano(nuevoEstado)}.`;
+
+      if (observacionRevision) {
+        mensaje += ` Observación: ${observacionRevision}`;
+      }
+
+      const registro = {
+        cedula_destino: solicitud.cedula,
+        nombre_destino: solicitud.nombre_empleado || null,
+        rol_destino: "empleado",
+        tipo_notificacion: tipoMap[nuevoEstado],
+        titulo: tituloMap[nuevoEstado],
+        mensaje,
+        modulo: "solicitudes-bienestar",
+        referencia_id: solicitud.id,
+        estado_lectura: false,
+        canal: "interno",
+        prioridad: prioridadMap[nuevoEstado]
+      };
+
+      const { error } = await sb
+        .from("notificaciones_sistema")
+        .insert([registro]);
+
+      if (error) {
+        console.error("Error creando notificación al empleado:", error);
+        throw new Error("No se pudo crear la notificación al empleado: " + error.message);
+      }
+    }
+
+
+    async function crearNovedadProgramacion(solicitud, observacionRevision = "") {
+      if (!solicitud?.id || !solicitud?.cedula) {
+        throw new Error("La solicitud no tiene datos suficientes para crear la novedad de programación.");
+      }
+
+      const payload = {
+        solicitud_id: solicitud.id,
+        empleado_id: solicitud.empleado_id || null,
+        cedula: solicitud.cedula,
+        codigo_empleado: solicitud.codigo_empleado || solicitud.codigo || solicitud.cedula || null,
+        nombre_empleado: solicitud.nombre_empleado || null,
+        area: solicitud.area || null,
+        cargo: solicitud.cargo || null,
+        tipo_novedad: solicitud.tipo_solicitud,
+        fecha_inicio: solicitud.fecha_inicio,
+        fecha_fin: solicitud.fecha_fin,
+        dias: solicitud.dias_solicitados || null,
+        observacion: observacionRevision || solicitud.observacion_revision || solicitud.observacion_empleado || null,
+        estado: "activa",
+        origen: "solicitudes_bienestar",
+        creada_por: nombreCompleto(usuarioActual) || usuarioActual?.cedula || "Bienestar",
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await sb
+        .from("novedades_programacion")
+        .upsert([payload], { onConflict: "solicitud_id" });
+
+      if (error) {
+        console.error("Error creando novedad de programación:", error);
+        throw new Error("No se pudo crear la novedad en programación: " + error.message);
+      }
+    }
+
+    async function guardarSolicitud(event) {
+      event.preventDefault();
+
+      const boton = document.getElementById("btnGuardarSolicitud");
+      const confirmBox = document.getElementById("confirmacionGuardado");
+      confirmBox.style.display = "none";
+
+      boton.disabled = true;
+      boton.textContent = "Guardando...";
+
+      try {
+        const payload = await construirPayloadSolicitud();
+        const { errores, advertencias } = await validarReglas(payload);
+
+        if (errores.length) {
+          mostrarAlerta(errores.join("<br>"), "danger");
+          return;
+        }
+
+        if (advertencias.length) {
+          mostrarAlerta(advertencias.join("<br>"), "warning");
+        }
+
+        const { documentos_faltantes, estado_documental, ...payloadInsert } = payload;
+
+        const { data, error } = await sb
+          .from("solicitudes_empleado")
+          .insert([payloadInsert])
+          .select("id")
+          .single();
+
+        if (error) {
+          console.error(error);
+          mostrarAlerta("No se pudo radicar la solicitud: " + error.message, "danger");
+          return;
+        }
+
+        await crearNotificacionesNuevaSolicitud(payload, data.id);
+
+        confirmBox.style.display = "block";
+        confirmBox.textContent = `La solicitud de ${labelTipo(payload.tipo_solicitud)} fue radicada correctamente para ${payload.nombre_empleado}.`;
+        mostrarAlerta("Solicitud radicada correctamente y notificación generada.", "success");
+
+        const emp = empleadoSeleccionado;
+        limpiarFormularioSolicitud(false);
+        if (emp) seleccionarEmpleado(emp);
+
+        await cargarSolicitudesGestion();
+        await actualizarKPIs();
+        await cargarNotificacionesModulo();
+      } catch (error) {
+        console.error(error);
+        mostrarAlerta("Error registrando la solicitud: " + error.message, "danger");
+      } finally {
+        boton.disabled = false;
+        boton.textContent = "Radicar solicitud";
+      }
+    }
+
+    function limpiarFormularioSolicitud(limpiarEmpleado = false) {
+      document.getElementById("formSolicitud").reset();
+      document.getElementById("fechaRadicacion").value = hoyISO();
+      document.getElementById("estadoInicial").value = "pendiente";
+      document.getElementById("codigoTipo").value = "";
+      document.getElementById("diasSolicitados").value = "";
+      document.getElementById("wrapSubtipo").classList.add("hidden");
+      document.getElementById("subtipoSolicitud").innerHTML = `<option value="">Seleccione...</option>`;
+      document.getElementById("listaDocumentosRequeridos").innerHTML = `<div class="small-muted">Selecciona el tipo de solicitud para definir los soportes requeridos.</div>`;
+      document.getElementById("resumenDocumentos").textContent = "Sin definir";
+      document.getElementById("alertasValidacionSolicitud").innerHTML = "";
+      archivosSeleccionados = [];
+      document.getElementById("inputDocumentos").value = "";
+      renderArchivosSeleccionados();
+
+      if (limpiarEmpleado) {
+        seleccionarEmpleado(null);
+      }
+    }
+
+    async function cargarHistorialEmpleadoSeleccionado() {
+      if (!empleadoSeleccionado?.cedula) return;
+
+      const { data, error } = await sb
+        .from("solicitudes_empleado")
+        .select("*")
+        .eq("cedula", empleadoSeleccionado.cedula)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        document.getElementById("tablaMisSolicitudes").innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">Error cargando historial: ${escaparHtml(error.message)}</td></tr>`;
+        return;
+      }
+
+      historialEmpleado = Array.isArray(data) ? data : [];
+      pintarHistorialEmpleado();
+    }
+
+    function pintarHistorialEmpleado() {
+      const tabla = document.getElementById("tablaMisSolicitudes");
+      const contador = document.getElementById("contadorMisSolicitudes");
+      contador.textContent = `${historialEmpleado.length} registro(s)`;
+
+      if (!historialEmpleado.length) {
+        tabla.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">Este empleado no tiene solicitudes registradas.</td></tr>`;
+        return;
+      }
+
+      tabla.innerHTML = historialEmpleado.map(item => {
+        const docsReq = Array.isArray(item.documentos_requeridos) ? item.documentos_requeridos.length : 0;
+        const docsCar = Array.isArray(item.documentos_cargados) ? item.documentos_cargados.length : 0;
+        return `
+          <tr>
+            <td>${formatearFecha(item.fecha_radicacion)}</td>
+            <td>
+              <div>${escaparHtml(labelTipo(item.tipo_solicitud))}</div>
+              <div class="small-muted">${escaparHtml(labelSubtipo(item.subtipo))}</div>
+            </td>
+            <td>${formatearFecha(item.fecha_inicio)} - ${formatearFecha(item.fecha_fin)}</td>
+            <td>${item.dias_solicitados || 0}</td>
+            <td>${pintarEstado(item.estado)}</td>
+            <td>${docsCar}/${docsReq}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    async function cargarSolicitudesGestion() {
+      const panel = document.getElementById("panelGestion");
+
+      if (!puedeGestionar(usuarioActual)) {
+        panel.classList.add("hidden");
+        return;
+      }
+
+      panel.classList.remove("hidden");
+
+      let query = sb.from("solicitudes_empleado").select("*").order("created_at", { ascending: false });
+
+      const verTodo = esUsuarioAccesoTotalBienestar(usuarioActual);
+      const areas = obtenerAreasPermitidasUsuario(usuarioActual);
+
+      if (!verTodo && areas.length) {
+        query = query.in("area", areas);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error(error);
+        document.getElementById("tablaGestionSolicitudes").innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Error cargando gestión: ${escaparHtml(error.message)}</td></tr>`;
+        return;
+      }
+
+      solicitudesGestion = Array.isArray(data) ? data : [];
+      aplicarFiltrosGestion();
+      actualizarMiniKPIsGestion();
+    }
+
+    function actualizarMiniKPIsGestion() {
+      const miniPendientes = document.getElementById("miniPendientes");
+      const miniRevision = document.getElementById("miniRevision");
+      const miniAprobadas = document.getElementById("miniAprobadas");
+      const miniRechazadas = document.getElementById("miniRechazadas");
+
+      if (miniPendientes) miniPendientes.textContent = solicitudesGestion.filter(x => x.estado === "pendiente" || x.estado === "pendiente_documentos").length;
+      if (miniRevision) miniRevision.textContent = solicitudesGestion.filter(x => x.estado === "en_revision_bienestar").length;
+      if (miniAprobadas) miniAprobadas.textContent = solicitudesGestion.filter(x => x.estado === "aprobada" || x.estado === "aplicada_programacion" || x.estado === "cerrada").length;
+      if (miniRechazadas) miniRechazadas.textContent = solicitudesGestion.filter(x => x.estado === "rechazada").length;
+    }
+
+    function aplicarFiltrosGestion() {
+      const busqueda = texto(document.getElementById("filtroGestionBusqueda").value).toLowerCase();
+      const tipo = texto(document.getElementById("filtroGestionTipo").value);
+      const estado = texto(document.getElementById("filtroGestionEstado").value);
+      const area = texto(document.getElementById("filtroGestionArea").value);
+
+      let lista = [...solicitudesGestion];
+
+      if (busqueda) {
+        lista = lista.filter(item => {
+          const bolsa = [item.cedula, item.nombre_empleado, item.cargo, item.area, item.tipo_solicitud, item.subtipo].join(" ").toLowerCase();
+          return bolsa.includes(busqueda);
+        });
+      }
+
+      if (tipo) lista = lista.filter(item => item.tipo_solicitud === tipo);
+      if (estado) lista = lista.filter(item => item.estado === estado);
+      if (area) lista = lista.filter(item => item.area === area);
+
+      solicitudesGestionFiltradas = lista;
+      pintarTablaGestion(lista);
+    }
+
+    function pintarTablaGestion(lista) {
+      const tabla = document.getElementById("tablaGestionSolicitudes");
+      const contador = document.getElementById("contadorGestion");
+      contador.textContent = `${lista.length} registro(s)`;
+
+      if (!lista.length) {
+        tabla.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No hay solicitudes para mostrar.</td></tr>`;
+        return;
+      }
+
+      tabla.innerHTML = lista.map(item => {
+        const docsReq = Array.isArray(item.documentos_requeridos) ? item.documentos_requeridos.length : 0;
+        const docsCar = Array.isArray(item.documentos_cargados) ? item.documentos_cargados.length : 0;
+
+        return `
+          <tr>
+            <td>
+              <div class="fw-semibold">${escaparHtml(item.nombre_empleado || "")}</div>
+              <div class="small-muted">${escaparHtml(item.cedula || "")}</div>
+              <div class="small-muted">${escaparHtml(item.area || "")}</div>
+            </td>
+            <td>
+              <div>${escaparHtml(labelTipo(item.tipo_solicitud))}</div>
+              <div class="small-muted">${escaparHtml(labelSubtipo(item.subtipo))}</div>
+            </td>
+            <td>${formatearFecha(item.fecha_inicio)} - ${formatearFecha(item.fecha_fin)}</td>
+            <td>${item.dias_solicitados || 0}</td>
+            <td>${pintarEstado(item.estado)}</td>
+            <td class="cell-docs">
+              ${docsCar}/${docsReq}
+              <div class="small-muted">${item.documentacion_completa ? "completa" : "pendiente"}</div>
+            </td>
+            <td>
+              <div class="table-actions">
+                <button class="btn btn-sm btn-outline-primary" onclick="abrirGestionSolicitud('${item.id}')">Ver detalle</button>
+                <button class="btn btn-sm btn-outline-success" onclick="accionRapida('${item.id}','aprobada')">Aprobar</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="accionRapida('${item.id}','rechazada')">Rechazar</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+
+    function obtenerNombreArchivoExcelSolicitudes() {
+      const fecha = new Date();
+      const yyyy = fecha.getFullYear();
+      const mm = String(fecha.getMonth() + 1).padStart(2, "0");
+      const dd = String(fecha.getDate()).padStart(2, "0");
+      return `solicitudes_bienestar_${yyyy}-${mm}-${dd}.xlsx`;
+    }
+
+    function normalizarTextoExcel(valor) {
+      if (valor === null || valor === undefined) return "";
+      if (typeof valor === "boolean") return valor ? "Sí" : "No";
+      return String(valor);
+    }
+
+    function resumenDocumentosExcel(item) {
+      const requeridos = Array.isArray(item.documentos_requeridos) ? item.documentos_requeridos : [];
+      const cargados = Array.isArray(item.documentos_cargados) ? item.documentos_cargados : [];
+      return `${cargados.length}/${requeridos.length}`;
+    }
+
+    function listaDocumentosRequeridosExcel(item) {
+      const docs = Array.isArray(item.documentos_requeridos) ? item.documentos_requeridos : [];
+      return docs.map(d => d?.nombre || d).filter(Boolean).join("; ");
+    }
+
+    function listaDocumentosCargadosExcel(item) {
+      const docs = Array.isArray(item.documentos_cargados) ? item.documentos_cargados : [];
+      return docs.map(d => {
+        const nombre = d?.name || d?.nombre || "archivo";
+        const tipo = d?.tipo_documento ? ` (${d.tipo_documento})` : "";
+        return `${nombre}${tipo}`;
+      }).join("; ");
+    }
+
+    function construirFilasExcelSolicitudes(lista) {
+      return lista.map(item => ({
+        "ID solicitud": normalizarTextoExcel(item.id),
+        "Fecha radicación": normalizarTextoExcel(item.fecha_radicacion || (item.created_at || "").slice(0, 10)),
+        "Creado en": normalizarTextoExcel(item.created_at ? formatearFechaHora(item.created_at) : ""),
+        "Cédula": normalizarTextoExcel(item.cedula),
+        "Código empleado": normalizarTextoExcel(item.codigo_empleado),
+        "Nombre empleado": normalizarTextoExcel(item.nombre_empleado),
+        "Cargo": normalizarTextoExcel(item.cargo),
+        "Área": normalizarTextoExcel(item.area),
+        "Tipo solicitud": normalizarTextoExcel(labelTipo(item.tipo_solicitud)),
+        "Subtipo": normalizarTextoExcel(labelSubtipo(item.subtipo)),
+        "Código tipo": normalizarTextoExcel(item.codigo_tipo),
+        "Fecha inicio": normalizarTextoExcel(item.fecha_inicio),
+        "Fecha fin": normalizarTextoExcel(item.fecha_fin),
+        "Días solicitados": Number(item.dias_solicitados || 0),
+        "Estado": normalizarTextoExcel(labelEstadoPlano(item.estado)),
+        "Afecta programación": normalizarTextoExcel(item.afecta_programacion),
+        "Aplicada programación": normalizarTextoExcel(item.aplicada_programacion),
+        "Fecha aplicación programación": normalizarTextoExcel(item.fecha_aplicacion_programacion ? formatearFechaHora(item.fecha_aplicacion_programacion) : ""),
+        "Requiere documentos": normalizarTextoExcel(item.requiere_documentos),
+        "Documentación completa": normalizarTextoExcel(item.documentacion_completa),
+        "Resumen documentos": resumenDocumentosExcel(item),
+        "Documentos requeridos": listaDocumentosRequeridosExcel(item),
+        "Documentos cargados": listaDocumentosCargadosExcel(item),
+        "Fuera de tiempo": normalizarTextoExcel(item.fuera_de_tiempo),
+        "Aprobado por": normalizarTextoExcel(item.aprobado_por),
+        "Fecha aprobación": normalizarTextoExcel(item.fecha_aprobacion ? formatearFechaHora(item.fecha_aprobacion) : ""),
+        "Observación empleado": normalizarTextoExcel(item.observacion_empleado),
+        "Observación revisión": normalizarTextoExcel(item.observacion_revision)
+      }));
+    }
+
+    function descargarCSVComoRespaldo(filas, nombreArchivo) {
+      if (!filas.length) return;
+
+      const headers = Object.keys(filas[0]);
+      const csv = [
+        headers.join(";"),
+        ...filas.map(row => headers.map(header => {
+          const valor = String(row[header] ?? "").replaceAll('"', '""');
+          return `"${valor}"`;
+        }).join(";"))
+      ].join("\n");
+
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = nombreArchivo.replace(/\.xlsx$/i, ".csv");
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    }
+
+    function exportarSolicitudesExcel() {
+      const lista = Array.isArray(solicitudesGestionFiltradas)
+        ? solicitudesGestionFiltradas
+        : solicitudesGestion;
+
+      if (!lista.length) {
+        mostrarAlerta("No hay solicitudes para exportar con los filtros actuales.", "warning");
+        return;
+      }
+
+      const filas = construirFilasExcelSolicitudes(lista);
+      const nombreArchivo = obtenerNombreArchivoExcelSolicitudes();
+
+      if (!window.XLSX) {
+        descargarCSVComoRespaldo(filas, nombreArchivo);
+        mostrarAlerta("No se encontró la librería XLSX. Se descargó un CSV compatible con Excel.", "warning");
+        return;
+      }
+
+      const hoja = XLSX.utils.json_to_sheet(filas);
+      const libro = XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(libro, hoja, "Solicitudes Bienestar");
+      XLSX.writeFile(libro, nombreArchivo);
+    }
+
+    async function cargarNotificacionesModulo() {
+      const rol = texto(document.getElementById("filtroRolNotificacion")?.value || "");
+      const vacio = document.getElementById("panelNotificacionesVacio");
+      const lista = document.getElementById("listaNotificaciones");
+
+      if (!vacio || !lista) return;
+
+      vacio.textContent = "Cargando...";
+      lista.innerHTML = "";
+
+      try {
+        let query = sb
+          .from("notificaciones_sistema")
+          .select("*")
+          .eq("modulo", "solicitudes-bienestar")
+          .order("created_at", { ascending: false })
+          .limit(20);
+
+        if (rol) query = query.eq("rol_destino", rol);
+
+        const { data, error } = await query;
+
+        if (error) {
+          console.error(error);
+          vacio.textContent = "Error cargando.";
+          return;
+        }
+
+        notificacionesModulo = data || [];
+        pintarNotificacionesModulo();
+      } catch (error) {
+        console.error(error);
+        vacio.textContent = "Error inesperado.";
+      }
+    }
+
+    function pintarNotificacionesModulo() {
+      const lista = document.getElementById("listaNotificaciones");
+      const vacio = document.getElementById("panelNotificacionesVacio");
+      const badge = document.getElementById("badgeNotificaciones");
+
+      if (!lista || !vacio || !badge) return;
+
+      const noLeidas = notificacionesModulo.filter(n => !n.estado_lectura).length;
+      badge.textContent = String(noLeidas);
+
+      if (!notificacionesModulo.length) {
+        vacio.textContent = "Sin notificaciones.";
+        lista.innerHTML = "";
+        return;
+      }
+
+      vacio.textContent = "";
+
+      lista.innerHTML = notificacionesModulo.map(n => `
+        <div class="notificacion-item ${n.estado_lectura ? 'notificacion-leida' : 'notificacion-no-leida'}">
+          <div class="notificacion-header">
+            <div>
+              <div class="notificacion-title">${escaparHtml(n.titulo)}</div>
+              <div class="notificacion-meta">
+                ${escaparHtml(n.rol_destino || "")} · ${formatearFechaHora(n.created_at)}
+              </div>
+            </div>
+
+            <div>
+              <span class="${clasePrioridad(n.prioridad)}">${escaparHtml(n.prioridad || "media")}</span>
+            </div>
+          </div>
+
+          <div class="mt-2">${escaparHtml(n.mensaje)}</div>
+
+          <div class="mt-3">
+            ${!n.estado_lectura ? `<button class="btn btn-sm btn-success" onclick="marcarNotificacionLeida('${n.id}')">Marcar leída</button>` : `<span class="badge text-bg-secondary">Leída</span>`}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    window.actualizarTipoDocumentoArchivo = actualizarTipoDocumentoArchivo;
+
+    window.marcarNotificacionLeida = async function (id) {
+      const { error } = await sb
+        .from("notificaciones_sistema")
+        .update({
+          estado_lectura: true,
+          fecha_lectura: new Date().toISOString()
+        })
+        .eq("id", id);
+
+      if (error) {
+        console.error(error);
+        mostrarAlerta("No se pudo marcar la notificación como leída: " + error.message, "danger");
+        return;
+      }
+
+      await cargarNotificacionesModulo();
+    };
+
+    window.accionRapida = async function (id, nuevoEstado) {
+      const item = solicitudesGestion.find(x => x.id === id);
+      if (!item) return;
+
+      try {
+        const payload = {
+          estado: nuevoEstado,
+          observacion_revision: item.observacion_revision || null
+        };
+
+        if (["aprobada", "aplicada_programacion", "cerrada"].includes(nuevoEstado)) {
+          payload.aprobado_por = nombreCompleto(usuarioActual) || usuarioActual?.cedula || "Bienestar";
+          payload.fecha_aprobacion = new Date().toISOString();
+        }
+
+        if (nuevoEstado === "aprobada") {
+          payload.aplicada_programacion = true;
+          payload.fecha_aplicacion_programacion = new Date().toISOString();
+        }
+
+        const { error } = await sb
+          .from("solicitudes_empleado")
+          .update(payload)
+          .eq("id", id);
+
+        if (error) {
+          mostrarAlerta("No se pudo actualizar la solicitud: " + error.message, "danger");
+          return;
+        }
+
+        if (nuevoEstado === "aprobada") {
+          try {
+            await crearNovedadProgramacion(item, payload.observacion_revision || "");
+          } catch (novedadError) {
+            console.error(novedadError);
+            mostrarAlerta("La solicitud fue aprobada, pero no se pudo crear la novedad en programación: " + novedadError.message, "warning");
+          }
+        }
+
+        if (["aprobada", "rechazada", "pendiente_documentos", "fuera_de_tiempo"].includes(nuevoEstado)) {
+          try {
+            await crearNotificacionEmpleadoCambioEstado(item, nuevoEstado, payload.observacion_revision || "");
+          } catch (notiError) {
+            console.error(notiError);
+            mostrarAlerta("La solicitud cambió de estado, pero falló la notificación al empleado: " + notiError.message, "warning");
+          }
+        }
+
+        mostrarAlerta(`Solicitud actualizada a estado: ${labelEstadoPlano(nuevoEstado)}.`, "success");
+
+        if (empleadoSeleccionado?.cedula === item.cedula) {
+          await cargarHistorialEmpleadoSeleccionado();
+        }
+
+        await cargarSolicitudesGestion();
+        await actualizarKPIs();
+        await cargarNotificacionesModulo();
+      } catch (error) {
+        console.error(error);
+        mostrarAlerta("Error ejecutando acción rápida.", "danger");
+      }
+    };
+
+    window.abrirGestionSolicitud = function (id) {
+      const item = solicitudesGestion.find(x => x.id === id);
+      if (!item) return;
+
+      solicitudGestionActual = item;
+
+      document.getElementById("gestionNuevoEstado").value = item.estado || "pendiente";
+      document.getElementById("gestionObservacion").value = item.observacion_revision || "";
+      document.getElementById("gestionAplicadaProgramacion").value = item.aplicada_programacion ? "true" : "false";
+      document.getElementById("gestionAprobadoPor").value = item.aprobado_por || "";
+
+      const docsReq = Array.isArray(item.documentos_requeridos) ? item.documentos_requeridos : [];
+      const docsCar = Array.isArray(item.documentos_cargados) ? item.documentos_cargados : [];
+
+      document.getElementById("detalleSolicitudGestion").innerHTML = `
+        <div class="summary-box">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="employee-label">Empleado</div>
+              <div class="employee-value">${escaparHtml(item.nombre_empleado || "")}</div>
+            </div>
+            <div class="col-md-3">
+              <div class="employee-label">Cédula</div>
+              <div class="employee-value">${escaparHtml(item.cedula || "")}</div>
+            </div>
+            <div class="col-md-3">
+              <div class="employee-label">Área</div>
+              <div class="employee-value">${escaparHtml(item.area || "")}</div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="employee-label">Tipo</div>
+              <div class="employee-value">${escaparHtml(labelTipo(item.tipo_solicitud))}</div>
+            </div>
+            <div class="col-md-4">
+              <div class="employee-label">Subtipo</div>
+              <div class="employee-value">${escaparHtml(labelSubtipo(item.subtipo)) || "-"}</div>
+            </div>
+            <div class="col-md-4">
+              <div class="employee-label">Estado actual</div>
+              <div>${pintarEstado(item.estado)}</div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="employee-label">Inicio</div>
+              <div class="employee-value">${formatearFecha(item.fecha_inicio)}</div>
+            </div>
+            <div class="col-md-4">
+              <div class="employee-label">Fin</div>
+              <div class="employee-value">${formatearFecha(item.fecha_fin)}</div>
+            </div>
+            <div class="col-md-4">
+              <div class="employee-label">Días</div>
+              <div class="employee-value">${item.dias_solicitados || 0}</div>
+            </div>
+
+            <div class="col-12">
+              <div class="employee-label">Observación del solicitante</div>
+              <div>${escaparHtml(item.observacion_empleado || "Sin observación")}</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="employee-label mb-1">Documentos requeridos</div>
+              <div>${docsReq.length ? docsReq.map(d => `<span class="doc-chip">${escaparHtml(d.nombre || d)}</span>`).join("") : "No requiere"}</div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="employee-label mb-1">Documentos cargados</div>
+              <div>
+                ${docsCar.length
+          ? docsCar.map(d => {
+            const nombre = escaparHtml(d.name || d.nombre || "archivo");
+            const tipoDoc = d.tipo_documento ? `<span class="doc-chip">${escaparHtml(d.tipo_documento)}</span>` : "";
+            const enlace = d.publicUrl ? `<a href="${d.publicUrl}" target="_blank" class="ms-2">Ver archivo</a>` : "";
+            return `<div class="mb-2"><span class="doc-chip">${nombre}</span>${tipoDoc}${enlace}</div>`;
+          }).join("")
+          : "No adjuntos"}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      modalGestion.show();
+    };
+
+    async function guardarRevisionSolicitud() {
+      if (!solicitudGestionActual) return;
+
+      const boton = document.getElementById("btnGuardarRevision");
+      boton.disabled = true;
+      boton.textContent = "Guardando...";
+
+      try {
+        const nuevoEstado = texto(document.getElementById("gestionNuevoEstado").value);
+        const observacion = texto(document.getElementById("gestionObservacion").value);
+        const aplicada = document.getElementById("gestionAplicadaProgramacion").value === "true";
+
+        const payload = {
+          estado: nuevoEstado,
+          observacion_revision: observacion || null,
+          fuera_de_tiempo: nuevoEstado === "fuera_de_tiempo",
+          aplicada_programacion: aplicada,
+          fecha_aplicacion_programacion: aplicada ? new Date().toISOString() : null
+        };
+
+        if (["aprobada", "aplicada_programacion", "cerrada"].includes(nuevoEstado)) {
+          payload.aprobado_por = nombreCompleto(usuarioActual) || usuarioActual?.cedula || "Bienestar";
+          payload.fecha_aprobacion = new Date().toISOString();
+        }
+
+        if (nuevoEstado === "aprobada") {
+          payload.aplicada_programacion = true;
+          payload.fecha_aplicacion_programacion = new Date().toISOString();
+        }
+
+        const { error } = await sb
+          .from("solicitudes_empleado")
+          .update(payload)
+          .eq("id", solicitudGestionActual.id);
+
+        if (error) {
+          console.error(error);
+          mostrarAlerta("No se pudo guardar la revisión: " + error.message, "danger");
+          return;
+        }
+
+        if (nuevoEstado === "aprobada") {
+          try {
+            await crearNovedadProgramacion(solicitudGestionActual, observacion);
+          } catch (novedadError) {
+            console.error(novedadError);
+            mostrarAlerta("La revisión se guardó, pero no se pudo crear la novedad en programación: " + novedadError.message, "warning");
+          }
+        }
+
+        if (["aprobada", "rechazada", "pendiente_documentos", "fuera_de_tiempo"].includes(nuevoEstado)) {
+          try {
+            await crearNotificacionEmpleadoCambioEstado(solicitudGestionActual, nuevoEstado, observacion);
+          } catch (notiError) {
+            console.error(notiError);
+            mostrarAlerta("La revisión se guardó, pero falló la notificación al empleado: " + notiError.message, "warning");
+          }
+        }
+
+        modalGestion.hide();
+        mostrarAlerta("Revisión actualizada correctamente.", "success");
+
+        if (empleadoSeleccionado?.cedula === solicitudGestionActual.cedula) {
+          await cargarHistorialEmpleadoSeleccionado();
+        }
+
+        await cargarSolicitudesGestion();
+        await actualizarKPIs();
+        await cargarNotificacionesModulo();
+      } catch (error) {
+        console.error(error);
+        mostrarAlerta("Error guardando la revisión: " + error.message, "danger");
+      } finally {
+        boton.disabled = false;
+        boton.textContent = "Guardar revisión";
+      }
+    }
+
+    async function actualizarKPIs() {
+      const listaBase = puedeGestionar(usuarioActual) ? [...solicitudesGestion] : [...historialEmpleado];
+      const anioActual = new Date().getFullYear();
+
+      const listaAnio = listaBase.filter(item => {
+        const anioItem = item.anio || new Date((item.fecha_inicio || "") + "T00:00:00").getFullYear();
+        return Number(anioItem) === anioActual;
+      });
+
+      document.getElementById("kpiSolicitudesAnio").textContent = String(listaAnio.length);
+      document.getElementById("kpiPendientes").textContent = String(listaAnio.filter(x => ["pendiente", "pendiente_documentos", "en_revision_bienestar", "fuera_de_tiempo"].includes(x.estado)).length);
+      document.getElementById("kpiAprobadas").textContent = String(listaAnio.filter(x => ["aprobada", "aplicada_programacion", "cerrada"].includes(x.estado)).length);
+      document.getElementById("kpiIncapacidades").textContent = String(listaAnio.filter(x => x.tipo_solicitud === "incapacidad").length);
+    }
+
+    function bindEventos() {
+      document.getElementById("tipoSolicitud").addEventListener("change", () => {
+        const tipo = texto(document.getElementById("tipoSolicitud").value);
+        if (["cumpleanos", "dia_familia", "dia_grado", "graduacion"].includes(tipo) && texto(document.getElementById("fechaInicio").value)) {
+          document.getElementById("fechaFin").value = texto(document.getElementById("fechaInicio").value);
+        }
+        actualizarSubtipos();
+      });
+
+      document.getElementById("subtipoSolicitud").addEventListener("change", actualizarResumenSolicitud);
+
+      document.getElementById("fechaInicio").addEventListener("change", () => {
+        const tipo = texto(document.getElementById("tipoSolicitud").value);
+        if (["cumpleanos", "dia_familia", "dia_grado", "graduacion"].includes(tipo)) {
+          document.getElementById("fechaFin").value = texto(document.getElementById("fechaInicio").value);
+        }
+        actualizarResumenSolicitud();
+      });
+
+      document.getElementById("fechaFin").addEventListener("change", actualizarResumenSolicitud);
+      document.getElementById("diasSolicitados").addEventListener("input", actualizarResumenSolicitud);
+
+      document.getElementById("inputDocumentos").addEventListener("change", (e) => {
+        archivosSeleccionados = Array.from(e.target.files || []).map(file => ({
+          file,
+          tipo_documento: ""
+        }));
+        renderArchivosSeleccionados();
+        actualizarResumenSolicitud();
+      });
+
+      document.getElementById("formSolicitud").addEventListener("submit", guardarSolicitud);
+
+      document.getElementById("btnLimpiarSolicitud").addEventListener("click", () => {
+        document.getElementById("confirmacionGuardado").style.display = "none";
+        limpiarFormularioSolicitud(false);
+      });
+
+      document.getElementById("btnLimpiarEmpleado").addEventListener("click", () => {
+        document.getElementById("confirmacionGuardado").style.display = "none";
+        limpiarFormularioSolicitud(true);
+      });
+
+      document.getElementById("btnCargarSesion").addEventListener("click", cargarEmpleadoDesdeSesion);
+
+      document.getElementById("btnRecargarTodo").addEventListener("click", async () => {
+        await cargarEmpleadosDesdeSupabase();
+        await cargarSolicitudesGestion();
+        if (empleadoSeleccionado) {
+          const recargado = empleadosCache.find(x => x.cedula === empleadoSeleccionado.cedula);
+          if (recargado) seleccionarEmpleado(recargado);
+          else await cargarHistorialEmpleadoSeleccionado();
+        }
+        await actualizarKPIs();
+        await cargarNotificacionesModulo();
+      });
+
+      document.getElementById("buscarEmpleado").addEventListener("input", (e) => {
+        buscarEnCache(e.target.value);
+      });
+
+      document.addEventListener("click", (e) => {
+        const wrap = document.querySelector(".search-wrap");
+        if (wrap && !wrap.contains(e.target)) ocultarSugerencias();
+      });
+
+      document.getElementById("filtroGestionBusqueda").addEventListener("input", aplicarFiltrosGestion);
+      document.getElementById("filtroGestionTipo").addEventListener("change", aplicarFiltrosGestion);
+      document.getElementById("filtroGestionEstado").addEventListener("change", aplicarFiltrosGestion);
+      document.getElementById("filtroGestionArea").addEventListener("change", aplicarFiltrosGestion);
+
+      document.getElementById("btnGuardarRevision").addEventListener("click", guardarRevisionSolicitud);
+
+      const btnExportarSolicitudesExcel = document.getElementById("btnExportarSolicitudesExcel");
+      if (btnExportarSolicitudesExcel) {
+        btnExportarSolicitudesExcel.addEventListener("click", exportarSolicitudesExcel);
+      }
+
+      const btnRecargarNotificaciones = document.getElementById("btnRecargarNotificaciones");
+      const filtroRolNotificacion = document.getElementById("filtroRolNotificacion");
+      if (btnRecargarNotificaciones) btnRecargarNotificaciones.addEventListener("click", cargarNotificacionesModulo);
+      if (filtroRolNotificacion) filtroRolNotificacion.addEventListener("change", cargarNotificacionesModulo);
+
+      const linkCerrarSesionBienestar = document.getElementById("linkCerrarSesionBienestar");
+      if (linkCerrarSesionBienestar) {
+        linkCerrarSesionBienestar.addEventListener("click", (e) => {
+          e.preventDefault();
+          localStorage.removeItem("ccp_sesion");
+          window.location.href = "login.html";
+        });
+      }
+    }
+
+    async function init() {
+      modalGestion = new bootstrap.Modal(document.getElementById("modalGestionSolicitud"));
+
+      cargarInfoSesion();
+      if (!protegerAccesoSolicitudesBienestar()) return;
+      poblarFiltroAreas();
+      bindEventos();
+
+      document.getElementById("fechaRadicacion").value = hoyISO();
+      document.getElementById("estadoInicial").value = "pendiente";
+      renderArchivosSeleccionados();
+      renderDocumentosRequeridos();
+
+      await cargarEmpleadosDesdeSupabase();
+      await cargarSolicitudesGestion();
+      await actualizarKPIs();
+      await cargarNotificacionesModulo();
+    }
+
+    init();
+  </script>
+</body>
+
+</html>

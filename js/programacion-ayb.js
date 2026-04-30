@@ -321,6 +321,19 @@ function configurarFormulario() {
     inputBusqueda.addEventListener("change", seleccionarEmpleadoDesdeBusqueda);
     inputBusqueda.addEventListener("blur", seleccionarEmpleadoDesdeBusqueda);
   }
+
+  const inputCedula = document.getElementById("cedulaEmpleadoAyb");
+  const inputFecha = document.getElementById("fechaAyb");
+
+  if (inputCedula) {
+    inputCedula.addEventListener("input", validarNovedadEmpleadoAyb);
+    inputCedula.addEventListener("change", validarNovedadEmpleadoAyb);
+  }
+
+  if (inputFecha) {
+    inputFecha.addEventListener("input", validarNovedadEmpleadoAyb);
+    inputFecha.addEventListener("change", validarNovedadEmpleadoAyb);
+  }
 }
 
 function configurarTurnoPartido() {
@@ -546,6 +559,7 @@ function seleccionarEmpleadoDesdeBusqueda() {
   document.getElementById("cedulaEmpleadoAyb").value = encontrado.cedula || "";
   document.getElementById("nombreEmpleadoAyb").value = encontrado.nombre || "";
   document.getElementById("cargoEmpleadoAyb").value = encontrado.cargo || "";
+  validarNovedadEmpleadoAyb();
 }
 
 function abrirModalNuevaAsignacion(fecha = "", subarea = "") {
@@ -569,6 +583,8 @@ function abrirModalNuevaAsignacion(fecha = "", subarea = "") {
 
   actualizarVistaTipoRegistro();
   actualizarInfoSubarea();
+  ocultarAlertaNovedadEmpleadoAyb();
+  validarNovedadEmpleadoAyb();
 
   if (modalAsignacionAyb) modalAsignacionAyb.show();
 }
@@ -616,6 +632,7 @@ function abrirModalEdicion(registro) {
 
   actualizarVistaTipoRegistro();
   actualizarInfoSubarea();
+  validarNovedadEmpleadoAyb();
 
   if (modalAsignacionAyb) modalAsignacionAyb.show();
 }
@@ -628,12 +645,147 @@ function limpiarFormularioAyb() {
   document.getElementById("bloqueTurnoPartido").classList.add("d-none");
   actualizarVistaTipoRegistro();
   actualizarInfoSubarea();
+  ocultarAlertaNovedadEmpleadoAyb();
 }
 
 function precargarFechaFormulario() {
   const inputFecha = document.getElementById("fechaAyb");
   if (inputFecha && semanaActual[0]?.fecha) {
     inputFecha.value = semanaActual[0].fecha;
+  }
+}
+
+
+function ocultarAlertaNovedadEmpleadoAyb() {
+  const alerta = document.getElementById("alertaNovedadEmpleadoAyb");
+  const texto = document.getElementById("textoNovedadEmpleadoAyb");
+
+  if (alerta) alerta.classList.add("d-none");
+  if (texto) {
+    texto.textContent = "Este empleado tiene una novedad registrada para la fecha seleccionada.";
+  }
+}
+
+function formatearTipoNovedadBienestar(tipo) {
+  const mapa = {
+    incapacidad: "Incapacidad",
+    calamidad: "Calamidad",
+    permiso_no_remunerado: "Permiso no remunerado",
+    dia_familia: "Día de la familia",
+    dia_grado: "Día de grado",
+    cumpleanos: "Cumpleaños",
+    matrimonio: "Matrimonio",
+    luto: "Luto",
+    graduacion: "Graduación"
+  };
+
+  return mapa[tipo] || tipo || "Novedad";
+}
+
+function formatearFechaNovedad(fechaISO) {
+  if (!fechaISO) return "";
+  const fecha = new Date(`${fechaISO}T00:00:00`);
+  if (Number.isNaN(fecha.getTime())) return fechaISO;
+  return fecha.toLocaleDateString("es-CO");
+}
+
+async function consultarNovedadesProgramacionAyb(cedula, fecha) {
+  const { data, error } = await supabase
+    .from("novedades_programacion")
+    .select("*")
+    .eq("cedula", cedula)
+    .eq("estado", "activa")
+    .lte("fecha_inicio", fecha)
+    .gte("fecha_fin", fecha);
+
+  if (error) {
+    console.warn("No se pudo consultar novedades_programacion:", error.message);
+    return [];
+  }
+
+  return Array.isArray(data) ? data.map((item) => ({
+    origen: "novedades_programacion",
+    solicitud_id: item.solicitud_id || null,
+    tipo: item.tipo_novedad,
+    fecha_inicio: item.fecha_inicio,
+    fecha_fin: item.fecha_fin,
+    dias: item.dias,
+    observacion: item.observacion || ""
+  })) : [];
+}
+
+async function consultarSolicitudesBienestarAprobadasAyb(cedula, fecha) {
+  const { data, error } = await supabase
+    .from("solicitudes_empleado")
+    .select("*")
+    .eq("cedula", cedula)
+    .in("estado", ["aprobada", "aplicada_programacion", "cerrada"])
+    .lte("fecha_inicio", fecha)
+    .gte("fecha_fin", fecha);
+
+  if (error) {
+    console.warn("No se pudo consultar solicitudes_empleado aprobadas:", error.message);
+    return [];
+  }
+
+  return Array.isArray(data) ? data.map((item) => ({
+    origen: "solicitudes_empleado",
+    solicitud_id: item.id || null,
+    tipo: item.tipo_solicitud,
+    fecha_inicio: item.fecha_inicio,
+    fecha_fin: item.fecha_fin,
+    dias: item.dias_solicitados,
+    observacion: item.observacion_empleado || ""
+  })) : [];
+}
+
+async function validarNovedadEmpleadoAyb() {
+  const cedula = texto(document.getElementById("cedulaEmpleadoAyb")?.value);
+  const fecha = texto(document.getElementById("fechaAyb")?.value);
+  const alerta = document.getElementById("alertaNovedadEmpleadoAyb");
+  const textoAlerta = document.getElementById("textoNovedadEmpleadoAyb");
+
+  if (!alerta || !textoAlerta) return;
+
+  if (!cedula || !fecha) {
+    ocultarAlertaNovedadEmpleadoAyb();
+    return;
+  }
+
+  try {
+    const novedadesProgramacion = await consultarNovedadesProgramacionAyb(cedula, fecha);
+    const solicitudesAprobadas = await consultarSolicitudesBienestarAprobadasAyb(cedula, fecha);
+
+    const solicitudesYaIncluidas = new Set(
+      novedadesProgramacion
+        .map((item) => texto(item.solicitud_id))
+        .filter(Boolean)
+    );
+
+    const solicitudesFiltradas = solicitudesAprobadas.filter((item) => {
+      const id = texto(item.solicitud_id);
+      return !id || !solicitudesYaIncluidas.has(id);
+    });
+
+    const novedades = [...novedadesProgramacion, ...solicitudesFiltradas];
+
+    if (!novedades.length) {
+      ocultarAlertaNovedadEmpleadoAyb();
+      return;
+    }
+
+    const resumen = novedades.map((item) => {
+      const tipo = formatearTipoNovedadBienestar(item.tipo);
+      const rango = `${formatearFechaNovedad(item.fecha_inicio)} a ${formatearFechaNovedad(item.fecha_fin)}`;
+      const dias = item.dias ? ` · ${item.dias} día(s)` : "";
+      return `${tipo} (${rango}${dias})`;
+    }).join("; ");
+
+    textoAlerta.textContent = `Revise antes de guardar: ${resumen}.`;
+    alerta.classList.remove("d-none");
+  } catch (error) {
+    console.error("Error validando novedad del empleado:", error);
+    ocultarAlertaNovedadEmpleadoAyb();
   }
 }
 

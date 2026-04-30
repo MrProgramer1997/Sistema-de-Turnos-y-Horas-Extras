@@ -6,6 +6,7 @@
   <title>Mis Turnos A&B</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/estilos.css">
+  <link rel="stylesheet" href="../css/layout.css">
 
   <style>
     :root {
@@ -644,6 +645,192 @@
       border-top: 1px solid #dee2e6;
     }
 
+
+
+    /* =========================================================
+       MÓDULO BIENESTAR DEL EMPLEADO
+       Se agrega sin modificar la programación semanal existente.
+    ========================================================= */
+    .bienestar-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 1.35fr;
+      gap: 1rem;
+      padding: 1rem;
+    }
+
+    .bienestar-box {
+      border: 1px solid var(--card-border);
+      border-radius: 1.15rem;
+      background: #ffffff;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+      padding: 1rem;
+    }
+
+    .bienestar-box-title {
+      font-size: 1rem;
+      font-weight: 800;
+      color: #18253d;
+      margin-bottom: 0.25rem;
+    }
+
+    .bienestar-box-text {
+      color: var(--text-soft);
+      font-size: 0.92rem;
+      margin-bottom: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .bienestar-alerta {
+      border-radius: 0.95rem;
+      padding: 0.85rem 0.95rem;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      color: #1e40af;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      margin-bottom: 1rem;
+    }
+
+    .bienestar-alerta.warning {
+      border-color: #fcd34d;
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .bienestar-alerta.success {
+      border-color: #86efac;
+      background: #ecfdf5;
+      color: #166534;
+    }
+
+    .bienestar-alerta.danger {
+      border-color: #fca5a5;
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .bienestar-doc-chip,
+    .bienestar-estado {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0.32rem 0.65rem;
+      font-size: 0.74rem;
+      font-weight: 800;
+      margin: 0 0.35rem 0.35rem 0;
+      line-height: 1;
+    }
+
+    .bienestar-doc-chip {
+      background: #eef2ff;
+      color: #3730a3;
+      border: 1px solid #d8ddff;
+    }
+
+    .bienestar-estado.pendiente,
+    .bienestar-estado.pendiente_documentos {
+      background: #fff7cc;
+      color: #7a5d00;
+    }
+
+    .bienestar-estado.aprobada,
+    .bienestar-estado.aplicada_programacion,
+    .bienestar-estado.cerrada {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .bienestar-estado.rechazada,
+    .bienestar-estado.fuera_de_tiempo {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .bienestar-estado.en_revision_bienestar {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
+    .bienestar-notificacion {
+      border: 1px solid var(--card-border);
+      border-left: 5px solid #0d6efd;
+      border-radius: 1rem;
+      padding: 0.85rem;
+      background: #ffffff;
+      margin-bottom: 0.7rem;
+    }
+
+    .bienestar-notificacion.no-leida {
+      border-left-color: #dc2626;
+      background: #fffdf7;
+    }
+
+    .bienestar-notificacion-titulo {
+      font-weight: 800;
+      color: #18253d;
+      margin-bottom: 0.2rem;
+    }
+
+    .bienestar-notificacion-meta {
+      color: var(--text-soft);
+      font-size: 0.8rem;
+      margin-bottom: 0.45rem;
+    }
+
+    .bienestar-beneficios-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+
+    .bienestar-beneficio-card {
+      border: 1px solid var(--card-border);
+      border-radius: 1rem;
+      background: #fbfdff;
+      padding: 0.85rem;
+    }
+
+    .bienestar-beneficio-label {
+      color: var(--text-soft);
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+    }
+
+    .bienestar-beneficio-value {
+      color: #16233b;
+      font-weight: 800;
+      font-size: 1rem;
+    }
+
+    .bienestar-table td,
+    .bienestar-table th {
+      vertical-align: middle;
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 1199.98px) {
+      .bienestar-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .bienestar-beneficios-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 575.98px) {
+      .bienestar-grid {
+        padding: 0.85rem;
+      }
+
+      .bienestar-beneficios-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     @media (max-width: 1399.98px) {
       .summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -806,16 +993,924 @@
         font-size: 0.7rem;
       }
     }
+
+    /* =========================================================
+       LAYOUT CONDICIONAL MIS TURNOS A&B
+       Admin: sidebar global fijo.
+       Empleado: vista simple sin sidebar global.
+    ========================================================= */
+    #sidebar-container,
+    .btn-toggle-sidebar {
+      display: none;
+    }
+
+    body.modo-admin {
+      overflow-x: hidden;
+      background: var(--bg-app);
+    }
+
+    body.modo-admin #sidebar-container {
+      display: block;
+    }
+
+    body.modo-admin .app-layout {
+      width: 100%;
+      max-width: 100%;
+      padding: 0;
+      margin: 0;
+      background: linear-gradient(180deg, #f4f8fd 0%, #eef3f9 100%);
+      overflow-x: hidden;
+    }
+
+    body.modo-admin .app-layout > .row {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      min-height: 100vh;
+      margin-left: 0;
+      margin-right: 0;
+    }
+
+    body.modo-admin .sidebar {
+      display: none !important;
+    }
+
+    body.modo-admin #mainMisTurnosAyb {
+      margin-left: var(--sidebar-width, 280px) !important;
+      width: calc(100vw - var(--sidebar-width, 280px)) !important;
+      max-width: calc(100vw - var(--sidebar-width, 280px)) !important;
+      min-height: 100vh;
+      padding: 24px !important;
+      flex: none !important;
+      overflow-x: hidden;
+    }
+
+    body.modo-admin .page-shell {
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      overflow-x: hidden;
+    }
+
+    body.modo-admin .hero-panel,
+    body.modo-admin .section-card {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    body.modo-admin .summary-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      width: 100%;
+    }
+
+    body.modo-admin .summary-card {
+      min-width: 0;
+    }
+
+    body.modo-admin .summary-value,
+    body.modo-admin .summary-subvalue,
+    body.modo-admin .page-subtitle {
+      overflow-wrap: anywhere;
+    }
+
+    body.modo-admin .header-actions {
+      justify-content: flex-end;
+    }
+
+    body.modo-admin .bienestar-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    body.modo-admin .bienestar-box {
+      min-width: 0;
+    }
+
+    @media (max-width: 1599.98px) {
+      body.modo-admin .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      body.modo-admin .bienestar-grid {
+        grid-template-columns: 1fr;
+      }
+
+      body.modo-admin .header-actions {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 991.98px) {
+      body.modo-admin .btn-toggle-sidebar {
+        display: inline-flex;
+      }
+
+      body.modo-admin #mainMisTurnosAyb {
+        margin-left: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        padding: 72px 14px 18px !important;
+      }
+
+      body.modo-admin .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+
+
+    /* =========================================================
+       MEJORA UX 2026 - MIS TURNOS A&B
+       Enfoque: lectura simple, móvil primero y usuario no técnico.
+       Solo estilos visuales. No altera lógica ni IDs funcionales.
+    ========================================================= */
+    :root {
+      --ux-blue-900: #0b1f3a;
+      --ux-blue-800: #12345f;
+      --ux-blue-700: #1557b0;
+      --ux-blue-100: #eaf3ff;
+      --ux-green-100: #e9f8ef;
+      --ux-green-700: #167349;
+      --ux-amber-100: #fff6d8;
+      --ux-amber-700: #925f00;
+      --ux-red-100: #ffecec;
+      --ux-red-700: #b42318;
+      --ux-line: #dce7f3;
+      --ux-shadow-lg: 0 18px 45px rgba(15, 23, 42, 0.10);
+      --ux-shadow-md: 0 10px 26px rgba(15, 23, 42, 0.08);
+    }
+
+    .hero-panel {
+      border-radius: 1.8rem;
+      border: 1px solid #d7e6f8;
+      background:
+        radial-gradient(circle at 92% 15%, rgba(13, 110, 253, 0.18), transparent 28%),
+        linear-gradient(135deg, #ffffff 0%, #f4f9ff 55%, #edf6ff 100%);
+    }
+
+    .header-chip::before {
+      content: "✓";
+      width: 1.35rem;
+      height: 1.35rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: #ffffff;
+      color: var(--primary-dark);
+      font-weight: 900;
+      box-shadow: 0 4px 10px rgba(13, 110, 253, 0.12);
+    }
+
+    .page-title {
+      font-size: clamp(2rem, 3.2vw, 3rem);
+    }
+
+    .page-subtitle {
+      font-size: 1.06rem;
+      color: #4e6178;
+    }
+
+    .ux-action-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      margin: 1rem 0 1.2rem;
+    }
+
+    .ux-action-card {
+      display: flex;
+      align-items: center;
+      gap: 0.95rem;
+      min-height: 104px;
+      padding: 1rem;
+      border-radius: 1.35rem;
+      border: 1px solid var(--ux-line);
+      background: #ffffff;
+      box-shadow: var(--ux-shadow-md);
+      text-decoration: none;
+      color: inherit;
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+
+    .ux-action-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--ux-shadow-lg);
+      border-color: #bcd6f7;
+    }
+
+    .ux-action-icon {
+      width: 54px;
+      height: 54px;
+      border-radius: 1.15rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.65rem;
+      flex: 0 0 auto;
+      background: var(--ux-blue-100);
+      color: var(--ux-blue-700);
+    }
+
+    .ux-action-card.success .ux-action-icon {
+      background: var(--ux-green-100);
+      color: var(--ux-green-700);
+    }
+
+    .ux-action-card.warning .ux-action-icon {
+      background: var(--ux-amber-100);
+      color: var(--ux-amber-700);
+    }
+
+    .ux-action-title {
+      font-size: 1.02rem;
+      font-weight: 900;
+      color: #10213a;
+      margin-bottom: 0.18rem;
+      line-height: 1.18;
+    }
+
+    .ux-action-text {
+      color: #667085;
+      font-size: 0.91rem;
+      line-height: 1.35;
+      margin: 0;
+    }
+
+    .summary-card {
+      min-height: 132px;
+      border-radius: 1.4rem;
+    }
+
+    .summary-label {
+      color: #53657d;
+    }
+
+    .summary-value {
+      font-size: 1.23rem;
+    }
+
+    .section-card {
+      border-radius: 1.6rem;
+    }
+
+    .section-header {
+      padding: 1.2rem 1.35rem;
+    }
+
+    .section-title {
+      font-size: 1.28rem;
+    }
+
+    .week-pill {
+      min-height: 40px;
+      background: #eef5ff;
+      color: #23466f;
+      border-color: #d4e5fb;
+    }
+
+    .dia-card {
+      min-height: 100%;
+      border-radius: 1.3rem;
+    }
+
+    .dia-nombre {
+      font-size: 1.18rem;
+    }
+
+    .dia-fecha {
+      font-size: 1rem;
+    }
+
+    .turno-line,
+    .novedad-line {
+      font-size: 1.02rem;
+    }
+
+    .turno-card,
+    .novedad-card {
+      border-radius: 1.15rem;
+    }
+
+    .turno-card::before,
+    .novedad-card::before {
+      display: block;
+      margin-bottom: 0.55rem;
+      font-size: 0.8rem;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .turno-card::before {
+      content: "Turno asignado";
+      color: #1557b0;
+    }
+
+    .novedad-card::before {
+      content: "Novedad registrada";
+      color: #925f00;
+    }
+
+    .bienestar-grid {
+      grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.25fr);
+      align-items: start;
+    }
+
+    .bienestar-box {
+      border-radius: 1.35rem;
+      box-shadow: var(--ux-shadow-md);
+    }
+
+    .bienestar-box-title {
+      font-size: 1.13rem;
+    }
+
+    .bienestar-box-text {
+      font-size: 0.98rem;
+      color: #53657d;
+    }
+
+    .bienestar-box .form-label {
+      font-weight: 800;
+      color: #26364c;
+      margin-bottom: 0.38rem;
+    }
+
+    .bienestar-box .form-select,
+    .bienestar-box .form-control {
+      min-height: 48px;
+      border-radius: 0.95rem;
+      border-color: #cfdbea;
+      font-size: 1rem;
+    }
+
+    .bienestar-box textarea.form-control {
+      min-height: 96px;
+    }
+
+    .bienestar-box .form-select:focus,
+    .bienestar-box .form-control:focus {
+      border-color: #6da7ff;
+      box-shadow: 0 0 0 0.24rem rgba(13, 110, 253, 0.13);
+    }
+
+    .bienestar-alerta {
+      border-radius: 1.08rem;
+      font-weight: 650;
+    }
+
+    #bienestarDocumentosRequeridos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .bienestar-doc-chip {
+      margin: 0;
+      min-height: 32px;
+      align-items: center;
+    }
+
+    #bienestarArchivosSeleccionados {
+      padding: 0.65rem 0.75rem;
+      border: 1px dashed #c8d7e8;
+      border-radius: 0.9rem;
+      background: #f8fbff;
+    }
+
+    #btnRadicarBienestarEmpleado {
+      min-height: 54px;
+      font-size: 1.05rem;
+    }
+
+    .bienestar-notificacion {
+      border-radius: 1.15rem;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+    }
+
+    .bienestar-table {
+      min-width: 780px;
+    }
+
+    .bienestar-table thead th {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #53657d;
+      white-space: nowrap;
+    }
+
+    .bienestar-table td {
+      padding-top: 0.78rem;
+      padding-bottom: 0.78rem;
+    }
+
+    @media (max-width: 1199.98px) {
+      .ux-action-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .bienestar-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 767.98px) {
+      body {
+        background: #eef4fb;
+      }
+
+      .hero-panel {
+        margin-bottom: 0.9rem;
+      }
+
+      .header-chip {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+      }
+
+      .page-title,
+      .page-subtitle {
+        text-align: center;
+      }
+
+      .header-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+      }
+
+      .header-actions .btn {
+        white-space: normal;
+        line-height: 1.15;
+        padding-left: 0.65rem;
+        padding-right: 0.65rem;
+      }
+
+      #btnVerTurnosCatalogo,
+      #btnCerrarSesionEmpleado,
+      #btnVolverModuloAnterior {
+        grid-column: 1 / -1;
+      }
+
+      .ux-action-card {
+        min-height: 92px;
+        padding: 0.9rem;
+      }
+
+      .ux-action-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 1.45rem;
+      }
+
+      .summary-grid {
+        gap: 0.75rem;
+      }
+
+      .summary-card {
+        min-height: auto;
+        padding: 1rem 1.05rem;
+      }
+
+      .section-header {
+        padding: 1rem;
+      }
+
+      .week-meta {
+        width: 100%;
+      }
+
+      .week-pill {
+        flex: 1 1 100%;
+      }
+
+      #contenedorSemanaEmpleado {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+
+      #contenedorSemanaEmpleado > [class*="col-"] {
+        width: 100%;
+        padding-left: 0;
+        padding-right: 0;
+      }
+
+      .dia-card:hover,
+      .turno-card:hover,
+      .novedad-card:hover,
+      .ux-action-card:hover {
+        transform: none;
+      }
+
+      .dia-head {
+        align-items: center;
+      }
+
+      .dia-badge {
+        min-height: 30px;
+      }
+
+      .legend-row {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .legend-item {
+        justify-content: center;
+        min-height: 42px;
+      }
+
+      .bienestar-grid {
+        padding: 0.75rem;
+        gap: 0.75rem;
+      }
+
+      .bienestar-box {
+        padding: 0.9rem;
+      }
+
+      .bienestar-box .row.g-3 {
+        --bs-gutter-y: 0.8rem;
+      }
+
+      .bienestar-box .form-label {
+        font-size: 0.95rem;
+      }
+
+      .bienestar-box .form-select,
+      .bienestar-box .form-control {
+        font-size: 16px;
+      }
+
+      .table-responsive {
+        border: 1px solid #e2eaf3;
+        border-radius: 1rem;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .main-panel {
+        padding-left: 0.65rem !important;
+        padding-right: 0.65rem !important;
+      }
+
+      .page-title {
+        font-size: 1.72rem;
+      }
+
+      .page-subtitle {
+        font-size: 0.94rem;
+      }
+
+      .header-actions {
+        grid-template-columns: 1fr;
+      }
+
+      .ux-action-card {
+        align-items: flex-start;
+      }
+
+      .ux-action-title {
+        font-size: 0.98rem;
+      }
+
+      .ux-action-text {
+        font-size: 0.86rem;
+      }
+    }
+
+    /* =========================================================
+       MEJORA VISUAL COMPLEMENTARIA - TARJETAS GENERADAS POR JS
+       Refuerza lectura de turnos y novedades en celular.
+    ========================================================= */
+    .turno-primary {
+      display: grid;
+      gap: 0.78rem;
+    }
+
+    .turno-time-box {
+      display: flex;
+      align-items: center;
+      gap: 0.72rem;
+      padding: 0.78rem 0.85rem;
+      border-radius: 1rem;
+      background: #eef5ff;
+      border: 1px solid #d5e6ff;
+    }
+
+    .turno-time-icon,
+    .novedad-time-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 0.9rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      font-size: 1.2rem;
+      background: #ffffff;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }
+
+    .turno-time-label,
+    .novedad-label {
+      display: block;
+      font-size: 0.76rem;
+      font-weight: 900;
+      color: #53657d;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.12rem;
+    }
+
+    .turno-time-value {
+      display: block;
+      font-size: 1.16rem;
+      font-weight: 900;
+      color: #0b2f5f;
+      line-height: 1.15;
+    }
+
+    .turno-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.62rem;
+    }
+
+    .turno-detail {
+      padding: 0.68rem 0.72rem;
+      border-radius: 0.9rem;
+      background: #f8fbff;
+      border: 1px solid #e4edf8;
+    }
+
+    .turno-detail-label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 900;
+      color: #667085;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.14rem;
+    }
+
+    .turno-detail-value {
+      display: block;
+      font-size: 0.98rem;
+      font-weight: 800;
+      color: #18253d;
+      overflow-wrap: anywhere;
+    }
+
+    .turno-bloque-secundario {
+      margin-top: 0.85rem;
+      padding-top: 0.85rem;
+      border-top: 1px dashed #cfdbea;
+    }
+
+    .turno-bloque-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.34rem 0.62rem;
+      border-radius: 999px;
+      background: #f3f7fc;
+      color: #40526c;
+      font-size: 0.78rem;
+      font-weight: 900;
+      margin-bottom: 0.65rem;
+    }
+
+    .novedad-card {
+      border-left: 5px solid #f0b429;
+    }
+
+    .novedad-primary {
+      display: flex;
+      gap: 0.72rem;
+      align-items: flex-start;
+      padding: 0.75rem;
+      border-radius: 1rem;
+      background: #fff9e8;
+      border: 1px solid #ffe5a3;
+    }
+
+    .novedad-title {
+      font-size: 1.05rem;
+      font-weight: 900;
+      color: #6f4c00;
+      line-height: 1.2;
+      margin-bottom: 0.16rem;
+    }
+
+    .novedad-meta {
+      font-size: 0.92rem;
+      color: #6b5b35;
+      line-height: 1.35;
+    }
+
+    .dia-empty {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.85rem;
+      border-radius: 1rem;
+      background: #f6f8fb;
+      border: 1px dashed #d7e0ea;
+      color: #53657d;
+      font-weight: 700;
+    }
+
+    .dia-empty::before {
+      content: "—";
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: #ffffff;
+      color: #8a94a6;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+
+    .estado-vacio-ux {
+      border: 1px solid #dce7f3;
+      border-radius: 1.35rem;
+      background: #ffffff;
+      box-shadow: var(--ux-shadow-md);
+      padding: 1.15rem;
+      display: flex;
+      gap: 0.9rem;
+      align-items: flex-start;
+    }
+
+    .estado-vacio-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 1rem;
+      background: #eef5ff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+      font-size: 1.35rem;
+    }
+
+    .estado-vacio-title {
+      font-weight: 900;
+      color: #10213a;
+      margin-bottom: 0.18rem;
+    }
+
+    .estado-vacio-text {
+      color: #53657d;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    @media (max-width: 575.98px) {
+      .turno-detail-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .turno-time-box,
+      .novedad-primary,
+      .estado-vacio-ux {
+        align-items: flex-start;
+      }
+
+      .turno-time-value {
+        font-size: 1.08rem;
+      }
+
+      .dia-body {
+        gap: 0.7rem;
+      }
+    }
+
   </style>
 </head>
 <body>
+  <button class="btn-toggle-sidebar d-md-none" type="button" aria-label="Abrir menú">☰</button>
+  <div id="sidebar-container"></div>
+
+  <script>
+    (function configurarModoVistaMisTurnosAyb() {
+      function leerJsonStorage(llave) {
+        const raw = localStorage.getItem(llave) || sessionStorage.getItem(llave);
+        if (!raw) return null;
+        try {
+          return JSON.parse(raw);
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function texto(valor) {
+        return String(valor || "").trim().toLowerCase();
+      }
+
+      function obtenerSesionActual() {
+        const llaves = [
+          "ccp_sesion",
+          "usuarioActual",
+          "empleadoActual",
+          "sessionUser",
+          "userData",
+          "authUser",
+          "usuarioLogueado",
+          "empleadoSesion"
+        ];
+
+        for (const llave of llaves) {
+          const obj = leerJsonStorage(llave);
+          if (obj && typeof obj === "object") return obj;
+        }
+
+        return null;
+      }
+
+      function esSesionAdministrativa(sesion) {
+        if (!sesion || typeof sesion !== "object") return false;
+
+        const rol = texto(sesion.rol || sesion.tipo_usuario || sesion.perfil);
+        const cargo = texto(sesion.cargo);
+        const area = texto(sesion.area || sesion.centro_costos || sesion.centro_costo);
+        const nombre = texto(sesion.nombre_completo || `${sesion.nombres || ""} ${sesion.apellidos || ""}`);
+        const cedula = String(sesion.cedula || sesion.usuario || sesion.username || "").trim();
+
+        const modulosPermitidos = Array.isArray(sesion.modulos_permitidos)
+          ? sesion.modulos_permitidos.map((m) => texto(m))
+          : [];
+
+        const rolesAdmin = [
+          "admin",
+          "administrador",
+          "administrativo",
+          "gerencia",
+          "gerente",
+          "jefe",
+          "jefe_area",
+          "bienestar",
+          "ayb",
+          "alimentos y bebidas",
+          "servicios generales",
+          "direccion administrativa",
+          "dirección administrativa",
+          "direccion financiera",
+          "dirección financiera"
+        ];
+
+        return (
+          sesion.puede_ver_todo === true ||
+          String(sesion.puede_ver_todo).toLowerCase() === "true" ||
+          cedula === "1088029438" ||
+          nombre.includes("jhonnier") ||
+          rolesAdmin.some((item) => rol.includes(item)) ||
+          rolesAdmin.some((item) => cargo.includes(item)) ||
+          rolesAdmin.some((item) => area.includes(item)) ||
+          modulosPermitidos.includes("dashboard") ||
+          modulosPermitidos.includes("programacion") ||
+          modulosPermitidos.includes("programacion-ayb") ||
+          modulosPermitidos.includes("mis-turnos-ayb-admin")
+        );
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const forzarAdmin = params.get("vista") === "admin" || params.get("admin") === "1";
+      const forzarEmpleado = params.get("vista") === "empleado" || params.get("empleado") === "1";
+      const sesion = obtenerSesionActual();
+      const esAdmin = !forzarEmpleado && (forzarAdmin || esSesionAdministrativa(sesion));
+
+      if (esAdmin) {
+        document.body.classList.add("modo-admin");
+        document.body.classList.remove("modo-empleado");
+      } else {
+        document.body.classList.add("modo-empleado");
+        document.body.classList.remove("modo-admin");
+
+        const sidebarContainer = document.getElementById("sidebar-container");
+        const botonSidebar = document.querySelector(".btn-toggle-sidebar");
+
+        if (sidebarContainer) sidebarContainer.remove();
+        if (botonSidebar) botonSidebar.remove();
+      }
+
+      window.__MIS_TURNOS_AYB_ES_ADMIN__ = esAdmin;
+    })();
+  </script>
   <div class="container-fluid app-layout">
     <div class="row min-vh-100">
       <aside class="col-12 col-md-3 col-lg-2 sidebar p-3">
         <div class="brand-box">
           <div class="brand-kicker">Turnos A&B</div>
           <div class="brand-title">Turnos Club</div>
-          <p class="brand-subtitle">Consulta rápida, clara y cómoda de tu programación semanal.</p>
+          <p class="brand-subtitle">Programación clara y solicitudes fáciles desde el celular.</p>
         </div>
 
         <div class="sidebar-mini-info">
@@ -830,7 +1925,7 @@
         </div>
       </aside>
 
-      <main class="col-12 col-md-9 col-lg-10 p-3 p-lg-4 main-panel">
+      <main id="mainMisTurnosAyb" class="col-12 col-md-9 col-lg-10 p-3 p-lg-4 main-panel">
         <div class="page-shell">
 
           <section class="hero-panel">
@@ -839,7 +1934,7 @@
                 <div class="col-12 col-xl-7">
                   <div class="header-chip">Área de Alimentos y Bebidas</div>
                   <h1 class="page-title">Mis Turnos A&amp;B</h1>
-                  <p class="page-subtitle" id="subtituloMisTurnosAyb">Consultando programación...</p>
+                  <p class="page-subtitle" id="subtituloMisTurnosAyb">Tu programación y solicitudes de Bienestar en una sola pantalla.</p>
                 </div>
 
                 <div class="col-12 col-xl-5">
@@ -853,6 +1948,34 @@
                 </div>
               </div>
             </div>
+          </section>
+
+
+
+          <section class="ux-action-grid" aria-label="Accesos rápidos de Mis Turnos A&B">
+            <a class="ux-action-card" href="#contenedorSemanaEmpleado">
+              <span class="ux-action-icon" aria-hidden="true">📅</span>
+              <span>
+                <span class="ux-action-title d-block">Ver mi turno de hoy</span>
+                <span class="ux-action-text d-block">Revisa rápido horario, subárea y novedades de la semana.</span>
+              </span>
+            </a>
+
+            <a class="ux-action-card success" href="#formSolicitudBienestarEmpleado">
+              <span class="ux-action-icon" aria-hidden="true">🩺</span>
+              <span>
+                <span class="ux-action-title d-block">Radicar incapacidad</span>
+                <span class="ux-action-text d-block">Carga fechas, observación y soportes desde el celular.</span>
+              </span>
+            </a>
+
+            <a class="ux-action-card warning" href="#bienestarTablaSolicitudesEmpleado">
+              <span class="ux-action-icon" aria-hidden="true">🔔</span>
+              <span>
+                <span class="ux-action-title d-block">Consultar respuesta</span>
+                <span class="ux-action-text d-block">Mira el estado de tus solicitudes y mensajes de Bienestar.</span>
+              </span>
+            </a>
           </section>
 
           <section class="summary-grid">
@@ -931,6 +2054,160 @@
             </div>
           </section>
 
+          <!-- =========================================================
+               MIS SOLICITUDES DE BIENESTAR
+               Sección agregada sin tocar el módulo de turnos existente.
+          ========================================================= -->
+          <section class="section-card mt-4" id="seccionBienestarEmpleado">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">Mis solicitudes de Bienestar</h2>
+                <p class="section-text">Radica incapacidades o permisos, adjunta soportes y revisa la respuesta sin llamar ni escribir por aparte.</p>
+              </div>
+
+              <div class="week-meta">
+                <div class="week-pill" id="bienestarEmpleadoIdentidad">Empleado no identificado</div>
+                <button class="btn btn-soft btn-sm" type="button" id="btnRecargarBienestarEmpleado">Recargar bienestar</button>
+              </div>
+            </div>
+
+            <div class="bienestar-grid">
+              <div class="bienestar-box">
+                <div class="bienestar-box-title">Nueva solicitud</div>
+                <div class="bienestar-box-text">Completa los campos, adjunta los documentos cuando aplique y radica la solicitud. Bienestar verá tu caso para revisión.</div>
+
+                <div id="bienestarAlertasEmpleado"></div>
+
+                <form id="formSolicitudBienestarEmpleado" novalidate>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label">¿Qué necesitas reportar?</label>
+                      <select id="bienestarTipoSolicitud" class="form-select" required>
+                        <option value="">Seleccione...</option>
+                        <option value="incapacidad">Incapacidad</option>
+                        <option value="calamidad">Calamidad</option>
+                        <option value="permiso_no_remunerado">Permiso no remunerado</option>
+                        <option value="dia_familia">Día de la familia</option>
+                        <option value="dia_grado">Día de grado</option>
+                        <option value="cumpleanos">Cumpleaños</option>
+                        <option value="matrimonio">Matrimonio</option>
+                        <option value="luto">Luto</option>
+                        <option value="graduacion">Graduación</option>
+                      </select>
+                    </div>
+
+                    <div class="col-md-6 d-none" id="bienestarWrapSubtipo">
+                      <label class="form-label">Tipo de incapacidad</label>
+                      <select id="bienestarSubtipoSolicitud" class="form-select">
+                        <option value="">Seleccione...</option>
+                        <option value="enfermedad_general">Enfermedad general</option>
+                        <option value="accidente_transito">Accidente de tránsito</option>
+                        <option value="accidente_trabajo">Accidente de trabajo</option>
+                        <option value="licencia_maternidad">Licencia de maternidad</option>
+                        <option value="licencia_paternidad">Licencia de paternidad</option>
+                      </select>
+                    </div>
+
+                    <div class="col-md-4">
+                      <label class="form-label">Desde qué día</label>
+                      <input type="date" id="bienestarFechaInicio" class="form-control" required>
+                    </div>
+
+                    <div class="col-md-4">
+                      <label class="form-label">Hasta qué día</label>
+                      <input type="date" id="bienestarFechaFin" class="form-control" required>
+                    </div>
+
+                    <div class="col-md-4">
+                      <label class="form-label">Total de días</label>
+                      <input type="number" id="bienestarDiasSolicitados" class="form-control" min="1" readonly>
+                    </div>
+
+                    <div class="col-12">
+                      <label class="form-label">Cuéntanos qué pasó</label>
+                      <textarea id="bienestarObservacionEmpleado" class="form-control" rows="3" placeholder="Ejemplo: incapacidad médica del 12 al 14 de mayo. Adjunto soporte."></textarea>
+                    </div>
+
+                    <div class="col-12">
+                      <div class="bienestar-alerta" id="bienestarDocumentosResumen">Selecciona un tipo de solicitud para ver los documentos requeridos.</div>
+                      <div id="bienestarDocumentosRequeridos" class="mb-2"></div>
+
+                      <label class="form-label">Adjuntar documentos o fotos del soporte</label>
+                      <input type="file" id="bienestarInputDocumentos" class="form-control" multiple>
+                      <div class="small text-muted mt-2" id="bienestarArchivosSeleccionados">No se han seleccionado archivos.</div>
+                    </div>
+
+                    <div class="col-12 d-grid">
+                      <button type="submit" class="btn btn-primary btn-main" id="btnRadicarBienestarEmpleado">Enviar solicitud a Bienestar</button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              <div class="bienestar-box">
+                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                  <div>
+                    <div class="bienestar-box-title">Seguimiento y notificaciones</div>
+                    <div class="bienestar-box-text mb-0">Consulta tus solicitudes, respuestas de Bienestar y novedades pendientes por leer.</div>
+                  </div>
+                  <span class="badge text-bg-danger" id="bienestarBadgeNotificacionesEmpleado">0</span>
+                </div>
+
+                <div id="bienestarNotificacionesEmpleado" class="mb-3">
+                  <div class="text-muted">Cargando notificaciones...</div>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="table table-sm table-hover bienestar-table">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Radicación</th>
+                        <th>Tipo</th>
+                        <th>Rango</th>
+                        <th>Días</th>
+                        <th>Estado</th>
+                        <th>Observación</th>
+                        <th>Docs</th>
+                      </tr>
+                    </thead>
+                    <tbody id="bienestarTablaSolicitudesEmpleado">
+                      <tr>
+                        <td colspan="7" class="text-center text-muted py-4">Cargando solicitudes...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="px-3 pb-3">
+              <div class="bienestar-box">
+                <div class="bienestar-box-title">Beneficios usados en el año</div>
+                <div class="bienestar-box-text">Resumen interno basado en solicitudes aprobadas, aplicadas o cerradas.</div>
+
+                <div class="bienestar-beneficios-grid">
+                  <div class="bienestar-beneficio-card">
+                    <div class="bienestar-beneficio-label">Cumpleaños</div>
+                    <div class="bienestar-beneficio-value" id="beneficioCumpleanosEmpleado">-</div>
+                  </div>
+                  <div class="bienestar-beneficio-card">
+                    <div class="bienestar-beneficio-label">Día de familia</div>
+                    <div class="bienestar-beneficio-value" id="beneficioFamiliaEmpleado">-</div>
+                  </div>
+                  <div class="bienestar-beneficio-card">
+                    <div class="bienestar-beneficio-label">Matrimonio</div>
+                    <div class="bienestar-beneficio-value" id="beneficioMatrimonioEmpleado">-</div>
+                  </div>
+                  <div class="bienestar-beneficio-card">
+                    <div class="bienestar-beneficio-label">Incapacidades</div>
+                    <div class="bienestar-beneficio-value" id="beneficioIncapacidadesEmpleado">-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+
         </div>
       </main>
     </div>
@@ -993,7 +2270,800 @@
     }
   </script>
 
+
+
+
+  <script src="../js/layout.js"></script>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script type="module" src="../js/mis-turnos-ayb.js"></script>
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+    const bienestarSb = createClient(
+      "https://kzxveqrgvuchcgwrjwjb.supabase.co",
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6eHZlcXJndnVjaGNnd3Jqd2piIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzYzMjUsImV4cCI6MjA4OTAxMjMyNX0.DhYtYlQdUN_r7AD-glgUIG7y-_wrGWqYqyA3MZBzPuw"
+    );
+
+    const BIENESTAR_BUCKET = "solicitudes-bienestar";
+    const BIENESTAR_ESTADOS_APROBADOS = ["aprobada", "aplicada_programacion", "cerrada"];
+
+    const BIENESTAR_CATALOG_TIPOS = {
+      incapacidad: { label: "Incapacidad", codigo: "INC", requiere_documentos: true, afecta_programacion: true },
+      calamidad: { label: "Calamidad", codigo: "CAL", requiere_documentos: true, afecta_programacion: true },
+      permiso_no_remunerado: { label: "Permiso no remunerado", codigo: "PNR", requiere_documentos: true, afecta_programacion: true },
+      dia_familia: { label: "Día de la familia", codigo: "DFAM", requiere_documentos: false, afecta_programacion: true },
+      dia_grado: { label: "Día de grado", codigo: "DGR", requiere_documentos: true, afecta_programacion: true },
+      cumpleanos: { label: "Cumpleaños", codigo: "CUMP", requiere_documentos: false, afecta_programacion: true },
+      matrimonio: { label: "Matrimonio", codigo: "MATR", requiere_documentos: true, afecta_programacion: true },
+      luto: { label: "Luto", codigo: "LUTO", requiere_documentos: true, afecta_programacion: true },
+      graduacion: { label: "Graduación", codigo: "GRAD", requiere_documentos: true, afecta_programacion: true }
+    };
+
+    const BIENESTAR_MAPA_DOCUMENTOS = {
+      incapacidad: {
+        enfermedad_general: [
+          { condicion: (dias) => dias <= 2, documentos: ["Certificado de incapacidad"] },
+          { condicion: (dias) => dias >= 3, documentos: ["Certificado de incapacidad", "Historia clínica"] }
+        ],
+        accidente_transito: [
+          { condicion: (dias) => dias <= 2, documentos: ["Certificado de incapacidad"] },
+          { condicion: (dias) => dias >= 3, documentos: ["Certificado de incapacidad", "Historia clínica", "FURIPS", "Copia del SOAT vigente"] }
+        ],
+        accidente_trabajo: [
+          { condicion: () => true, documentos: ["Certificado de incapacidad", "Historia clínica"] }
+        ],
+        licencia_maternidad: [
+          {
+            condicion: (dias) => dias >= 1 && dias <= 126,
+            documentos: ["Certificado de incapacidad", "Historia clínica", "Certificado nacido vivo", "Registro civil"],
+            nota: "En la historia clínica debe estar especificada la fecha probable de parto y número de semanas de embarazo."
+          }
+        ],
+        licencia_paternidad: [
+          { condicion: () => true, documentos: ["Certificado de incapacidad e historia clínica de la mamá", "Certificado nacido vivo", "Registro civil"] }
+        ]
+      },
+      calamidad: { _default: [{ condicion: () => true, documentos: ["Documento soporte de calamidad o evento", "Soporte adicional si aplica"] }] },
+      permiso_no_remunerado: { _default: [{ condicion: () => true, documentos: ["Solicitud o soporte justificativo del permiso no remunerado"] }] },
+      dia_familia: { _default: [{ condicion: () => true, documentos: [] }] },
+      dia_grado: { _default: [{ condicion: () => true, documentos: ["Soporte o constancia del grado"] }] },
+      cumpleanos: { _default: [{ condicion: () => true, documentos: [] }] },
+      matrimonio: { _default: [{ condicion: () => true, documentos: ["Registro civil o documento soporte del matrimonio"] }] },
+      luto: { _default: [{ condicion: () => true, documentos: ["Documento soporte del parentesco o del evento"] }] },
+      graduacion: { _default: [{ condicion: () => true, documentos: ["Acta, diploma o soporte de graduación"] }] }
+    };
+
+    let bienestarEmpleadoActual = null;
+    let bienestarArchivosSeleccionados = [];
+    let bienestarSolicitudesEmpleado = [];
+
+    function bienestarTexto(valor) {
+      return (valor || "").toString().trim();
+    }
+
+    function bienestarEscaparHtml(valor) {
+      return String(valor || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function bienestarHoyISO() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function bienestarFormatearFecha(fecha) {
+      if (!fecha) return "";
+      const d = new Date(fecha + "T00:00:00");
+      if (Number.isNaN(d.getTime())) return fecha;
+      return d.toLocaleDateString("es-CO");
+    }
+
+    function bienestarFormatearFechaHora(fecha) {
+      if (!fecha) return "";
+      const d = new Date(fecha);
+      if (Number.isNaN(d.getTime())) return fecha;
+      return d.toLocaleString("es-CO");
+    }
+
+    function bienestarDiasEntreFechas(inicio, fin) {
+      if (!inicio || !fin) return 0;
+      const f1 = new Date(inicio + "T00:00:00");
+      const f2 = new Date(fin + "T00:00:00");
+      if (Number.isNaN(f1.getTime()) || Number.isNaN(f2.getTime())) return 0;
+      const diff = Math.floor((f2 - f1) / (1000 * 60 * 60 * 24));
+      return diff >= 0 ? diff + 1 : 0;
+    }
+
+    function bienestarDiasDesdeFecha(fecha) {
+      if (!fecha) return 0;
+      const inicio = new Date(fecha + "T00:00:00");
+      const hoy = new Date(bienestarHoyISO() + "T00:00:00");
+      if (Number.isNaN(inicio.getTime())) return 0;
+      return Math.floor((hoy - inicio) / (1000 * 60 * 60 * 24));
+    }
+
+    function bienestarNombreCompleto(obj) {
+      const nombreDirecto = obj?.nombre || obj?.nombre_empleado || obj?.nombreCompleto || obj?.full_name || obj?.displayName;
+      if (bienestarTexto(nombreDirecto)) return bienestarTexto(nombreDirecto);
+      return `${obj?.nombres || ""} ${obj?.apellidos || ""}`.replace(/\s+/g, " ").trim();
+    }
+
+    function bienestarNormalizarEmpleado(obj) {
+      if (!obj || typeof obj !== "object") return null;
+      const cedula = bienestarTexto(obj.cedula || obj.documento || obj.identificacion || obj.numero_documento || obj.numeroDocumento);
+      if (!cedula) return null;
+      return {
+        ...obj,
+        cedula,
+        id: obj.id || obj.empleado_id || null,
+        codigo: obj.codigo || obj.codigo_empleado || obj.cedula || cedula,
+        nombres: obj.nombres || obj.nombre || "",
+        apellidos: obj.apellidos || "",
+        nombre_completo: bienestarNombreCompleto(obj),
+        cargo: obj.cargo || "",
+        area: obj.area || obj.centro_costos || obj.centro_costo || "",
+        centro_costos: obj.centro_costos || obj.centro_costo || obj.area || ""
+      };
+    }
+
+    function bienestarBuscarEmpleadoEnObjeto(valor, profundidad = 0) {
+      if (!valor || profundidad > 4) return null;
+
+      if (typeof valor === "string") {
+        try {
+          const parsed = JSON.parse(valor);
+          return bienestarBuscarEmpleadoEnObjeto(parsed, profundidad + 1);
+        } catch (error) {
+          return null;
+        }
+      }
+
+      if (Array.isArray(valor)) {
+        for (const item of valor) {
+          const encontrado = bienestarBuscarEmpleadoEnObjeto(item, profundidad + 1);
+          if (encontrado) return encontrado;
+        }
+        return null;
+      }
+
+      if (typeof valor === "object") {
+        const directo = bienestarNormalizarEmpleado(valor);
+        if (directo) return directo;
+
+        const llavesPreferidas = [
+          "empleado",
+          "empleadoActual",
+          "usuario",
+          "usuarioActual",
+          "user",
+          "session",
+          "data",
+          "perfil",
+          "auth"
+        ];
+
+        for (const llave of llavesPreferidas) {
+          if (valor[llave]) {
+            const encontrado = bienestarBuscarEmpleadoEnObjeto(valor[llave], profundidad + 1);
+            if (encontrado) return encontrado;
+          }
+        }
+
+        for (const llave of Object.keys(valor)) {
+          const encontrado = bienestarBuscarEmpleadoEnObjeto(valor[llave], profundidad + 1);
+          if (encontrado) return encontrado;
+        }
+      }
+
+      return null;
+    }
+
+    function bienestarObtenerEmpleadoLocal() {
+      const params = new URLSearchParams(window.location.search);
+      const cedulaUrl = bienestarTexto(params.get("cedula") || params.get("documento") || params.get("cc"));
+      if (cedulaUrl) {
+        return bienestarNormalizarEmpleado({ cedula: cedulaUrl });
+      }
+
+      const llavesPreferidas = [
+        "empleadoActual",
+        "usuarioActual",
+        "empleado",
+        "sessionUser",
+        "userData",
+        "authUser",
+        "usuarioLogueado",
+        "empleadoSesion",
+        "empleadoAyb",
+        "usuarioAyb",
+        "datosEmpleado",
+        "session",
+        "supabase.auth.token"
+      ];
+
+      const almacenes = [localStorage, sessionStorage];
+
+      for (const storage of almacenes) {
+        for (const llave of llavesPreferidas) {
+          const raw = storage.getItem(llave);
+          if (!raw) continue;
+
+          const encontrado = bienestarBuscarEmpleadoEnObjeto(raw);
+          if (encontrado) return encontrado;
+
+          const llaveLower = llave.toLowerCase();
+          if (["cedula", "documento", "identificacion", "cc"].some(k => llaveLower.includes(k))) {
+            const cedulaDirecta = raw.replace(/\D/g, "");
+            if (cedulaDirecta.length >= 5) return bienestarNormalizarEmpleado({ cedula: cedulaDirecta });
+          }
+        }
+
+        for (let i = 0; i < storage.length; i++) {
+          const llave = storage.key(i);
+          const raw = storage.getItem(llave);
+          if (!raw) continue;
+
+          const encontrado = bienestarBuscarEmpleadoEnObjeto(raw);
+          if (encontrado) return encontrado;
+
+          const llaveLower = String(llave || "").toLowerCase();
+          if (["cedula", "documento", "identificacion", "cc"].some(k => llaveLower.includes(k))) {
+            const cedulaDirecta = raw.replace(/\D/g, "");
+            if (cedulaDirecta.length >= 5) return bienestarNormalizarEmpleado({ cedula: cedulaDirecta });
+          }
+        }
+      }
+
+      return null;
+    }
+
+    async function bienestarEsperarEmpleadoLocal(intentos = 25, pausaMs = 200) {
+      for (let i = 0; i < intentos; i++) {
+        const empleado = bienestarObtenerEmpleadoLocal();
+        if (empleado?.cedula) return empleado;
+        await new Promise(resolve => setTimeout(resolve, pausaMs));
+      }
+      return null;
+    }
+
+    async function bienestarCompletarEmpleadoDesdeSupabase(empleado) {
+      if (!empleado?.cedula) return empleado;
+
+      try {
+        const { data, error } = await bienestarSb
+          .from("empleados")
+          .select("id,codigo,cedula,nombres,apellidos,cargo,area,centro_costos,centro_costo,estado")
+          .eq("cedula", empleado.cedula)
+          .maybeSingle();
+
+        if (error || !data) return empleado;
+        return bienestarNormalizarEmpleado({ ...empleado, ...data });
+      } catch (error) {
+        console.warn("No se pudo completar empleado desde Supabase", error);
+        return empleado;
+      }
+    }
+
+    function bienestarLabelTipo(tipo) {
+      return BIENESTAR_CATALOG_TIPOS[tipo]?.label || tipo || "";
+    }
+
+    function bienestarLabelEstado(estado) {
+      const mapa = {
+        pendiente: "Pendiente",
+        pendiente_documentos: "Pendiente documentos",
+        en_revision_bienestar: "En revisión",
+        aprobada: "Aprobada",
+        rechazada: "Rechazada",
+        fuera_de_tiempo: "Fuera de tiempo",
+        aplicada_programacion: "Aplicada programación",
+        cerrada: "Cerrada"
+      };
+      return mapa[estado] || estado || "Sin estado";
+    }
+
+    function bienestarPintarEstado(estado) {
+      return `<span class="bienestar-estado ${bienestarEscaparHtml(estado || "pendiente")}">${bienestarEscaparHtml(bienestarLabelEstado(estado))}</span>`;
+    }
+
+    function bienestarMostrarAlerta(mensaje, tipo = "info") {
+      const contenedor = document.getElementById("bienestarAlertasEmpleado");
+      if (!contenedor) return;
+      const cls = tipo === "success" ? "success" : tipo === "danger" ? "danger" : tipo === "warning" ? "warning" : "";
+      contenedor.innerHTML = `<div class="bienestar-alerta ${cls}">${mensaje}</div>`;
+    }
+
+    function bienestarObtenerDocumentosRequeridos(tipo, subtipo, dias) {
+      const grupo = BIENESTAR_MAPA_DOCUMENTOS[tipo];
+      if (!grupo) return { documentos: [], nota: "" };
+      const reglas = grupo[subtipo] || grupo._default || [];
+
+      for (const regla of reglas) {
+        if (typeof regla.condicion === "function" && regla.condicion(dias)) {
+          return { documentos: regla.documentos || [], nota: regla.nota || "" };
+        }
+      }
+
+      return { documentos: [], nota: "" };
+    }
+
+    function bienestarActualizarSubtipo() {
+      const tipo = bienestarTexto(document.getElementById("bienestarTipoSolicitud")?.value);
+      const wrap = document.getElementById("bienestarWrapSubtipo");
+      const subtipo = document.getElementById("bienestarSubtipoSolicitud");
+
+      if (!wrap || !subtipo) return;
+
+      if (tipo === "incapacidad") {
+        wrap.classList.remove("d-none");
+      } else {
+        wrap.classList.add("d-none");
+        subtipo.value = "";
+      }
+
+      bienestarActualizarResumenSolicitud();
+    }
+
+    function bienestarRenderArchivos() {
+      const contenedor = document.getElementById("bienestarArchivosSeleccionados");
+      if (!contenedor) return;
+
+      if (!bienestarArchivosSeleccionados.length) {
+        contenedor.textContent = "No se han seleccionado archivos.";
+        return;
+      }
+
+      contenedor.innerHTML = bienestarArchivosSeleccionados.map(file => {
+        const kb = Math.round((file.size || 0) / 1024);
+        return `• ${bienestarEscaparHtml(file.name)} <span class="text-muted">(${kb} KB)</span>`;
+      }).join("<br>");
+    }
+
+    function bienestarActualizarResumenSolicitud() {
+      const tipo = bienestarTexto(document.getElementById("bienestarTipoSolicitud")?.value);
+      const subtipo = bienestarTexto(document.getElementById("bienestarSubtipoSolicitud")?.value);
+      const inicio = bienestarTexto(document.getElementById("bienestarFechaInicio")?.value);
+      const fin = bienestarTexto(document.getElementById("bienestarFechaFin")?.value);
+      const diasInput = document.getElementById("bienestarDiasSolicitados");
+      const resumen = document.getElementById("bienestarDocumentosResumen");
+      const lista = document.getElementById("bienestarDocumentosRequeridos");
+
+      const tipoUnDia = ["cumpleanos", "dia_familia", "dia_grado", "graduacion"];
+      if (tipoUnDia.includes(tipo) && inicio) {
+        const finInput = document.getElementById("bienestarFechaFin");
+        if (finInput) finInput.value = inicio;
+      }
+
+      const inicioFinal = bienestarTexto(document.getElementById("bienestarFechaInicio")?.value);
+      const finFinal = bienestarTexto(document.getElementById("bienestarFechaFin")?.value);
+      const dias = bienestarDiasEntreFechas(inicioFinal, finFinal);
+      if (diasInput) diasInput.value = dias || "";
+
+      const { documentos, nota } = bienestarObtenerDocumentosRequeridos(tipo, subtipo, dias);
+
+      if (!tipo) {
+        if (resumen) resumen.textContent = "Selecciona un tipo de solicitud para ver los documentos requeridos.";
+        if (lista) lista.innerHTML = "";
+        return;
+      }
+
+      const alertas = [];
+      if (!documentos.length) {
+        alertas.push("Este tipo de solicitud no exige documento en esta fase.");
+      } else {
+        alertas.push(`${documentos.length} documento(s) requerido(s).`);
+      }
+
+      if (tipo === "incapacidad" && inicioFinal) {
+        const transcurridos = bienestarDiasDesdeFecha(inicioFinal);
+        if (transcurridos < 0) alertas.push("La incapacidad tiene fecha futura. El control de 15 días aplicará desde la fecha inicial.");
+        else if (transcurridos > 15) alertas.push("La incapacidad supera el plazo de 15 días y se radicará fuera de tiempo.");
+        else alertas.push(`La incapacidad lleva ${transcurridos} día(s) desde la fecha inicial. Máximo permitido: 15 días.`);
+      }
+
+      if (nota) alertas.push(nota);
+      if (resumen) resumen.textContent = alertas.join(" ");
+      if (lista) lista.innerHTML = documentos.map(doc => `<span class="bienestar-doc-chip">${bienestarEscaparHtml(doc)}</span>`).join("");
+    }
+
+    async function bienestarSubirArchivos() {
+      if (!bienestarEmpleadoActual?.cedula) throw new Error("No se encontró la cédula del empleado para asociar documentos.");
+      if (!bienestarArchivosSeleccionados.length) return [];
+
+      const subidos = [];
+
+      for (const file of bienestarArchivosSeleccionados) {
+        const nombreLimpio = file.name
+          .normalize("NFD")
+          .replace(/[̀-ͯ]/g, "")
+          .replace(/\s+/g, "_")
+          .replace(/[^\w.\-]/g, "");
+
+        const ruta = `${bienestarEmpleadoActual.cedula}/${Date.now()}_${nombreLimpio}`;
+        const { error: uploadError } = await bienestarSb.storage
+          .from(BIENESTAR_BUCKET)
+          .upload(ruta, file, { upsert: false });
+
+        if (uploadError) throw new Error(`Error subiendo archivo ${file.name}: ${uploadError.message}`);
+
+        const { data: publicData } = bienestarSb.storage
+          .from(BIENESTAR_BUCKET)
+          .getPublicUrl(ruta);
+
+        subidos.push({
+          name: file.name,
+          size: file.size,
+          type: file.type || null,
+          bucket: BIENESTAR_BUCKET,
+          path: ruta,
+          publicUrl: publicData?.publicUrl || null,
+          uploadedAt: new Date().toISOString()
+        });
+      }
+
+      return subidos;
+    }
+
+    function bienestarValidarSolicitud(payload) {
+      const errores = [];
+
+      if (!bienestarEmpleadoActual?.cedula) errores.push("No se detectó el empleado actual. Inicia sesión nuevamente.");
+      if (!payload.tipo_solicitud) errores.push("Selecciona el tipo de solicitud.");
+      if (payload.tipo_solicitud === "incapacidad" && !payload.subtipo) errores.push("Selecciona el subtipo de incapacidad.");
+      if (!payload.fecha_inicio) errores.push("Selecciona la fecha de inicio.");
+      if (!payload.fecha_fin) errores.push("Selecciona la fecha fin.");
+      if (!payload.dias_solicitados || payload.dias_solicitados < 1) errores.push("El rango de fechas no es válido.");
+
+      if (payload.tipo_solicitud === "cumpleanos" && payload.dias_solicitados !== 1) errores.push("El permiso de cumpleaños debe ser exactamente de 1 día.");
+      if (payload.tipo_solicitud === "dia_familia" && payload.dias_solicitados !== 1) errores.push("El Día de la Familia debe ser exactamente de 1 día.");
+      if (["dia_grado", "graduacion"].includes(payload.tipo_solicitud) && payload.dias_solicitados > 1) errores.push("El beneficio de grado o graduación no debe superar 1 día.");
+      if (payload.tipo_solicitud === "matrimonio" && payload.dias_solicitados > 2) errores.push("La licencia por matrimonio no puede superar 2 días.");
+      if (payload.tipo_solicitud === "incapacidad" && payload.subtipo === "licencia_maternidad" && payload.dias_solicitados > 126) errores.push("La licencia de maternidad no puede superar 126 días.");
+
+      return errores;
+    }
+
+    async function bienestarCrearNotificacionesRegistro(payload, solicitudId) {
+      const destinatarios = [{ cedula_destino: null, nombre_destino: "Bienestar", rol_destino: "bienestar" }];
+      if (payload.tipo_solicitud === "incapacidad") {
+        destinatarios.push({ cedula_destino: null, nombre_destino: "Nómina", rol_destino: "nomina" });
+      }
+
+      let tipo_notificacion = "nueva_solicitud";
+      if (payload.tipo_solicitud === "incapacidad") tipo_notificacion = "incapacidad_radicada";
+      else if (payload.estado === "fuera_de_tiempo") tipo_notificacion = "solicitud_fuera_de_tiempo";
+      else if (payload.estado === "pendiente_documentos") tipo_notificacion = "solicitud_pendiente_documentos";
+
+      const titulo = payload.tipo_solicitud === "incapacidad"
+        ? `Nueva incapacidad radicada: ${payload.nombre_empleado}`
+        : `Nueva solicitud de ${bienestarLabelTipo(payload.tipo_solicitud)}: ${payload.nombre_empleado}`;
+
+      let mensaje = `${payload.nombre_empleado} radicó una solicitud de ${bienestarLabelTipo(payload.tipo_solicitud)} para el rango ${bienestarFormatearFecha(payload.fecha_inicio)} - ${bienestarFormatearFecha(payload.fecha_fin)}.`;
+      if (payload.estado === "pendiente_documentos") mensaje += " La solicitud quedó pendiente por documentos.";
+      if (payload.estado === "fuera_de_tiempo") mensaje += " La solicitud fue registrada fuera de tiempo.";
+
+      const registros = destinatarios.map(dest => ({
+        cedula_destino: dest.cedula_destino,
+        nombre_destino: dest.nombre_destino,
+        rol_destino: dest.rol_destino,
+        tipo_notificacion,
+        titulo,
+        mensaje,
+        modulo: "solicitudes-bienestar",
+        referencia_id: solicitudId,
+        estado_lectura: false,
+        canal: "interno",
+        prioridad: payload.tipo_solicitud === "incapacidad" || payload.estado === "fuera_de_tiempo" ? "alta" : "media"
+      }));
+
+      const { error } = await bienestarSb.from("notificaciones_sistema").insert(registros);
+      if (error) console.error("La solicitud se guardó, pero falló la notificación interna:", error);
+    }
+
+    async function bienestarRadicarSolicitud(event) {
+      event.preventDefault();
+
+      const boton = document.getElementById("btnRadicarBienestarEmpleado");
+      if (boton) {
+        boton.disabled = true;
+        boton.textContent = "Enviando solicitud...";
+      }
+
+      try {
+        const tipo = bienestarTexto(document.getElementById("bienestarTipoSolicitud")?.value);
+        const subtipo = bienestarTexto(document.getElementById("bienestarSubtipoSolicitud")?.value);
+        const fecha_inicio = bienestarTexto(document.getElementById("bienestarFechaInicio")?.value);
+        const fecha_fin = bienestarTexto(document.getElementById("bienestarFechaFin")?.value);
+        const dias_solicitados = bienestarDiasEntreFechas(fecha_inicio, fecha_fin);
+        const observacion_empleado = bienestarTexto(document.getElementById("bienestarObservacionEmpleado")?.value);
+        const config = BIENESTAR_CATALOG_TIPOS[tipo] || {};
+        const { documentos } = bienestarObtenerDocumentosRequeridos(tipo, subtipo, dias_solicitados);
+
+        const preliminar = {
+          tipo_solicitud: tipo,
+          subtipo: tipo === "incapacidad" ? subtipo : null,
+          fecha_inicio,
+          fecha_fin,
+          dias_solicitados
+        };
+
+        const errores = bienestarValidarSolicitud(preliminar);
+        if (errores.length) {
+          bienestarMostrarAlerta(errores.join("<br>"), "danger");
+          return;
+        }
+
+        const documentos_cargados = await bienestarSubirArchivos();
+        const requiere_documentos = !!config.requiere_documentos;
+        const documentacion_completa = !requiere_documentos || documentos.length === 0 ? true : documentos_cargados.length >= documentos.length;
+
+        let estado = "pendiente";
+        if (tipo === "incapacidad" && bienestarDiasDesdeFecha(fecha_inicio) > 15) estado = "fuera_de_tiempo";
+        if (!documentacion_completa && estado !== "fuera_de_tiempo") estado = "pendiente_documentos";
+
+        const payload = {
+          empleado_id: bienestarEmpleadoActual?.id || null,
+          cedula: bienestarEmpleadoActual.cedula,
+          codigo_empleado: bienestarEmpleadoActual.codigo || bienestarEmpleadoActual.cedula,
+          nombre_empleado: bienestarEmpleadoActual.nombre_completo || bienestarNombreCompleto(bienestarEmpleadoActual),
+          area: bienestarEmpleadoActual.area || bienestarEmpleadoActual.centro_costos || null,
+          cargo: bienestarEmpleadoActual.cargo || null,
+          tipo_solicitud: tipo,
+          subtipo: tipo === "incapacidad" ? subtipo : null,
+          codigo_tipo: config.codigo || null,
+          afecta_programacion: !!config.afecta_programacion,
+          requiere_documentos: !!config.requiere_documentos,
+          fecha_inicio,
+          fecha_fin,
+          dias_solicitados,
+          fecha_radicacion: bienestarHoyISO(),
+          estado,
+          observacion_empleado,
+          observacion_revision: null,
+          documentos_requeridos: documentos.map(nombre => ({ nombre })),
+          documentos_cargados,
+          documentacion_completa,
+          fuera_de_tiempo: estado === "fuera_de_tiempo",
+          aprobado_por: null,
+          fecha_aprobacion: null,
+          aplicada_programacion: false,
+          fecha_aplicacion_programacion: null
+        };
+
+        console.log("Payload solicitud bienestar empleado:", payload);
+
+        const { data, error } = await bienestarSb
+          .from("solicitudes_empleado")
+          .insert([payload])
+          .select("id")
+          .single();
+
+        if (error) {
+          console.error("Error insertando solicitud bienestar empleado:", error);
+          throw new Error(error.message || "No se pudo guardar la solicitud en Supabase.");
+        }
+
+        if (!data?.id) {
+          throw new Error("Supabase no devolvió el ID de la solicitud creada.");
+        }
+
+        await bienestarCrearNotificacionesRegistro(payload, data.id);
+
+        bienestarMostrarAlerta("Solicitud radicada correctamente. Bienestar podrá revisarla desde su módulo.", "success");
+        document.getElementById("formSolicitudBienestarEmpleado")?.reset();
+        bienestarArchivosSeleccionados = [];
+        bienestarRenderArchivos();
+        bienestarActualizarResumenSolicitud();
+        await bienestarCargarTodo();
+      } catch (error) {
+        console.error(error);
+        bienestarMostrarAlerta("Error radicando solicitud: " + error.message, "danger");
+      } finally {
+        if (boton) {
+          boton.disabled = false;
+          boton.textContent = "Enviar solicitud a Bienestar";
+        }
+      }
+    }
+
+    async function bienestarCargarSolicitudes() {
+      const tabla = document.getElementById("bienestarTablaSolicitudesEmpleado");
+      if (!tabla) return;
+
+      if (!bienestarEmpleadoActual?.cedula) {
+        tabla.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">No se detectó empleado en sesión.</td></tr>`;
+        return;
+      }
+
+      const { data, error } = await bienestarSb
+        .from("solicitudes_empleado")
+        .select("*")
+        .eq("cedula", bienestarEmpleadoActual.cedula)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        tabla.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Error cargando solicitudes.</td></tr>`;
+        return;
+      }
+
+      bienestarSolicitudesEmpleado = Array.isArray(data) ? data : [];
+
+      if (!bienestarSolicitudesEmpleado.length) {
+        tabla.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">Aún no tienes solicitudes registradas.</td></tr>`;
+        return;
+      }
+
+      tabla.innerHTML = bienestarSolicitudesEmpleado.map(item => {
+        const docs = Array.isArray(item.documentos_cargados) ? item.documentos_cargados : [];
+        return `
+          <tr>
+            <td>${bienestarFormatearFecha(item.fecha_radicacion || item.created_at?.slice(0, 10))}</td>
+            <td>${bienestarEscaparHtml(bienestarLabelTipo(item.tipo_solicitud))}</td>
+            <td>${bienestarFormatearFecha(item.fecha_inicio)} - ${bienestarFormatearFecha(item.fecha_fin)}</td>
+            <td>${item.dias_solicitados || 0}</td>
+            <td>${bienestarPintarEstado(item.estado)}</td>
+            <td>${bienestarEscaparHtml(item.observacion_revision || "Sin respuesta aún")}</td>
+            <td>
+              ${docs.length ? docs.map(d => d.publicUrl ? `<a href="${d.publicUrl}" target="_blank">Ver</a>` : bienestarEscaparHtml(d.name || "Archivo")).join("<br>") : "-"}
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    async function bienestarCargarNotificaciones() {
+      const contenedor = document.getElementById("bienestarNotificacionesEmpleado");
+      const badge = document.getElementById("bienestarBadgeNotificacionesEmpleado");
+      if (!contenedor || !badge) return;
+
+      if (!bienestarEmpleadoActual?.cedula) {
+        contenedor.innerHTML = `<div class="text-muted">No se detectó empleado en sesión.</div>`;
+        badge.textContent = "0";
+        return;
+      }
+
+      const { data, error } = await bienestarSb
+        .from("notificaciones_sistema")
+        .select("*")
+        .eq("modulo", "solicitudes-bienestar")
+        .eq("rol_destino", "empleado")
+        .eq("cedula_destino", bienestarEmpleadoActual.cedula)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error(error);
+        contenedor.innerHTML = `<div class="text-danger">Error cargando notificaciones.</div>`;
+        badge.textContent = "0";
+        return;
+      }
+
+      const lista = Array.isArray(data) ? data : [];
+      const noLeidas = lista.filter(n => !n.estado_lectura).length;
+      badge.textContent = String(noLeidas);
+
+      if (!lista.length) {
+        contenedor.innerHTML = `<div class="text-muted">No tienes notificaciones de Bienestar.</div>`;
+        return;
+      }
+
+      contenedor.innerHTML = lista.map(n => `
+        <div class="bienestar-notificacion ${n.estado_lectura ? "" : "no-leida"}">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="bienestar-notificacion-titulo">${bienestarEscaparHtml(n.titulo || "Notificación")}</div>
+              <div class="bienestar-notificacion-meta">${bienestarFormatearFechaHora(n.created_at)} · ${bienestarEscaparHtml(n.prioridad || "media")}</div>
+            </div>
+            ${n.estado_lectura ? `<span class="badge text-bg-secondary">Leída</span>` : `<button class="btn btn-sm btn-outline-success" type="button" data-bienestar-notificacion="${n.id}">Marcar leída</button>`}
+          </div>
+          <div>${bienestarEscaparHtml(n.mensaje || "")}</div>
+        </div>
+      `).join("");
+
+      contenedor.querySelectorAll("[data-bienestar-notificacion]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-bienestar-notificacion");
+          await bienestarMarcarNotificacionLeida(id);
+        });
+      });
+    }
+
+    async function bienestarMarcarNotificacionLeida(id) {
+      if (!id) return;
+      const { error } = await bienestarSb
+        .from("notificaciones_sistema")
+        .update({ estado_lectura: true, fecha_lectura: new Date().toISOString() })
+        .eq("id", id);
+
+      if (error) {
+        console.error(error);
+        bienestarMostrarAlerta("No se pudo marcar la notificación como leída.", "danger");
+        return;
+      }
+
+      await bienestarCargarNotificaciones();
+    }
+
+    function bienestarActualizarBeneficios() {
+      const anio = new Date().getFullYear();
+      const aprobadasAnio = bienestarSolicitudesEmpleado.filter(item => {
+        const baseFecha = item.fecha_inicio || item.fecha_radicacion || item.created_at?.slice(0, 10);
+        const anioItem = baseFecha ? new Date(baseFecha + "T00:00:00").getFullYear() : null;
+        return anioItem === anio && BIENESTAR_ESTADOS_APROBADOS.includes(item.estado);
+      });
+
+      const contar = (tipo) => aprobadasAnio.filter(x => x.tipo_solicitud === tipo).length;
+      const setText = (id, valor) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = valor;
+      };
+
+      setText("beneficioCumpleanosEmpleado", contar("cumpleanos") > 0 ? "Usado" : "Disponible");
+      setText("beneficioFamiliaEmpleado", contar("dia_familia") > 0 ? "Usado" : "Disponible");
+      setText("beneficioMatrimonioEmpleado", `${contar("matrimonio")} aprobado(s)`);
+      setText("beneficioIncapacidadesEmpleado", `${aprobadasAnio.filter(x => x.tipo_solicitud === "incapacidad").length} aprobada(s)`);
+    }
+
+    async function bienestarCargarTodo() {
+      await bienestarCargarSolicitudes();
+      bienestarActualizarBeneficios();
+      await bienestarCargarNotificaciones();
+    }
+
+    function bienestarActualizarIdentidadEmpleado() {
+      const identidad = document.getElementById("bienestarEmpleadoIdentidad");
+      if (!identidad) return;
+
+      identidad.textContent = bienestarEmpleadoActual?.cedula
+        ? `${bienestarEmpleadoActual.nombre_completo || bienestarNombreCompleto(bienestarEmpleadoActual) || "Empleado"} · ${bienestarEmpleadoActual.cedula}`
+        : "Empleado no identificado";
+    }
+
+    async function bienestarResolverEmpleadoActual() {
+      let empleado = await bienestarEsperarEmpleadoLocal();
+      empleado = await bienestarCompletarEmpleadoDesdeSupabase(empleado);
+      bienestarEmpleadoActual = empleado;
+      bienestarActualizarIdentidadEmpleado();
+      return empleado;
+    }
+
+    async function bienestarInit() {
+      document.getElementById("bienestarTipoSolicitud")?.addEventListener("change", bienestarActualizarSubtipo);
+      document.getElementById("bienestarSubtipoSolicitud")?.addEventListener("change", bienestarActualizarResumenSolicitud);
+      document.getElementById("bienestarFechaInicio")?.addEventListener("change", bienestarActualizarResumenSolicitud);
+      document.getElementById("bienestarFechaFin")?.addEventListener("change", bienestarActualizarResumenSolicitud);
+      document.getElementById("bienestarInputDocumentos")?.addEventListener("change", (event) => {
+        bienestarArchivosSeleccionados = Array.from(event.target.files || []);
+        bienestarRenderArchivos();
+      });
+      document.getElementById("formSolicitudBienestarEmpleado")?.addEventListener("submit", bienestarRadicarSolicitud);
+      document.getElementById("btnRecargarBienestarEmpleado")?.addEventListener("click", async () => {
+        await bienestarResolverEmpleadoActual();
+        await bienestarCargarTodo();
+      });
+
+      bienestarActualizarResumenSolicitud();
+      bienestarRenderArchivos();
+
+      await bienestarResolverEmpleadoActual();
+
+      if (!bienestarEmpleadoActual?.cedula) {
+        bienestarMostrarAlerta(
+          "No se detectó automáticamente la cédula del empleado en la sesión. Revisa que el login esté guardando la cédula en localStorage/sessionStorage, o abre este módulo con ?cedula=NUMERO mientras ajustamos la autenticación central.",
+          "warning"
+        );
+      }
+
+      await bienestarCargarTodo();
+    }
+
+    bienestarInit();
+  </script>
+
 </body>
 </html>

@@ -145,7 +145,7 @@ function cargarDatosEncabezado() {
 
   if (nombreEmpleado) nombreEmpleado.textContent = nombre;
   if (cargoEmpleado) cargoEmpleado.textContent = cargo;
-  if (subtitulo) subtitulo.textContent = `Consulta semanal de turnos de ${nombre}`;
+  if (subtitulo) subtitulo.textContent = `Hola ${nombre}. Aquí puedes ver tus turnos y radicar solicitudes de Bienestar sin buscar en otras pantallas.`;
 
   if (mesAnio) {
     const primera = new Date(`${semanaActual[0].fecha}T00:00:00`);
@@ -165,7 +165,13 @@ async function cargarMisTurnosAyb() {
 
   contenedor.innerHTML = `
     <div class="col-12">
-      <div class="text-center text-muted py-4">Cargando turnos...</div>
+      <div class="estado-vacio-ux">
+        <span class="estado-vacio-icon" aria-hidden="true">⏳</span>
+        <div>
+          <div class="estado-vacio-title">Cargando tu programación</div>
+          <p class="estado-vacio-text">Estamos consultando tus turnos de la semana.</p>
+        </div>
+      </div>
     </div>
   `;
 
@@ -182,7 +188,13 @@ async function cargarMisTurnosAyb() {
     console.error("Error cargando programación:", error);
     contenedor.innerHTML = `
       <div class="col-12">
-        <div class="alert alert-danger mb-0">No se pudo cargar la programación.</div>
+        <div class="estado-vacio-ux">
+          <span class="estado-vacio-icon" aria-hidden="true">⚠️</span>
+          <div>
+            <div class="estado-vacio-title">No se pudo cargar la programación</div>
+            <p class="estado-vacio-text">Intenta recargar la página. Si continúa el error, reporta el caso a Sistemas o Bienestar.</p>
+          </div>
+        </div>
       </div>
     `;
     actualizarResumen([], [], new Set());
@@ -198,17 +210,24 @@ async function cargarMisTurnosAyb() {
     if ((data || []).length > 0) {
       contenedor.innerHTML = `
         <div class="col-12">
-          <div class="alert alert-warning mb-0">
-            Este empleado sí tiene registros, pero no en la semana actualmente visible.
-            Usa <strong>Semana anterior</strong> o <strong>Semana siguiente</strong>.
+          <div class="estado-vacio-ux">
+            <span class="estado-vacio-icon" aria-hidden="true">📆</span>
+            <div>
+              <div class="estado-vacio-title">No hay turnos en esta semana</div>
+              <p class="estado-vacio-text">Sí existen registros para este empleado, pero no dentro de la semana visible. Usa <strong>Semana anterior</strong> o <strong>Semana siguiente</strong>.</p>
+            </div>
           </div>
         </div>
       `;
     } else {
       contenedor.innerHTML = `
         <div class="col-12">
-          <div class="alert alert-secondary mb-0">
-            No hay programación registrada para esta cédula.
+          <div class="estado-vacio-ux">
+            <span class="estado-vacio-icon" aria-hidden="true">ℹ️</span>
+            <div>
+              <div class="estado-vacio-title">Aún no tienes programación registrada</div>
+              <p class="estado-vacio-text">Cuando A&amp;B publique tu turno, aparecerá en esta pantalla.</p>
+            </div>
           </div>
         </div>
       `;
@@ -237,6 +256,39 @@ function renderSemanaEmpleado(registros) {
   const turnos = [];
   const subareas = new Set();
 
+  const crearDetalle = (label, valor) => `
+    <div class="turno-detail">
+      <span class="turno-detail-label">${escaparHtml(label)}</span>
+      <span class="turno-detail-value">${escaparHtml(valor || "-")}</span>
+    </div>
+  `;
+
+  const crearBloqueTurno = (item, numeroBloque = 1) => {
+    const esBloque2 = numeroBloque === 2;
+    const subarea = esBloque2 ? item.subarea_2 : item.subarea;
+    const turno = esBloque2 ? item.turno_2 : item.turno;
+    const horaInicio = esBloque2 ? item.hora_inicio_2 : item.hora_inicio;
+    const horaFin = esBloque2 ? item.hora_fin_2 : item.hora_fin;
+    const horario = horaInicio && horaFin ? `${horaInicio} - ${horaFin}` : "-";
+
+    return `
+      <div class="${esBloque2 ? "turno-bloque-secundario" : "turno-primary"}">
+        ${esBloque2 ? `<div class="turno-bloque-title">↳ Bloque 2 del día</div>` : ""}
+        <div class="turno-time-box">
+          <span class="turno-time-icon" aria-hidden="true">🕒</span>
+          <span>
+            <span class="turno-time-label">${esBloque2 ? "Segundo horario" : "Horario principal"}</span>
+            <span class="turno-time-value">${escaparHtml(horario)}</span>
+          </span>
+        </div>
+        <div class="turno-detail-grid">
+          ${crearDetalle("Subárea", subarea)}
+          ${crearDetalle("Turno", turno)}
+        </div>
+      </div>
+    `;
+  };
+
   const html = semanaActual.map((dia) => {
     const itemsDia = mapaPorFecha[dia.fecha] || [];
     const esHoy = dia.fecha === formatearFechaISO(new Date());
@@ -252,11 +304,11 @@ function renderSemanaEmpleado(registros) {
       badgeClase = "badge-hoy";
     } else if (itemsDia.length === 0) {
       claseDia = "descanso";
-      badgeTexto = "Sin programación";
+      badgeTexto = "Sin turno";
       badgeClase = "badge-descanso";
     } else if (tieneNovedad) {
       claseDia = "novedad";
-      badgeTexto = "Con novedad";
+      badgeTexto = "Novedad";
       badgeClase = "badge-novedad";
     }
 
@@ -273,7 +325,7 @@ function renderSemanaEmpleado(registros) {
             </div>
 
             <div class="dia-body">
-              <div class="dia-empty">Sin programación registrada para este día.</div>
+              <div class="dia-empty">No tienes turno registrado este día.</div>
             </div>
           </div>
         </div>
@@ -291,8 +343,14 @@ function renderSemanaEmpleado(registros) {
 
         return `
           <div class="novedad-card">
-            <p class="novedad-line"><strong>Novedad:</strong> ${escaparHtml(nombreNovedad)}</p>
-            <p class="novedad-line"><strong>Subárea:</strong> ${escaparHtml(item.subarea || "-")}</p>
+            <div class="novedad-primary">
+              <span class="novedad-time-icon" aria-hidden="true">⚠️</span>
+              <div>
+                <span class="novedad-label">Novedad del día</span>
+                <div class="novedad-title">${escaparHtml(nombreNovedad)}</div>
+                <div class="novedad-meta"><strong>Subárea:</strong> ${escaparHtml(item.subarea || "-")}</div>
+              </div>
+            </div>
             ${
               item.observacion
                 ? `<div class="novedad-observacion">${escaparHtml(item.observacion)}</div>`
@@ -304,36 +362,12 @@ function renderSemanaEmpleado(registros) {
 
       turnos.push(item);
 
-      const horario1 =
-        item.hora_inicio && item.hora_fin
-          ? `${item.hora_inicio} - ${item.hora_fin}`
-          : "-";
-
-      const horario2 =
-        item.hora_inicio_2 && item.hora_fin_2
-          ? `${item.hora_inicio_2} - ${item.hora_fin_2}`
-          : "-";
-
       const tieneBloque2 = item.turno_2 || item.hora_inicio_2 || item.hora_fin_2 || item.subarea_2;
 
       return `
         <div class="turno-card">
-          <p class="turno-line"><strong>Subárea:</strong> ${escaparHtml(item.subarea || "-")}</p>
-          <p class="turno-line"><strong>Turno:</strong> ${escaparHtml(item.turno || "-")}</p>
-          <p class="turno-line"><strong>Horario:</strong> ${escaparHtml(horario1)}</p>
-
-          ${
-            tieneBloque2
-              ? `
-                <hr>
-                <div class="fw-semibold mb-2">Bloque 2</div>
-                <p class="turno-line"><strong>Subárea:</strong> ${escaparHtml(item.subarea_2 || "-")}</p>
-                <p class="turno-line"><strong>Turno:</strong> ${escaparHtml(item.turno_2 || "-")}</p>
-                <p class="turno-line"><strong>Horario:</strong> ${escaparHtml(horario2)}</p>
-              `
-              : ""
-          }
-
+          ${crearBloqueTurno(item, 1)}
+          ${tieneBloque2 ? crearBloqueTurno(item, 2) : ""}
           ${
             item.observacion
               ? `<div class="turno-observacion">${escaparHtml(item.observacion)}</div>`

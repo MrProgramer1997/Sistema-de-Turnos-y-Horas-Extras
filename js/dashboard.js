@@ -2,6 +2,8 @@ import { supabase } from "../supabase/supabaseClient.js";
 
 let sesionActiva = null;
 let registrosBase = [];
+let solicitudesBienestarBase = [];
+let directorioEmpleadosBase = [];
 let filtrosActuales = {
   fechaInicio: "",
   fechaFin: "",
@@ -83,6 +85,9 @@ async function cargarDashboardReal(sesion) {
     }
 
     registrosBase = filtrarRegistrosPorPermisos(data || [], sesion).map(enriquecerRegistroDashboard);
+    directorioEmpleadosBase = await cargarDirectorioEmpleadosSeguro();
+    const solicitudesBienestar = await cargarSolicitudesBienestarSeguras(sesion);
+    solicitudesBienestarBase = solicitudesBienestar;
 
     inicializarFiltrosRango();
     poblarOpcionesFiltros(registrosBase);
@@ -449,6 +454,7 @@ function aplicarFiltrosAnaliticos() {
   renderKPIsNovedades(registrosFiltrados);
   renderKPIsAlertas(registrosFiltrados);
   renderKPIsValidacion(registrosFiltrados);
+  renderLecturaEjecutivaDashboard(registrosFiltrados);
   renderComparativosPeriodo();
   renderTopEmpleados(registrosFiltrados);
   renderTopAsistencia(registrosFiltrados);
@@ -459,6 +465,8 @@ function aplicarFiltrosAnaliticos() {
   renderTablaAusentesHoy(registrosFiltrados);
   renderTablaAlertasCriticas(registrosFiltrados);
   renderTablaValidacionExtras(registrosFiltrados);
+  renderDashboardBienestar();
+  renderTablaMenorCarga(registrosFiltrados);
 
   renderGraficaAreas(registrosFiltrados);
   renderGraficaDias(registrosFiltrados);
@@ -551,6 +559,58 @@ function renderKPIsValidacion(registros) {
   setText("kpiExtrasAprobadas", aprobados.length);
   setText("kpiExtrasRechazadas", rechazados.length);
   setText("kpiHorasExtraAprobadas", formatearNumero(horasAprobadas));
+}
+
+
+function renderLecturaEjecutivaDashboard(registros) {
+  const extras = obtenerRegistrosConExtras(registros);
+  const pendientes = extras.filter((r) => normalizarEstadoExtra(r.estado_extra) === "pendiente");
+  const aprobados = extras.filter((r) => normalizarEstadoExtra(r.estado_extra) === "aprobado");
+  const rechazados = extras.filter((r) => normalizarEstadoExtra(r.estado_extra) === "rechazado");
+  const horasAprobadas = redondearHoras(aprobados.reduce((acc, r) => acc + Number(r.horas_extra_estimadas || 0), 0));
+
+  const empleados = new Set(
+    registros.map((item) => String(item.cedula || item.empleado_id || obtenerNombreEmpleado(item)).trim()).filter(Boolean)
+  ).size;
+  const dias = new Set(registros.map((item) => String(item.fecha || "").trim()).filter(Boolean)).size;
+
+  const solicitudes = typeof obtenerSolicitudesBienestarFiltradas === "function"
+    ? obtenerSolicitudesBienestarFiltradas()
+    : [];
+  const solicitudesPendientes = solicitudes.filter((s) => ["pendiente", "pendiente_documentos"].includes(s._estado_bienestar));
+  const solicitudesFueraTiempo = solicitudes.filter((s) => s._fuera_tiempo === true);
+  const solicitudesDocs = solicitudes.filter((s) => s._requiere_documento === true || s._estado_bienestar === "pendiente_documentos");
+
+  setText("insightValidacionExtras", pendientes.length ? `${pendientes.length} pendiente(s)` : "Sin pendientes");
+  setText("insightValidacionExtrasDetalle", `${aprobados.length} aprobado(s), ${rechazados.length} rechazado(s), ${extras.length} registro(s) con extra.`);
+
+  setText("insightNomina", `${aprobados.length} registro(s) aprobados`);
+  setText("insightNominaDetalle", `${formatearNumero(horasAprobadas)} hora(s) extra listas para exportar.`);
+
+  const totalAlertasBienestar = solicitudesPendientes.length + solicitudesFueraTiempo.length + solicitudesDocs.length;
+  setText("insightBienestar", totalAlertasBienestar ? `${totalAlertasBienestar} alerta(s)` : "Sin alertas críticas");
+  setText("insightBienestarDetalle", `${solicitudesPendientes.length} pendiente(s), ${solicitudesDocs.length} con documentos, ${solicitudesFueraTiempo.length} fuera de tiempo.`);
+
+  setText("insightCobertura", `${empleados} empleado(s)`);
+  setText("insightCoberturaDetalle", `${dias} día(s) con programación y ${registros.length} registro(s) analizados.`);
+
+  actualizarClaseInsight("cardInsightValidacion", pendientes.length > 0 ? "alerta" : "ok");
+  actualizarClaseInsight("cardInsightNomina", aprobados.length > 0 ? "ok" : "alerta");
+  actualizarClaseInsight("cardInsightBienestar", totalAlertasBienestar > 0 ? (solicitudesFueraTiempo.length > 0 ? "critico" : "alerta") : "ok");
+  actualizarClaseInsight("cardInsightCobertura", registros.length > 0 ? "ok" : "alerta");
+  actualizarUltimaActualizacionDashboard();
+}
+
+function actualizarClaseInsight(id, clase) {
+  const card = document.getElementById(id);
+  if (!card) return;
+  card.classList.remove("ok", "alerta", "critico");
+  if (clase) card.classList.add(clase);
+}
+
+function actualizarUltimaActualizacionDashboard() {
+  const ahora = new Date();
+  setText("dashboardUltimaActualizacion", `Última actualización: ${ahora.toLocaleString("es-CO")}`);
 }
 
 function renderKPIsAnaliticos(registros) {
@@ -1018,6 +1078,332 @@ function prioridadEstado(estado) {
   return 9;
 }
 
+
+async function cargarDirectorioEmpleadosSeguro() {
+  const mapa = {};
+
+  try {
+    const { data, error } = await supabase
+      .from("empleados")
+      .select("*");
+
+    if (error) {
+      console.warn("No se pudo cargar directorio desde empleados:", error.message || error);
+      return [];
+    }
+
+    (data || [])
+      .map((item) => normalizarEmpleadoDirectorio(item, "empleados"))
+      .filter((empleado) => empleado.cedula)
+      .forEach((empleado) => {
+        mapa[empleado.cedula] = empleado;
+      });
+  } catch (error) {
+    console.warn("Error consultando directorio empleados:", error);
+  }
+
+  return Object.values(mapa);
+}
+
+function normalizarEmpleadoDirectorio(item, tablaOrigen = "") {
+  const cedula = normalizarDocumentoEmpleado(
+    item.cedula ||
+    item.documento ||
+    item.numero_documento ||
+    item.identificacion ||
+    item.identificacion_empleado ||
+    item.id_empleado ||
+    item.cedula_empleado ||
+    item.nit ||
+    item.usuario ||
+    ""
+  );
+
+  const nombresCompuestos = [
+    item.primer_nombre,
+    item.segundo_nombre,
+    item.primer_apellido,
+    item.segundo_apellido
+  ].filter(Boolean).join(" ").trim();
+
+  const nombresApellidos = [item.nombres, item.apellidos].filter(Boolean).join(" ").trim();
+
+  const nombre = String(
+    item.nombre_completo ||
+    item.nombres_apellidos ||
+    item.nombre_empleado ||
+    item.empleado ||
+    item.nombre ||
+    item.full_name ||
+    item.display_name ||
+    item.colaborador ||
+    item.tercero ||
+    item.razon_social ||
+    nombresCompuestos ||
+    nombresApellidos ||
+    ""
+  ).trim();
+
+  const area = String(
+    item.centro_costos ||
+    item.area ||
+    item.nombre_centro_costo ||
+    item.dependencia ||
+    item.departamento ||
+    item.direccion ||
+    item.subarea ||
+    ""
+  ).trim();
+
+  return { cedula, nombre: nombre || "Sin nombre", area: area || "Sin área", tablaOrigen, raw: item };
+}
+
+function normalizarDocumentoEmpleado(valor) {
+  return String(valor || "").replace(/[^0-9A-Za-z]/g, "").trim();
+}
+
+async function cargarSolicitudesBienestarSeguras(sesion) {
+  try {
+    const { data, error } = await supabase
+      .from("solicitudes_empleado")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.warn("No se pudieron cargar solicitudes_empleado para el dashboard de Bienestar:", error);
+      return [];
+    }
+
+    return filtrarSolicitudesBienestarPorPermisos(data || [], sesion).map(normalizarSolicitudBienestar);
+  } catch (error) {
+    console.warn("Error consultando solicitudes_empleado:", error);
+    return [];
+  }
+}
+
+function filtrarSolicitudesBienestarPorPermisos(solicitudes, sesion) {
+  if (!sesion) return [];
+  if (sesion.puede_ver_todo === true) return solicitudes;
+
+  const rol = String(sesion.rol || "").toLowerCase();
+  if (rol.includes("bienestar") || rol === "admin" || rol === "gerencia") {
+    return solicitudes;
+  }
+
+  const areasPermitidas = Array.isArray(sesion.areas_permitidas) ? sesion.areas_permitidas : [];
+  if (!areasPermitidas.length) return [];
+
+  return solicitudes.filter((solicitud) => {
+    const area = String(solicitud.centro_costos || solicitud.area || "").toUpperCase();
+    const subarea = String(solicitud.subarea || solicitud.cargo || "").toUpperCase();
+    return areasPermitidas.some((permitida) => {
+      const permiso = String(permitida || "").toUpperCase();
+      return area.includes(permiso) || subarea.includes(permiso);
+    });
+  });
+}
+
+function normalizarSolicitudBienestar(solicitud) {
+  const fecha = obtenerFechaSolicitudBienestar(solicitud);
+  const estado = normalizarEstadoSolicitudBienestar(solicitud.estado || solicitud.estado_solicitud || solicitud.estado_bienestar);
+  const tipo = String(solicitud.tipo_solicitud || solicitud.tipo || solicitud.categoria || solicitud.motivo || solicitud.codigo_tipo || solicitud.subtipo || "").trim();
+  const texto = String(
+    tipo + " " +
+    (solicitud.subtipo || "") + " " +
+    (solicitud.codigo_tipo || "") + " " +
+    (solicitud.descripcion || "") + " " +
+    (solicitud.observacion_empleado || "") + " " +
+    (solicitud.observacion_revision || "") + " " +
+    (solicitud.observacion || "") + " " +
+    (solicitud.observaciones || "")
+  ).toLowerCase();
+
+  return {
+    ...solicitud,
+    _fecha_bienestar: fecha,
+    _estado_bienestar: estado,
+    _tipo_bienestar: tipo || "Sin tipo",
+    _es_incapacidad: texto.includes("incap"),
+    _requiere_documento: evaluarPendienteDocumentoBienestar(solicitud, texto),
+    _fuera_tiempo: evaluarFueraTiempoBienestar(solicitud, fecha),
+    _cedula: normalizarDocumentoEmpleado(solicitud.cedula || solicitud.documento || solicitud.numero_documento || solicitud.identificacion || solicitud.id_empleado || solicitud.usuario || ""),
+    _nombre: obtenerNombreSolicitudBienestar(solicitud),
+    _area: obtenerAreaSolicitudBienestar(solicitud)
+  };
+}
+
+function obtenerNombreSolicitudBienestar(solicitud) {
+  const cedula = normalizarDocumentoEmpleado(solicitud.cedula || solicitud.documento || solicitud.numero_documento || solicitud.identificacion || solicitud.id_empleado || solicitud.usuario || "");
+  const empleadoBase = obtenerEmpleadoBasePorCedula(cedula);
+  if (empleadoBase?.nombre && empleadoBase.nombre !== "Sin nombre") return empleadoBase.nombre;
+
+  const nombreDirecto = String(
+    solicitud.nombre_empleado ||
+    solicitud.nombre_completo ||
+    solicitud.empleado ||
+    solicitud.nombre ||
+    solicitud.colaborador ||
+    ""
+  ).trim();
+
+  return nombreDirecto || "Sin nombre";
+}
+
+function obtenerAreaSolicitudBienestar(solicitud) {
+  const cedula = normalizarDocumentoEmpleado(solicitud.cedula || solicitud.documento || solicitud.numero_documento || solicitud.identificacion || solicitud.id_empleado || solicitud.usuario || "");
+  const empleadoBase = obtenerEmpleadoBasePorCedula(cedula);
+  if (empleadoBase?.area && empleadoBase.area !== "Sin área") return empleadoBase.area;
+
+  const areaDirecta = String(solicitud.centro_costos || solicitud.area || solicitud.dependencia || solicitud.cargo || "").trim();
+  return areaDirecta || "Sin área";
+}
+
+function obtenerFechaSolicitudBienestar(solicitud) {
+  const valor = solicitud.fecha || solicitud.fecha_solicitud || solicitud.created_at || solicitud.fecha_inicio || solicitud.fecha_novedad;
+  if (!valor) return "";
+  return String(valor).slice(0, 10);
+}
+
+function normalizarEstadoSolicitudBienestar(valor) {
+  const estado = String(valor || "pendiente").trim().toLowerCase();
+  if (estado.includes("aprob")) return "aprobado";
+  if (estado.includes("rech") || estado.includes("nega")) return "rechazado";
+  if (estado.includes("doc") || estado.includes("soporte")) return "pendiente_documentos";
+  if (estado.includes("pend")) return "pendiente";
+  return estado || "pendiente";
+}
+
+function evaluarPendienteDocumentoBienestar(solicitud, texto) {
+  const estado = normalizarEstadoSolicitudBienestar(solicitud.estado || solicitud.estado_solicitud || solicitud.estado_bienestar);
+  const requiereDocumento = solicitud.requiere_documentos ?? solicitud.pendiente_documentos ?? solicitud.requiere_documento ?? solicitud.requiere_soporte ?? solicitud.documento_pendiente;
+  const documentacionCompleta = solicitud.documentacion_completa;
+  const documentosRequeridos = Array.isArray(solicitud.documentos_requeridos) ? solicitud.documentos_requeridos : [];
+  const documentosCargados = Array.isArray(solicitud.documentos_cargados) ? solicitud.documentos_cargados : [];
+  const tieneAdjunto = Boolean(solicitud.archivo_url || solicitud.soporte_url || solicitud.documento_url || solicitud.adjunto_url || solicitud.evidencia_url || documentosCargados.length);
+
+  if (estado === "pendiente_documentos") return true;
+  if (documentacionCompleta === false) return true;
+  if ((requiereDocumento === true || String(requiereDocumento || "").toLowerCase() === "true") && !tieneAdjunto) return true;
+  if (documentosRequeridos.length && documentosCargados.length < documentosRequeridos.length) return true;
+  if ((texto.includes("document") || texto.includes("soporte") || texto.includes("adjunto")) && !tieneAdjunto) return true;
+  return false;
+}
+
+function evaluarFueraTiempoBienestar(solicitud, fechaSolicitud) {
+  const flag = solicitud.fuera_tiempo ?? solicitud.extemporanea ?? solicitud.solicitud_extemporanea;
+  if (flag === true || String(flag || "").toLowerCase() === "true") return true;
+
+  const fechaEvento = String(solicitud.fecha_inicio || solicitud.fecha_novedad || solicitud.fecha_evento || "").slice(0, 10);
+  if (!fechaSolicitud || !fechaEvento) return false;
+
+  const radicacion = new Date(`${fechaSolicitud}T00:00:00`);
+  const evento = new Date(`${fechaEvento}T00:00:00`);
+  if (Number.isNaN(radicacion.getTime()) || Number.isNaN(evento.getTime())) return false;
+
+  const diferenciaDias = Math.round((radicacion - evento) / 86400000);
+  return diferenciaDias > 2;
+}
+
+function obtenerSolicitudesBienestarFiltradas() {
+  return solicitudesBienestarBase.filter((solicitud) => {
+    const fecha = solicitud._fecha_bienestar || "";
+    const area = String(solicitud._area || "").toUpperCase();
+    const empleado = `${solicitud._nombre || ""} ${solicitud._cedula || ""}`.toUpperCase();
+
+    if (filtrosActuales.fechaInicio && fecha && fecha < filtrosActuales.fechaInicio) return false;
+    if (filtrosActuales.fechaFin && fecha && fecha > filtrosActuales.fechaFin) return false;
+    if (filtrosActuales.area && !area.includes(String(filtrosActuales.area).toUpperCase())) return false;
+    if (filtrosActuales.empleado && !empleado.includes(String(filtrosActuales.empleado).toUpperCase())) return false;
+    return true;
+  });
+}
+
+function renderDashboardBienestar() {
+  const solicitudes = obtenerSolicitudesBienestarFiltradas();
+  const hoy = new Date();
+  const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
+
+  const pendientes = solicitudes.filter((s) => s._estado_bienestar === "pendiente" || s._estado_bienestar === "pendiente_documentos");
+  const aprobadas = solicitudes.filter((s) => s._estado_bienestar === "aprobado");
+  const rechazadas = solicitudes.filter((s) => s._estado_bienestar === "rechazado");
+  const incapacidadesMes = solicitudes.filter((s) => s._es_incapacidad && String(s._fecha_bienestar || "").startsWith(mesActual));
+  const pendientesDocs = solicitudes.filter((s) => s._requiere_documento);
+  const fueraTiempo = solicitudes.filter((s) => s._fuera_tiempo);
+
+  setText("kpiBienestarPendientes", pendientes.length);
+  setText("kpiBienestarIncapacidadesMes", incapacidadesMes.length);
+  setText("kpiBienestarAprobadasRechazadas", `${aprobadas.length} / ${rechazadas.length}`);
+  setText("kpiBienestarPendientesDocs", pendientesDocs.length);
+  setText("kpiBienestarFueraTiempo", fueraTiempo.length);
+
+  renderRankingNovedadesBienestar(solicitudes);
+}
+
+function renderDashboardBienestarVacio() {
+  setText("kpiBienestarPendientes", 0);
+  setText("kpiBienestarIncapacidadesMes", 0);
+  setText("kpiBienestarAprobadasRechazadas", "0 / 0");
+  setText("kpiBienestarPendientesDocs", 0);
+  setText("kpiBienestarFueraTiempo", 0);
+  renderRankingNovedadesBienestar([]);
+}
+
+function renderRankingNovedadesBienestar(solicitudes) {
+  const tbody = document.getElementById("tbodyRankingNovedadesBienestar");
+  if (!tbody) return;
+
+  if (!solicitudes.length) {
+    tbody.innerHTML = `<tr><td colspan="10" class="texto-vacio">No hay solicitudes de Bienestar en el filtro actual.</td></tr>`;
+    return;
+  }
+
+  const mapa = {};
+
+  solicitudes.forEach((solicitud) => {
+    const cedula = solicitud._cedula || `sin-cedula-${solicitud._nombre}`;
+    if (!mapa[cedula]) {
+      const empleadoBase = obtenerEmpleadoBasePorCedula(solicitud._cedula);
+      mapa[cedula] = {
+        cedula: solicitud._cedula || "-",
+        nombre: empleadoBase?.nombre || solicitud._nombre || "Sin nombre",
+        area: empleadoBase?.area || solicitud._area || "Sin área",
+        total: 0,
+        pendientes: 0,
+        aprobadas: 0,
+        rechazadas: 0,
+        incapacidades: 0,
+        ultima: ""
+      };
+    }
+
+    mapa[cedula].total += 1;
+    if (solicitud._estado_bienestar === "pendiente" || solicitud._estado_bienestar === "pendiente_documentos") mapa[cedula].pendientes += 1;
+    if (solicitud._estado_bienestar === "aprobado") mapa[cedula].aprobadas += 1;
+    if (solicitud._estado_bienestar === "rechazado") mapa[cedula].rechazadas += 1;
+    if (solicitud._es_incapacidad) mapa[cedula].incapacidades += 1;
+    if (solicitud._fecha_bienestar && solicitud._fecha_bienestar > mapa[cedula].ultima) mapa[cedula].ultima = solicitud._fecha_bienestar;
+  });
+
+  const ranking = Object.values(mapa)
+    .sort((a, b) => b.total - a.total || b.incapacidades - a.incapacidades || String(b.ultima).localeCompare(String(a.ultima)))
+    .slice(0, 15);
+
+  tbody.innerHTML = ranking.map((item, index) => `
+    <tr>
+      <td>${index + 1}</td>
+      <td>${escaparHtml(item.nombre)}</td>
+      <td>${escaparHtml(item.cedula)}</td>
+      <td>${escaparHtml(item.area)}</td>
+      <td>${item.total}</td>
+      <td>${item.pendientes}</td>
+      <td>${item.aprobadas}</td>
+      <td>${item.rechazadas}</td>
+      <td>${item.incapacidades}</td>
+      <td>${escaparHtml(formatearFechaCorta(item.ultima) || "-")}</td>
+    </tr>
+  `).join("");
+}
+
 function obtenerRegistrosConExtras(registros) {
   return registros.filter((item) => Number(item.horas_extra_estimadas || 0) > 0);
 }
@@ -1061,6 +1447,190 @@ function crearBadgeEstadoExtra(estado) {
 
   return `<span class="badge-estado ${clase}">${escaparHtml(valor)}</span>`;
 }
+
+function renderTablaMenorCarga(registros) {
+  const tbody = document.getElementById("tbodyMenorCarga");
+  if (!tbody) return;
+
+  const universoAyb = obtenerUniversoEmpleadosAyb();
+
+  if (!universoAyb.length) {
+    tbody.innerHTML = `<tr><td colspan="11" class="texto-vacio">No hay empleados de Alimentos y Bebidas para analizar.</td></tr>`;
+    return;
+  }
+
+  const mapa = {};
+  const fechasPeriodo = obtenerFechasPeriodoFiltrado(registros);
+  const solicitudesPorCedula = agruparSolicitudesBienestarPorCedula(obtenerSolicitudesBienestarFiltradas());
+
+  universoAyb.forEach((empleado) => {
+    mapa[empleado.cedula] = {
+      cedula: empleado.cedula,
+      nombre: empleado.nombre,
+      area: empleado.area,
+      diasProgramados: new Set(),
+      diasConRegistro: new Set(),
+      novedades: 0,
+      incapacidades: 0,
+      vacaciones: 0,
+      permisos: 0,
+      horasNetas: 0,
+      ultimaProgramacion: ""
+    };
+  });
+
+  registros
+    .filter((item) => String(item.cedula || "").trim())
+    .forEach((item) => {
+      const cedula = normalizarDocumentoEmpleado(item.cedula || "");
+      if (!mapa[cedula]) return;
+
+      const fecha = String(item.fecha || "").trim();
+      const esRegistroNovedad = esNovedad(item);
+      const tipoNovedad = clasificarNovedad(item);
+
+      if (fecha) {
+        mapa[cedula].diasConRegistro.add(fecha);
+
+        if (esRegistroNovedad) {
+          mapa[cedula].novedades += 1;
+          if (tipoNovedad === "incapacidad") mapa[cedula].incapacidades += 1;
+          if (tipoNovedad === "vacaciones") mapa[cedula].vacaciones += 1;
+          if (tipoNovedad === "licencia" || tipoNovedad === "permiso") mapa[cedula].permisos += 1;
+        } else {
+          mapa[cedula].diasProgramados.add(fecha);
+          mapa[cedula].ultimaProgramacion = !mapa[cedula].ultimaProgramacion || fecha > mapa[cedula].ultimaProgramacion
+            ? fecha
+            : mapa[cedula].ultimaProgramacion;
+        }
+      }
+
+      if (!esRegistroNovedad) {
+        mapa[cedula].horasNetas += Number(item.horas_netas || 0);
+      }
+    });
+
+  const ranking = Object.values(mapa)
+    .map((item) => {
+      const solicitudes = solicitudesPorCedula[item.cedula] || obtenerResumenSolicitudesVacio();
+      const dias = item.diasProgramados.size;
+      const horas = redondearHoras(item.horasNetas);
+      const promedio = dias > 0 ? redondearHoras(horas / dias) : 0;
+      const ausenciasValidas = item.incapacidades + item.vacaciones + item.permisos + solicitudes.incapacidades + solicitudes.vacaciones + solicitudes.permisosAprobados;
+      const diasSinProgramacion = Math.max(0, fechasPeriodo.length - item.diasConRegistro.size - ausenciasValidas);
+
+      let estado = "Normal";
+      let clase = "alerta-verde";
+      let causa = "Carga coherente con la programación registrada";
+
+      if (dias === 0 && ausenciasValidas > 0) {
+        estado = "Justificado";
+        clase = "alerta-verde";
+        causa = construirCausaMenorCarga(ausenciasValidas, diasSinProgramacion, "Ausencia válida registrada");
+      } else if (dias === 0 && item.novedades > 0) {
+        estado = "Revisar";
+        clase = "alerta-amarillo";
+        causa = construirCausaMenorCarga(ausenciasValidas, diasSinProgramacion, "Sin programación activa; registra novedades en el periodo");
+      } else if (dias === 0) {
+        estado = diasSinProgramacion > 0 ? "Crítico" : "Revisar";
+        clase = diasSinProgramacion > 0 ? "alerta-rojo" : "alerta-amarillo";
+        causa = construirCausaMenorCarga(ausenciasValidas, diasSinProgramacion, "Empleado A&B sin programación visible en el periodo filtrado");
+      } else if ((horas <= 8 || promedio < 4) && ausenciasValidas > 0) {
+        estado = "Justificado";
+        clase = "alerta-verde";
+        causa = construirCausaMenorCarga(ausenciasValidas, diasSinProgramacion, "Baja carga con novedad/solicitud aprobada asociada");
+      } else if (horas <= 8 || promedio < 4) {
+        estado = "Revisar";
+        clase = "alerta-amarillo";
+        causa = construirCausaMenorCarga(ausenciasValidas, diasSinProgramacion, "Baja carga horaria registrada");
+      }
+
+      return {
+        ...item,
+        dias,
+        horas,
+        promedio,
+        ausenciasValidas,
+        diasSinProgramacion,
+        estado,
+        clase,
+        causa
+      };
+    })
+    .sort((a, b) => {
+      const peso = { "Crítico": 0, "Revisar": 1, "Justificado": 2, "Normal": 3 };
+      return (peso[a.estado] ?? 4) - (peso[b.estado] ?? 4) || a.horas - b.horas || a.dias - b.dias || a.nombre.localeCompare(b.nombre);
+    });
+
+  if (!ranking.length) {
+    tbody.innerHTML = `<tr><td colspan="11" class="texto-vacio">No hay datos para analizar menor carga en el filtro actual.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = ranking.map((item, index) => `
+    <tr class="${item.estado === "Crítico" ? "fila-critica" : item.estado === "Revisar" ? "fila-alerta" : ""}">
+      <td>${index + 1}</td>
+      <td>${escaparHtml(item.nombre)}</td>
+      <td>${escaparHtml(item.cedula)}</td>
+      <td>${escaparHtml(item.area)}</td>
+      <td>${item.dias}</td>
+      <td>${formatearNumero(item.horas)}</td>
+      <td>${formatearNumero(item.promedio)}</td>
+      <td>${item.novedades} / ${item.ausenciasValidas}</td>
+      <td>${escaparHtml(formatearFechaCorta(item.ultimaProgramacion) || "-")}</td>
+      <td><span class="alerta-semaforo ${item.clase}">${escaparHtml(item.estado)}</span></td>
+      <td>${escaparHtml(item.causa)}</td>
+    </tr>
+  `).join("");
+}
+
+function obtenerFechasPeriodoFiltrado(registros) {
+  const fechas = new Set(registros.map((r) => String(r.fecha || "").trim()).filter(Boolean));
+  if (fechas.size) return Array.from(fechas);
+
+  if (!filtrosActuales.fechaInicio || !filtrosActuales.fechaFin) return [];
+
+  const resultado = [];
+  const inicio = new Date(`${filtrosActuales.fechaInicio}T00:00:00`);
+  const fin = new Date(`${filtrosActuales.fechaFin}T00:00:00`);
+  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime())) return [];
+
+  for (let fecha = new Date(inicio); fecha <= fin; fecha.setDate(fecha.getDate() + 1)) {
+    resultado.push(formatearFechaISO(fecha));
+  }
+
+  return resultado;
+}
+
+function agruparSolicitudesBienestarPorCedula(solicitudes) {
+  const mapa = {};
+
+  solicitudes.forEach((solicitud) => {
+    const cedula = String(solicitud._cedula || "").trim();
+    if (!cedula) return;
+    if (!mapa[cedula]) mapa[cedula] = obtenerResumenSolicitudesVacio();
+
+    const tipo = String(solicitud._tipo_bienestar || "").toLowerCase();
+    const estado = solicitud._estado_bienestar;
+    if (solicitud._es_incapacidad) mapa[cedula].incapacidades += 1;
+    if (tipo.includes("vacac") && estado === "aprobado") mapa[cedula].vacaciones += 1;
+    if ((tipo.includes("permiso") || tipo.includes("ausencia")) && estado === "aprobado") mapa[cedula].permisosAprobados += 1;
+  });
+
+  return mapa;
+}
+
+function obtenerResumenSolicitudesVacio() {
+  return { incapacidades: 0, vacaciones: 0, permisosAprobados: 0 };
+}
+
+function construirCausaMenorCarga(ausenciasValidas, diasSinProgramacion, base) {
+  const partes = [base];
+  if (ausenciasValidas > 0) partes.push(`${ausenciasValidas} ausencia(s) válida(s)`);
+  if (diasSinProgramacion > 0) partes.push(`${diasSinProgramacion} día(s) sin programación`);
+  return partes.join(" | ");
+}
+
 
 function renderGraficaAreas(registros) {
   const canvas = document.getElementById("graficaAreas");
@@ -1536,22 +2106,35 @@ function contarPor(registros, fnClave) {
 }
 
 function filtrarRegistrosPorPermisos(registros, sesion) {
-  if (sesion.puede_ver_todo === true) {
+  if (!sesion) return [];
+
+  const rol = String(sesion.rol || "").toLowerCase();
+  const area = String(sesion.area || sesion.centro_costos || "").toLowerCase();
+
+  // 🔥 ACCESO GLOBAL
+  if (
+    sesion.puede_ver_todo === true ||
+    rol === "admin" ||
+    rol === "gerencia" ||
+    rol.includes("bienestar") ||
+    area.includes("bienestar")
+  ) {
     return registros;
   }
 
   const areasPermitidas = Array.isArray(sesion.areas_permitidas) ? sesion.areas_permitidas : [];
+
   if (areasPermitidas.length === 0) {
     return [];
   }
 
   return registros.filter((registro) => {
-    const area = String(registro.area || "").toUpperCase();
-    const subarea = String(registro.subarea || "").toUpperCase();
+    const areaRegistro = String((registro.centro_costos || "") + " " + (registro.area || "")).toUpperCase();
+    const subareaRegistro = String((registro.subarea || "") + " " + (registro.cargo || "")).toUpperCase();
 
     return areasPermitidas.some((permitida) => {
       const permiso = String(permitida || "").toUpperCase();
-      return area.includes(permiso) || subarea.includes(permiso);
+      return areaRegistro.includes(permiso) || subareaRegistro.includes(permiso);
     });
   });
 }
@@ -1613,6 +2196,8 @@ function renderVaciosAnaliticos() {
   renderTablaAusentesHoy([]);
   renderTablaAlertasCriticas([]);
   renderTablaValidacionExtras([]);
+  renderDashboardBienestarVacio();
+  renderTablaMenorCarga([]);
   renderKPIsGeneralesAnaliticos([]);
   renderKPIsAnaliticos([]);
   renderKPIsHoras([]);
@@ -1681,25 +2266,111 @@ function destruirGrafica(tipo) {
   }
 }
 
+function obtenerEmpleadoBasePorCedula(cedula) {
+  const documento = normalizarDocumentoEmpleado(cedula);
+  if (!documento) return null;
+
+  const registroDirectorio = directorioEmpleadosBase.find((item) => normalizarDocumentoEmpleado(item.cedula) === documento);
+  if (registroDirectorio) {
+    return {
+      cedula: documento,
+      nombre: registroDirectorio.nombre || "Sin nombre",
+      area: registroDirectorio.area || "Sin área"
+    };
+  }
+
+  const registroProgramacion = registrosBase.find((item) => normalizarDocumentoEmpleado(item.cedula) === documento);
+  if (registroProgramacion) {
+    return {
+      cedula: documento,
+      nombre: obtenerNombreEmpleado(registroProgramacion),
+      area: obtenerAreaAmigable(registroProgramacion)
+    };
+  }
+
+  return null;
+}
+
+function obtenerUniversoEmpleadosAyb() {
+  const mapa = {};
+
+  registrosBase
+    .filter((item) => String(item.cedula || "").trim())
+    .filter((item) => esAyb(item) || obtenerAreaAmigable(item).toUpperCase().includes("ALIMENTOS"))
+    .forEach((item) => {
+      const cedula = normalizarDocumentoEmpleado(item.cedula || "");
+      if (!cedula || mapa[cedula]) return;
+
+      const empleado = {
+        cedula,
+        nombre: obtenerNombreEmpleado(item),
+        area: obtenerAreaAmigable(item)
+      };
+
+      const textoEmpleado = String(empleado.nombre + " " + empleado.cedula).toUpperCase();
+      if (filtrosActuales.empleado && !textoEmpleado.includes(String(filtrosActuales.empleado).toUpperCase())) return;
+
+      mapa[cedula] = empleado;
+    });
+
+  directorioEmpleadosBase
+    .filter((item) => item.cedula)
+    .filter((item) => {
+      const area = String(item.area || "").toUpperCase();
+      return area.includes("ALIMENTOS") || area.includes("BEBIDAS") || area.includes("A&B");
+    })
+    .forEach((item) => {
+      if (mapa[item.cedula]) return;
+      const textoEmpleado = String(item.nombre + " " + item.cedula).toUpperCase();
+      if (filtrosActuales.empleado && !textoEmpleado.includes(String(filtrosActuales.empleado).toUpperCase())) return;
+      mapa[item.cedula] = {
+        cedula: item.cedula,
+        nombre: item.nombre || "Sin nombre",
+        area: item.area || "Alimentos y Bebidas"
+      };
+    });
+
+  return Object.values(mapa).sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
 function obtenerNombreEmpleado(item) {
+  const nombresCompuestos = [
+    item.primer_nombre,
+    item.segundo_nombre,
+    item.primer_apellido,
+    item.segundo_apellido
+  ].filter(Boolean).join(" ").trim();
+
+  const nombresApellidos = [item.nombres, item.apellidos].filter(Boolean).join(" ").trim();
+
   return String(
     item.nombre_completo ||
+    item.nombres_apellidos ||
+    item.nombre_empleado ||
     item.empleado ||
     item.nombre ||
     item.colaborador ||
+    item.full_name ||
+    item.display_name ||
+    item.tercero ||
+    item.razon_social ||
+    nombresCompuestos ||
+    nombresApellidos ||
     "Sin nombre"
   ).trim();
 }
 
 function obtenerAreaAmigable(item) {
-  const area = String(item.area || "").toUpperCase();
+  const areaBase = String(item.centro_costos || item.area || "").trim();
+  const area = areaBase.toUpperCase();
   const subarea = String(item.subarea || "").toUpperCase();
 
-  if (area.includes("ALIMENTOS") || area.includes("BEBIDAS")) return "Alimentos y Bebidas";
+  if (area.includes("ALIMENTOS") || area.includes("BEBIDAS") || area.includes("A&B") || area.includes("AYB")) return "Alimentos y Bebidas";
   if (area.includes("OPERACIONES") || area.includes("SERVICIOS")) return "Operaciones";
   if (area.includes("ADMIN")) return "Administrativo";
+  if (areaBase) return areaBase;
   if (subarea) return String(item.subarea || "").trim();
-  return String(item.area || "Sin área").trim();
+  return "Sin área";
 }
 
 function esNovedad(item) {
@@ -1830,8 +2501,8 @@ function calcularMaximoConsecutivo(fechasOrdenadas) {
 }
 
 function esAyb(item) {
-  const area = String(item.area || "").toUpperCase();
-  return area.includes("ALIMENTOS") || area.includes("BEBIDAS");
+  const texto = String((item.centro_costos || "") + " " + (item.area || "") + " " + (item.subarea || "") + " " + (item.cargo || "")).toUpperCase();
+  return texto.includes("ALIMENTOS") || texto.includes("BEBIDAS") || texto.includes("A&B") || texto.includes("AYB");
 }
 
 function esOperaciones(item) {
@@ -2054,18 +2725,12 @@ function tieneAccesoModulo(sesion, modulo) {
 
 function obtenerClaveModulo(href) {
   if (href.includes("dashboard")) return "dashboard";
+  if (href.includes("solicitudes-bienestar")) return "solicitudes-bienestar";
   if (href.includes("programacion-ayb")) return "programacion-ayb";
   if (href.includes("programacion-administrativo")) return "programacion-administrativo";
   if (href.includes("programacion-operaciones")) return "programacion-operaciones";
   if (href.includes("mis-turnos-ayb")) return "mis-turnos-ayb";
   if (href.includes("mis-turnos-administrativo")) return "mis-turnos-administrativo";
-  if (href.includes("mis-turnos-operaciones")) return "mis-turnos-operaciones";
-  if (href.includes("usuarios")) return "usuarios";
-  if (href.includes("reportes")) return "reportes";
-  if (href.includes("cronograma-aseo-diario")) return "cronograma-aseo-diario";
-  if (href.includes("cronograma-aseo-profundo")) return "cronograma-aseo-profundo";
-  if (href.includes("eventos-operaciones")) return "eventos-operaciones";
-  if (href.includes("configuracion")) return "configuracion";
   return href;
 }
 
