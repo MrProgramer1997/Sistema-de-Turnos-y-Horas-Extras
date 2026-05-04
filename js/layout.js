@@ -168,6 +168,7 @@ function usuarioPuedeVerModuloSidebar(sesion, modulo, rolesPermitidos = []) {
 
 function aplicarPermisosSidebar() {
   const sesion = obtenerSesionActualSidebar();
+  const rol = obtenerRolSidebar(sesion);
   const links = document.querySelectorAll(".sidebar-nav .nav-link");
 
   links.forEach((link) => {
@@ -178,12 +179,23 @@ function aplicarPermisosSidebar() {
       .map((item) => normalizarTextoSidebar(item))
       .filter(Boolean);
 
+    // Regla dura: un empleado operativo solo ve sus turnos y cerrar sesión.
+    // Esto evita que el menú móvil muestre Dashboard/Programación aunque el HTML del sidebar tenga roles amplios.
+    if (rol === "empleado" && !["mis-turnos-ayb", "mis-turnos-administrativo", "login"].includes(modulo)) {
+      link.classList.add("d-none");
+      link.style.display = "none";
+      link.setAttribute("aria-hidden", "true");
+      return;
+    }
+
     if (usuarioPuedeVerModuloSidebar(sesion, modulo, rolesPermitidos)) {
       link.classList.remove("d-none");
       link.style.display = "";
+      link.removeAttribute("aria-hidden");
     } else {
       link.classList.add("d-none");
       link.style.display = "none";
+      link.setAttribute("aria-hidden", "true");
     }
   });
 }

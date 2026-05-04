@@ -1839,8 +1839,6 @@
         if (!sesion || typeof sesion !== "object") return false;
 
         const rol = texto(sesion.rol || sesion.tipo_usuario || sesion.perfil);
-        const cargo = texto(sesion.cargo);
-        const area = texto(sesion.area || sesion.centro_costos || sesion.centro_costo);
         const nombre = texto(sesion.nombre_completo || `${sesion.nombres || ""} ${sesion.apellidos || ""}`);
         const cedula = String(sesion.cedula || sesion.usuario || sesion.username || "").trim();
 
@@ -1848,22 +1846,20 @@
           ? sesion.modulos_permitidos.map((m) => texto(m))
           : [];
 
-        const rolesAdmin = [
+        // IMPORTANTE:
+        // No se valida por cargo, área ni centro de costos.
+        // Un empleado de A&B puede tener area="Alimentos y Bebidas" y debe seguir siendo empleado.
+        const rolesAdministrativosExactos = [
           "admin",
           "administrador",
-          "administrativo",
           "gerencia",
-          "gerente",
-          "jefe",
-          "jefe_area",
           "bienestar",
+          "direccion_financiera",
+          "direccion_administrativa",
           "ayb",
-          "alimentos y bebidas",
-          "servicios generales",
-          "direccion administrativa",
-          "dirección administrativa",
-          "direccion financiera",
-          "dirección financiera"
+          "ayb_admin",
+          "servicios_generales",
+          "servicios_generales_admin"
         ];
 
         return (
@@ -1871,9 +1867,7 @@
           String(sesion.puede_ver_todo).toLowerCase() === "true" ||
           cedula === "1088029438" ||
           nombre.includes("jhonnier") ||
-          rolesAdmin.some((item) => rol.includes(item)) ||
-          rolesAdmin.some((item) => cargo.includes(item)) ||
-          rolesAdmin.some((item) => area.includes(item)) ||
+          rolesAdministrativosExactos.includes(rol) ||
           modulosPermitidos.includes("dashboard") ||
           modulosPermitidos.includes("programacion") ||
           modulosPermitidos.includes("programacion-ayb") ||
@@ -1885,7 +1879,7 @@
       const forzarAdmin = params.get("vista") === "admin" || params.get("admin") === "1";
       const forzarEmpleado = params.get("vista") === "empleado" || params.get("empleado") === "1";
       const sesion = obtenerSesionActual();
-      const esAdmin = !forzarEmpleado && (forzarAdmin || esSesionAdministrativa(sesion));
+      const esAdmin = !forzarEmpleado && esSesionAdministrativa(sesion);
 
       if (esAdmin) {
         document.body.classList.add("modo-admin");
@@ -2273,7 +2267,7 @@
 
 
 
-  <script src="../js/layout.js"></script>
+  <script src="../js/layout.js?v=permisos-empleado-20260504"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script type="module" src="../js/mis-turnos-ayb.js"></script>
