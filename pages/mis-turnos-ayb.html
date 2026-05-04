@@ -1793,6 +1793,180 @@
       }
     }
 
+
+    /* =========================================================
+       FIX RESPONSIVE MÓVIL 2026-05-04
+       Corrige desbordes horizontales sin tocar lógica, IDs,
+       Supabase, Bienestar ni renderizado funcional.
+    ========================================================= */
+    html,
+    body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .app-layout,
+    .page-shell,
+    .main-panel,
+    .section-card,
+    .hero-panel,
+    .summary-grid,
+    .bienestar-grid,
+    .bienestar-box,
+    .week-body,
+    #seccionBienestarEmpleado {
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .bienestar-box,
+    .summary-card,
+    .section-card,
+    .hero-panel,
+    .ux-action-card {
+      overflow-wrap: anywhere;
+    }
+
+    .bienestar-box {
+      overflow: hidden;
+    }
+
+    .bienestar-alerta,
+    #bienestarDocumentosResumen,
+    .bienestar-box-text,
+    .section-text,
+    .page-subtitle {
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: normal;
+    }
+
+    .bienestar-box .form-control,
+    .bienestar-box .form-select,
+    .bienestar-box textarea,
+    .bienestar-box input[type="file"] {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .bienestar-box input[type="file"] {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #btnRadicarBienestarEmpleado {
+      width: 100%;
+      max-width: 100%;
+      white-space: normal;
+      line-height: 1.2;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .table-responsive {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .bienestar-table {
+      min-width: 720px;
+    }
+
+    @media (max-width: 767.98px) {
+      .container-fluid {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+      }
+
+      .main-panel {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+      }
+
+      .page-shell {
+        width: 100%;
+        max-width: 100%;
+      }
+
+      .hero-panel,
+      .section-card,
+      .summary-card,
+      .bienestar-box {
+        border-radius: 1.15rem;
+      }
+
+      .bienestar-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) !important;
+        width: 100%;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+      }
+
+      .bienestar-box {
+        width: 100%;
+        padding: 0.85rem;
+      }
+
+      .bienestar-alerta {
+        font-size: 0.92rem;
+        line-height: 1.35;
+        padding: 0.8rem;
+      }
+
+      #bienestarDocumentosResumen {
+        white-space: normal;
+      }
+
+      .bienestar-box .form-label {
+        line-height: 1.25;
+      }
+
+      .bienestar-box textarea.form-control {
+        min-height: 110px;
+      }
+
+      .d-grid > .btn,
+      .header-actions .btn {
+        max-width: 100%;
+      }
+
+      .table-responsive {
+        border-radius: 0.95rem;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .main-panel {
+        padding-left: 0.6rem !important;
+        padding-right: 0.6rem !important;
+      }
+
+      .bienestar-grid {
+        padding-left: 0.6rem;
+        padding-right: 0.6rem;
+      }
+
+      .bienestar-box {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+      }
+
+      #btnRadicarBienestarEmpleado {
+        font-size: 0.98rem;
+        padding-left: 0.7rem;
+        padding-right: 0.7rem;
+      }
+    }
+
+
   </style>
 </head>
 <body>
