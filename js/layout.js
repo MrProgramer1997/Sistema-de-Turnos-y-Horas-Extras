@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!container) return;
 
   try {
-    const response = await fetch("../components/sidebar.html?v=roles-20260430");
+    const response = await fetch("../components/sidebar.html?v=roles-20260504-permisos");
 
     if (!response.ok) {
       throw new Error("No se pudo cargar ../components/sidebar.html");
@@ -69,34 +69,26 @@ function obtenerRolSidebar(sesion) {
     ""
   );
 
-  const area = normalizarTextoSidebar(
-    sesion.area ||
-    sesion.centro_costos ||
-    sesion.centro_costo ||
-    ""
-  );
+  if (!rolPrincipal) return "empleado";
 
-  const cargo = normalizarTextoSidebar(sesion.cargo || "");
-
-  const combinado = `${rolPrincipal} ${area} ${cargo}`;
-
+  if (rolPrincipal === "empleado") return "empleado";
   if (rolPrincipal.includes("admin") || rolPrincipal.includes("administrador")) return "admin";
   if (rolPrincipal.includes("gerencia") || rolPrincipal.includes("gerente")) return "gerencia";
   if (rolPrincipal.includes("bienestar")) return "bienestar";
-  if (rolPrincipal.includes("ayb") || rolPrincipal.includes("alimentos") || rolPrincipal.includes("bebidas")) return "ayb";
-  if (rolPrincipal.includes("servicios_generales")) return "servicios_generales";
   if (rolPrincipal.includes("direccion_financiera") || rolPrincipal.includes("direccion_administrativa")) return "direccion_financiera";
+  if (rolPrincipal.includes("servicios_generales")) return "servicios_generales";
 
-  if (area.includes("bienestar")) return "bienestar";
-  if (area.includes("alimentos") || area.includes("bebidas") || area.includes("ayb")) return "ayb";
-  if (area.includes("servicios_generales")) return "servicios_generales";
-  if (area.includes("direccion_administrativa") || area.includes("direccion_financiera")) return "direccion_financiera";
-
-  if (combinado.includes("bienestar")) return "bienestar";
-  if (combinado.includes("alimentos") || combinado.includes("bebidas") || combinado.includes("ayb")) return "ayb";
-  if (combinado.includes("servicios_generales")) return "servicios_generales";
+  // Importante: A&B solo cuenta como rol administrativo si viene explícitamente en sesion.rol.
+  // Nunca se debe inferir desde area, centro de costos o cargo, porque eso convierte empleados A&B en administrativos.
+  if (rolPrincipal === "ayb" || rolPrincipal === "ayb_admin" || rolPrincipal.includes("alimentos_y_bebidas_admin")) return "ayb";
 
   return rolPrincipal || "empleado";
+}
+
+function obtenerModulosPermitidosSidebar(sesion) {
+  return Array.isArray(sesion?.modulos_permitidos)
+    ? sesion.modulos_permitidos.map((m) => normalizarTextoSidebar(m))
+    : [];
 }
 
 function usuarioEsAdminSidebar(sesion) {
@@ -111,32 +103,82 @@ function usuarioEsAdminSidebar(sesion) {
   const rol = obtenerRolSidebar(sesion);
 
   return (
+    sesion.puede_ver_todo === true ||
+    String(sesion.puede_ver_todo).toLowerCase() === "true" ||
     rol === "admin" ||
     cedula === "1088029438" ||
     nombre.includes("jhonnier")
   );
 }
 
+function usuarioEsAdministrativoSidebar(sesion) {
+  if (!sesion) return false;
+  if (usuarioEsAdminSidebar(sesion)) return true;
+
+  const rol = obtenerRolSidebar(sesion);
+  const modulos = obtenerModulosPermitidosSidebar(sesion);
+
+  const rolesAdministrativos = [
+    "gerencia",
+    "bienestar",
+    "direccion_financiera",
+    "ayb",
+    "servicios_generales"
+  ];
+
+  return (
+    rolesAdministrativos.includes(rol) ||
+    modulos.includes("dashboard") ||
+    modulos.includes("programacion-ayb") ||
+    modulos.includes("solicitudes-bienestar")
+  );
+}
+
+function obtenerClaveModuloSidebar(href) {
+  const valor = String(href || "").toLowerCase();
+  if (valor.includes("dashboard")) return "dashboard";
+  if (valor.includes("solicitudes-bienestar")) return "solicitudes-bienestar";
+  if (valor.includes("programacion-ayb")) return "programacion-ayb";
+  if (valor.includes("programacion-administrativo")) return "programacion-administrativo";
+  if (valor.includes("programacion-operaciones")) return "programacion-operaciones";
+  if (valor.includes("mis-turnos-ayb")) return "mis-turnos-ayb";
+  if (valor.includes("mis-turnos-administrativo")) return "mis-turnos-administrativo";
+  if (valor.includes("login")) return "login";
+  return valor;
+}
+
+function usuarioPuedeVerModuloSidebar(sesion, modulo, rolesPermitidos = []) {
+  if (modulo === "login") return true;
+  if (!sesion) return false;
+  if (usuarioEsAdminSidebar(sesion)) return true;
+
+  const rol = obtenerRolSidebar(sesion);
+  const modulos = obtenerModulosPermitidosSidebar(sesion);
+
+  if (modulo === "mis-turnos-ayb") return true;
+
+  // Empleado operativo: solo puede ver sus turnos. No dashboard ni programación por menú.
+  if (rol === "empleado") return false;
+
+  if (modulos.includes(modulo)) return true;
+  if (rolesPermitidos.includes(rol)) return true;
+
+  return false;
+}
+
 function aplicarPermisosSidebar() {
   const sesion = obtenerSesionActualSidebar();
-  const rol = obtenerRolSidebar(sesion);
-  const esAdmin = usuarioEsAdminSidebar(sesion);
-
-  const links = document.querySelectorAll(".sidebar-nav .nav-link[data-roles]");
+  const links = document.querySelectorAll(".sidebar-nav .nav-link");
 
   links.forEach((link) => {
-    if (esAdmin) {
-      link.classList.remove("d-none");
-      link.style.display = "";
-      return;
-    }
-
+    const href = link.getAttribute("href") || "";
+    const modulo = obtenerClaveModuloSidebar(href);
     const rolesPermitidos = String(link.dataset.roles || "")
       .split(",")
       .map((item) => normalizarTextoSidebar(item))
       .filter(Boolean);
 
-    if (rolesPermitidos.includes(rol)) {
+    if (usuarioPuedeVerModuloSidebar(sesion, modulo, rolesPermitidos)) {
       link.classList.remove("d-none");
       link.style.display = "";
     } else {
@@ -189,5 +231,11 @@ function configurarToggleMobile() {
 
   btn.addEventListener("click", () => {
     sidebar.classList.toggle("open");
+  });
+
+  document.querySelectorAll(".sidebar-global .nav-link").forEach((link) => {
+    link.addEventListener("click", () => {
+      sidebar.classList.remove("open");
+    });
   });
 }

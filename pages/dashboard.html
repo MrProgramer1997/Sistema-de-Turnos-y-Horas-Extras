@@ -1437,8 +1437,8 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="../js/layout.js"></script>
-  <script type="module" src="../js/dashboard.js"></script>
+  <script src="../js/layout.js?v=permisos-20260504"></script>
+  <script type="module" src="../js/dashboard.js?v=permisos-20260504"></script>
 
   <script>
     function usuarioPuedeVerSolicitudesBienestarDashboard(sesion) {
@@ -1447,11 +1447,6 @@
       const cedula = String(sesion.cedula || sesion.usuario || sesion.username || "").trim();
       const nombre = String(sesion.nombre_completo || `${sesion.nombres || ""} ${sesion.apellidos || ""}`).toLowerCase();
       const rol = String(sesion.rol || "").trim().toLowerCase();
-      const cargo = String(sesion.cargo || "").trim().toLowerCase();
-      const centroCostos = String(sesion.centro_costos || sesion.area || "").trim().toLowerCase();
-      const areasPermitidas = Array.isArray(sesion.areas_permitidas)
-        ? sesion.areas_permitidas.map((area) => String(area || "").toLowerCase()).join(" ")
-        : "";
       const modulosPermitidos = Array.isArray(sesion.modulos_permitidos) ? sesion.modulos_permitidos : [];
 
       const esJhonnier =
@@ -1459,22 +1454,15 @@
         nombre.includes("jhonnier") ||
         nombre.includes("villada");
 
-      const perteneceBienestar =
-        rol.includes("bienestar") ||
-        cargo.includes("bienestar") ||
-        centroCostos.includes("bienestar") ||
-        areasPermitidas.includes("bienestar");
-
-      const esAdministradorBienestar =
-        perteneceBienestar &&
-        (
-          rol.includes("admin") ||
-          rol.includes("administrador") ||
-          rol.includes("bienestar") ||
-          modulosPermitidos.includes("solicitudes-bienestar")
-        );
-
-      return esJhonnier || esAdministradorBienestar;
+      return (
+        sesion.puede_ver_todo === true ||
+        esJhonnier ||
+        rol === "admin" ||
+        rol === "administrador" ||
+        rol === "gerencia" ||
+        rol === "bienestar" ||
+        modulosPermitidos.includes("solicitudes-bienestar")
+      );
     }
 
     function aplicarAccesoSolicitudesBienestarDashboard() {

@@ -27,11 +27,69 @@ const HORA_INICIO_NOCTURNO = 19 * 60;
 const HORA_FIN_NOCTURNO = 6 * 60;
 const DESCANSO_ESTANDAR_HORAS = 0.5;
 
+function obtenerRolSeguroDashboard(sesion) {
+  return String(sesion?.rol || sesion?.tipo_usuario || sesion?.perfil || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "_");
+}
+
+function obtenerModulosPermitidosDashboard(sesion) {
+  return Array.isArray(sesion?.modulos_permitidos)
+    ? sesion.modulos_permitidos.map((m) => String(m || "").trim().toLowerCase())
+    : [];
+}
+
+function usuarioPuedeAccederDashboard(sesion) {
+  if (!sesion) return false;
+
+  const cedula = String(sesion.cedula || sesion.usuario || sesion.username || "").trim();
+  const nombre = String(sesion.nombre_completo || `${sesion.nombres || ""} ${sesion.apellidos || ""}`)
+    .trim()
+    .toLowerCase();
+  const rol = obtenerRolSeguroDashboard(sesion);
+  const modulos = obtenerModulosPermitidosDashboard(sesion);
+
+  const rolesDashboard = [
+    "admin",
+    "administrador",
+    "gerencia",
+    "bienestar",
+    "direccion_financiera",
+    "direccion_administrativa",
+    "ayb",
+    "ayb_admin",
+    "servicios_generales"
+  ];
+
+  return (
+    sesion.puede_ver_todo === true ||
+    String(sesion.puede_ver_todo).toLowerCase() === "true" ||
+    cedula === "1088029438" ||
+    nombre.includes("jhonnier") ||
+    rolesDashboard.includes(rol) ||
+    modulos.includes("dashboard")
+  );
+}
+
+function redirigirEmpleadoASusTurnos() {
+  window.location.href = "mis-turnos-ayb.html";
+}
+
+
 document.addEventListener("DOMContentLoaded", async () => {
   const sesion = JSON.parse(localStorage.getItem("ccp_sesion") || "null");
 
   if (!sesion) {
     window.location.href = "login.html";
+    return;
+  }
+
+  if (!usuarioPuedeAccederDashboard(sesion)) {
+    alert("No tienes permisos para acceder al Dashboard.");
+    redirigirEmpleadoASusTurnos();
     return;
   }
 
@@ -1185,8 +1243,8 @@ function filtrarSolicitudesBienestarPorPermisos(solicitudes, sesion) {
   if (!sesion) return [];
   if (sesion.puede_ver_todo === true) return solicitudes;
 
-  const rol = String(sesion.rol || "").toLowerCase();
-  if (rol.includes("bienestar") || rol === "admin" || rol === "gerencia") {
+  const rol = obtenerRolSeguroDashboard(sesion);
+  if (usuarioPuedeAccederDashboard(sesion) && ["admin", "administrador", "gerencia", "bienestar"].includes(rol)) {
     return solicitudes;
   }
 
@@ -2111,14 +2169,8 @@ function filtrarRegistrosPorPermisos(registros, sesion) {
   const rol = String(sesion.rol || "").toLowerCase();
   const area = String(sesion.area || sesion.centro_costos || "").toLowerCase();
 
-  // 🔥 ACCESO GLOBAL
-  if (
-    sesion.puede_ver_todo === true ||
-    rol === "admin" ||
-    rol === "gerencia" ||
-    rol.includes("bienestar") ||
-    area.includes("bienestar")
-  ) {
+  // Acceso global solo por rol o permiso explícito. No se infiere por área/cargo.
+  if (usuarioPuedeAccederDashboard(sesion)) {
     return registros;
   }
 
@@ -2708,16 +2760,23 @@ function protegerPaginaActual(sesion) {
   const paginaActual = window.location.pathname.split("/").pop() || "";
   const moduloActual = obtenerClaveModulo(paginaActual);
 
-  if (moduloActual === "dashboard") return;
+  if (moduloActual === "dashboard" && !usuarioPuedeAccederDashboard(sesion)) {
+    alert("No tienes permisos para acceder al Dashboard.");
+    redirigirEmpleadoASusTurnos();
+    return;
+  }
+
   if (sesion.puede_ver_todo === true) return;
 
   if (!tieneAccesoModulo(sesion, moduloActual)) {
     alert("No tienes permisos para acceder a este módulo.");
-    window.location.href = "dashboard.html";
+    redirigirEmpleadoASusTurnos();
   }
 }
 
 function tieneAccesoModulo(sesion, modulo) {
+  if (modulo === "mis-turnos-ayb") return true;
+  if (modulo === "dashboard") return usuarioPuedeAccederDashboard(sesion);
   if (sesion.puede_ver_todo === true) return true;
   if (!Array.isArray(sesion.modulos_permitidos)) return false;
   return sesion.modulos_permitidos.includes(modulo);
