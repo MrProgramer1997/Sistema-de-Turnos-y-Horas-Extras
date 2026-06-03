@@ -36,9 +36,9 @@ function esPaginaLoginSidebar() {
 
 async function cargarHtmlSidebarSeguro() {
   const rutas = [
-    "../components/sidebar.html?v=roles-20260504-fix-admin",
-    "./components/sidebar.html?v=roles-20260504-fix-admin",
-    "/components/sidebar.html?v=roles-20260504-fix-admin"
+    "../components/sidebar.html?v=roles-dashboard-ayb-20260603",
+    "./components/sidebar.html?v=roles-dashboard-ayb-20260603",
+    "/components/sidebar.html?v=roles-dashboard-ayb-20260603"
   ];
 
   let ultimoError = null;
@@ -185,7 +185,15 @@ function usuarioEsAdministrativoSidebar(sesion) {
 function obtenerClaveModuloSidebar(href) {
   const valor = String(href || "").toLowerCase();
 
+  /*
+    Importante:
+    dashboard.html y dashboard-ayb.html son módulos distintos.
+    Si se valida primero "dashboard", dashboard-ayb queda mal clasificado.
+  */
+  if (valor.includes("dashboard-ayb")) return "dashboard-ayb";
   if (valor.includes("dashboard")) return "dashboard";
+  if (valor.includes("usuarios-admin")) return "usuarios-admin";
+  if (valor.includes("cocina-chef")) return "cocina-chef";
   if (valor.includes("empleados")) return "empleados";
   if (valor.includes("solicitudes-bienestar")) return "solicitudes-bienestar";
   if (valor.includes("programacion-ayb")) return "programacion-ayb";
@@ -211,6 +219,31 @@ function usuarioPuedeVerModuloSidebar(sesion, modulo, rolesPermitidos = []) {
   */
   if (rol === "empleado") {
     return ["mis-turnos-ayb", "mis-turnos-administrativo", "login"].includes(modulo);
+  }
+
+  /*
+    Permisos explícitos para dashboards separados.
+    - Dashboard General: no lo ve A&B.
+    - Dashboard A&B: no lo ve Bienestar ni Dirección Financiera.
+  */
+  if (modulo === "dashboard") {
+    /*
+      Regla estricta:
+      A&B NO puede ver Dashboard General aunque tenga "dashboard" en modulos_permitidos.
+      Esto evita que el dashboard global se mezcle con el dashboard operativo A&B.
+    */
+    if (rol === "ayb") return false;
+    return usuarioEsAdminSidebar(sesion) || ["gerencia", "bienestar", "direccion_financiera"].includes(rol);
+  }
+
+  if (modulo === "dashboard-ayb") {
+    /*
+      Regla estricta:
+      Bienestar y Dirección Financiera NO ven Dashboard A&B por menú.
+      Admin y Gerencia sí pueden verlo para auditoría/seguimiento.
+    */
+    if (["bienestar", "direccion_financiera", "servicios_generales"].includes(rol)) return false;
+    return usuarioEsAdminSidebar(sesion) || ["gerencia", "ayb"].includes(rol);
   }
 
   if (usuarioEsAdminSidebar(sesion)) return true;

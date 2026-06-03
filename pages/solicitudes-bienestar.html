@@ -401,6 +401,210 @@
     }
 
 
+
+    /* ===== Mejoras visuales Bienestar ===== */
+
+    .module-hero {
+      background: linear-gradient(135deg, #0f766e, #2563eb);
+      color: #ffffff;
+      border-radius: 22px;
+      padding: 22px 24px;
+      box-shadow: 0 18px 38px rgba(37, 99, 235, 0.20);
+    }
+
+    .module-hero h2,
+    .module-hero .small-muted {
+      color: #ffffff;
+    }
+
+    .module-hero .btn {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.45);
+      color: #ffffff;
+    }
+
+    .module-hero .btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+      color: #ffffff;
+    }
+
+    .session-card {
+      border-left: 6px solid #0ea5e9;
+      background: linear-gradient(135deg, #ffffff, #eef6ff);
+    }
+
+    .kpi-row .kpi-box {
+      position: relative;
+      overflow: hidden;
+      border: 0;
+      color: #ffffff;
+      min-height: 116px;
+    }
+
+    .kpi-row .kpi-box::after {
+      content: "";
+      position: absolute;
+      right: -28px;
+      bottom: -32px;
+      width: 110px;
+      height: 110px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .kpi-row .col-md-3:nth-child(1) .kpi-box {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    }
+
+    .kpi-row .col-md-3:nth-child(2) .kpi-box {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    .kpi-row .col-md-3:nth-child(3) .kpi-box {
+      background: linear-gradient(135deg, #16a34a, #15803d);
+    }
+
+    .kpi-row .col-md-3:nth-child(4) .kpi-box {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+    }
+
+    .kpi-row .kpi-box .small-muted,
+    .kpi-row .kpi-number {
+      color: #ffffff;
+      position: relative;
+      z-index: 1;
+    }
+
+    .kpi-row .kpi-number {
+      font-size: 2.15rem;
+    }
+
+    .card-color-header {
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .card-color-header > .card-body {
+      padding-top: 18px;
+    }
+
+    .panel-title-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .panel-title-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      color: #ffffff;
+      flex: 0 0 auto;
+    }
+
+    .panel-title-icon.blue {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    }
+
+    .panel-title-icon.green {
+      background: linear-gradient(135deg, #16a34a, #15803d);
+    }
+
+    .panel-title-icon.purple {
+      background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    }
+
+    .panel-title-text h5 {
+      margin-bottom: 0;
+      font-weight: 900;
+    }
+
+    #panelGestion {
+      border-top: 6px solid #16a34a;
+    }
+
+    #panelGestion .card-body {
+      background: linear-gradient(180deg, #ffffff, #f8fcfb);
+      border-radius: var(--radius);
+    }
+
+    .mini-kpi {
+      border: 0;
+      color: #ffffff;
+      min-height: 86px;
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+    }
+
+    .mini-kpi .label,
+    .mini-kpi .value {
+      color: #ffffff;
+    }
+
+    .mini-kpi-grid .mini-kpi:nth-child(1) {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+
+    .mini-kpi-grid .mini-kpi:nth-child(2) {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    }
+
+    .mini-kpi-grid .mini-kpi:nth-child(3) {
+      background: linear-gradient(135deg, #16a34a, #15803d);
+    }
+
+    .mini-kpi-grid .mini-kpi:nth-child(4) {
+      background: linear-gradient(135deg, #dc2626, #b91c1c);
+    }
+
+    .table thead th {
+      background: #f1f5f9;
+      color: #0f172a;
+      border-bottom: 1px solid #dbe4f0;
+    }
+
+    .fila-estado-aprobada td,
+    .fila-estado-aplicada_programacion td,
+    .fila-estado-cerrada td {
+      background: #ecfdf5 !important;
+    }
+
+    .fila-estado-rechazada td {
+      background: #fef2f2 !important;
+    }
+
+    .fila-estado-pendiente td,
+    .fila-estado-pendiente_documentos td {
+      background: #fffbeb !important;
+    }
+
+    .fila-estado-en_revision_bienestar td {
+      background: #eff6ff !important;
+    }
+
+    .fila-estado-fuera_de_tiempo td {
+      background: #fdf2f8 !important;
+    }
+
+    .gestion-layout {
+      align-items: flex-start;
+    }
+
+    .historial-full {
+      margin-top: 24px;
+    }
+
+    @media (max-width: 1200px) {
+      .historial-full {
+        margin-top: 0;
+      }
+    }
+
+
     @media (max-width: 992px) {
       .mini-kpi-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -414,7 +618,7 @@
 
   <main class="main-content">
   <div class="page-wrap">
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div class="module-hero d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
       <div>
         <h2 class="mb-1">Solicitudes Bienestar</h2>
         <div class="small-muted">
@@ -428,7 +632,7 @@
       </div>
     </div>
 
-    <div class="card card-soft mb-4">
+    <div class="card card-soft session-card mb-4">
       <div class="card-body">
         <div class="toolbar">
           <div class="toolbar-left">
@@ -447,36 +651,9 @@
       </div>
     </div>
 
-    <div class="card card-soft mb-4">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-          <div>
-            <h5 class="mb-0">Notificaciones del módulo</h5>
-            <div class="small-muted">Centro interno de alertas para Bienestar y Nómina</div>
-          </div>
-
-          <div class="d-flex gap-2 flex-wrap align-items-center">
-            <select id="filtroRolNotificacion" class="form-select" style="width: 180px;">
-              <option value="">Todos</option>
-              <option value="admin">Administrador</option>
-              <option value="bienestar">Bienestar</option>
-              <option value="nomina">Nómina</option>
-            </select>
-
-            <span class="badge text-bg-danger fs-6" id="badgeNotificaciones">0</span>
-            <button class="btn btn-outline-secondary btn-sm" id="btnRecargarNotificaciones"
-              type="button">Recargar</button>
-          </div>
-        </div>
-
-        <div id="panelNotificacionesVacio" class="small-muted">Cargando notificaciones...</div>
-        <div id="listaNotificaciones" class="d-flex flex-column gap-2"></div>
-      </div>
-    </div>
-
     <div id="contenedorAlertas" class="mb-3"></div>
 
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-4 kpi-row">
       <div class="col-md-3">
         <div class="kpi-box">
           <div class="small-muted">Solicitudes del año</div>
@@ -503,11 +680,17 @@
       </div>
     </div>
 
-    <div class="row g-4">
+    <div class="row g-4 gestion-layout">
       <div class="col-xl-5">
         <div class="card card-soft">
           <div class="card-body">
-            <h5 class="mb-3">Nueva solicitud</h5>
+            <div class="panel-title-line">
+              <span class="panel-title-icon blue">+</span>
+              <div class="panel-title-text">
+                <h5>Nueva solicitud</h5>
+                <div class="small-muted">Radicación y soporte documental</div>
+              </div>
+            </div>
 
             <div class="alert-inline bg-soft-info">
               Todas las solicitudes requieren revisión y aprobación por Bienestar. El Día de la Familia no exige
@@ -682,45 +865,15 @@
       </div>
 
       <div class="col-xl-7">
-        <div class="card card-soft mb-4">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-              <div>
-                <h5 class="mb-0">Historial del empleado seleccionado</h5>
-                <div class="small-muted">Vista rápida del historial del colaborador elegido</div>
-              </div>
-              <span id="contadorMisSolicitudes" class="small-muted">0 registros</span>
-            </div>
-
-            <div class="table-responsive">
-              <table class="table table-hover align-middle">
-                <thead>
-                  <tr>
-                    <th>Radicación</th>
-                    <th>Tipo</th>
-                    <th>Rango</th>
-                    <th>Días</th>
-                    <th>Estado</th>
-                    <th>Docs</th>
-                  </tr>
-                </thead>
-                <tbody id="tablaMisSolicitudes">
-                  <tr>
-                    <td colspan="6" class="text-center text-muted py-4">Selecciona un empleado para visualizar su
-                      historial.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
         <div class="card card-soft" id="panelGestion">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-              <div>
-                <h5 class="mb-0">Gestión Bienestar</h5>
-                <div class="small-muted">Panel de revisión, aprobación y seguimiento</div>
+              <div class="panel-title-line mb-0">
+                <span class="panel-title-icon green">✓</span>
+                <div class="panel-title-text">
+                  <h5>Gestión Bienestar</h5>
+                  <div class="small-muted">Panel de revisión, aprobación y seguimiento</div>
+                </div>
               </div>
               <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
                 <button class="btn btn-sm btn-outline-success" id="btnExportarSolicitudesExcel" type="button">
@@ -820,6 +973,44 @@
 
       </div>
     </div>
+
+        <div class="card card-soft historial-full">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+              <div class="panel-title-line mb-0">
+                <span class="panel-title-icon purple">H</span>
+                <div class="panel-title-text">
+                  <h5>Historial del empleado seleccionado</h5>
+                  <div class="small-muted">Vista rápida del historial del colaborador elegido</div>
+                </div>
+              </div>
+              <span id="contadorMisSolicitudes" class="small-muted">0 registros</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead>
+                  <tr>
+                    <th>Radicación</th>
+                    <th>Tipo</th>
+                    <th>Rango</th>
+                    <th>Días</th>
+                    <th>Estado</th>
+                    <th>Docs</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaMisSolicitudes">
+                  <tr>
+                    <td colspan="6" class="text-center text-muted py-4">Selecciona un empleado para visualizar su
+                      historial.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+
   </div>
 
   <div class="modal fade" id="modalGestionSolicitud" tabindex="-1" aria-hidden="true">
@@ -1199,6 +1390,11 @@
 
     function puedeGestionar(usuario) {
       return esUsuarioAutorizadoSolicitudesBienestar(usuario);
+    }
+
+    function claseFilaEstado(estado) {
+      const limpio = String(estado || "pendiente").replace(/[^a-zA-Z0-9_\-]/g, "_");
+      return `fila-estado-${limpio}`;
     }
 
     function pintarEstado(estado) {
@@ -2064,7 +2260,7 @@
 
         await cargarSolicitudesGestion();
         await actualizarKPIs();
-        await cargarNotificacionesModulo();
+        // await cargarNotificacionesModulo();
       } catch (error) {
         console.error(error);
         mostrarAlerta("Error registrando la solicitud: " + error.message, "danger");
@@ -2224,7 +2420,7 @@
         const docsCar = Array.isArray(item.documentos_cargados) ? item.documentos_cargados.length : 0;
 
         return `
-          <tr>
+          <tr class="${claseFilaEstado(item.estado)}">
             <td>
               <div class="fw-semibold">${escaparHtml(item.nombre_empleado || "")}</div>
               <div class="small-muted">${escaparHtml(item.cedula || "")}</div>
@@ -2468,7 +2664,7 @@
         return;
       }
 
-      await cargarNotificacionesModulo();
+      // await cargarNotificacionesModulo();
     };
 
     window.accionRapida = async function (id, nuevoEstado) {
@@ -2527,7 +2723,7 @@
 
         await cargarSolicitudesGestion();
         await actualizarKPIs();
-        await cargarNotificacionesModulo();
+        // await cargarNotificacionesModulo();
       } catch (error) {
         console.error(error);
         mostrarAlerta("Error ejecutando acción rápida.", "danger");
@@ -2688,7 +2884,7 @@
 
         await cargarSolicitudesGestion();
         await actualizarKPIs();
-        await cargarNotificacionesModulo();
+        // await cargarNotificacionesModulo();
       } catch (error) {
         console.error(error);
         mostrarAlerta("Error guardando la revisión: " + error.message, "danger");
@@ -2767,7 +2963,7 @@
           else await cargarHistorialEmpleadoSeleccionado();
         }
         await actualizarKPIs();
-        await cargarNotificacionesModulo();
+        // await cargarNotificacionesModulo();
       });
 
       document.getElementById("buscarEmpleado").addEventListener("input", (e) => {
@@ -2791,10 +2987,8 @@
         btnExportarSolicitudesExcel.addEventListener("click", exportarSolicitudesExcel);
       }
 
-      const btnRecargarNotificaciones = document.getElementById("btnRecargarNotificaciones");
-      const filtroRolNotificacion = document.getElementById("filtroRolNotificacion");
-      if (btnRecargarNotificaciones) btnRecargarNotificaciones.addEventListener("click", cargarNotificacionesModulo);
-      if (filtroRolNotificacion) filtroRolNotificacion.addEventListener("change", cargarNotificacionesModulo);
+      // Panel visual de notificaciones deshabilitado.
+      // La lógica de notificaciones se conserva para uso futuro en Dashboard o Mis Turnos.
 
       const linkCerrarSesionBienestar = document.getElementById("linkCerrarSesionBienestar");
       if (linkCerrarSesionBienestar) {
@@ -2822,7 +3016,7 @@
       await cargarEmpleadosDesdeSupabase();
       await cargarSolicitudesGestion();
       await actualizarKPIs();
-      await cargarNotificacionesModulo();
+      // await cargarNotificacionesModulo();
     }
 
     init();
