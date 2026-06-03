@@ -2143,6 +2143,552 @@
     }
 
 
+
+    /* FIX BOTON WHATSAPP BIENESTAR DIRECTO */
+    @media (max-width: 768px) {
+      #btnWhatsappBienestarFlotanteDirecto {
+        left: 12px !important;
+        right: 12px !important;
+        width: calc(100% - 24px) !important;
+      }
+      body.modo-empleado #mainMisTurnosAyb {
+        padding-bottom: 90px !important;
+      }
+    }
+
+
+    /* =========================================================
+       REDISEÑO REAL UX - MIS TURNOS A&B
+       Enfoque solicitado: mejor interfaz, mejor experiencia móvil,
+       Bienestar más visible y botón WhatsApp funcional/visible.
+       ========================================================= */
+
+    :root {
+      --ux-mt-bg: #eef6f5;
+      --ux-mt-card: #ffffff;
+      --ux-mt-ink: #0f172a;
+      --ux-mt-muted: #64748b;
+      --ux-mt-border: #dbe8ef;
+      --ux-mt-teal: #0f766e;
+      --ux-mt-teal-dark: #064e3b;
+      --ux-mt-teal-soft: #ccfbf1;
+      --ux-mt-blue: #2563eb;
+      --ux-mt-blue-dark: #1e3a8a;
+      --ux-mt-blue-soft: #dbeafe;
+      --ux-mt-green: #16a34a;
+      --ux-mt-green-soft: #dcfce7;
+      --ux-mt-amber: #f59e0b;
+      --ux-mt-amber-soft: #fef3c7;
+      --ux-mt-red: #dc2626;
+      --ux-mt-red-soft: #fee2e2;
+      --ux-mt-radius: 24px;
+      --ux-mt-radius-sm: 18px;
+      --ux-mt-shadow: 0 18px 42px rgba(15, 23, 42, 0.10);
+      --ux-mt-shadow-soft: 0 10px 26px rgba(15, 23, 42, 0.07);
+    }
+
+    body,
+    .app-layout {
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.16), transparent 30%),
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.10), transparent 30%),
+        var(--ux-mt-bg) !important;
+    }
+
+    .page-shell {
+      max-width: 1540px !important;
+    }
+
+    .hero-panel {
+      border: 0 !important;
+      border-radius: 30px !important;
+      padding: 28px !important;
+      background:
+        radial-gradient(circle at 88% 12%, rgba(255, 255, 255, 0.22), transparent 24%),
+        linear-gradient(135deg, #064e3b 0%, #0f766e 48%, #2563eb 100%) !important;
+      color: #ffffff !important;
+      box-shadow: var(--ux-mt-shadow) !important;
+    }
+
+    .hero-panel::before {
+      display: none !important;
+    }
+
+    .header-chip {
+      background: rgba(255,255,255,.14) !important;
+      border: 1px solid rgba(255,255,255,.28) !important;
+      color: #ffffff !important;
+    }
+
+    .header-chip::before {
+      background: #ffffff !important;
+      color: var(--ux-mt-teal-dark) !important;
+    }
+
+    .page-title {
+      color: #ffffff !important;
+      font-weight: 950 !important;
+      font-size: clamp(2.15rem, 3.6vw, 3.5rem) !important;
+      letter-spacing: -0.055em !important;
+    }
+
+    .page-subtitle {
+      color: rgba(255,255,255,.86) !important;
+      max-width: 840px !important;
+      font-size: 1.08rem !important;
+    }
+
+    .hero-panel .btn {
+      border-radius: 999px !important;
+      font-weight: 900 !important;
+      min-height: 48px;
+    }
+
+    .hero-panel .btn-soft,
+    .hero-panel .btn-back-soft,
+    .hero-panel .btn-danger-soft,
+    .hero-panel .btn-outline-secondary,
+    .hero-panel .btn-outline-danger {
+      color: #ffffff !important;
+      border-color: rgba(255,255,255,.35) !important;
+      background: rgba(255,255,255,.13) !important;
+    }
+
+    .hero-panel .btn-main,
+    .hero-panel .btn-primary {
+      color: var(--ux-mt-teal-dark) !important;
+      background: #ffffff !important;
+      border-color: #ffffff !important;
+      box-shadow: 0 16px 30px rgba(15,23,42,.16) !important;
+    }
+
+    .btn-whatsapp-bienestar,
+    #btnWhatsappBienestarDirecto,
+    #btnWhatsappBienestarFlotanteDirecto {
+      background: linear-gradient(135deg, #22c55e, #15803d) !important;
+      border: 0 !important;
+      color: #ffffff !important;
+      font-weight: 950 !important;
+      box-shadow: 0 16px 34px rgba(22, 163, 74, .28) !important;
+    }
+
+    .ux-action-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      gap: 1rem !important;
+      margin: 1.2rem 0 1.35rem !important;
+    }
+
+    .ux-action-card {
+      border: 0 !important;
+      border-radius: 24px !important;
+      min-height: 122px !important;
+      background: rgba(255,255,255,.96) !important;
+      box-shadow: var(--ux-mt-shadow-soft) !important;
+      transition: transform .16s ease, box-shadow .16s ease !important;
+    }
+
+    .ux-action-card:hover {
+      transform: translateY(-3px) !important;
+      box-shadow: var(--ux-mt-shadow) !important;
+    }
+
+    .ux-action-card:nth-child(1) {
+      border-top: 6px solid var(--ux-mt-blue) !important;
+    }
+
+    .ux-action-card:nth-child(2) {
+      border-top: 6px solid var(--ux-mt-teal) !important;
+    }
+
+    .ux-action-card:nth-child(3) {
+      border-top: 6px solid var(--ux-mt-amber) !important;
+    }
+
+    .ux-action-card.whatsapp,
+    #btnContactarBienestarWhatsappCard {
+      border-top: 6px solid var(--ux-mt-green) !important;
+      background: linear-gradient(135deg, #ffffff 0%, #ecfdf5 100%) !important;
+    }
+
+    .ux-action-icon {
+      width: 62px !important;
+      height: 62px !important;
+      border-radius: 20px !important;
+      font-size: 1.75rem !important;
+    }
+
+    .ux-action-title {
+      color: var(--ux-mt-ink) !important;
+      font-size: 1.08rem !important;
+      font-weight: 950 !important;
+    }
+
+    .ux-action-card.whatsapp .ux-action-title,
+    #btnContactarBienestarWhatsappCard .ux-action-title {
+      color: #166534 !important;
+    }
+
+    .ux-action-text {
+      color: var(--ux-mt-muted) !important;
+    }
+
+    .summary-grid {
+      gap: 1.1rem !important;
+    }
+
+    .summary-card {
+      border: 0 !important;
+      border-radius: 24px !important;
+      box-shadow: var(--ux-mt-shadow-soft) !important;
+      background: #ffffff !important;
+      min-height: 150px !important;
+    }
+
+    .summary-card.today-highlight {
+      background: linear-gradient(135deg, #ecfdf5, #ffffff) !important;
+      border: 2px solid #99f6e4 !important;
+    }
+
+    .today-badge {
+      background: var(--ux-mt-teal-soft) !important;
+      color: var(--ux-mt-teal-dark) !important;
+      border-color: #5eead4 !important;
+    }
+
+    .summary-label {
+      color: var(--ux-mt-muted) !important;
+    }
+
+    .summary-value {
+      color: var(--ux-mt-ink) !important;
+      font-weight: 950 !important;
+      font-size: 1.3rem !important;
+    }
+
+    .section-card {
+      border: 0 !important;
+      border-radius: 28px !important;
+      box-shadow: var(--ux-mt-shadow-soft) !important;
+      background: #ffffff !important;
+      overflow: hidden !important;
+    }
+
+    .section-header {
+      background: linear-gradient(180deg, #ffffff 0%, #f8fffd 100%) !important;
+      border-bottom: 1px solid #dbeeea !important;
+      padding: 1.35rem 1.45rem !important;
+    }
+
+    .section-title {
+      color: var(--ux-mt-teal-dark) !important;
+      font-size: 1.45rem !important;
+      font-weight: 950 !important;
+    }
+
+    .section-text {
+      color: var(--ux-mt-muted) !important;
+      font-size: 1rem !important;
+    }
+
+    .week-pill {
+      background: var(--ux-mt-teal-soft) !important;
+      color: var(--ux-mt-teal-dark) !important;
+      border-color: #99f6e4 !important;
+      font-weight: 900 !important;
+    }
+
+    .dia-card {
+      border: 0 !important;
+      border-radius: 24px !important;
+      box-shadow: var(--ux-mt-shadow-soft) !important;
+    }
+
+    .dia-card.today {
+      border: 2px solid #60a5fa !important;
+    }
+
+    .dia-card.today::before {
+      background: linear-gradient(90deg, var(--ux-mt-blue), var(--ux-mt-teal)) !important;
+    }
+
+    .turno-card {
+      border: 1px solid #bfdbfe !important;
+      background: linear-gradient(180deg, #ffffff, #eff6ff) !important;
+    }
+
+    .novedad-card {
+      border: 1px solid #fcd34d !important;
+      border-left: 6px solid var(--ux-mt-amber) !important;
+      background: linear-gradient(180deg, #ffffff, #fffbeb) !important;
+    }
+
+    #seccionBienestarEmpleado {
+      margin-top: 1.5rem !important;
+      border: 0 !important;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fffd 100%) !important;
+    }
+
+    #seccionBienestarEmpleado > .section-header {
+      background:
+        radial-gradient(circle at right, rgba(34,197,94,.13), transparent 28%),
+        linear-gradient(135deg, #064e3b, #0f766e) !important;
+      color: #ffffff !important;
+      border-bottom: 0 !important;
+    }
+
+    #seccionBienestarEmpleado .section-title {
+      color: #ffffff !important;
+      font-size: 1.6rem !important;
+    }
+
+    #seccionBienestarEmpleado .section-text {
+      color: rgba(255,255,255,.82) !important;
+    }
+
+    #seccionBienestarEmpleado .week-pill,
+    #seccionBienestarEmpleado #btnRecargarBienestarEmpleado {
+      background: rgba(255,255,255,.14) !important;
+      color: #ffffff !important;
+      border-color: rgba(255,255,255,.32) !important;
+      border-radius: 999px !important;
+      font-weight: 900 !important;
+    }
+
+    .bienestar-grid {
+      padding: 1.25rem !important;
+      gap: 1.25rem !important;
+    }
+
+    .bienestar-box {
+      border: 0 !important;
+      border-radius: 26px !important;
+      box-shadow: var(--ux-mt-shadow-soft) !important;
+      background: #ffffff !important;
+      padding: 1.25rem !important;
+      position: relative !important;
+      overflow: hidden !important;
+    }
+
+    .bienestar-box::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 7px;
+      background: linear-gradient(90deg, var(--ux-mt-green), var(--ux-mt-teal), var(--ux-mt-blue));
+    }
+
+    .bienestar-box-title {
+      color: var(--ux-mt-ink) !important;
+      font-size: 1.32rem !important;
+      font-weight: 950 !important;
+      letter-spacing: -0.02em !important;
+    }
+
+    .bienestar-box-text {
+      color: var(--ux-mt-muted) !important;
+      font-size: 1rem !important;
+    }
+
+    #btnWhatsappBienestarDirecto {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: .45rem !important;
+      min-height: 60px !important;
+      border-radius: 20px !important;
+      font-size: 1.04rem !important;
+      margin: 1rem 0 !important;
+    }
+
+    .bienestar-box .form-label {
+      color: var(--ux-mt-ink) !important;
+      font-weight: 950 !important;
+      font-size: .96rem !important;
+    }
+
+    .bienestar-box .form-select,
+    .bienestar-box .form-control {
+      min-height: 52px !important;
+      border-radius: 18px !important;
+      border-color: #cbd5e1 !important;
+      background: #fbfdff !important;
+      font-size: 1rem !important;
+    }
+
+    .bienestar-box textarea.form-control {
+      min-height: 120px !important;
+    }
+
+    .bienestar-box .form-select:focus,
+    .bienestar-box .form-control:focus {
+      border-color: var(--ux-mt-teal) !important;
+      box-shadow: 0 0 0 .22rem rgba(15, 118, 110, .13) !important;
+    }
+
+    #bienestarDocumentosResumen {
+      border-radius: 18px !important;
+      background: #ecfeff !important;
+      border-color: #a5f3fc !important;
+      color: #155e75 !important;
+      font-weight: 800 !important;
+    }
+
+    #bienestarInputDocumentos {
+      background: #ffffff !important;
+    }
+
+    #bienestarArchivosSeleccionados {
+      background: #f8fafc !important;
+      border-radius: 16px !important;
+    }
+
+    #btnRadicarBienestarEmpleado {
+      min-height: 60px !important;
+      border-radius: 20px !important;
+      background: linear-gradient(135deg, var(--ux-mt-teal), var(--ux-mt-blue)) !important;
+      border: 0 !important;
+      font-weight: 950 !important;
+      font-size: 1.05rem !important;
+    }
+
+    .bienestar-table thead th {
+      background: #f1f5f9 !important;
+      color: #334155 !important;
+      font-weight: 950 !important;
+    }
+
+    .bienestar-table tbody td {
+      vertical-align: middle !important;
+    }
+
+    .bienestar-estado {
+      font-weight: 950 !important;
+    }
+
+    .bienestar-beneficio-card {
+      border: 0 !important;
+      border-radius: 20px !important;
+      box-shadow: var(--ux-mt-shadow-soft) !important;
+      background: linear-gradient(135deg, #ffffff, #f8fffd) !important;
+    }
+
+    #btnWhatsappBienestarFlotanteDirecto,
+    .whatsapp-floating-bienestar {
+      position: fixed !important;
+      right: 18px !important;
+      bottom: 18px !important;
+      z-index: 999999 !important;
+      min-height: 58px !important;
+      padding: .9rem 1.15rem !important;
+      border: 0 !important;
+      border-radius: 999px !important;
+      background: linear-gradient(135deg, #22c55e, #15803d) !important;
+      color: #ffffff !important;
+      font-weight: 950 !important;
+      box-shadow: 0 18px 40px rgba(22,163,74,.34) !important;
+    }
+
+    @media (max-width: 1199.98px) {
+      .ux-action-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+
+      .bienestar-grid {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
+    @media (max-width: 767.98px) {
+      body.modo-empleado #mainMisTurnosAyb,
+      #mainMisTurnosAyb {
+        padding: 12px 12px 94px !important;
+      }
+
+      .hero-panel {
+        padding: 1.1rem !important;
+        border-radius: 22px !important;
+      }
+
+      .page-title {
+        font-size: 2rem !important;
+        text-align: left !important;
+      }
+
+      .page-subtitle {
+        text-align: left !important;
+        font-size: .96rem !important;
+      }
+
+      .header-chip {
+        width: auto !important;
+        justify-content: flex-start !important;
+      }
+
+      .header-actions {
+        grid-template-columns: 1fr !important;
+        width: 100% !important;
+      }
+
+      .header-actions .btn {
+        width: 100% !important;
+      }
+
+      .ux-action-grid {
+        grid-template-columns: 1fr !important;
+        gap: .8rem !important;
+      }
+
+      .ux-action-card {
+        min-height: 96px !important;
+        border-radius: 20px !important;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr !important;
+        gap: .8rem !important;
+      }
+
+      .summary-card {
+        min-height: auto !important;
+        border-radius: 20px !important;
+      }
+
+      .section-card {
+        border-radius: 22px !important;
+      }
+
+      .section-header {
+        padding: 1rem !important;
+      }
+
+      .section-title {
+        font-size: 1.28rem !important;
+      }
+
+      .bienestar-grid {
+        padding: .85rem !important;
+        gap: .85rem !important;
+      }
+
+      .bienestar-box {
+        padding: 1rem !important;
+        border-radius: 22px !important;
+      }
+
+      #btnWhatsappBienestarFlotanteDirecto,
+      .whatsapp-floating-bienestar {
+        left: 12px !important;
+        right: 12px !important;
+        bottom: 12px !important;
+        width: calc(100% - 24px) !important;
+        min-height: 58px !important;
+      }
+
+      .bienestar-table {
+        min-width: 760px !important;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -2287,6 +2833,7 @@
                     <button class="btn btn-soft" id="btnSemanaAnteriorEmpleado">← Semana anterior</button>
                     <button class="btn btn-soft" id="btnSemanaSiguienteEmpleado">Semana siguiente →</button>
                     <button class="btn btn-primary btn-main" id="btnVerTurnosCatalogo">Ver equivalencia de turnos</button>
+                    <button class="btn btn-whatsapp-bienestar" type="button" id="btnWhatsappBienestarHeaderReal" onclick="window.abrirWhatsappBienestarAyb(); return false;">💬 Bienestar WhatsApp</button>
                     <button class="btn btn-outline-danger btn-danger-soft" id="btnCerrarSesionEmpleado">Cerrar sesión</button>
                   </div>
                 </div>
@@ -2320,6 +2867,14 @@
                 <span class="ux-action-text d-block">Mira el estado de tus solicitudes y mensajes de Bienestar.</span>
               </span>
             </a>
+
+            <button class="ux-action-card whatsapp text-start" type="button" id="btnWhatsappBienestarCardReal" onclick="window.abrirWhatsappBienestarAyb(); return false;">
+              <span class="ux-action-icon" aria-hidden="true">💬</span>
+              <span>
+                <span class="ux-action-title d-block">Contactar Bienestar</span>
+                <span class="ux-action-text d-block">Avisa por WhatsApp que cargaste documentos o consulta un compensatorio.</span>
+              </span>
+            </button>
           </section>
 
           <section class="summary-grid">
@@ -2419,6 +2974,10 @@
               <div class="bienestar-box">
                 <div class="bienestar-box-title">Nueva solicitud</div>
                 <div class="bienestar-box-text">Completa los campos, adjunta los documentos cuando aplique y radica la solicitud. Bienestar verá tu caso para revisión.</div>
+
+                <button type="button" class="btn btn-success w-100 mb-3" id="btnWhatsappBienestarDirecto" style="min-height:56px;font-weight:900;border-radius:16px;" onclick="window.abrirWhatsappBienestarAyb(); return false;">
+                  💬 Contactar Bienestar por WhatsApp
+                </button>
 
                 <div id="bienestarAlertasEmpleado"></div>
 
@@ -2620,7 +3179,7 @@
   <script src="../js/layout.js?v=permisos-empleado-20260504"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script type="module" src="../js/mis-turnos-ayb.js"></script>
+  <script type="module" src="../js/mis-turnos-ayb.js?v=whatsapp-fix-20260603"></script>
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
@@ -3376,7 +3935,73 @@
       return empleado;
     }
 
+    function abrirWhatsappBienestarDirecto() {
+      /*
+        CAMBIA ESTE NÚMERO POR EL CELULAR REAL DE BIENESTAR.
+        Formato Colombia: 57 + celular. Ejemplo: 573001112233
+      */
+      const telefonoBienestar = "573216155924";
+
+      const nombre = bienestarEmpleadoActual?.nombre_completo || bienestarNombreCompleto(bienestarEmpleadoActual) || "Empleado";
+      const cedula = bienestarEmpleadoActual?.cedula || "sin cédula detectada";
+      const mensaje = encodeURIComponent(
+        `Hola Bienestar, soy ${nombre}, cédula ${cedula}. Ya cargué documentos en la plataforma o deseo consultar una solicitud/día compensatorio. Agradezco por favor revisar mi caso en el módulo de Bienestar.`
+      );
+
+      if (telefonoBienestar.includes("X")) {
+        bienestarMostrarAlerta("El botón de WhatsApp ya quedó visible, pero falta configurar el número real de Bienestar en telefonoBienestar.", "warning");
+        return;
+      }
+
+      window.open(`https://wa.me/${telefonoBienestar}?text=${mensaje}`, "_blank");
+    }
+
+    function configurarWhatsappBienestarDirecto() {
+      const btn1 = document.getElementById("btnWhatsappBienestarDirecto");
+      const btn2 = document.getElementById("btnWhatsappBienestarFlotanteDirecto");
+
+      if (btn1) btn1.addEventListener("click", abrirWhatsappBienestarDirecto);
+      if (btn2) btn2.addEventListener("click", abrirWhatsappBienestarDirecto);
+    }
+
+
+    function abrirWhatsappBienestarReal() {
+      /*
+        CAMBIA ESTE NÚMERO POR EL CELULAR REAL DE BIENESTAR.
+        Formato Colombia: 57 + celular. Ejemplo: 573001112233
+      */
+      const telefonoBienestar = "573216155924";
+
+      const nombre = bienestarEmpleadoActual?.nombre_completo || bienestarNombreCompleto(bienestarEmpleadoActual) || "Empleado";
+      const cedula = bienestarEmpleadoActual?.cedula || "sin cédula detectada";
+      const mensaje = encodeURIComponent(
+        `Hola Bienestar, soy ${nombre}, cédula ${cedula}. Ya cargué documentos en la plataforma o deseo consultar una solicitud/día compensatorio. Agradezco por favor revisar mi caso en el módulo de Bienestar.`
+      );
+
+      if (telefonoBienestar.includes("X")) {
+        bienestarMostrarAlerta("El botón de WhatsApp ya está visible, pero falta configurar el número real de Bienestar en telefonoBienestar.", "warning");
+        return;
+      }
+
+      window.open(`https://wa.me/${telefonoBienestar}?text=${mensaje}`, "_blank");
+    }
+
+    function configurarWhatsappBienestarReal() {
+      [
+        "btnWhatsappBienestarHeaderReal",
+        "btnWhatsappBienestarCardReal",
+        "btnWhatsappBienestarDirecto",
+        "btnWhatsappBienestarFlotanteDirecto"
+      ].forEach((id) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.addEventListener("click", abrirWhatsappBienestarReal);
+      });
+    }
+
+
     async function bienestarInit() {
+      configurarWhatsappBienestarDirecto();
+      configurarWhatsappBienestarReal();
       document.getElementById("bienestarTipoSolicitud")?.addEventListener("change", bienestarActualizarSubtipo);
       document.getElementById("bienestarSubtipoSolicitud")?.addEventListener("change", bienestarActualizarResumenSolicitud);
       document.getElementById("bienestarFechaInicio")?.addEventListener("change", bienestarActualizarResumenSolicitud);
@@ -3407,6 +4032,67 @@
     }
 
     bienestarInit();
+  </script>
+
+  <button type="button" id="btnWhatsappBienestarFlotanteDirecto" style="
+    position:fixed;
+    right:16px;
+    bottom:16px;
+    z-index:999999;
+    min-height:56px;
+    padding:12px 18px;
+    border:0;
+    border-radius:999px;
+    background:#16a34a;
+    color:#fff;
+    font-weight:900;
+    box-shadow:0 16px 36px rgba(22,163,74,.35);
+  " onclick="window.abrirWhatsappBienestarAyb(); return false;">
+    💬 Bienestar WhatsApp
+  </button>
+
+  <script>
+    window.abrirWhatsappBienestarAyb = function () {
+      let nombre = "Empleado";
+      let cedula = "sin cédula detectada";
+
+      try {
+        const sesion = JSON.parse(localStorage.getItem("ccp_sesion") || "null");
+        if (sesion && typeof sesion === "object") {
+          nombre = sesion.nombre_completo || [sesion.nombres, sesion.apellidos].filter(Boolean).join(" ") || nombre;
+          cedula = sesion.cedula || sesion.usuario || cedula;
+        }
+      } catch (error) {}
+
+      const telefonoBienestar = "573216155924";
+      const mensaje = encodeURIComponent(
+        `Hola Bienestar, soy ${nombre}, cédula ${cedula}. Ya cargué documentos en la plataforma o deseo consultar una solicitud/día compensatorio. Agradezco por favor revisar mi caso en el módulo de Bienestar.`
+      );
+
+      window.open(`https://wa.me/${telefonoBienestar}?text=${mensaje}`, "_blank");
+    };
+
+    document.addEventListener("DOMContentLoaded", function () {
+      [
+        "btnWhatsappBienestarHeaderReal",
+        "btnWhatsappBienestarCardReal",
+        "btnWhatsappBienestarDirecto",
+        "btnWhatsappBienestarFlotanteDirecto",
+        "btnContactarBienestarWhatsappHeader",
+        "btnContactarBienestarWhatsappCard",
+        "btnContactarBienestarWhatsappFloat",
+        "btnWhatsappBienestarDirecto",
+        "btnWhatsappBienestarFlotanteDirecto"
+      ].forEach(function (id) {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.onclick = function (event) {
+            event.preventDefault();
+            window.abrirWhatsappBienestarAyb();
+          };
+        }
+      });
+    });
   </script>
 
 </body>
