@@ -30,30 +30,155 @@ window.mostrarEmpleado = function () {
   if (typeof ocultarLoader === "function") ocultarLoader();
 };
 
+function normalizarTexto(valor) {
+  return String(valor || "").trim().toLowerCase();
+}
+
+function obtenerPermisosPorRol(rol) {
+  const r = normalizarTexto(rol);
+
+  const mapa = {
+    admin: {
+      puede_ver_todo: true,
+      areas_permitidas: ["*"],
+      modulos_permitidos: [
+        "dashboard",
+        "solicitudes-bienestar",
+        "programacion-ayb",
+        "cocina-chef",
+        "programacion-administrativo",
+        "programacion-operaciones",
+        "mis-turnos-ayb",
+        "mis-turnos-administrativo",
+        "empleados",
+        "usuarios-admin"
+      ]
+    },
+
+    gerencia: {
+      puede_ver_todo: true,
+      areas_permitidas: ["*"],
+      modulos_permitidos: [
+        "dashboard",
+        "solicitudes-bienestar",
+        "programacion-ayb",
+        "cocina-chef",
+        "programacion-administrativo",
+        "programacion-operaciones",
+        "mis-turnos-ayb",
+        "mis-turnos-administrativo",
+        "empleados",
+        "usuarios-admin"
+      ]
+    },
+
+    bienestar: {
+      puede_ver_todo: true,
+      areas_permitidas: ["*"],
+      modulos_permitidos: [
+        "dashboard",
+        "solicitudes-bienestar",
+        "mis-turnos-administrativo"
+      ]
+    },
+
+    ayb: {
+      puede_ver_todo: false,
+      areas_permitidas: [
+        "ALIMENTOS",
+        "BEBIDAS",
+        "A&B",
+        "AYB",
+        "COCINA",
+        "RESTAURANTES",
+        "BAR"
+      ],
+      modulos_permitidos: [
+        "dashboard",
+        "programacion-ayb",
+        "cocina-chef",
+        "mis-turnos-ayb"
+      ]
+    },
+
+    servicios_generales: {
+      puede_ver_todo: false,
+      areas_permitidas: [
+        "SERVICIOS GENERALES",
+        "OPERACIONES"
+      ],
+      modulos_permitidos: [
+        "dashboard",
+        "programacion-operaciones",
+        "mis-turnos-administrativo"
+      ]
+    },
+
+    direccion_financiera: {
+      puede_ver_todo: false,
+      areas_permitidas: [
+        "DIRECCION ADMINISTRATIVA",
+        "DIRECCIÓN ADMINISTRATIVA",
+        "DIRECCION FINANCIERA",
+        "DIRECCIÓN FINANCIERA",
+        "CONTABILIDAD",
+        "CARTERA",
+        "COMPRAS",
+        "SISTEMAS",
+        "AUDITORIA",
+        "AUDITORÍA"
+      ],
+      modulos_permitidos: [
+        "dashboard",
+        "programacion-administrativo",
+        "mis-turnos-administrativo",
+        "empleados",
+        "usuarios-admin"
+      ]
+    }
+  };
+
+  return mapa[r] || {
+    puede_ver_todo: false,
+    areas_permitidas: [],
+    modulos_permitidos: []
+  };
+}
+
 window.loginAdmin = async function () {
   const usuario = document.getElementById("usuario")?.value.trim() || "";
   const password = document.getElementById("password")?.value.trim() || "";
-  const rol = document.getElementById("rol")?.value.trim() || "";
 
-  if (!usuario || !password || !rol) {
+  if (!usuario || !password) {
+    if (typeof ocultarLoader === "function") ocultarLoader();
     if (typeof mostrarMensaje === "function") {
-      mostrarMensaje("error", "Complete usuario, contraseña y rol.");
+      mostrarMensaje("error", "Complete usuario y contraseña.");
     }
     return false;
   }
 
   try {
-    const { data, error } = await supabase
-      .from("empleados")
+    const { data: usuarioAdmin, error: errorUsuario } = await supabase
+      .from("usuarios_admin")
       .select("*")
-      .eq("cedula", usuario)
-      .eq("password", password)
-      .eq("rol", rol)
-      .single();
+      .or(`usuario.eq.${usuario},cedula.eq.${usuario}`)
+      .eq("password_hash", password)
+      .eq("activo", true)
+      .maybeSingle();
 
-    if (error || !data) {
-      console.error("Error login admin:", error);
+    if (errorUsuario) {
+      console.error("Error consultando usuarios_admin:", errorUsuario);
 
+      if (typeof ocultarLoader === "function") ocultarLoader();
+      if (typeof mostrarMensaje === "function") {
+        mostrarMensaje("error", "Error consultando el usuario administrativo.");
+      }
+
+      return false;
+    }
+
+    if (!usuarioAdmin) {
+      if (typeof ocultarLoader === "function") ocultarLoader();
       if (typeof mostrarMensaje === "function") {
         mostrarMensaje("error", "Credenciales incorrectas o usuario no autorizado.");
       }
@@ -61,55 +186,76 @@ window.loginAdmin = async function () {
       return false;
     }
 
-    const modulosBase =
-      data.modulos_permitidos && data.modulos_permitidos.length
-        ? data.modulos_permitidos
-        : [
-            "dashboard",
-            "programacion-ayb",
-            "programacion-administrativo",
-            "programacion-operaciones",
-            "mis-turnos-ayb",
-            "mis-turnos-administrativo",
-            "mis-turnos-operaciones",
-            "usuarios",
-            "reportes",
-            "configuracion"
-          ];
+    const { data: empleado, error: errorEmpleado } = await supabase
+      .from("empleados")
+      .select("*")
+      .eq("id", usuarioAdmin.empleado_id)
+      .maybeSingle();
+
+    if (errorEmpleado) {
+      console.error("Error consultando empleado vinculado:", errorEmpleado);
+
+      if (typeof ocultarLoader === "function") ocultarLoader();
+      if (typeof mostrarMensaje === "function") {
+        mostrarMensaje("error", "Error consultando el empleado vinculado.");
+      }
+
+      return false;
+    }
+
+    if (!empleado) {
+      if (typeof ocultarLoader === "function") ocultarLoader();
+      if (typeof mostrarMensaje === "function") {
+        mostrarMensaje("error", "El usuario existe, pero no tiene empleado vinculado.");
+      }
+
+      return false;
+    }
+
+    const permisos = obtenerPermisosPorRol(usuarioAdmin.rol);
 
     const sesion = {
-      id: data.id || null,
-      codigo: data.codigo || "",
-      cedula: String(data.cedula || ""),
-      nombre_completo: `${data.nombres || ""} ${data.apellidos || ""}`.trim(),
-      nombres: data.nombres || "",
-      apellidos: data.apellidos || "",
-      cargo: data.cargo || "",
-      centro_costos: data.centro_costos || "",
-      correo: data.correo || "",
-      telefono: data.telefono || "",
-      rol: data.rol || "",
-      puede_ver_todo: data.puede_ver_todo || false,
-      areas_permitidas: data.areas_permitidas || [],
-      modulos_permitidos: Array.from(
-        new Set([
-          ...modulosBase,
-          "empleados"
-        ])
-      ),
+      id: usuarioAdmin.id || null,
+      usuario_admin_id: usuarioAdmin.id || null,
+      empleado_id: empleado.id || null,
+      codigo: empleado.codigo || "",
+      cedula: String(empleado.cedula || usuarioAdmin.cedula || ""),
+      usuario: usuarioAdmin.usuario || "",
+      nombre_completo: `${empleado.nombres || ""} ${empleado.apellidos || ""}`.trim(),
+      nombres: empleado.nombres || "",
+      apellidos: empleado.apellidos || "",
+      cargo: empleado.cargo || "",
+      centro_costos: empleado.centro_costos || "",
+      area: empleado.area || "",
+      correo: empleado.correo || "",
+      telefono: empleado.telefono || "",
+      rol: usuarioAdmin.rol || "",
+      puede_ver_todo: permisos.puede_ver_todo,
+      areas_permitidas: permisos.areas_permitidas,
+      modulos_permitidos: permisos.modulos_permitidos,
       tipo_ingreso: "admin"
     };
 
     localStorage.setItem("ccp_sesion", JSON.stringify(sesion));
 
+    await supabase
+      .from("usuarios_admin")
+      .update({
+        ultimo_login: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", usuarioAdmin.id);
+
     if (typeof mostrarMensaje === "function") {
-      mostrarMensaje("success", "Ingreso correcto. Redirigiendo...");
+      mostrarMensaje("success", `Ingreso correcto como ${usuarioAdmin.rol}. Redirigiendo...`);
     }
 
     window.location.href = "dashboard.html";
     return true;
   } catch (err) {
     console.error("Excepción login admin:", err);
+
+    if (typeof ocultarLoader === "function") ocultarLoader();
 
     if (typeof mostrarMensaje === "function") {
       mostrarMensaje("error", "Ocurrió un error al iniciar sesión.");
@@ -123,6 +269,7 @@ window.consultarTurnos = async function () {
   const cedula = document.getElementById("cedula")?.value.trim() || "";
 
   if (!cedula) {
+    if (typeof ocultarLoader === "function") ocultarLoader();
     if (typeof mostrarMensaje === "function") {
       mostrarMensaje("error", "Ingrese la cédula.");
     }
@@ -134,11 +281,21 @@ window.consultarTurnos = async function () {
       .from("empleados")
       .select("*")
       .eq("cedula", cedula)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) {
+    if (error) {
       console.error("Error consulta empleado:", error);
 
+      if (typeof ocultarLoader === "function") ocultarLoader();
+      if (typeof mostrarMensaje === "function") {
+        mostrarMensaje("error", "Error consultando el empleado.");
+      }
+
+      return false;
+    }
+
+    if (!data) {
+      if (typeof ocultarLoader === "function") ocultarLoader();
       if (typeof mostrarMensaje === "function") {
         mostrarMensaje("error", "No se encontró un empleado con esa cédula.");
       }
@@ -155,11 +312,12 @@ window.consultarTurnos = async function () {
       apellidos: data.apellidos || "",
       cargo: data.cargo || "",
       centro_costos: data.centro_costos || "",
+      area: data.area || "",
       correo: data.correo || "",
       telefono: data.telefono || "",
       rol: "empleado",
       puede_ver_todo: false,
-      areas_permitidas: [data.centro_costos || ""],
+      areas_permitidas: [data.centro_costos || data.area || ""],
       modulos_permitidos: [],
       tipo_ingreso: "empleado"
     };
@@ -167,11 +325,18 @@ window.consultarTurnos = async function () {
     localStorage.setItem("ccp_sesion", JSON.stringify(sesionEmpleado));
 
     const centroCostos = String(data.centro_costos || "").toUpperCase();
+    const area = String(data.area || "").toUpperCase();
     const cargo = String(data.cargo || "").toUpperCase();
 
     const esAyb =
       centroCostos.includes("ALIMENTOS") ||
       centroCostos.includes("BEBIDAS") ||
+      centroCostos.includes("A&B") ||
+      centroCostos.includes("AYB") ||
+      area.includes("ALIMENTOS") ||
+      area.includes("BEBIDAS") ||
+      area.includes("A&B") ||
+      area.includes("AYB") ||
       cargo.includes("MESERO") ||
       cargo.includes("MESERA") ||
       cargo.includes("BARISTA") ||
@@ -188,6 +353,8 @@ window.consultarTurnos = async function () {
     const esOperaciones =
       centroCostos.includes("OPERACIONES") ||
       centroCostos.includes("SERVICIOS GENERALES") ||
+      area.includes("OPERACIONES") ||
+      area.includes("SERVICIOS GENERALES") ||
       cargo.includes("ASEO") ||
       cargo.includes("OPERACIONES") ||
       cargo.includes("SERVICIOS GENERALES");
@@ -210,6 +377,8 @@ window.consultarTurnos = async function () {
     return true;
   } catch (err) {
     console.error("Excepción consulta empleado:", err);
+
+    if (typeof ocultarLoader === "function") ocultarLoader();
 
     if (typeof mostrarMensaje === "function") {
       mostrarMensaje("error", "Ocurrió un error al consultar la información del empleado.");

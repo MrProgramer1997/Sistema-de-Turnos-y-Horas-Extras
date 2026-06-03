@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cocina Chef</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+
+  <link rel="stylesheet" href="../css/layout.css">
+  <link rel="stylesheet" href="../css/cocina-chef.css">
+</head>
+
+<body>
+
+<button class="btn-toggle-sidebar d-md-none" type="button" aria-label="Abrir menú">☰</button>
+<div id="sidebar-container"></div>
+
+<main class="main-content fondo-modulo">
+<div class="container-fluid cocina-page p-3">
+
+  <div class="cocina-header mb-3">
+    <div>
+      <h4 class="mb-0">Cocina Chef - Programación</h4>
+      <small class="text-muted">Cronograma operativo integrado al sistema central</small>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+      <button class="btn btn-outline-primary" id="btnGestionCodigos">Códigos</button>
+      <button class="btn btn-primary" id="btnAgregarExterno">+ Externo</button>
+      <button class="btn btn-success" id="btnAgregarEmpleado">+ Desde A&B</button>
+    </div>
+  </div>
+
+  <div class="cocina-toolbar mb-3">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <button class="btn btn-outline-secondary" id="btnPrevSemana">←</button>
+      <button class="btn btn-outline-secondary" id="btnNextSemana">→</button>
+      <input type="date" id="fechaBase" class="form-control w-auto">
+      <span id="rangoSemana" class="fw-bold"></span>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <select id="filtroArea" class="form-select">
+        <option value="">Todas las áreas</option>
+      </select>
+
+      <select id="filtroTipoPersonal" class="form-select">
+        <option value="">Todos</option>
+        <option value="fijo">Fijo</option>
+        <option value="externo">Externo</option>
+        <option value="medio_tiempo">Medio tiempo</option>
+        <option value="pendiente">Pendiente</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="cocina-kpis mb-3">
+    <div class="kpi-card">
+      <span class="kpi-label">Personas visibles</span>
+      <strong id="kpiPersonas">0</strong>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Turnos semana</span>
+      <strong id="kpiTurnos">0</strong>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Externos</span>
+      <strong id="kpiExternos">0</strong>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Áreas activas</span>
+      <strong id="kpiAreas">0</strong>
+    </div>
+  </div>
+
+  <div class="table-responsive cocina-table-wrap">
+    <table class="table table-bordered align-middle text-center" id="tablaCocina">
+      <thead class="table-dark">
+        <tr id="headerDias">
+          <th>Área</th>
+          <th>Colaborador</th>
+        </tr>
+      </thead>
+      <tbody id="bodyTabla">
+        <tr>
+          <td colspan="9" class="text-center text-muted p-4">
+            Cargando programación...
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</main>
+
+<!-- MODAL EXTERNO -->
+<div class="modal fade" id="modalExterno" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Nuevo Externo</h5>
+        <button class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <label class="form-label">Nombre completo</label>
+        <input type="text" id="extNombre" class="form-control mb-2" placeholder="Nombre completo">
+
+        <label class="form-label">Documento</label>
+        <input type="text" id="extDocumento" class="form-control mb-2" placeholder="Documento">
+
+        <label class="form-label">Teléfono</label>
+        <input type="text" id="extTelefono" class="form-control mb-2" placeholder="Teléfono">
+
+        <label class="form-label">Tipo de personal</label>
+        <select id="extTipoPersonal" class="form-select mb-2">
+          <option value="externo">Externo</option>
+          <option value="medio_tiempo">Medio tiempo</option>
+          <option value="pendiente">Pendiente</option>
+        </select>
+
+        <label class="form-label">Área operativa</label>
+        <select id="extArea" class="form-select mb-2"></select>
+
+        <label class="form-label">Observación</label>
+        <textarea id="extObservacion" class="form-control" placeholder="Observación"></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary" id="guardarExterno">Guardar</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AGREGAR EMPLEADO -->
+<div class="modal fade" id="modalEmpleado" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Seleccionar Empleado A&B / Cocina</h5>
+        <button class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-5">
+            <label class="form-label">Buscar empleado</label>
+            <input type="text" id="buscarEmpleado" class="form-control" placeholder="Nombre, cédula, cargo o centro de costos">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Área operativa para agregar</label>
+            <select id="empleadoAreaAgregar" class="form-select"></select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Tipo</label>
+            <select id="empleadoTipoAgregar" class="form-select">
+              <option value="fijo">Fijo</option>
+              <option value="medio_tiempo">Medio tiempo</option>
+              <option value="pendiente">Pendiente</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm table-hover">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Cédula</th>
+                <th>Cargo</th>
+                <th>Centro costos</th>
+                <th class="text-end">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="listaEmpleados">
+              <tr>
+                <td colspan="5" class="text-center text-muted">
+                  Cargando empleados...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TURNO -->
+<div class="modal fade" id="modalTurno" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Asignar Turno</h5>
+        <button class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="alert alert-light border small mb-3" id="infoTurnoSeleccionado">
+          Selección actual
+        </div>
+
+        <label class="form-label">Código de turno</label>
+        <select id="selectTurno" class="form-select mb-2"></select>
+
+        <label class="form-label">Área operativa del turno</label>
+        <select id="turnoArea" class="form-select mb-2"></select>
+
+        <label class="form-label">Evento</label>
+        <input type="text" id="turnoEvento" class="form-control mb-2" placeholder="Evento o apoyo especial">
+
+        <label class="form-label">Observación</label>
+        <textarea id="obsTurno" class="form-control" placeholder="Observación"></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-danger" id="eliminarTurno">Eliminar</button>
+        <button class="btn btn-primary" id="guardarTurno">Guardar</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CÓDIGOS -->
+<div class="modal fade" id="modalCodigos" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">Códigos de turno</h5>
+        <button class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row g-2 mb-3">
+          <div class="col-md-2">
+            <label class="form-label">Código</label>
+            <input type="text" id="codigoNuevo" class="form-control" placeholder="Ej: 9">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Descripción</label>
+            <input type="text" id="codigoDescripcion" class="form-control" placeholder="Turno especial">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Inicio</label>
+            <input type="time" id="codigoInicio" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Fin</label>
+            <input type="time" id="codigoFin" class="form-control">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Color</label>
+            <input type="color" id="codigoColor" class="form-control form-control-color w-100" value="#0d6efd">
+          </div>
+        </div>
+
+        <button class="btn btn-primary mb-3" id="guardarCodigo">Guardar código</button>
+
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th>Horario</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="listaCodigos"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/layout.js"></script>
+<script type="module" src="../js/cocina-chef.js"></script>
+
+</body>
+</html>

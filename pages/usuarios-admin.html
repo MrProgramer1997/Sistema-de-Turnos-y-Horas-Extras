@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Usuarios Admin</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../css/estilos.css">
+  <link rel="stylesheet" href="../css/layout.css">
+
+  <style>
+    body {
+      background: #f5f7fb;
+    }
+
+    .usuarios-admin-page {
+      width: 100%;
+      max-width: 100%;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+
+    .page-title {
+      font-weight: 800;
+      color: #172033;
+      margin-bottom: 0.25rem;
+    }
+
+    .page-subtitle {
+      color: #6b7280;
+      margin-bottom: 0;
+    }
+
+    .card-soft {
+      border: 0;
+      border-radius: 18px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+    }
+
+    .kpi-card {
+      border: 0;
+      border-radius: 18px;
+      background: #ffffff;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+      padding: 18px;
+      height: 100%;
+    }
+
+    .kpi-label {
+      display: block;
+      color: #6b7280;
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.35rem;
+    }
+
+    .kpi-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #111827;
+      line-height: 1;
+    }
+
+    .empleado-box {
+      border: 1px solid #dbe4f0;
+      background: #f8fbff;
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .empleado-box strong {
+      color: #172033;
+    }
+
+    .resultados-empleados {
+      border: 1px solid #dbe4f0;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .resultados-empleados .table {
+      margin-bottom: 0;
+    }
+
+    .badge-rol {
+      border-radius: 999px;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.76rem;
+      font-weight: 800;
+      background: #eaf2ff;
+      color: #0d47a1;
+      border: 1px solid #c9ddff;
+    }
+
+    .badge-activo {
+      border-radius: 999px;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.76rem;
+      font-weight: 800;
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .badge-inactivo {
+      border-radius: 999px;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.76rem;
+      font-weight: 800;
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .table td,
+    .table th {
+      vertical-align: middle;
+    }
+
+    .acciones-tabla {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .password-box {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      color: #9a3412;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 991.98px) {
+      .usuarios-admin-page {
+        padding: 72px 14px 18px;
+      }
+
+      .acciones-tabla {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <button class="btn-toggle-sidebar d-md-none" type="button" aria-label="Abrir menú">☰</button>
+  <div id="sidebar-container"></div>
+
+  <main class="main-content fondo-modulo">
+    <div class="usuarios-admin-page">
+
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+          <h2 class="page-title">Usuarios Administrativos</h2>
+          <p class="page-subtitle">
+            Gestión centralizada de accesos administrativos vinculados a empleados existentes.
+          </p>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-outline-primary" id="btnRecargarUsuarios">Recargar</button>
+        </div>
+      </div>
+
+      <div id="alertaUsuariosAdmin" class="mb-3"></div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="kpi-card">
+            <span class="kpi-label">Usuarios activos</span>
+            <div class="kpi-value" id="kpiUsuariosActivos">0</div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="kpi-card">
+            <span class="kpi-label">Usuarios inactivos</span>
+            <div class="kpi-value" id="kpiUsuariosInactivos">0</div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="kpi-card">
+            <span class="kpi-label">Roles configurados</span>
+            <div class="kpi-value" id="kpiRolesConfigurados">0</div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="kpi-card">
+            <span class="kpi-label">Último login</span>
+            <div class="fs-6 fw-bold" id="kpiUltimoLogin">Sin registro</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <div class="col-12 col-xl-5">
+          <div class="card card-soft">
+            <div class="card-header bg-white fw-bold">
+              Crear usuario administrativo
+            </div>
+
+            <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label">Buscar empleado</label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="inputCedulaBuscar" placeholder="Cédula, nombre, apellido, cargo o centro de costos">
+                  <button class="btn btn-primary" type="button" id="btnBuscarEmpleado">Buscar</button>
+                </div>
+                <small class="text-muted">El empleado debe existir previamente en la tabla empleados.</small>
+              </div>
+
+              <div class="resultados-empleados mb-3 d-none" id="boxResultadosEmpleados">
+                <div class="table-responsive">
+                  <table class="table table-sm table-hover align-middle">
+                    <thead>
+                      <tr>
+                        <th>Empleado</th>
+                        <th>Cargo / Área</th>
+                        <th class="text-end">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyResultadosEmpleados"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="empleado-box mb-3 d-none" id="boxEmpleadoEncontrado">
+                <div><strong>Nombre:</strong> <span id="empleadoNombre">-</span></div>
+                <div><strong>Cédula:</strong> <span id="empleadoCedula">-</span></div>
+                <div><strong>Cargo:</strong> <span id="empleadoCargo">-</span></div>
+                <div><strong>Centro de costos:</strong> <span id="empleadoCentroCostos">-</span></div>
+                <div><strong>Área:</strong> <span id="empleadoArea">-</span></div>
+              </div>
+
+              <form id="formCrearUsuarioAdmin">
+                <div class="mb-3">
+                  <label class="form-label">Usuario</label>
+                  <input type="text" class="form-control" id="inputUsuarioAdmin" placeholder="Ej: jperez">
+                  <small class="text-muted">Puede generarse automáticamente desde el nombre del empleado.</small>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label">Contraseña temporal</label>
+                  <div class="input-group">
+                    <input type="text" class="form-control" id="inputPasswordTemporal" readonly>
+                    <button class="btn btn-outline-secondary" type="button" id="btnGenerarPassword">Generar</button>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label">Rol administrativo</label>
+                  <select class="form-select" id="selectRolAdmin">
+                    <option value="">Seleccione rol</option>
+                    <option value="admin">Administrador</option>
+                    <option value="gerencia">Gerencia</option>
+                    <option value="bienestar">Bienestar Institucional</option>
+                    <option value="direccion_financiera">Dirección Administrativa y Financiera</option>
+                    <option value="ayb">Alimentos y Bebidas</option>
+                    <option value="servicios_generales">Servicios Generales</option>
+                  </select>
+                </div>
+
+                <div class="password-box mb-3 d-none" id="boxPasswordGenerada">
+                  Contraseña temporal generada:
+                  <span id="textoPasswordGenerada">-</span>
+                </div>
+
+                <div class="d-grid">
+                  <button type="submit" class="btn btn-success" id="btnCrearUsuarioAdmin">
+                    Crear usuario
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-xl-7">
+          <div class="card card-soft">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <span class="fw-bold">Usuarios existentes</span>
+              <input type="text" class="form-control form-control-sm w-auto" id="inputFiltroUsuarios" placeholder="Buscar usuario, nombre o cédula">
+            </div>
+
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead>
+                    <tr>
+                      <th>Empleado</th>
+                      <th>Usuario</th>
+                      <th>Rol</th>
+                      <th>Estado</th>
+                      <th>Último login</th>
+                      <th class="text-end">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbodyUsuariosAdmin">
+                    <tr>
+                      <td colspan="6" class="text-center text-muted py-4">
+                        Cargando usuarios...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="small text-muted mt-2">
+                Los usuarios no se eliminan. Para conservar trazabilidad, solo se deshabilitan.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <div class="modal fade" id="modalEditarUsuario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar usuario administrativo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" id="editUsuarioId">
+
+          <div class="mb-3">
+            <label class="form-label">Usuario</label>
+            <input type="text" class="form-control" id="editUsuario" readonly>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Rol</label>
+            <select class="form-select" id="editRol">
+              <option value="admin">Administrador</option>
+              <option value="gerencia">Gerencia</option>
+              <option value="bienestar">Bienestar Institucional</option>
+              <option value="direccion_financiera">Dirección Administrativa y Financiera</option>
+              <option value="ayb">Alimentos y Bebidas</option>
+              <option value="servicios_generales">Servicios Generales</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Nueva contraseña temporal</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="editPassword" readonly>
+              <button class="btn btn-outline-secondary" type="button" id="btnGenerarPasswordEdit">Generar</button>
+            </div>
+            <small class="text-muted">Solo se cambiará si genera una nueva contraseña.</small>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary" id="btnGuardarEdicionUsuario">Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/layout.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script type="module" src="../js/usuarios-admin.js?v=30"></script>
+</body>
+</html>

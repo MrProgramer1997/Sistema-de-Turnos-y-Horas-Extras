@@ -82,10 +82,10 @@
         <!-- FORMULARIO ADMIN -->
         <div id="adminLogin" class="form-panel">
           <div class="input-group">
-            <label for="usuario">Usuario / Cédula</label>
+            <label for="usuario">Usuario</label>
             <div class="input-wrapper">
               <span class="input-icon">👤</span>
-              <input type="text" id="usuario" placeholder="Ingrese su cédula" />
+              <input type="text" id="usuario" placeholder="Ingrese su usuario" />
             </div>
             <small class="field-error" id="errorUsuario"></small>
           </div>
@@ -100,22 +100,6 @@
               </button>
             </div>
             <small class="field-error" id="errorPassword"></small>
-          </div>
-
-          <div class="input-group">
-            <label for="rol">Rol</label>
-            <div class="input-wrapper select-wrapper no-icon">
-              <select id="rol">
-                <option value="">Seleccione rol</option>
-                <option value="admin">Administrador</option>
-                <option value="gerencia">Gerencia</option>
-                <option value="bienestar">Bienestar Institucional</option>
-                <option value="direccion_financiera">Dirección Administrativa y Financiera</option>
-                <option value="ayb">Alimentos y Bebidas</option>
-              </select>
-              <span class="select-arrow">⌄</span>
-            </div>
-            <small class="field-error" id="errorRol"></small>
           </div>
 
           <label class="remember-box">
@@ -242,8 +226,6 @@
 
       const usuario = document.getElementById("usuario").value.trim();
       const password = document.getElementById("password").value.trim();
-      const rol = document.getElementById("rol").value;
-
       if (!usuario) {
         marcarError("usuario", "errorUsuario", "Debe ingresar el usuario o cédula.");
         valido = false;
@@ -251,11 +233,6 @@
 
       if (!password) {
         marcarError("password", "errorPassword", "Debe ingresar la contraseña.");
-        valido = false;
-      }
-
-      if (!rol) {
-        marcarError("rol", "errorRol", "Debe seleccionar un rol.");
         valido = false;
       }
 
@@ -350,7 +327,6 @@
 
       const usuario = document.getElementById("usuario");
       const password = document.getElementById("password");
-      const rol = document.getElementById("rol");
       const cedula = document.getElementById("cedula");
 
       if (usuario) {
@@ -367,13 +343,6 @@
         });
       }
 
-      if (rol) {
-        rol.addEventListener("change", () => {
-          rol.classList.remove("input-error");
-          document.getElementById("errorRol").textContent = "";
-        });
-      }
-
       if (cedula) {
         cedula.addEventListener("input", () => {
           cedula.classList.remove("input-error");
@@ -383,6 +352,6 @@
     });
   </script>
 
-  <script type="module" src="../js/auth.js"></script>
+  <script type="module" src="../js/auth.js?v=usuarios-admin-sin-rol-1"></script>
 </body>
 </html>

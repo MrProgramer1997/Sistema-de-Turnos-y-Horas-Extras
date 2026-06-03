@@ -1,0 +1,373 @@
+/* ======================================================
+   COCINA CHEF - CSS COMPLETO
+   Tabla operativa tipo Excel + responsive
+   ====================================================== */
+
+body {
+  background: #f4f6f9;
+}
+
+.cocina-page {
+  min-height: 100vh;
+}
+
+.cocina-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+}
+
+.cocina-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.cocina-toolbar select {
+  min-width: 180px;
+}
+
+.cocina-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.kpi-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+.kpi-label {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.kpi-card strong {
+  font-size: 24px;
+  color: #0f172a;
+}
+
+.cocina-table-wrap {
+  background: #ffffff;
+  border: 1px solid #dbe3ef;
+  border-radius: 16px;
+  max-height: 72vh;
+  overflow: auto;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+#tablaCocina {
+  margin-bottom: 0;
+  min-width: 1280px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+#tablaCocina thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: linear-gradient(180deg, #1f4ea3 0%, #2d63c8 100%) !important;
+  color: #ffffff;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  vertical-align: middle;
+  border-bottom: 1px solid #1d4ed8;
+}
+
+#tablaCocina td {
+  font-size: 12px;
+  vertical-align: middle;
+  border-color: #e5edf8;
+  padding: 6px 8px;
+}
+
+#tablaCocina tbody tr:nth-child(odd) td {
+  background-color: #ffffff;
+}
+
+#tablaCocina tbody tr:nth-child(even) td {
+  background-color: #f8fbff;
+}
+
+#tablaCocina tbody tr:hover td {
+  background-color: #eaf2ff !important;
+}
+
+.area-cell {
+  min-width: 130px;
+  text-align: left;
+  color: #334155;
+  font-weight: 700;
+  background: #eef4ff !important;
+}
+
+.colaborador-cell {
+  min-width: 230px;
+  text-align: left;
+  background: #f8fafc !important;
+}
+
+.acciones-cell {
+  width: 90px;
+  min-width: 90px;
+  text-align: center;
+  background: #f8fafc !important;
+}
+
+.acciones-col {
+  width: 90px;
+  min-width: 90px;
+}
+
+.btn-quitar-persona {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+}
+
+.turno-vacio {
+  cursor: pointer;
+  background: #f1f5f9 !important;
+  color: #64748b;
+  font-weight: 700;
+  transition: 0.15s ease;
+  min-width: 82px;
+}
+
+.turno-vacio:hover {
+  background: #dbeafe !important;
+  color: #1d4ed8;
+}
+
+.turno-cell {
+  cursor: pointer;
+  color: #ffffff;
+  font-weight: 700;
+  min-width: 82px;
+  transition: 0.15s ease;
+}
+
+.turno-cell:hover {
+  filter: brightness(0.94);
+}
+
+.turno-codigo {
+  font-size: 15px;
+  line-height: 1.1;
+}
+
+.turno-evento {
+  display: block;
+  font-size: 10px;
+  line-height: 1.1;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+
+.modal-content {
+  border-radius: 16px;
+  border: 0;
+}
+
+.modal-header {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-footer {
+  border-top: 1px solid #e5e7eb;
+}
+
+.badge {
+  font-size: 12px;
+  padding: 6px 9px;
+}
+
+@media (max-width: 992px) {
+  .cocina-header,
+  .cocina-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cocina-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cocina-toolbar select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .cocina-page {
+    padding: 10px !important;
+  }
+
+  .cocina-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-card strong {
+    font-size: 20px;
+  }
+
+  #tablaCocina th,
+  #tablaCocina td {
+    font-size: 11px;
+    padding: 6px;
+  }
+
+  .colaborador-cell {
+    min-width: 180px;
+  }
+
+  .area-cell {
+    min-width: 110px;
+  }
+
+  .acciones-cell,
+  .acciones-col {
+    min-width: 80px;
+  }
+}
+
+
+/* ======================================================
+   COCINA CHEF - PROGRAMACIÓN RÁPIDA
+   ====================================================== */
+
+.barra-codigos-rapidos {
+  background: #ffffff;
+  border: 1px solid #dbe3ef;
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+.barra-rapida-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.estado-codigo-rapido {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.barra-rapida-codigos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-codigo-rapido {
+  min-width: 44px;
+  height: 38px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  background: var(--codigo-color, #0d6efd);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 14px;
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.btn-codigo-rapido:hover {
+  transform: translateY(-1px);
+  filter: brightness(0.96);
+}
+
+.btn-codigo-rapido.activo {
+  outline: 3px solid rgba(37, 99, 235, 0.25);
+  border-color: #0f172a;
+  transform: translateY(-1px);
+}
+
+.barra-rapida-info {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.celda-rapida-seleccionada {
+  outline: 3px solid #2563eb !important;
+  outline-offset: -3px;
+}
+
+.celda-guardando {
+  position: relative;
+  opacity: 0.75;
+}
+
+.celda-guardando::after {
+  content: "Guardando";
+  position: absolute;
+  inset: auto 4px 4px 4px;
+  background: rgba(251, 191, 36, 0.95);
+  color: #111827;
+  font-size: 9px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 2px 4px;
+}
+
+.celda-guardada {
+  outline: 3px solid #16a34a !important;
+  outline-offset: -3px;
+}
+
+.celda-error {
+  outline: 3px solid #dc2626 !important;
+  outline-offset: -3px;
+}
+
+@media (max-width: 768px) {
+  .barra-rapida-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .barra-rapida-actions {
+    width: 100%;
+  }
+
+  .barra-rapida-actions .btn {
+    width: 100%;
+  }
+
+  .btn-codigo-rapido {
+    min-width: 42px;
+    height: 36px;
+  }
+}
