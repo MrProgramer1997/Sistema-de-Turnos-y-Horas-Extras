@@ -5,6 +5,155 @@
   <title>Login - Club Campestre Turnos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="../css/login.css" />
+
+  <style>
+    /* Ajuste UX Login - Empleados + loader seguro */
+    .tab-empleado-destacado {
+      position: relative;
+      font-weight: 900 !important;
+    }
+
+    .tab-empleado-destacado::after {
+      content: "Rápido";
+      position: absolute;
+      top: -10px;
+      right: 10px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #22c55e;
+      color: #ffffff;
+      font-size: 0.68rem;
+      font-weight: 900;
+      line-height: 1.2;
+      box-shadow: 0 8px 18px rgba(34, 197, 94, 0.25);
+    }
+
+    .tabs.empleado-activo #tabEmpleado,
+    #tabEmpleado.active {
+      background: linear-gradient(135deg, #16a34a, #0f766e) !important;
+      color: #ffffff !important;
+      box-shadow: 0 14px 28px rgba(22, 163, 74, 0.24);
+    }
+
+    .empleado-help-box {
+      display: grid;
+      gap: 0.25rem;
+      padding: 0.95rem 1rem;
+      margin-bottom: 1rem;
+      border-radius: 1rem;
+      background: linear-gradient(135deg, #ecfdf5, #eff6ff);
+      border: 1px solid #bbf7d0;
+      color: #064e3b;
+    }
+
+    .empleado-help-box strong {
+      font-size: 0.98rem;
+      font-weight: 900;
+    }
+
+    .empleado-help-box span {
+      color: #475569;
+      font-size: 0.9rem;
+      line-height: 1.35;
+    }
+
+    .empleado-input-wrapper {
+      border-color: #86efac !important;
+      background: #ffffff !important;
+      box-shadow: 0 8px 20px rgba(22, 163, 74, 0.08);
+    }
+
+    .btn-empleado-principal {
+      background: linear-gradient(135deg, #16a34a, #0f766e) !important;
+      border: 0 !important;
+      color: #ffffff !important;
+      font-size: 1.05rem !important;
+      font-weight: 950 !important;
+      box-shadow: 0 16px 30px rgba(22, 163, 74, 0.25) !important;
+    }
+
+    .btn-empleado-principal:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 36px rgba(22, 163, 74, 0.32) !important;
+    }
+
+    @media (max-width: 768px) {
+      .tab-empleado-destacado::after {
+        top: -8px;
+        right: 6px;
+        font-size: 0.62rem;
+      }
+
+      .btn-empleado-principal {
+        min-height: 54px;
+      }
+    }
+  </style>
+
+
+  <style>
+    /* FIX SEGURO LOGIN - Visibilidad cédula y acceso empleados */
+    #empleadoLogin #cedula {
+      color: #0f172a !important;
+      -webkit-text-fill-color: #0f172a !important;
+      caret-color: #16a34a !important;
+      background: transparent !important;
+      opacity: 1 !important;
+      font-size: 1.18rem !important;
+      font-weight: 900 !important;
+      letter-spacing: 0.04em !important;
+      text-shadow: none !important;
+    }
+
+    #empleadoLogin #cedula::placeholder {
+      color: #94a3b8 !important;
+      -webkit-text-fill-color: #94a3b8 !important;
+      opacity: 1 !important;
+      font-weight: 700 !important;
+      letter-spacing: normal !important;
+    }
+
+    #empleadoLogin .input-wrapper,
+    #empleadoLogin .empleado-input-wrapper {
+      background: #ffffff !important;
+      border: 2px solid #86efac !important;
+      box-shadow: 0 8px 22px rgba(22, 163, 74, 0.12) !important;
+    }
+
+    #empleadoLogin .input-wrapper:focus-within,
+    #empleadoLogin .empleado-input-wrapper:focus-within {
+      border-color: #16a34a !important;
+      box-shadow: 0 0 0 0.22rem rgba(22, 163, 74, 0.16) !important;
+    }
+
+    #empleadoLogin .input-icon {
+      color: #166534 !important;
+      opacity: 1 !important;
+    }
+
+    #tabEmpleado.active,
+    .tabs.empleado-activo #tabEmpleado {
+      background: linear-gradient(135deg, #16a34a, #0f766e) !important;
+      color: #ffffff !important;
+      box-shadow: 0 14px 28px rgba(22, 163, 74, 0.24) !important;
+    }
+
+    .btn-empleado-principal {
+      background: linear-gradient(135deg, #16a34a, #0f766e) !important;
+      border: 0 !important;
+      color: #ffffff !important;
+      font-weight: 950 !important;
+      min-height: 54px !important;
+    }
+
+    .loader-overlay.hidden {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+  </style>
+
 </head>
 <body>
 
@@ -51,13 +200,7 @@
             </div>
           </div>
 
-          <div class="highlight-card animate-fade delay-7">
-            <div class="highlight-icon">✅</div>
-            <div>
-              <strong>Proceso más ordenado</strong>
-              <small>Mejor experiencia para áreas administrativas y operativas.</small>
-            </div>
-          </div>
+
         </div>
       </section>
 
@@ -65,7 +208,7 @@
       <section class="login-card animate-slide-right">
         <div class="card-top">
           <h2>Ingreso al Sistema</h2>
-          <p>Seleccione el tipo de acceso correspondiente</p>
+          <p>Seleccione si ingresa como administrador o como empleado para consultar sus turnos.</p>
         </div>
 
         <div id="mensajeLogin" class="mensaje-login hidden"></div>
@@ -74,7 +217,7 @@
           <button type="button" class="tab-btn active" id="tabAdmin" onclick="mostrarAdmin()">
             Administradores
           </button>
-          <button type="button" class="tab-btn" id="tabEmpleado" onclick="mostrarEmpleado()">
+          <button type="button" class="tab-btn tab-empleado-destacado" id="tabEmpleado" onclick="mostrarEmpleado()">
             Empleados
           </button>
         </div>
@@ -114,17 +257,22 @@
 
         <!-- FORMULARIO EMPLEADO -->
         <div id="empleadoLogin" class="form-panel" style="display: none;">
+          <div class="empleado-help-box">
+            <strong>Consulta rápida para empleados</strong>
+            <span>Ingresa únicamente tu cédula para ver tus turnos y solicitudes.</span>
+          </div>
+
           <div class="input-group">
-            <label for="cedula">Cédula</label>
-            <div class="input-wrapper">
+            <label for="cedula">Cédula del empleado</label>
+            <div class="input-wrapper empleado-input-wrapper">
               <span class="input-icon">🪪</span>
-              <input type="text" id="cedula" placeholder="Ingrese su cédula" />
+              <input type="text" id="cedula" placeholder="Ejemplo: 1088029438" inputmode="numeric" autocomplete="off" />
             </div>
             <small class="field-error" id="errorCedula"></small>
           </div>
 
-          <button type="button" class="btn-primary" onclick="consultarTurnosConUI()">
-            Consultar Turnos
+          <button type="button" class="btn-primary btn-empleado-principal" onclick="consultarTurnosConUI()">
+            Consultar mis turnos
           </button>
         </div>
 
@@ -150,6 +298,7 @@
 
       document.getElementById("tabAdmin").classList.add("active");
       document.getElementById("tabEmpleado").classList.remove("active");
+      document.querySelector(".tabs")?.classList.remove("empleado-activo");
 
       limpiarMensaje();
       limpiarErrores();
@@ -162,6 +311,8 @@
 
       document.getElementById("tabEmpleado").classList.add("active");
       document.getElementById("tabAdmin").classList.remove("active");
+      document.querySelector(".tabs")?.classList.add("empleado-activo");
+      setTimeout(() => document.getElementById("cedula")?.focus(), 100);
 
       limpiarMensaje();
       limpiarErrores();
@@ -220,6 +371,17 @@
       if (error) error.textContent = mensaje;
     }
 
+
+    function normalizarCedulaVisible() {
+      const cedula = document.getElementById("cedula");
+      if (!cedula) return;
+
+      cedula.value = cedula.value.replace(/\D/g, "");
+      cedula.style.color = "#0f172a";
+      cedula.style.webkitTextFillColor = "#0f172a";
+      cedula.style.opacity = "1";
+    }
+
     function validarAdminUI() {
       limpiarErrores();
       let valido = true;
@@ -261,17 +423,26 @@
         return;
       }
 
+      let timeoutLoader = null;
+
       try {
         mostrarLoader();
         guardarUsuarioRecordado();
 
+        timeoutLoader = setTimeout(() => {
+          ocultarLoader();
+        }, 12000);
+
         if (typeof loginAdmin === "function") {
           await loginAdmin();
+          clearTimeout(timeoutLoader);
         } else {
+          clearTimeout(timeoutLoader);
           ocultarLoader();
           mostrarMensaje("error", "No se encontró la función de inicio de sesión administrativo.");
         }
       } catch (error) {
+        if (timeoutLoader) clearTimeout(timeoutLoader);
         ocultarLoader();
         mostrarMensaje("error", "Ocurrió un error al intentar iniciar sesión.");
         console.error(error);
@@ -286,16 +457,24 @@
         return;
       }
 
+      let timeoutLoader = null;
+
       try {
         mostrarLoader();
+        timeoutLoader = setTimeout(() => {
+          ocultarLoader();
+        }, 12000);
 
         if (typeof consultarTurnos === "function") {
           await consultarTurnos();
+          clearTimeout(timeoutLoader);
         } else {
+          clearTimeout(timeoutLoader);
           ocultarLoader();
           mostrarMensaje("error", "No se encontró la función de consulta de turnos.");
         }
       } catch (error) {
+        if (timeoutLoader) clearTimeout(timeoutLoader);
         ocultarLoader();
         mostrarMensaje("error", "Ocurrió un error al consultar los turnos.");
         console.error(error);
@@ -322,7 +501,29 @@
       }
     }
 
+
+    function resetearEstadoLoginSeguro() {
+      ocultarLoader();
+      limpiarMensaje();
+      limpiarErrores();
+
+      const botones = document.querySelectorAll("button");
+      botones.forEach((btn) => {
+        btn.disabled = false;
+        btn.removeAttribute("aria-busy");
+      });
+    }
+
+    window.addEventListener("pageshow", () => {
+      resetearEstadoLoginSeguro();
+    });
+
+    window.addEventListener("focus", () => {
+      ocultarLoader();
+    });
+
     document.addEventListener("DOMContentLoaded", () => {
+      resetearEstadoLoginSeguro();
       cargarUsuarioRecordado();
 
       const usuario = document.getElementById("usuario");
@@ -345,13 +546,17 @@
 
       if (cedula) {
         cedula.addEventListener("input", () => {
+          normalizarCedulaVisible();
           cedula.classList.remove("input-error");
           document.getElementById("errorCedula").textContent = "";
         });
+
+        cedula.addEventListener("focus", normalizarCedulaVisible);
+        cedula.addEventListener("blur", normalizarCedulaVisible);
       }
     });
   </script>
 
-  <script type="module" src="../js/auth.js?v=usuarios-admin-sin-rol-1"></script>
+  <script type="module" src="../js/auth.js?v=login-fix-seguro-20260603"></script>
 </body>
 </html>
