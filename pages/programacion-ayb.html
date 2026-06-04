@@ -9,312 +9,195 @@
   <link rel="stylesheet" href="../css/estilos.css">
   <link rel="stylesheet" href="../css/layout.css">
   <link rel="stylesheet" href="../css/ayb.css">
-
-  <style>
-    .modal-footer-sticky {
-      position: sticky;
-      bottom: 0;
-      background: #fff;
-      z-index: 2;
-      border-top: 1px solid #dee2e6;
-    }
-
-    .banner-turno-copiado {
-      border: 1px dashed #86b7fe;
-      background: #eef5ff;
-      border-radius: 0.75rem;
-      padding: 0.85rem 1rem;
-    }
-
-    .acciones-celda {
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.35rem;
-      margin-bottom: 0.5rem;
-      flex-wrap: wrap;
-    }
-
-    .subarea-label {
-      font-weight: 700;
-    }
-
-    .subarea-meta {
-      font-size: 0.8rem;
-      color: #6c757d;
-    }
-
-    .turno-card-compact,
-    .novedad-card-compact {
-      border-radius: 0.6rem;
-      padding: 0.6rem;
-      border: 1px solid #dee2e6;
-      margin-bottom: 0.55rem;
-      background: #fff;
-    }
-
-    .turno-card-compact {
-      background: #f8f9fa;
-    }
-
-    .novedad-inc {
-      background: #fee2e2;
-      border-color: #fca5a5;
-    }
-
-    .novedad-vac {
-      background: #ffedd5;
-      border-color: #fdba74;
-    }
-
-    .novedad-lr {
-      background: #fef9c3;
-      border-color: #fde047;
-    }
-
-    .novedad-default {
-      background: #dbeafe;
-      border-color: #93c5fd;
-    }
-
-    .extra-badge {
-      font-size: 0.75rem;
-      font-weight: 700;
-      padding: 0.18rem 0.45rem;
-      border-radius: 999px;
-      display: inline-block;
-    }
-
-    .extra-zero {
-      background: #e9ecef;
-      color: #495057;
-    }
-
-    .extra-positive {
-      background: #fff3cd;
-      color: #856404;
-    }
-
-    .kpi-card-ayb {
-      border: 0;
-      border-radius: 1rem;
-      box-shadow: 0 10px 24px rgba(0,0,0,0.06);
-    }
-
-    .kpi-card-ayb .card-body {
-      padding: 1rem 1.1rem;
-    }
-
-    .kpi-card-ayb .kpi-label {
-      font-size: 0.85rem;
-      color: #6c757d;
-      margin-bottom: 0.25rem;
-    }
-
-    .kpi-card-ayb .kpi-value {
-      font-size: 1.7rem;
-      font-weight: 800;
-      line-height: 1.1;
-    }
-
-    .resumen-card {
-      border-radius: 1rem;
-      border: 0;
-      box-shadow: 0 10px 24px rgba(0,0,0,0.06);
-    }
-
-    .ayb-help-box {
-      font-size: 0.9rem;
-    }
-
-    .table-ranking td,
-    .table-ranking th {
-      vertical-align: middle;
-    }
-
-    .compact-nombre {
-      font-size: 0.9rem;
-      font-weight: 700;
-      line-height: 1.2;
-    }
-
-    .compact-cargo {
-      font-size: 0.78rem;
-      color: #6c757d;
-      line-height: 1.15;
-    }
-
-    .compact-line {
-      font-size: 0.8rem;
-      line-height: 1.2;
-    }
-
-    .detalle-grid .item {
-      background: #f8f9fa;
-      border: 1px solid #e9ecef;
-      border-radius: 0.75rem;
-      padding: 0.75rem;
-      height: 100%;
-    }
-
-    .detalle-grid .label {
-      font-size: 0.8rem;
-      color: #6c757d;
-      margin-bottom: 0.2rem;
-    }
-
-    .detalle-grid .value {
-      font-size: 1rem;
-      font-weight: 700;
-    }
-
-    .modal-detalle-title {
-      line-height: 1.2;
-    }
-
-    @media (max-width: 991.98px) {
-      .modal-dialog {
-        margin: 0;
-      }
-    }
-  </style>
 </head>
 <body>
   <div id="sidebar-container"></div>
 
   <main class="main-content fondo-modulo p-4">
     <div class="topbar-ayb d-flex justify-content-between align-items-center flex-wrap">
-    <div>
-      <h3 class="mb-0 fw-bold">Sistema de Turnos y Horas Extras</h3>
-      <small>Módulo web A&B · Corporación Club Campestre de Pereira</small>
+      <div>
+        <h3 class="mb-0 fw-bold">Sistema de Turnos y Horas Extras</h3>
+        <small>Módulo web A&B · Corporación Club Campestre de Pereira</small>
+      </div>
+      <div class="text-end">
+        <div class="fw-semibold">Semana actual</div>
+        <div class="fw-bold" id="textoMesAnioAyb">Cargando mes...</div>
+        <small id="textoSemanaAyb">Cargando semana...</small>
+      </div>
     </div>
-    <div class="text-end">
-      <div class="fw-semibold">Semana actual</div>
-      <div class="fw-bold" id="textoMesAnioAyb">Cargando mes...</div>
-      <small id="textoSemanaAyb">Cargando semana...</small>
-    </div>
-  </div>
 
     <div class="container-fluid px-0">
-        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+      <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+          <h2 class="mb-1">Programación A&B</h2>
+          <p class="text-muted mb-0" id="subtituloAyb">Matriz semanal por empleado</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-outline-primary" id="btnSemanaAnterior" type="button">Semana anterior</button>
+          <button class="btn btn-outline-primary" id="btnSemanaActual" type="button">Semana actual</button>
+          <button class="btn btn-outline-primary" id="btnSemanaSiguiente" type="button">Semana siguiente</button>
+          <button class="btn btn-primary" id="btnNuevaAsignacion" type="button">Nueva asignación</button>
+          <button class="btn btn-outline-danger" id="btnPdfGeneral" type="button">PDF general</button>
+        </div>
+      </div>
+
+      <div id="bannerTurnoCopiadoAyb" class="banner-turno-copiado d-none mb-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div>
-            <h2 class="mb-1">Programación A&B</h2>
-            <p class="text-muted mb-0" id="subtituloAyb">Calendario semanal por restaurante</p>
+            <div class="fw-semibold">Turno copiado</div>
+            <div id="textoTurnoCopiadoAyb" class="small text-muted">No hay turno copiado</div>
           </div>
-          <div class="d-flex gap-2 flex-wrap">
-            <button class="btn btn-outline-primary" id="btnSemanaAnterior">Semana anterior</button>
-            <button class="btn btn-outline-primary" id="btnSemanaSiguiente">Semana siguiente</button>
-            <button class="btn btn-primary" id="btnNuevaAsignacion">Nueva asignación</button>
-            <button class="btn btn-outline-danger" id="btnPdfGeneral">PDF general</button>
-          </div>
+          <button id="btnLimpiarTurnoCopiadoAyb" class="btn btn-sm btn-outline-secondary" type="button">
+            Limpiar copia
+          </button>
         </div>
+      </div>
 
-        <div id="bannerTurnoCopiadoAyb" class="banner-turno-copiado d-none mb-3">
-          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div>
-              <div class="fw-semibold">Turno copiado</div>
-              <div id="textoTurnoCopiadoAyb" class="small text-muted">No hay turno copiado</div>
-            </div>
-            <button id="btnLimpiarTurnoCopiadoAyb" class="btn btn-sm btn-outline-secondary" type="button">
-              Limpiar copia
-            </button>
-          </div>
-        </div>
-
-        <div class="row g-3 mb-4">
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="card kpi-card-ayb">
-              <div class="card-body">
-                <div class="kpi-label">Horas netas programadas</div>
-                <div class="kpi-value" id="kpiHorasNetasAyb">0.0</div>
-                <div class="small text-muted">Semana visible</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="card kpi-card-ayb">
-              <div class="card-body">
-                <div class="kpi-label">Horas extra estimadas</div>
-                <div class="kpi-value" id="kpiHorasExtraAyb">0.0</div>
-                <div class="small text-muted">Programación teórica</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="card kpi-card-ayb">
-              <div class="card-body">
-                <div class="kpi-label">Empleado con mayor extra</div>
-                <div class="kpi-value" id="kpiTopEmpleadoHorasAyb">-</div>
-                <div class="small text-muted" id="kpiTopEmpleadoDetalleAyb">Sin datos</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="card kpi-card-ayb">
-              <div class="card-body">
-                <div class="kpi-label">Registros programados</div>
-                <div class="kpi-value" id="kpiRegistrosAyb">0</div>
-                <div class="small text-muted">Turnos y novedades</div>
-              </div>
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="card kpi-card-ayb">
+            <div class="card-body">
+              <div class="kpi-label">Horas netas programadas</div>
+              <div class="kpi-value" id="kpiHorasNetasAyb">0.0</div>
+              <div class="small text-muted">Semana visible</div>
             </div>
           </div>
         </div>
 
-        <div class="row g-3 mb-4">
-          <div class="col-12 col-xl-7">
-            <div class="card resumen-card">
-              <div class="card-header bg-white fw-bold">Resumen semanal de horas extra estimadas</div>
-              <div class="card-body">
-                <div id="resumenSemanalAyb" class="text-muted">Cargando resumen...</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="col-12 col-xl-5">
-            <div class="card resumen-card">
-              <div class="card-header bg-white fw-bold">PDF por empleado</div>
-              <div class="card-body">
-                <label for="selectEmpleadoPdfAyb" class="form-label">Selecciona un empleado</label>
-                <select id="selectEmpleadoPdfAyb" class="form-select mb-3">
-                  <option value="">Seleccione</option>
-                </select>
-                <button class="btn btn-outline-danger w-100" id="btnPdfEmpleado">Descargar PDF del empleado</button>
-                <div class="small text-muted mt-2">
-                  Descarga la programación de la semana visible para el empleado seleccionado.
-                </div>
-              </div>
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="card kpi-card-ayb">
+            <div class="card-body">
+              <div class="kpi-label">Horas extra estimadas</div>
+              <div class="kpi-value" id="kpiHorasExtraAyb">0.0</div>
+              <div class="small text-muted">Programación teórica</div>
             </div>
           </div>
         </div>
 
-        <div class="card shadow-sm border-0 mt-4">
-          <div class="card-header bg-white fw-bold">Calendario semanal A&B</div>
-          <div class="card-body">
-            <div class="table-responsive">
-              <table class="table table-bordered calendario-ayb">
-                <thead>
-                  <tr>
-                    <th>Restaurante / Subárea</th>
-                    <th id="thDia1">Martes</th>
-                    <th id="thDia2">Miércoles</th>
-                    <th id="thDia3">Jueves</th>
-                    <th id="thDia4">Viernes</th>
-                    <th id="thDia5">Sábado</th>
-                    <th id="thDia6">Domingo</th>
-                    <th id="thDia7">Lunes</th>
-                  </tr>
-                </thead>
-                <tbody id="tbodyProgramacionAYB">
-                  <tr>
-                    <td colspan="8" class="text-center text-muted py-4">Cargando programación...</td>
-                  </tr>
-                </tbody>
-              </table>
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="card kpi-card-ayb">
+            <div class="card-body">
+              <div class="kpi-label">Empleado con mayor extra</div>
+              <div class="kpi-value" id="kpiTopEmpleadoHorasAyb">-</div>
+              <div class="small text-muted" id="kpiTopEmpleadoDetalleAyb">Sin datos</div>
             </div>
           </div>
         </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="card kpi-card-ayb">
+            <div class="card-body">
+              <div class="kpi-label">Registros programados</div>
+              <div class="kpi-value" id="kpiRegistrosAyb">0</div>
+              <div class="small text-muted">Turnos y novedades</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-xl-7">
+          <div class="card resumen-card">
+            <div class="card-header bg-white fw-bold">Resumen semanal de horas extra estimadas</div>
+            <div class="card-body">
+              <div id="resumenSemanalAyb" class="text-muted">Cargando resumen...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-xl-5">
+          <div class="card resumen-card">
+            <div class="card-header bg-white fw-bold">PDF por empleado</div>
+            <div class="card-body">
+              <label for="selectEmpleadoPdfAyb" class="form-label">Selecciona un empleado</label>
+              <select id="selectEmpleadoPdfAyb" class="form-select mb-3">
+                <option value="">Seleccione</option>
+              </select>
+              <button class="btn btn-outline-danger w-100" id="btnPdfEmpleado" type="button">Descargar PDF del empleado</button>
+              <div class="small text-muted mt-2">Descarga la programación de la semana visible para el empleado seleccionado.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card resumen-card mb-4 filtros-matriz-ayb">
+        <div class="card-header bg-white fw-bold">Filtros de programación</div>
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-12 col-lg-4">
+              <label for="inputFiltroEmpleadoMatrizAyb" class="form-label">Buscar empleado</label>
+              <input type="text" class="form-control" id="inputFiltroEmpleadoMatrizAyb" placeholder="Nombre, cédula o cargo">
+            </div>
+            <div class="col-12 col-md-4 col-lg-3">
+              <label for="selectFiltroCargoMatrizAyb" class="form-label">Cargo</label>
+              <select class="form-select" id="selectFiltroCargoMatrizAyb">
+                <option value="">Todos los cargos</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+              <label for="selectFiltroSubareaMatrizAyb" class="form-label">Subárea</label>
+              <select class="form-select" id="selectFiltroSubareaMatrizAyb">
+                <option value="">Todas</option>
+                <option value="Rialto">Rialto</option>
+                <option value="Hoyo 19">Hoyo 19</option>
+                <option value="Bar Deportivo">Bar Deportivo</option>
+                <option value="Tenis">Tenis</option>
+                <option value="Samanes">Samanes</option>
+                <option value="Piscina">Piscina</option>
+                <option value="Café">Café</option>
+                <option value="Carro Bar">Carro Bar</option>
+                <option value="Heladería">Heladería</option>
+                <option value="Mesa y Bar">Mesa y Bar</option>
+                <option value="Eventos">Eventos</option>
+                <option value="Cocina">Cocina</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+              <label for="selectFiltroEstadoMatrizAyb" class="form-label">Mostrar</label>
+              <select class="form-select" id="selectFiltroEstadoMatrizAyb">
+                <option value="todos">Todos</option>
+                <option value="con-registros">Con registros</option>
+                <option value="sin-registros">Sin programación</option>
+                <option value="con-extra">Con horas extra</option>
+                <option value="con-novedad">Con novedades</option>
+              </select>
+            </div>
+            <div class="col-12 col-lg-1">
+              <button class="btn btn-outline-secondary w-100" id="btnLimpiarFiltrosMatrizAyb" type="button">Limpiar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm border-0 mt-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="fw-bold">Matriz semanal de programación A&B por empleado</div>
+          <div id="textoResultadoMatrizAyb" class="small text-muted">Cargando empleados...</div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive matriz-wrapper-ayb">
+            <table class="table table-bordered calendario-ayb matriz-ayb">
+              <thead>
+                <tr>
+                  <th class="columna-empleado-ayb">Empleado / Cargo</th>
+                  <th id="thDia1">Martes</th>
+                  <th id="thDia2">Miércoles</th>
+                  <th id="thDia3">Jueves</th>
+                  <th id="thDia4">Viernes</th>
+                  <th id="thDia5">Sábado</th>
+                  <th id="thDia6">Domingo</th>
+                  <th id="thDia7">Lunes</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyProgramacionAYB">
+                <tr>
+                  <td colspan="8" class="text-center text-muted py-4">Cargando programación...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -330,7 +213,6 @@
           <div class="modal-body">
             <div class="alert alert-danger d-none" id="alertaErrorAyb"></div>
             <div class="alert alert-success d-none" id="alertaOkAyb"></div>
-
             <input type="hidden" id="registroIdAyb">
 
             <div class="row g-3">
@@ -370,15 +252,15 @@
                   <option value="Rialto">R · Rialto</option>
                   <option value="Hoyo 19">H · Hoyo 19</option>
                   <option value="Bar Deportivo">BD · Bar Deportivo</option>
-                  <option value="Tenis">Tenis</option>
-                  <option value="Samanes">Samanes</option>
-                  <option value="Piscina">Piscina</option>
-                  <option value="Café">Café</option>
-                  <option value="Carro Bar">Carro Bar</option>
-                  <option value="Heladería">Heladería</option>
-                  <option value="Mesa y Bar">Mesa y Bar</option>
-                  <option value="Eventos">Eventos</option>
-                  <option value="Cocina">Cocina</option>
+                  <option value="Tenis">T · Tenis</option>
+                  <option value="Samanes">S · Samanes</option>
+                  <option value="Piscina">P · Piscina</option>
+                  <option value="Café">C · Café</option>
+                  <option value="Carro Bar">CB · Carro Bar</option>
+                  <option value="Heladería">HEL · Heladería</option>
+                  <option value="Mesa y Bar">MB · Mesa y Bar</option>
+                  <option value="Eventos">EV · Eventos</option>
+                  <option value="Cocina">COC · Cocina</option>
                 </select>
               </div>
 
@@ -389,10 +271,8 @@
 
               <div class="col-12 d-none" id="alertaNovedadEmpleadoAyb">
                 <div class="alert alert-warning mb-0">
-                  <div class="fw-bold">⚠️ Novedad activa para esta fecha</div>
-                  <div id="textoNovedadEmpleadoAyb" class="small">
-                    Este empleado tiene una novedad registrada para la fecha seleccionada.
-                  </div>
+                  <div class="fw-bold">Novedad activa para esta fecha</div>
+                  <div id="textoNovedadEmpleadoAyb" class="small">Este empleado tiene una novedad registrada para la fecha seleccionada.</div>
                 </div>
               </div>
 
@@ -406,30 +286,22 @@
                 <div class="row g-3">
                   <div class="col-md-4">
                     <label for="turnoAyb" class="form-label">Turno bloque 1</label>
-                    <select class="form-select" id="turnoAyb">
-                      <option value="">Seleccione</option>
-                    </select>
+                    <select class="form-select" id="turnoAyb"><option value="">Seleccione</option></select>
                   </div>
-
                   <div class="col-md-4">
                     <label for="horaInicioAyb" class="form-label">Hora inicio bloque 1</label>
                     <input type="time" class="form-control" id="horaInicioAyb">
                   </div>
-
                   <div class="col-md-4">
                     <label for="horaFinAyb" class="form-label">Hora fin bloque 1</label>
                     <input type="time" class="form-control" id="horaFinAyb">
                   </div>
-
                   <div class="col-12">
                     <div class="form-check mt-2">
                       <input class="form-check-input" type="checkbox" id="checkTurnoPartido">
-                      <label class="form-check-label" for="checkTurnoPartido">
-                        Este registro es partido / segundo bloque
-                      </label>
+                      <label class="form-check-label" for="checkTurnoPartido">Este registro es partido / segundo bloque</label>
                     </div>
                   </div>
-
                   <div class="col-12 d-none" id="bloqueTurnoPartido">
                     <div class="row g-3">
                       <div class="col-md-3">
@@ -439,30 +311,25 @@
                           <option value="Rialto">R · Rialto</option>
                           <option value="Hoyo 19">H · Hoyo 19</option>
                           <option value="Bar Deportivo">BD · Bar Deportivo</option>
-                          <option value="Tenis">Tenis</option>
-                          <option value="Samanes">Samanes</option>
-                          <option value="Piscina">Piscina</option>
-                          <option value="Café">Café</option>
-                          <option value="Carro Bar">Carro Bar</option>
-                          <option value="Heladería">Heladería</option>
-                          <option value="Mesa y Bar">Mesa y Bar</option>
-                          <option value="Eventos">Eventos</option>
-                          <option value="Cocina">Cocina</option>
+                          <option value="Tenis">T · Tenis</option>
+                          <option value="Samanes">S · Samanes</option>
+                          <option value="Piscina">P · Piscina</option>
+                          <option value="Café">C · Café</option>
+                          <option value="Carro Bar">CB · Carro Bar</option>
+                          <option value="Heladería">HEL · Heladería</option>
+                          <option value="Mesa y Bar">MB · Mesa y Bar</option>
+                          <option value="Eventos">EV · Eventos</option>
+                          <option value="Cocina">COC · Cocina</option>
                         </select>
                       </div>
-
                       <div class="col-md-3">
                         <label for="turno2Ayb" class="form-label">Turno bloque 2</label>
-                        <select class="form-select" id="turno2Ayb">
-                          <option value="">Seleccione</option>
-                        </select>
+                        <select class="form-select" id="turno2Ayb"><option value="">Seleccione</option></select>
                       </div>
-
                       <div class="col-md-3">
                         <label for="horaInicio2Ayb" class="form-label">Hora inicio bloque 2</label>
                         <input type="time" class="form-control" id="horaInicio2Ayb">
                       </div>
-
                       <div class="col-md-3">
                         <label for="horaFin2Ayb" class="form-label">Hora fin bloque 2</label>
                         <input type="time" class="form-control" id="horaFin2Ayb">
@@ -490,12 +357,10 @@
                       <option value="PASA">PASA · Pasa a otro punto</option>
                     </select>
                   </div>
-
                   <div class="col-md-6">
                     <label for="novedadDescripcionAyb" class="form-label">Descripción de la novedad</label>
                     <input type="text" class="form-control" id="novedadDescripcionAyb" placeholder="Opcional">
                   </div>
-
                   <div class="col-12">
                     <div class="small text-muted border rounded p-2 bg-light ayb-help-box">
                       Las novedades no llevan restaurante, subárea ni horas. Aquí entran vacaciones, incapacidad, día de la familia, licencia no remunerada, suspensión y demás días especiales.
@@ -530,11 +395,7 @@
           </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
-
-        <div class="modal-body" id="detalleContenidoRegistroAyb">
-          Cargando...
-        </div>
-
+        <div class="modal-body" id="detalleContenidoRegistroAyb">Cargando...</div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
         </div>

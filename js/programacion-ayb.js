@@ -44,8 +44,8 @@ const NOVEDADES_LABELS = {
   PASA: "Pasa a otro punto"
 };
 
-const HORA_INICIO_NOCTURNO = 19 * 60; // 7:00 pm
-const HORA_FIN_NOCTURNO = 6 * 60; // 6:00 am
+const HORA_INICIO_NOCTURNO = 19 * 60;
+const HORA_FIN_NOCTURNO = 6 * 60;
 const DESCANSO_ESTANDAR_HORAS = 0.5;
 
 let semanaActual = [];
@@ -58,10 +58,10 @@ let modoEdicion = false;
 let turnoCopiadoAyb = null;
 let registrosSemanaAyb = [];
 let festivosSemana = [];
+let filtrosMatrizAyb = { busqueda: "", cargo: "", subarea: "", estado: "todos" };
 
 document.addEventListener("DOMContentLoaded", async () => {
   sesionActual = JSON.parse(localStorage.getItem("ccp_sesion") || "null");
-
   if (!sesionActual) {
     window.location.href = "login.html";
     return;
@@ -78,7 +78,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderEncabezadosSemana();
   renderTextosSemana();
   renderOpcionesTurnos();
-
   inicializarModales();
   configurarBotones();
   configurarFormulario();
@@ -86,6 +85,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   configurarTipoRegistro();
   configurarTurnosAutollenado();
   configurarInfoSubarea();
+  configurarFiltrosMatrizAyb();
   cargarTurnoCopiadoDesdeMemoria();
   configurarAccionesGlobales();
 
@@ -94,16 +94,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function inicializarModales() {
-  const modalAsignacionElement = document.getElementById("modalAsignacionAyb");
-  const modalDetalleElement = document.getElementById("modalDetalleRegistroAyb");
-
-  if (modalAsignacionElement) {
-    modalAsignacionAyb = new bootstrap.Modal(modalAsignacionElement);
-  }
-
-  if (modalDetalleElement) {
-    modalDetalleRegistroAyb = new bootstrap.Modal(modalDetalleElement);
-  }
+  const asignacion = document.getElementById("modalAsignacionAyb");
+  const detalle = document.getElementById("modalDetalleRegistroAyb");
+  if (asignacion) modalAsignacionAyb = new bootstrap.Modal(asignacion);
+  if (detalle) modalDetalleRegistroAyb = new bootstrap.Modal(detalle);
 }
 
 function protegerModulo(sesion) {
@@ -116,23 +110,16 @@ function protegerModulo(sesion) {
 }
 
 function aplicarPermisosNavegacion(sesion) {
-  const links = document.querySelectorAll(".nav-link");
-  links.forEach((link) => {
+  document.querySelectorAll(".nav-link").forEach((link) => {
     const href = link.getAttribute("href") || "";
-    if (href.includes("login.html")) return;
-    if (sesion.puede_ver_todo === true) return;
-
-    const modulo = obtenerClaveModulo(href);
-    if (!tieneAccesoModulo(sesion, modulo)) {
-      link.style.display = "none";
-    }
+    if (href.includes("login.html") || sesion.puede_ver_todo === true) return;
+    if (!tieneAccesoModulo(sesion, obtenerClaveModulo(href))) link.style.display = "none";
   });
 }
 
 function tieneAccesoModulo(sesion, modulo) {
   if (sesion.puede_ver_todo === true) return true;
-  if (!Array.isArray(sesion.modulos_permitidos)) return false;
-  return sesion.modulos_permitidos.includes(modulo);
+  return Array.isArray(sesion.modulos_permitidos) && sesion.modulos_permitidos.includes(modulo);
 }
 
 function obtenerClaveModulo(href) {
@@ -151,8 +138,7 @@ function obtenerClaveModulo(href) {
 }
 
 function configurarCerrarSesion() {
-  const linksCerrar = document.querySelectorAll('.nav-link[href="login.html"]');
-  linksCerrar.forEach((link) => {
+  document.querySelectorAll('.nav-link[href="login.html"]').forEach((link) => {
     link.addEventListener("click", (e) => {
       e.preventDefault();
       localStorage.removeItem("ccp_sesion");
@@ -164,66 +150,46 @@ function configurarCerrarSesion() {
 function cargarEncabezadoUsuario(sesion) {
   const subtitulo = document.getElementById("subtituloAyb");
   if (!subtitulo) return;
-
   const nombre = sesion.nombre_completo || "Usuario";
   const cargo = sesion.cargo || "Sin cargo";
-  const rol = traducirRol(sesion.rol);
-
-  subtitulo.textContent = `Calendario semanal por restaurante | Usuario: ${nombre} | Cargo: ${cargo} | Rol: ${rol}`;
+  subtitulo.textContent = `Matriz semanal por empleado | Usuario: ${nombre} | Cargo: ${cargo} | Rol: ${traducirRol(sesion.rol)}`;
 }
 
 function traducirRol(rol) {
   const mapa = {
-    admin: "Administrador",
-    gerencia: "Gerencia",
-    bienestar: "Bienestar Institucional",
-    direccion_financiera: "Dirección Administrativa y Financiera",
-    ayb: "Alimentos y Bebidas",
-    servicios_generales: "Servicios Generales",
-    empleado: "Empleado"
+    admin: "Administrador", gerencia: "Gerencia", bienestar: "Bienestar Institucional",
+    direccion_financiera: "Dirección Administrativa y Financiera", ayb: "Alimentos y Bebidas",
+    servicios_generales: "Servicios Generales", empleado: "Empleado"
   };
-
-  return mapa[String(rol || "").trim().toLowerCase()] || rol || "Sin rol";
+  return mapa[texto(rol).toLowerCase()] || rol || "Sin rol";
 }
 
 function obtenerInicioSemanaOperativa(fechaBase) {
   const fecha = new Date(fechaBase);
-  const dia = fecha.getDay();
-  const diasDesdeMartes = (dia + 5) % 7;
+  const diasDesdeMartes = (fecha.getDay() + 5) % 7;
   fecha.setHours(0, 0, 0, 0);
   fecha.setDate(fecha.getDate() - diasDesdeMartes);
   return fecha;
 }
 
 function construirSemana(inicio) {
-  const dias = [];
-  for (let i = 0; i < 7; i++) {
+  return Array.from({ length: 7 }, (_, i) => {
     const fecha = new Date(inicio);
     fecha.setDate(inicio.getDate() + i);
-    dias.push({
-      fecha: formatearFechaISO(fecha),
-      nombre: obtenerNombreDia(fecha),
-      etiqueta: `${obtenerNombreDia(fecha)} ${fecha.getDate()}`
-    });
-  }
-  return dias;
+    return { fecha: formatearFechaISO(fecha), nombre: obtenerNombreDia(fecha), etiqueta: `${obtenerNombreDia(fecha)} ${fecha.getDate()}` };
+  });
 }
 
 function formatearFechaISO(fecha) {
-  const year = fecha.getFullYear();
-  const month = String(fecha.getMonth() + 1).padStart(2, "0");
-  const day = String(fecha.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
 }
 
 function obtenerNombreDia(fecha) {
-  const dias = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-  return dias[fecha.getDay()];
+  return ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][fecha.getDay()];
 }
 
 function obtenerNombreMes(index) {
-  const meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
-  return meses[index];
+  return ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"][index];
 }
 
 function renderEncabezadosSemana() {
@@ -235,380 +201,274 @@ function renderEncabezadosSemana() {
 
 function renderTextosSemana() {
   if (!semanaActual.length) return;
-
   const primera = new Date(`${semanaActual[0].fecha}T00:00:00`);
   const ultima = new Date(`${semanaActual[6].fecha}T00:00:00`);
-
-  const textoSemana = document.getElementById("textoSemanaAyb");
-  const textoMes = document.getElementById("textoMesAnioAyb");
-
-  if (textoSemana) {
-    textoSemana.textContent = `${primera.getDate()} al ${ultima.getDate()} de ${obtenerNombreMes(ultima.getMonth())} de ${ultima.getFullYear()}`;
-  }
-
-  if (textoMes) {
-    textoMes.textContent = `${obtenerNombreMes(ultima.getMonth())} ${ultima.getFullYear()}`;
-  }
+  const semana = document.getElementById("textoSemanaAyb");
+  const mes = document.getElementById("textoMesAnioAyb");
+  if (semana) semana.textContent = `${primera.getDate()} al ${ultima.getDate()} de ${obtenerNombreMes(ultima.getMonth())} de ${ultima.getFullYear()}`;
+  if (mes) mes.textContent = `${obtenerNombreMes(ultima.getMonth())} ${ultima.getFullYear()}`;
 }
 
 function renderOpcionesTurnos() {
+  const opciones = `<option value="">Seleccione</option>` + Object.entries(TURNOS_CATALOGO)
+    .map(([codigo, data]) => `<option value="${codigo}">${escaparHtml(data.label)}</option>`).join("");
   const select1 = document.getElementById("turnoAyb");
   const select2 = document.getElementById("turno2Ayb");
-
-  const opciones = [`<option value="">Seleccione</option>`]
-    .concat(
-      Object.entries(TURNOS_CATALOGO).map(([codigo, data]) => `<option value="${codigo}">${escaparHtml(data.label)}</option>`)
-    )
-    .join("");
-
   if (select1) select1.innerHTML = opciones;
   if (select2) select2.innerHTML = opciones;
 }
 
 function configurarBotones() {
-  const btnSemanaAnterior = document.getElementById("btnSemanaAnterior");
-  const btnSemanaSiguiente = document.getElementById("btnSemanaSiguiente");
-  const btnNuevaAsignacion = document.getElementById("btnNuevaAsignacion");
-  const btnPdfGeneral = document.getElementById("btnPdfGeneral");
-  const btnPdfEmpleado = document.getElementById("btnPdfEmpleado");
+  document.getElementById("btnSemanaAnterior")?.addEventListener("click", async () => {
+    fechaInicioSemana.setDate(fechaInicioSemana.getDate() - 7);
+    await cambiarSemanaVisible();
+  });
+  document.getElementById("btnSemanaActual")?.addEventListener("click", async () => {
+    fechaInicioSemana = obtenerInicioSemanaOperativa(new Date());
+    await cambiarSemanaVisible();
+  });
+  document.getElementById("btnSemanaSiguiente")?.addEventListener("click", async () => {
+    fechaInicioSemana.setDate(fechaInicioSemana.getDate() + 7);
+    await cambiarSemanaVisible();
+  });
+  document.getElementById("btnNuevaAsignacion")?.addEventListener("click", () => abrirModalNuevaAsignacion());
+  document.getElementById("btnPdfGeneral")?.addEventListener("click", generarPdfGeneralAyb);
+  document.getElementById("btnPdfEmpleado")?.addEventListener("click", generarPdfEmpleadoAyb);
+  document.getElementById("btnLimpiarTurnoCopiadoAyb")?.addEventListener("click", limpiarTurnoCopiadoAyb);
+}
 
-  if (btnSemanaAnterior) {
-    btnSemanaAnterior.addEventListener("click", async () => {
-      fechaInicioSemana.setDate(fechaInicioSemana.getDate() - 7);
-      semanaActual = construirSemana(fechaInicioSemana);
-      renderEncabezadosSemana();
-      renderTextosSemana();
-      await cargarProgramacionAyb();
-    });
-  }
-
-  if (btnSemanaSiguiente) {
-    btnSemanaSiguiente.addEventListener("click", async () => {
-      fechaInicioSemana.setDate(fechaInicioSemana.getDate() + 7);
-      semanaActual = construirSemana(fechaInicioSemana);
-      renderEncabezadosSemana();
-      renderTextosSemana();
-      await cargarProgramacionAyb();
-    });
-  }
-
-  if (btnNuevaAsignacion) {
-    btnNuevaAsignacion.addEventListener("click", abrirModalNuevaAsignacion);
-  }
-
-  if (btnPdfGeneral) {
-    btnPdfGeneral.addEventListener("click", generarPdfGeneralAyb);
-  }
-
-  if (btnPdfEmpleado) {
-    btnPdfEmpleado.addEventListener("click", generarPdfEmpleadoAyb);
-  }
+async function cambiarSemanaVisible() {
+  semanaActual = construirSemana(fechaInicioSemana);
+  renderEncabezadosSemana();
+  renderTextosSemana();
+  await cargarProgramacionAyb();
 }
 
 function configurarFormulario() {
-  const form = document.getElementById("formAsignacionAyb");
-  const inputBusqueda = document.getElementById("busquedaEmpleadoAyb");
-
-  if (form) {
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      await guardarAsignacionAyb();
-    });
-  }
-
-  if (inputBusqueda) {
-    inputBusqueda.addEventListener("input", seleccionarEmpleadoDesdeBusqueda);
-    inputBusqueda.addEventListener("change", seleccionarEmpleadoDesdeBusqueda);
-    inputBusqueda.addEventListener("blur", seleccionarEmpleadoDesdeBusqueda);
-  }
-
-  const inputCedula = document.getElementById("cedulaEmpleadoAyb");
-  const inputFecha = document.getElementById("fechaAyb");
-
-  if (inputCedula) {
-    inputCedula.addEventListener("input", validarNovedadEmpleadoAyb);
-    inputCedula.addEventListener("change", validarNovedadEmpleadoAyb);
-  }
-
-  if (inputFecha) {
-    inputFecha.addEventListener("input", validarNovedadEmpleadoAyb);
-    inputFecha.addEventListener("change", validarNovedadEmpleadoAyb);
-  }
+  document.getElementById("formAsignacionAyb")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await guardarAsignacionAyb();
+  });
+  ["input", "change", "blur"].forEach((evento) => {
+    document.getElementById("busquedaEmpleadoAyb")?.addEventListener(evento, seleccionarEmpleadoDesdeBusqueda);
+  });
+  ["input", "change"].forEach((evento) => {
+    document.getElementById("cedulaEmpleadoAyb")?.addEventListener(evento, validarNovedadEmpleadoAyb);
+    document.getElementById("fechaAyb")?.addEventListener(evento, validarNovedadEmpleadoAyb);
+  });
 }
 
 function configurarTurnoPartido() {
   const check = document.getElementById("checkTurnoPartido");
   const bloque = document.getElementById("bloqueTurnoPartido");
-
   if (!check || !bloque) return;
-
   check.addEventListener("change", () => {
     bloque.classList.toggle("d-none", !check.checked);
-
     if (!check.checked) {
-      document.getElementById("subarea2Ayb").value = "";
-      document.getElementById("turno2Ayb").value = "";
-      document.getElementById("horaInicio2Ayb").value = "";
-      document.getElementById("horaFin2Ayb").value = "";
+      ["subarea2Ayb", "turno2Ayb", "horaInicio2Ayb", "horaFin2Ayb"].forEach((id) => {
+        document.getElementById(id).value = "";
+      });
     }
   });
 }
 
 function configurarTipoRegistro() {
-  const tipoRegistro = document.getElementById("tipoRegistroAyb");
-  if (!tipoRegistro) return;
-
-  tipoRegistro.addEventListener("change", actualizarVistaTipoRegistro);
+  const tipo = document.getElementById("tipoRegistroAyb");
+  if (!tipo) return;
+  tipo.addEventListener("change", actualizarVistaTipoRegistro);
   actualizarVistaTipoRegistro();
 }
 
 function actualizarVistaTipoRegistro() {
-  const tipo = document.getElementById("tipoRegistroAyb").value;
-  const esNovedad = tipo === "novedad";
-
-  const bloqueTurno = document.getElementById("bloqueTurnoNormal");
-  const bloqueNovedad = document.getElementById("bloqueNovedad");
-  const bloqueSubarea = document.getElementById("bloqueSubareaAyb");
-  const bloqueInfoSubarea = document.getElementById("bloqueInfoSubareaAyb");
-  const selectSubarea = document.getElementById("subareaAyb");
-  const checkTurnoPartido = document.getElementById("checkTurnoPartido");
-  const bloqueTurnoPartido = document.getElementById("bloqueTurnoPartido");
-
-  if (bloqueTurno) bloqueTurno.classList.toggle("d-none", esNovedad);
-  if (bloqueNovedad) bloqueNovedad.classList.toggle("d-none", !esNovedad);
-  if (bloqueSubarea) bloqueSubarea.classList.toggle("d-none", esNovedad);
-  if (bloqueInfoSubarea) bloqueInfoSubarea.classList.toggle("d-none", esNovedad);
-
-  if (selectSubarea) {
-    selectSubarea.required = !esNovedad;
-  }
-
+  const esNovedad = document.getElementById("tipoRegistroAyb")?.value === "novedad";
+  const subarea = document.getElementById("subareaAyb");
+  document.getElementById("bloqueTurnoNormal")?.classList.toggle("d-none", esNovedad);
+  document.getElementById("bloqueNovedad")?.classList.toggle("d-none", !esNovedad);
+  document.getElementById("bloqueSubareaAyb")?.classList.toggle("d-none", esNovedad);
+  document.getElementById("bloqueInfoSubareaAyb")?.classList.toggle("d-none", esNovedad);
+  if (subarea) subarea.required = !esNovedad;
   if (esNovedad) {
-    if (selectSubarea) selectSubarea.value = "";
-    document.getElementById("turnoAyb").value = "";
-    document.getElementById("horaInicioAyb").value = "";
-    document.getElementById("horaFinAyb").value = "";
-    if (checkTurnoPartido) checkTurnoPartido.checked = false;
-    if (bloqueTurnoPartido) bloqueTurnoPartido.classList.add("d-none");
-    document.getElementById("subarea2Ayb").value = "";
-    document.getElementById("turno2Ayb").value = "";
-    document.getElementById("horaInicio2Ayb").value = "";
-    document.getElementById("horaFin2Ayb").value = "";
+    if (subarea) subarea.value = "";
+    ["turnoAyb", "horaInicioAyb", "horaFinAyb", "subarea2Ayb", "turno2Ayb", "horaInicio2Ayb", "horaFin2Ayb"].forEach((id) => {
+      const campo = document.getElementById(id);
+      if (campo) campo.value = "";
+    });
+    const partido = document.getElementById("checkTurnoPartido");
+    if (partido) partido.checked = false;
+    document.getElementById("bloqueTurnoPartido")?.classList.add("d-none");
   }
-
   actualizarInfoSubarea();
 }
 
 function configurarTurnosAutollenado() {
-  const turno1 = document.getElementById("turnoAyb");
-  const turno2 = document.getElementById("turno2Ayb");
-
-  if (turno1) {
-    turno1.addEventListener("change", () => aplicarHorarioTurno(turno1.value, "horaInicioAyb", "horaFinAyb"));
-  }
-
-  if (turno2) {
-    turno2.addEventListener("change", () => aplicarHorarioTurno(turno2.value, "horaInicio2Ayb", "horaFin2Ayb"));
-  }
+  document.getElementById("turnoAyb")?.addEventListener("change", (e) => aplicarHorarioTurno(e.target.value, "horaInicioAyb", "horaFinAyb"));
+  document.getElementById("turno2Ayb")?.addEventListener("change", (e) => aplicarHorarioTurno(e.target.value, "horaInicio2Ayb", "horaFin2Ayb"));
 }
 
 function aplicarHorarioTurno(codigo, idInicio, idFin) {
   const turno = TURNOS_CATALOGO[codigo];
-  const inputInicio = document.getElementById(idInicio);
-  const inputFin = document.getElementById(idFin);
-
-  if (!inputInicio || !inputFin) return;
-
-  if (!turno) {
-    inputInicio.value = "";
-    inputFin.value = "";
-    return;
-  }
-
-  inputInicio.value = turno.inicio || "";
-  inputFin.value = turno.fin || "";
+  const inicio = document.getElementById(idInicio);
+  const fin = document.getElementById(idFin);
+  if (!inicio || !fin) return;
+  inicio.value = turno?.inicio || "";
+  fin.value = turno?.fin || "";
 }
 
 function configurarInfoSubarea() {
-  const selectSubarea = document.getElementById("subareaAyb");
-  if (!selectSubarea) return;
-  selectSubarea.addEventListener("change", actualizarInfoSubarea);
+  document.getElementById("subareaAyb")?.addEventListener("change", actualizarInfoSubarea);
   actualizarInfoSubarea();
 }
 
 function actualizarInfoSubarea() {
   const info = document.getElementById("infoHorarioSubarea");
   const subarea = document.getElementById("subareaAyb")?.value || "";
-
   if (!info) return;
+  info.textContent = !subarea || !SUBAREAS_AYB[subarea]
+    ? "Selecciona una subárea para ver el horario guía."
+    : `${SUBAREAS_AYB[subarea].codigo} · ${subarea} | Horario guía: ${SUBAREAS_AYB[subarea].horario}`;
+}
 
-  if (!subarea || !SUBAREAS_AYB[subarea]) {
-    info.textContent = "Selecciona una subárea para ver el horario guía.";
-    return;
-  }
-
-  const item = SUBAREAS_AYB[subarea];
-  info.textContent = `${item.codigo} · ${subarea} | Horario guía: ${item.horario}`;
+function configurarFiltrosMatrizAyb() {
+  const actualizar = () => {
+    filtrosMatrizAyb = {
+      busqueda: texto(document.getElementById("inputFiltroEmpleadoMatrizAyb")?.value).toLowerCase(),
+      cargo: texto(document.getElementById("selectFiltroCargoMatrizAyb")?.value),
+      subarea: texto(document.getElementById("selectFiltroSubareaMatrizAyb")?.value),
+      estado: texto(document.getElementById("selectFiltroEstadoMatrizAyb")?.value) || "todos"
+    };
+    renderTablaProgramacionAyb(registrosSemanaAyb);
+  };
+  document.getElementById("inputFiltroEmpleadoMatrizAyb")?.addEventListener("input", actualizar);
+  document.getElementById("selectFiltroCargoMatrizAyb")?.addEventListener("change", actualizar);
+  document.getElementById("selectFiltroSubareaMatrizAyb")?.addEventListener("change", actualizar);
+  document.getElementById("selectFiltroEstadoMatrizAyb")?.addEventListener("change", actualizar);
+  document.getElementById("btnLimpiarFiltrosMatrizAyb")?.addEventListener("click", () => {
+    document.getElementById("inputFiltroEmpleadoMatrizAyb").value = "";
+    document.getElementById("selectFiltroCargoMatrizAyb").value = "";
+    document.getElementById("selectFiltroSubareaMatrizAyb").value = "";
+    document.getElementById("selectFiltroEstadoMatrizAyb").value = "todos";
+    actualizar();
+  });
 }
 
 async function cargarEmpleadosParaBusqueda() {
   try {
-    let data = [];
-    let error = null;
-
-    const intentoPrincipal = await supabase
-      .from("empleados")
-      .select("*")
-      .or("centro_costos.ilike.%ALIMENTOS%,centro_costos.ilike.%BEBIDAS%,area.ilike.%ALIMENTOS%,area.ilike.%BEBIDAS%,cargo.ilike.%MESERO%,cargo.ilike.%MESERA%,cargo.ilike.%BARISTA%,cargo.ilike.%BARTENDER%,cargo.ilike.%PATINADOR%,cargo.ilike.%PATINADORA%,cargo.ilike.%AUXILIAR%,cargo.ilike.%LIDER%,cargo.ilike.%CAPITAN%,cargo.ilike.%COCINA%,cargo.ilike.%SERVICIO%");
-
-    data = intentoPrincipal.data || [];
-    error = intentoPrincipal.error;
-
-    if (error) {
-      const intentoFallback = await supabase.from("empleados").select("*");
-      data = intentoFallback.data || [];
-      error = intentoFallback.error;
-      if (error) throw error;
-    }
-
-    empleadosAyb = (data || [])
-      .filter(esEmpleadoAybValido)
-      .map(normalizarEmpleado)
-      .filter((emp) => emp.cedula && emp.nombre)
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
-
-    renderListaEmpleados();
-    renderSelectEmpleadoPdf();
+    /*
+      La consulta se limita por área/centro de costos. No se filtra por cargo,
+      porque cargos como AUXILIAR, LÍDER o SERVICIO existen en otras áreas.
+    */
+    let respuesta = await supabase.from("empleados").select("*")
+      .or("centro_costos.ilike.%ALIMENTOS%,centro_costos.ilike.%BEBIDAS%,centro_costos.ilike.%A&B%,centro_costos.ilike.%AYB%,centro_costos.ilike.%COCINA%,area.ilike.%ALIMENTOS%,area.ilike.%BEBIDAS%,area.ilike.%A&B%,area.ilike.%AYB%,area.ilike.%COCINA%");
+    if (respuesta.error) respuesta = await supabase.from("empleados").select("*");
+    if (respuesta.error) throw respuesta.error;
+    empleadosAyb = (respuesta.data || []).filter(esEmpleadoAybValido).map(normalizarEmpleado)
+      .filter((emp) => emp.cedula && emp.nombre).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
   } catch (error) {
     console.error("Error cargando empleados A&B:", error);
     empleadosAyb = [];
-    renderListaEmpleados();
-    renderSelectEmpleadoPdf();
   }
+  renderListaEmpleados();
+  renderSelectEmpleadoPdf();
+  renderSelectCargoFiltro();
 }
 
 function normalizarEmpleado(emp) {
-  const nombres = texto(emp.nombres);
-  const apellidos = texto(emp.apellidos);
-  const nombreCompleto = texto(emp.nombre_completo);
-  const nombre = nombreCompleto || `${nombres} ${apellidos}`.trim();
-
-  return {
-    cedula: texto(emp.cedula),
-    nombre,
-    cargo: texto(emp.cargo),
-    area: texto(emp.area || emp.centro_costos),
-    raw: emp
-  };
+  const nombre = texto(emp.nombre_completo) || `${texto(emp.nombres)} ${texto(emp.apellidos)}`.trim();
+  return { cedula: texto(emp.cedula), nombre, cargo: texto(emp.cargo), area: texto(emp.area || emp.centro_costos), raw: emp };
 }
 
 function esEmpleadoAybValido(emp) {
-  const area = texto(emp.area).toUpperCase();
-  const centro = texto(emp.centro_costos).toUpperCase();
-  const cargo = texto(emp.cargo).toUpperCase();
+  const area = normalizarTextoFiltroAyb(emp.area);
+  const centro = normalizarTextoFiltroAyb(emp.centro_costos);
+  const dependencia = `${area} ${centro}`;
 
-  const clavesArea = ["ALIMENTOS", "BEBIDAS", "A&B", "AYB", "COCINA"];
-  const clavesCargo = [
-    "MESERO", "MESERA", "BARISTA", "BARTENDER", "PATINADOR", "PATINADORA",
-    "AUXILIAR", "LIDER", "CAPITAN", "COCINA", "SERVICIO"
+  /*
+    Regla de seguridad funcional:
+    el empleado solo entra a Programación A&B cuando su área o centro de costos
+    identifica A&B. El cargo no habilita acceso, porque se repite en otras áreas.
+  */
+  const clavesAyb = [
+    "ALIMENTOS",
+    "BEBIDAS",
+    "ALIMENTOS Y BEBIDAS",
+    "ALIMENTOS & BEBIDAS",
+    "A&B",
+    "AYB",
+    "COCINA"
   ];
 
-  return (
-    clavesArea.some((txt) => area.includes(txt)) ||
-    clavesArea.some((txt) => centro.includes(txt)) ||
-    clavesCargo.some((txt) => cargo.includes(txt))
-  );
+  return clavesAyb.some((clave) => dependencia.includes(clave));
+}
+
+function normalizarTextoFiltroAyb(valor) {
+  return texto(valor)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
 }
 
 function renderListaEmpleados() {
-  const datalist = document.getElementById("listaEmpleadosAyb");
-  if (!datalist) return;
-
-  datalist.innerHTML = empleadosAyb.map((emp) => {
-    const value = `${emp.cedula} - ${emp.nombre}${emp.cargo ? ` - ${emp.cargo}` : ""}`;
-    return `<option value="${escaparHtml(value)}"></option>`;
-  }).join("");
+  const lista = document.getElementById("listaEmpleadosAyb");
+  if (!lista) return;
+  lista.innerHTML = empleadosAyb.map((emp) => `<option value="${escaparHtml(`${emp.cedula} - ${emp.nombre}${emp.cargo ? ` - ${emp.cargo}` : ""}`)}"></option>`).join("");
 }
 
 function renderSelectEmpleadoPdf() {
   const select = document.getElementById("selectEmpleadoPdfAyb");
   if (!select) return;
+  select.innerHTML = `<option value="">Seleccione</option>` + empleadosAyb.map((emp) =>
+    `<option value="${escaparHtml(emp.cedula)}">${escaparHtml(emp.nombre)}${emp.cargo ? ` - ${escaparHtml(emp.cargo)}` : ""}</option>`
+  ).join("");
+}
 
-  select.innerHTML = `<option value="">Seleccione</option>` + empleadosAyb.map((emp) => {
-    return `<option value="${escaparHtml(emp.cedula)}">${escaparHtml(emp.nombre)}${emp.cargo ? ` - ${escaparHtml(emp.cargo)}` : ""}</option>`;
-  }).join("");
+function renderSelectCargoFiltro() {
+  const select = document.getElementById("selectFiltroCargoMatrizAyb");
+  if (!select) return;
+  const valor = select.value;
+  const cargos = [...new Set(empleadosAyb.map((e) => e.cargo).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  select.innerHTML = `<option value="">Todos los cargos</option>` + cargos.map((cargo) => `<option value="${escaparHtml(cargo)}">${escaparHtml(cargo)}</option>`).join("");
+  if (cargos.includes(valor)) select.value = valor;
 }
 
 function seleccionarEmpleadoDesdeBusqueda() {
-  const input = document.getElementById("busquedaEmpleadoAyb");
-  if (!input) return;
-
-  const valor = texto(input.value).toLowerCase();
+  const valor = texto(document.getElementById("busquedaEmpleadoAyb")?.value).toLowerCase();
   if (!valor) return;
+  const encontrado = empleadosAyb.find((emp) => `${emp.cedula} - ${emp.nombre} - ${emp.cargo}`.toLowerCase().includes(valor) || emp.cedula.toLowerCase() === valor);
+  if (encontrado) precargarEmpleadoFormulario(encontrado, document.getElementById("fechaAyb")?.value || "");
+}
 
-  const encontrado = empleadosAyb.find((emp) => {
-    const cedula = texto(emp.cedula).toLowerCase();
-    const nombre = texto(emp.nombre).toLowerCase();
-    const cargo = texto(emp.cargo).toLowerCase();
-    const compuesto = `${cedula} - ${nombre} - ${cargo}`;
-    return cedula === valor || nombre.includes(valor) || compuesto.includes(valor);
-  });
-
-  if (!encontrado) return;
-
-  document.getElementById("cedulaEmpleadoAyb").value = encontrado.cedula || "";
-  document.getElementById("nombreEmpleadoAyb").value = encontrado.nombre || "";
-  document.getElementById("cargoEmpleadoAyb").value = encontrado.cargo || "";
+function precargarEmpleadoFormulario(empleado, fecha) {
+  document.getElementById("cedulaEmpleadoAyb").value = empleado.cedula || "";
+  document.getElementById("nombreEmpleadoAyb").value = empleado.nombre || "";
+  document.getElementById("cargoEmpleadoAyb").value = empleado.cargo || "";
+  document.getElementById("busquedaEmpleadoAyb").value = `${empleado.cedula || ""} - ${empleado.nombre || ""}${empleado.cargo ? ` - ${empleado.cargo}` : ""}`;
+  if (fecha) document.getElementById("fechaAyb").value = fecha;
   validarNovedadEmpleadoAyb();
 }
 
-function abrirModalNuevaAsignacion(fecha = "", subarea = "") {
+function abrirModalNuevaAsignacion(fecha = "", empleado = null, esNovedad = false) {
   modoEdicion = false;
   limpiarMensajesFormulario();
   limpiarFormularioAyb();
-
-  document.getElementById("tituloModalAyb").textContent = "Nueva asignación A&B";
+  document.getElementById("tituloModalAyb").textContent = esNovedad ? "Nueva novedad A&B" : "Nueva asignación A&B";
   document.getElementById("btnSubmitAsignacionAyb").textContent = "Guardar asignación";
-  document.getElementById("tipoRegistroAyb").value = "turno";
-
-  if (fecha) {
-    document.getElementById("fechaAyb").value = fecha;
-  } else {
-    precargarFechaFormulario();
-  }
-
-  if (subarea) {
-    document.getElementById("subareaAyb").value = subarea;
-  }
-
+  document.getElementById("tipoRegistroAyb").value = esNovedad ? "novedad" : "turno";
+  document.getElementById("fechaAyb").value = fecha || semanaActual[0]?.fecha || "";
   actualizarVistaTipoRegistro();
-  actualizarInfoSubarea();
+  if (empleado) precargarEmpleadoFormulario(empleado, fecha);
   ocultarAlertaNovedadEmpleadoAyb();
   validarNovedadEmpleadoAyb();
-
-  if (modalAsignacionAyb) modalAsignacionAyb.show();
-}
-
-function abrirModalNuevaNovedad(fecha = "") {
-  abrirModalNuevaAsignacion(fecha, "");
-  document.getElementById("tipoRegistroAyb").value = "novedad";
-  actualizarVistaTipoRegistro();
+  modalAsignacionAyb?.show();
 }
 
 function abrirModalEdicion(registro) {
   modoEdicion = true;
   limpiarMensajesFormulario();
   limpiarFormularioAyb();
-
   document.getElementById("tituloModalAyb").textContent = "Editar asignación A&B";
   document.getElementById("btnSubmitAsignacionAyb").textContent = "Guardar cambios";
-
   document.getElementById("registroIdAyb").value = registro.id || "";
-  document.getElementById("cedulaEmpleadoAyb").value = registro.cedula || "";
-  document.getElementById("nombreEmpleadoAyb").value = registro.nombre || "";
-  document.getElementById("cargoEmpleadoAyb").value = registro.cargo || "";
-  document.getElementById("busquedaEmpleadoAyb").value = `${registro.cedula || ""} - ${registro.nombre || ""}${registro.cargo ? ` - ${registro.cargo}` : ""}`;
-  document.getElementById("fechaAyb").value = registro.fecha || "";
+  precargarEmpleadoFormulario({ cedula: registro.cedula, nombre: registro.nombre, cargo: registro.cargo }, registro.fecha);
   document.getElementById("observacionAyb").value = registro.observacion || "";
   document.getElementById("tipoRegistroAyb").value = registro.tipo_registro || "turno";
 
@@ -624,21 +484,18 @@ function abrirModalEdicion(registro) {
     document.getElementById("turno2Ayb").value = registro.turno_2 || "";
     document.getElementById("horaInicio2Ayb").value = registro.hora_inicio_2 || "";
     document.getElementById("horaFin2Ayb").value = registro.hora_fin_2 || "";
-
-    const tieneBloque2 = Boolean(registro.subarea_2 || registro.turno_2 || registro.hora_inicio_2 || registro.hora_fin_2);
-    document.getElementById("checkTurnoPartido").checked = tieneBloque2;
-    document.getElementById("bloqueTurnoPartido").classList.toggle("d-none", !tieneBloque2);
+    const partido = Boolean(registro.subarea_2 || registro.turno_2 || registro.hora_inicio_2 || registro.hora_fin_2);
+    document.getElementById("checkTurnoPartido").checked = partido;
+    document.getElementById("bloqueTurnoPartido").classList.toggle("d-none", !partido);
   }
-
   actualizarVistaTipoRegistro();
   actualizarInfoSubarea();
   validarNovedadEmpleadoAyb();
-
-  if (modalAsignacionAyb) modalAsignacionAyb.show();
+  modalAsignacionAyb?.show();
 }
 
 function limpiarFormularioAyb() {
-  document.getElementById("formAsignacionAyb").reset();
+  document.getElementById("formAsignacionAyb")?.reset();
   document.getElementById("registroIdAyb").value = "";
   document.getElementById("cargoEmpleadoAyb").value = "";
   document.getElementById("checkTurnoPartido").checked = false;
@@ -648,140 +505,50 @@ function limpiarFormularioAyb() {
   ocultarAlertaNovedadEmpleadoAyb();
 }
 
-function precargarFechaFormulario() {
-  const inputFecha = document.getElementById("fechaAyb");
-  if (inputFecha && semanaActual[0]?.fecha) {
-    inputFecha.value = semanaActual[0].fecha;
-  }
-}
-
-
 function ocultarAlertaNovedadEmpleadoAyb() {
-  const alerta = document.getElementById("alertaNovedadEmpleadoAyb");
-  const texto = document.getElementById("textoNovedadEmpleadoAyb");
-
-  if (alerta) alerta.classList.add("d-none");
-  if (texto) {
-    texto.textContent = "Este empleado tiene una novedad registrada para la fecha seleccionada.";
-  }
+  document.getElementById("alertaNovedadEmpleadoAyb")?.classList.add("d-none");
+  const contenido = document.getElementById("textoNovedadEmpleadoAyb");
+  if (contenido) contenido.textContent = "Este empleado tiene una novedad registrada para la fecha seleccionada.";
 }
 
 function formatearTipoNovedadBienestar(tipo) {
-  const mapa = {
-    incapacidad: "Incapacidad",
-    calamidad: "Calamidad",
-    permiso_no_remunerado: "Permiso no remunerado",
-    dia_familia: "Día de la familia",
-    dia_grado: "Día de grado",
-    cumpleanos: "Cumpleaños",
-    matrimonio: "Matrimonio",
-    luto: "Luto",
-    graduacion: "Graduación"
-  };
-
-  return mapa[tipo] || tipo || "Novedad";
+  return ({ incapacidad: "Incapacidad", calamidad: "Calamidad", permiso_no_remunerado: "Permiso no remunerado", dia_familia: "Día de la familia", dia_grado: "Día de grado", cumpleanos: "Cumpleaños", matrimonio: "Matrimonio", luto: "Luto", graduacion: "Graduación" })[tipo] || tipo || "Novedad";
 }
 
 function formatearFechaNovedad(fechaISO) {
   if (!fechaISO) return "";
   const fecha = new Date(`${fechaISO}T00:00:00`);
-  if (Number.isNaN(fecha.getTime())) return fechaISO;
-  return fecha.toLocaleDateString("es-CO");
+  return Number.isNaN(fecha.getTime()) ? fechaISO : fecha.toLocaleDateString("es-CO");
 }
 
 async function consultarNovedadesProgramacionAyb(cedula, fecha) {
-  const { data, error } = await supabase
-    .from("novedades_programacion")
-    .select("*")
-    .eq("cedula", cedula)
-    .eq("estado", "activa")
-    .lte("fecha_inicio", fecha)
-    .gte("fecha_fin", fecha);
-
-  if (error) {
-    console.warn("No se pudo consultar novedades_programacion:", error.message);
-    return [];
-  }
-
-  return Array.isArray(data) ? data.map((item) => ({
-    origen: "novedades_programacion",
-    solicitud_id: item.solicitud_id || null,
-    tipo: item.tipo_novedad,
-    fecha_inicio: item.fecha_inicio,
-    fecha_fin: item.fecha_fin,
-    dias: item.dias,
-    observacion: item.observacion || ""
-  })) : [];
+  const { data, error } = await supabase.from("novedades_programacion").select("*")
+    .eq("cedula", cedula).eq("estado", "activa").lte("fecha_inicio", fecha).gte("fecha_fin", fecha);
+  if (error) { console.warn("No se pudo consultar novedades_programacion:", error.message); return []; }
+  return (data || []).map((item) => ({ solicitud_id: item.solicitud_id || null, tipo: item.tipo_novedad, fecha_inicio: item.fecha_inicio, fecha_fin: item.fecha_fin, dias: item.dias }));
 }
 
 async function consultarSolicitudesBienestarAprobadasAyb(cedula, fecha) {
-  const { data, error } = await supabase
-    .from("solicitudes_empleado")
-    .select("*")
-    .eq("cedula", cedula)
-    .in("estado", ["aprobada", "aplicada_programacion", "cerrada"])
-    .lte("fecha_inicio", fecha)
-    .gte("fecha_fin", fecha);
-
-  if (error) {
-    console.warn("No se pudo consultar solicitudes_empleado aprobadas:", error.message);
-    return [];
-  }
-
-  return Array.isArray(data) ? data.map((item) => ({
-    origen: "solicitudes_empleado",
-    solicitud_id: item.id || null,
-    tipo: item.tipo_solicitud,
-    fecha_inicio: item.fecha_inicio,
-    fecha_fin: item.fecha_fin,
-    dias: item.dias_solicitados,
-    observacion: item.observacion_empleado || ""
-  })) : [];
+  const { data, error } = await supabase.from("solicitudes_empleado").select("*")
+    .eq("cedula", cedula).in("estado", ["aprobada", "aplicada_programacion", "cerrada"]).lte("fecha_inicio", fecha).gte("fecha_fin", fecha);
+  if (error) { console.warn("No se pudo consultar solicitudes_empleado aprobadas:", error.message); return []; }
+  return (data || []).map((item) => ({ solicitud_id: item.id || null, tipo: item.tipo_solicitud, fecha_inicio: item.fecha_inicio, fecha_fin: item.fecha_fin, dias: item.dias_solicitados }));
 }
 
 async function validarNovedadEmpleadoAyb() {
   const cedula = texto(document.getElementById("cedulaEmpleadoAyb")?.value);
   const fecha = texto(document.getElementById("fechaAyb")?.value);
   const alerta = document.getElementById("alertaNovedadEmpleadoAyb");
-  const textoAlerta = document.getElementById("textoNovedadEmpleadoAyb");
-
-  if (!alerta || !textoAlerta) return;
-
-  if (!cedula || !fecha) {
-    ocultarAlertaNovedadEmpleadoAyb();
-    return;
-  }
+  const contenido = document.getElementById("textoNovedadEmpleadoAyb");
+  if (!alerta || !contenido || !cedula || !fecha) { ocultarAlertaNovedadEmpleadoAyb(); return; }
 
   try {
-    const novedadesProgramacion = await consultarNovedadesProgramacionAyb(cedula, fecha);
-    const solicitudesAprobadas = await consultarSolicitudesBienestarAprobadasAyb(cedula, fecha);
-
-    const solicitudesYaIncluidas = new Set(
-      novedadesProgramacion
-        .map((item) => texto(item.solicitud_id))
-        .filter(Boolean)
-    );
-
-    const solicitudesFiltradas = solicitudesAprobadas.filter((item) => {
-      const id = texto(item.solicitud_id);
-      return !id || !solicitudesYaIncluidas.has(id);
-    });
-
-    const novedades = [...novedadesProgramacion, ...solicitudesFiltradas];
-
-    if (!novedades.length) {
-      ocultarAlertaNovedadEmpleadoAyb();
-      return;
-    }
-
-    const resumen = novedades.map((item) => {
-      const tipo = formatearTipoNovedadBienestar(item.tipo);
-      const rango = `${formatearFechaNovedad(item.fecha_inicio)} a ${formatearFechaNovedad(item.fecha_fin)}`;
-      const dias = item.dias ? ` · ${item.dias} día(s)` : "";
-      return `${tipo} (${rango}${dias})`;
-    }).join("; ");
-
-    textoAlerta.textContent = `Revise antes de guardar: ${resumen}.`;
+    const registros = await consultarNovedadesProgramacionAyb(cedula, fecha);
+    const ids = new Set(registros.map((r) => texto(r.solicitud_id)).filter(Boolean));
+    const solicitudes = (await consultarSolicitudesBienestarAprobadasAyb(cedula, fecha)).filter((r) => !r.solicitud_id || !ids.has(texto(r.solicitud_id)));
+    const novedades = [...registros, ...solicitudes];
+    if (!novedades.length) { ocultarAlertaNovedadEmpleadoAyb(); return; }
+    contenido.textContent = `Revise antes de guardar: ${novedades.map((item) => `${formatearTipoNovedadBienestar(item.tipo)} (${formatearFechaNovedad(item.fecha_inicio)} a ${formatearFechaNovedad(item.fecha_fin)}${item.dias ? ` · ${item.dias} día(s)` : ""})`).join("; ")}.`;
     alerta.classList.remove("d-none");
   } catch (error) {
     console.error("Error validando novedad del empleado:", error);
@@ -791,570 +558,269 @@ async function validarNovedadEmpleadoAyb() {
 
 async function guardarAsignacionAyb() {
   limpiarMensajesFormulario();
-
-  const btnSubmit = document.getElementById("btnSubmitAsignacionAyb");
-  if (btnSubmit) {
-    btnSubmit.disabled = true;
-    btnSubmit.textContent = modoEdicion ? "Guardando cambios..." : "Guardando...";
-  }
+  const boton = document.getElementById("btnSubmitAsignacionAyb");
+  if (boton) { boton.disabled = true; boton.textContent = modoEdicion ? "Guardando cambios..." : "Guardando..."; }
 
   try {
     const id = texto(document.getElementById("registroIdAyb").value);
-    const tipoRegistro = texto(document.getElementById("tipoRegistroAyb").value);
+    const tipo = texto(document.getElementById("tipoRegistroAyb").value);
     const cedula = texto(document.getElementById("cedulaEmpleadoAyb").value);
     const nombre = texto(document.getElementById("nombreEmpleadoAyb").value);
     const cargo = texto(document.getElementById("cargoEmpleadoAyb").value);
-    const subarea = texto(document.getElementById("subareaAyb").value);
     const fecha = document.getElementById("fechaAyb").value;
     const observacion = texto(document.getElementById("observacionAyb").value);
 
-    if (!cedula || !nombre || !fecha) {
-      mostrarErrorFormulario("Debe completar empleado y fecha.");
-      return;
-    }
-
-    const empleadoPermitido = empleadosAyb.find((emp) => String(emp.cedula) === String(cedula));
-    if (!empleadoPermitido) {
-      mostrarErrorFormulario("Solo puedes asignar personal perteneciente a A&B.");
-      return;
-    }
+    if (!cedula || !nombre || !fecha) { mostrarErrorFormulario("Debe completar empleado y fecha."); return; }
+    if (!empleadosAyb.find((emp) => String(emp.cedula) === String(cedula))) { mostrarErrorFormulario("Solo puedes asignar personal perteneciente a A&B."); return; }
 
     const payload = {
-      cedula,
-      nombre,
-      cargo,
-      area: AREA_AYB,
-      subarea: null,
-      fecha,
-      dia: obtenerNombreDia(new Date(`${fecha}T00:00:00`)),
-      observacion,
-      tipo_registro: tipoRegistro,
-      subarea_2: null,
-      turno: null,
-      hora_inicio: null,
-      hora_fin: null,
-      turno_2: null,
-      hora_inicio_2: null,
-      hora_fin_2: null,
-      novedad_codigo: null,
-      novedad_descripcion: null
+      cedula, nombre, cargo, area: AREA_AYB, fecha,
+      dia: obtenerNombreDia(new Date(`${fecha}T00:00:00`)), observacion,
+      tipo_registro: tipo, subarea: null, subarea_2: null, turno: null,
+      hora_inicio: null, hora_fin: null, turno_2: null, hora_inicio_2: null,
+      hora_fin_2: null, novedad_codigo: null, novedad_descripcion: null
     };
 
-    if (tipoRegistro === "novedad") {
-      const novedadCodigo = texto(document.getElementById("novedadCodigoAyb").value);
-      const novedadDescripcion = texto(document.getElementById("novedadDescripcionAyb").value);
-
-      if (!novedadCodigo) {
-        mostrarErrorFormulario("Debe seleccionar una novedad.");
-        return;
-      }
-
-      payload.novedad_codigo = novedadCodigo;
-      payload.novedad_descripcion = novedadDescripcion || (NOVEDADES_LABELS[novedadCodigo] || novedadCodigo);
-      payload.turno = novedadCodigo;
+    if (tipo === "novedad") {
+      const codigo = texto(document.getElementById("novedadCodigoAyb").value);
+      if (!codigo) { mostrarErrorFormulario("Debe seleccionar una novedad."); return; }
+      payload.novedad_codigo = codigo;
+      payload.novedad_descripcion = texto(document.getElementById("novedadDescripcionAyb").value) || NOVEDADES_LABELS[codigo] || codigo;
+      payload.turno = codigo;
     } else {
-      if (!subarea) {
-        mostrarErrorFormulario("Debe seleccionar restaurante / subárea.");
-        return;
-      }
-
+      const subarea = texto(document.getElementById("subareaAyb").value);
       const turno = texto(document.getElementById("turnoAyb").value);
-      const horaInicio = document.getElementById("horaInicioAyb").value;
-      const horaFin = document.getElementById("horaFinAyb").value;
-      const checkTurnoPartido = document.getElementById("checkTurnoPartido").checked;
+      const inicio = document.getElementById("horaInicioAyb").value;
+      const fin = document.getElementById("horaFinAyb").value;
+      const partido = document.getElementById("checkTurnoPartido").checked;
       const subarea2 = texto(document.getElementById("subarea2Ayb").value);
       const turno2 = texto(document.getElementById("turno2Ayb").value);
-      const horaInicio2 = document.getElementById("horaInicio2Ayb").value;
-      const horaFin2 = document.getElementById("horaFin2Ayb").value;
-
-      if (!turno || !horaInicio || !horaFin) {
-        mostrarErrorFormulario("Debe completar el turno y horario del bloque 1.");
-        return;
-      }
-
-      if (checkTurnoPartido && (!subarea2 || !turno2 || !horaInicio2 || !horaFin2)) {
-        mostrarErrorFormulario("Si marca turno partido, debe completar subárea, turno y horario del bloque 2.");
-        return;
-      }
-
-      payload.subarea = subarea;
-      payload.turno = turno;
-      payload.hora_inicio = horaInicio;
-      payload.hora_fin = horaFin;
-      payload.subarea_2 = checkTurnoPartido ? subarea2 : null;
-      payload.turno_2 = checkTurnoPartido ? turno2 : null;
-      payload.hora_inicio_2 = checkTurnoPartido ? horaInicio2 : null;
-      payload.hora_fin_2 = checkTurnoPartido ? horaFin2 : null;
+      const inicio2 = document.getElementById("horaInicio2Ayb").value;
+      const fin2 = document.getElementById("horaFin2Ayb").value;
+      if (!subarea) { mostrarErrorFormulario("Debe seleccionar restaurante / subárea."); return; }
+      if (!turno || !inicio || !fin) { mostrarErrorFormulario("Debe completar el turno y horario del bloque 1."); return; }
+      if (partido && (!subarea2 || !turno2 || !inicio2 || !fin2)) { mostrarErrorFormulario("Si marca turno partido, debe completar subárea, turno y horario del bloque 2."); return; }
+      Object.assign(payload, { subarea, turno, hora_inicio: inicio, hora_fin: fin, subarea_2: partido ? subarea2 : null, turno_2: partido ? turno2 : null, hora_inicio_2: partido ? inicio2 : null, hora_fin_2: partido ? fin2 : null });
     }
 
-    let error = null;
+    const response = modoEdicion && id
+      ? await supabase.from("programacion_turnos").update(payload).eq("id", id)
+      : await supabase.from("programacion_turnos").insert([payload]);
 
-    if (modoEdicion && id) {
-      const response = await supabase
-        .from("programacion_turnos")
-        .update(payload)
-        .eq("id", id);
-
-      error = response.error;
-    } else {
-      const response = await supabase
-        .from("programacion_turnos")
-        .insert([payload]);
-
-      error = response.error;
-    }
-
-    if (error) {
-      mostrarErrorFormulario(error.message || "No se pudo guardar la asignación en Supabase.");
-      return;
-    }
+    if (response.error) { mostrarErrorFormulario(response.error.message || "No se pudo guardar la asignación en Supabase."); return; }
 
     mostrarOkFormulario(modoEdicion ? "Asignación actualizada correctamente." : "Asignación guardada correctamente.");
-
     setTimeout(async () => {
-      if (modalAsignacionAyb) modalAsignacionAyb.hide();
+      modalAsignacionAyb?.hide();
       limpiarFormularioAyb();
       await cargarProgramacionAyb();
-    }, 700);
+    }, 600);
   } catch (error) {
     console.error("Error guardando asignación A&B:", error);
     mostrarErrorFormulario(error.message || "No se pudo guardar la asignación.");
   } finally {
-    if (btnSubmit) {
-      btnSubmit.disabled = false;
-      btnSubmit.textContent = modoEdicion ? "Guardar cambios" : "Guardar asignación";
-    }
+    if (boton) { boton.disabled = false; boton.textContent = modoEdicion ? "Guardar cambios" : "Guardar asignación"; }
   }
 }
 
 async function eliminarAsignacionAyb(id) {
-  const confirmar = confirm("¿Seguro que deseas eliminar esta asignación?");
-  if (!confirmar) return;
-
-  const { error } = await supabase
-    .from("programacion_turnos")
-    .delete()
-    .eq("id", id);
-
-  if (error) {
-    console.error("Error eliminando asignación:", error);
-    alert("No se pudo eliminar la asignación.");
-    return;
-  }
-
+  if (!confirm("¿Seguro que deseas eliminar esta asignación?")) return;
+  const { error } = await supabase.from("programacion_turnos").delete().eq("id", id);
+  if (error) { alert("No se pudo eliminar la asignación."); return; }
   await cargarProgramacionAyb();
 }
 
 function limpiarMensajesFormulario() {
-  const alertaError = document.getElementById("alertaErrorAyb");
-  const alertaOk = document.getElementById("alertaOkAyb");
-
-  if (alertaError) {
-    alertaError.classList.add("d-none");
-    alertaError.textContent = "";
-  }
-
-  if (alertaOk) {
-    alertaOk.classList.add("d-none");
-    alertaOk.textContent = "";
-  }
+  ["alertaErrorAyb", "alertaOkAyb"].forEach((id) => {
+    const alerta = document.getElementById(id);
+    if (alerta) { alerta.classList.add("d-none"); alerta.textContent = ""; }
+  });
 }
 
 function mostrarErrorFormulario(mensaje) {
-  const alertaError = document.getElementById("alertaErrorAyb");
-  if (!alertaError) return;
-  alertaError.textContent = mensaje;
-  alertaError.classList.remove("d-none");
+  const alerta = document.getElementById("alertaErrorAyb");
+  if (alerta) { alerta.textContent = mensaje; alerta.classList.remove("d-none"); }
 }
 
 function mostrarOkFormulario(mensaje) {
-  const alertaOk = document.getElementById("alertaOkAyb");
-  if (!alertaOk) return;
-  alertaOk.textContent = mensaje;
-  alertaOk.classList.remove("d-none");
+  const alerta = document.getElementById("alertaOkAyb");
+  if (alerta) { alerta.textContent = mensaje; alerta.classList.remove("d-none"); }
 }
 
 async function cargarFestivosSemana() {
-  try {
-    const fechaInicio = semanaActual[0]?.fecha;
-    const fechaFin = semanaActual[6]?.fecha;
-
-    const { data, error } = await supabase
-      .from("festivos")
-      .select("fecha,nombre,activo")
-      .eq("activo", true)
-      .gte("fecha", fechaInicio)
-      .lte("fecha", fechaFin);
-
-    if (error) {
-      console.error("No se pudieron cargar festivos:", error);
-      festivosSemana = [];
-      return;
-    }
-
-    festivosSemana = data || [];
-  } catch (error) {
-    console.error("Error cargando festivos:", error);
-    festivosSemana = [];
-  }
+  const { data, error } = await supabase.from("festivos").select("fecha,nombre,activo").eq("activo", true)
+    .gte("fecha", semanaActual[0]?.fecha).lte("fecha", semanaActual[6]?.fecha);
+  festivosSemana = error ? [] : (data || []);
 }
 
 async function cargarProgramacionAyb() {
   try {
     await cargarFestivosSemana();
-
-    const fechaInicio = semanaActual[0]?.fecha;
-    const fechaFin = semanaActual[6]?.fecha;
-
-    const { data, error } = await supabase
-      .from("programacion_turnos")
-      .select("*")
-      .eq("area", AREA_AYB)
-      .gte("fecha", fechaInicio)
-      .lte("fecha", fechaFin)
-      .order("fecha", { ascending: true });
-
+    const { data, error } = await supabase.from("programacion_turnos").select("*").eq("area", AREA_AYB)
+      .gte("fecha", semanaActual[0]?.fecha).lte("fecha", semanaActual[6]?.fecha).order("fecha", { ascending: true });
     if (error) throw error;
-
     registrosSemanaAyb = (data || []).map(enriquecerRegistroAyb);
-
     renderTablaProgramacionAyb(registrosSemanaAyb);
     renderResumenHorasAyb(registrosSemanaAyb);
   } catch (error) {
     console.error("Error cargando programación A&B:", error);
-    const tbody = document.getElementById("tbodyProgramacionAYB");
-    if (tbody) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="8" class="text-center text-danger py-4">No se pudo cargar la programación.</td>
-        </tr>
-      `;
-    }
+    document.getElementById("tbodyProgramacionAYB").innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">No se pudo cargar la programación.</td></tr>`;
   }
 }
 
 function enriquecerRegistroAyb(registro) {
-  const calculo = calcularMetricasRegistro(registro);
-  return {
-    ...registro,
-    ...calculo
-  };
+  return { ...registro, ...calcularMetricasRegistro(registro) };
 }
 
 function calcularMetricasRegistro(registro) {
   if (String(registro.tipo_registro) === "novedad") {
-    return {
-      horas_bloque_1: 0,
-      horas_bloque_2: 0,
-      horas_totales: 0,
-      horas_programadas: 0,
-      descuento_almuerzo: 0,
-      horas_diurnas: 0,
-      horas_nocturnas: 0,
-      horas_netas: 0,
-      jornada_esperada: 0,
-      horas_extra_estimadas: 0,
-      extra_diurna: 0,
-      extra_nocturna: 0,
-      tipo_jornada: "Novedad"
-    };
+    return { horas_bloque_1: 0, horas_bloque_2: 0, horas_totales: 0, horas_programadas: 0, descuento_almuerzo: 0, horas_diurnas: 0, horas_nocturnas: 0, horas_netas: 0, jornada_esperada: 0, horas_extra_estimadas: 0, extra_diurna: 0, extra_nocturna: 0, tipo_jornada: "Novedad" };
   }
-
   const b1 = calcularHorasTurnoProtegiendoNocturnas(registro.hora_inicio, registro.hora_fin);
   const b2 = calcularHorasTurnoProtegiendoNocturnas(registro.hora_inicio_2, registro.hora_fin_2);
-
   const horasTotales = redondearHoras(b1.total + b2.total);
   const horasDiurnas = redondearHoras(b1.diurnas + b2.diurnas);
   const horasNocturnas = redondearHoras(b1.nocturnas + b2.nocturnas);
   const horasNetas = redondearHoras(horasDiurnas + horasNocturnas);
-  const descuentoAlmuerzo = horasTotales > 0 ? DESCANSO_ESTANDAR_HORAS : 0;
-
   const jornadaInfo = obtenerJornadaEsperadaPorFecha(registro.fecha);
-  const jornada = jornadaInfo.horas;
-
-  const horasExtraEstimadas = redondearHoras(Math.max(0, horasNetas - jornada));
-
-  let extraDiurna = 0;
-  let extraNocturna = 0;
-
-  if (horasExtraEstimadas > 0) {
-    const ordinariasDiurnas = Math.min(horasDiurnas, jornada);
-    extraDiurna = redondearHoras(Math.max(0, horasDiurnas - ordinariasDiurnas));
-    extraNocturna = redondearHoras(Math.max(0, horasExtraEstimadas - extraDiurna));
-  }
-
-  return {
-    horas_bloque_1: redondearHoras(b1.netas),
-    horas_bloque_2: redondearHoras(b2.netas),
-    horas_totales: horasTotales,
-    horas_programadas: horasTotales,
-    descuento_almuerzo: descuentoAlmuerzo,
-    horas_diurnas: horasDiurnas,
-    horas_nocturnas: horasNocturnas,
-    horas_netas: horasNetas,
-    jornada_esperada: jornada,
-    horas_extra_estimadas: horasExtraEstimadas,
-    extra_diurna: extraDiurna,
-    extra_nocturna: extraNocturna,
-    tipo_jornada: jornadaInfo.tipo
-  };
+  const extra = redondearHoras(Math.max(0, horasNetas - jornadaInfo.horas));
+  const extraDiurna = extra > 0 ? redondearHoras(Math.max(0, horasDiurnas - Math.min(horasDiurnas, jornadaInfo.horas))) : 0;
+  const extraNocturna = redondearHoras(Math.max(0, extra - extraDiurna));
+  return { horas_bloque_1: redondearHoras(b1.netas), horas_bloque_2: redondearHoras(b2.netas), horas_totales: horasTotales, horas_programadas: horasTotales, descuento_almuerzo: horasTotales > 0 ? DESCANSO_ESTANDAR_HORAS : 0, horas_diurnas: horasDiurnas, horas_nocturnas: horasNocturnas, horas_netas: horasNetas, jornada_esperada: jornadaInfo.horas, horas_extra_estimadas: extra, extra_diurna: extraDiurna, extra_nocturna: extraNocturna, tipo_jornada: jornadaInfo.tipo };
 }
 
 function calcularHorasTurnoProtegiendoNocturnas(inicio, fin) {
-  if (!inicio || !fin) {
-    return {
-      total: 0,
-      diurnas: 0,
-      nocturnas: 0,
-      netas: 0
-    };
-  }
-
+  if (!inicio || !fin) return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
   const inicioMin = horaTextoAMinutos(inicio);
   let finMin = horaTextoAMinutos(fin);
-
-  if (inicioMin === null || finMin === null) {
-    return {
-      total: 0,
-      diurnas: 0,
-      nocturnas: 0,
-      netas: 0
-    };
-  }
-
-  if (finMin < inicioMin) {
-    finMin += 24 * 60;
-  }
-
-  let minutosDiurnos = 0;
-  let minutosNocturnos = 0;
-
+  if (inicioMin === null || finMin === null) return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
+  if (finMin < inicioMin) finMin += 24 * 60;
+  let diurnas = 0, nocturnas = 0;
   for (let m = inicioMin; m < finMin; m++) {
-    const minutoDelDia = m % (24 * 60);
-
-    if (esMinutoNocturno(minutoDelDia)) {
-      minutosNocturnos += 1;
-    } else {
-      minutosDiurnos += 1;
-    }
+    const minuto = m % (24 * 60);
+    if (minuto >= HORA_INICIO_NOCTURNO || minuto < HORA_FIN_NOCTURNO) nocturnas++; else diurnas++;
   }
-
-  const minutosTotales = minutosDiurnos + minutosNocturnos;
-
-  if (minutosTotales === 0) {
-    return {
-      total: 0,
-      diurnas: 0,
-      nocturnas: 0,
-      netas: 0
-    };
-  }
-
-  let descuentoMinutos = DESCANSO_ESTANDAR_HORAS * 60;
-
-  if (minutosDiurnos >= descuentoMinutos) {
-    minutosDiurnos -= descuentoMinutos;
-  } else {
-    const restante = descuentoMinutos - minutosDiurnos;
-    minutosDiurnos = 0;
-    minutosNocturnos = Math.max(0, minutosNocturnos - restante);
-  }
-
-  return {
-    total: redondearHoras(minutosTotales / 60),
-    diurnas: redondearHoras(minutosDiurnos / 60),
-    nocturnas: redondearHoras(minutosNocturnos / 60),
-    netas: redondearHoras((minutosDiurnos + minutosNocturnos) / 60)
-  };
+  const total = diurnas + nocturnas;
+  let descuento = DESCANSO_ESTANDAR_HORAS * 60;
+  if (diurnas >= descuento) diurnas -= descuento;
+  else { descuento -= diurnas; diurnas = 0; nocturnas = Math.max(0, nocturnas - descuento); }
+  return { total: redondearHoras(total / 60), diurnas: redondearHoras(diurnas / 60), nocturnas: redondearHoras(nocturnas / 60), netas: redondearHoras((diurnas + nocturnas) / 60) };
 }
 
-function horaTextoAMinutos(horaTexto) {
-  if (!horaTexto) return null;
-
-  const partes = String(horaTexto).split(":").map(Number);
-  if (partes.length < 2 || partes.some(Number.isNaN)) return null;
-
-  const [h, m] = partes;
-  return (h * 60) + m;
-}
-
-function esMinutoNocturno(minutoDelDia) {
-  return minutoDelDia >= HORA_INICIO_NOCTURNO || minutoDelDia < HORA_FIN_NOCTURNO;
+function horaTextoAMinutos(hora) {
+  const partes = String(hora || "").split(":").map(Number);
+  return partes.length >= 2 && !partes.some(Number.isNaN) ? partes[0] * 60 + partes[1] : null;
 }
 
 function obtenerJornadaEsperadaPorFecha(fechaISO) {
-  if (!fechaISO) {
-    return { horas: 7.5, tipo: "Martes a viernes / día hábil" };
-  }
-
-  if (esFestivo(fechaISO)) {
-    return { horas: 8.5, tipo: "Festivo" };
-  }
-
-  const fecha = new Date(`${fechaISO}T00:00:00`);
-  const dia = fecha.getDay();
-
-  if (dia === 6 || dia === 0) {
-    return { horas: 8.5, tipo: "Sábado/Domingo" };
-  }
-
-  return { horas: 7.5, tipo: "Martes a viernes / día hábil" };
+  if (festivosSemana.some((f) => String(f.fecha) === String(fechaISO))) return { horas: 8.5, tipo: "Festivo" };
+  const dia = new Date(`${fechaISO}T00:00:00`).getDay();
+  return dia === 0 || dia === 6 ? { horas: 8.5, tipo: "Sábado/Domingo" } : { horas: 7.5, tipo: "Martes a viernes / día hábil" };
 }
 
-function esFestivo(fechaISO) {
-  return festivosSemana.some((f) => String(f.fecha) === String(fechaISO));
-}
-
-function redondearHoras(valor) {
-  return Math.round((Number(valor || 0) + Number.EPSILON) * 100) / 100;
-}
+function redondearHoras(valor) { return Math.round((Number(valor || 0) + Number.EPSILON) * 100) / 100; }
 
 function renderTablaProgramacionAyb(registros) {
   const tbody = document.getElementById("tbodyProgramacionAYB");
-  if (!tbody) return;
+  const contador = document.getElementById("textoResultadoMatrizAyb");
+  const mapa = new Map();
 
-  const registrosPorSubarea = {};
-  Object.keys(SUBAREAS_AYB).forEach((subarea) => {
-    registrosPorSubarea[subarea] = {};
-    semanaActual.forEach((dia) => {
-      registrosPorSubarea[subarea][dia.fecha] = [];
-    });
+  empleadosAyb.forEach((emp) => mapa.set(emp.cedula, { ...emp, dias: {} }));
+  registros.forEach((registro) => {
+    const cedula = texto(registro.cedula) || `registro-${registro.id}`;
+    if (!mapa.has(cedula)) mapa.set(cedula, { cedula: registro.cedula || "", nombre: registro.nombre || "Empleado", cargo: registro.cargo || "", dias: {} });
+    if (!mapa.get(cedula).dias[registro.fecha]) mapa.get(cedula).dias[registro.fecha] = [];
+    mapa.get(cedula).dias[registro.fecha].push(registro);
   });
 
-  const novedades = {};
-  semanaActual.forEach((dia) => {
-    novedades[dia.fecha] = [];
-  });
+  const empleados = [...mapa.values()].filter(cumpleFiltrosMatriz).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+  if (contador) contador.textContent = `${empleados.length} empleado(s) visible(s) · ${registros.length} registro(s)`;
 
-  registros.forEach((item) => {
-    if (String(item.tipo_registro) === "novedad") {
-      if (!novedades[item.fecha]) novedades[item.fecha] = [];
-      novedades[item.fecha].push(item);
-      return;
-    }
+  if (!empleados.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-5">No hay empleados que coincidan con los filtros seleccionados.</td></tr>`;
+    return;
+  }
 
-    const subarea = item.subarea || "Sin subárea";
-    if (!registrosPorSubarea[subarea]) {
-      registrosPorSubarea[subarea] = {};
-      semanaActual.forEach((dia) => {
-        registrosPorSubarea[subarea][dia.fecha] = [];
-      });
-    }
-
-    if (!registrosPorSubarea[subarea][item.fecha]) {
-      registrosPorSubarea[subarea][item.fecha] = [];
-    }
-
-    registrosPorSubarea[subarea][item.fecha].push(item);
-  });
-
-  let html = "";
-
-  Object.entries(SUBAREAS_AYB).forEach(([subarea, meta]) => {
-    html += `
-      <tr>
-        <td>
-          <div class="subarea-label">${escaparHtml(subarea)}</div>
-          <div class="subarea-meta">${escaparHtml(meta.codigo)} · ${escaparHtml(meta.horario)}</div>
-        </td>
-    `;
-
-    semanaActual.forEach((dia) => {
-      const items = registrosPorSubarea[subarea]?.[dia.fecha] || [];
-
-      html += `<td class="align-top">`;
-      html += `
-        <div class="acciones-celda">
-          <button class="btn btn-sm btn-outline-primary" onclick="window.abrirModalNuevaAsignacionDesdeTabla('${escaparAtributo(dia.fecha)}','${escaparAtributo(subarea)}')">+ Agregar</button>
-          ${turnoCopiadoAyb ? `<button class="btn btn-sm btn-outline-success" onclick="window.pegarTurnoAybEnCelda('${escaparAtributo(subarea)}','${escaparAtributo(dia.fecha)}')">Pegar</button>` : ""}
-        </div>
-      `;
-
-      if (!items.length) {
-        html += `<div class="text-muted small">Sin registros</div>`;
-      } else {
-        html += items.map((item) => construirCardTurnoCompacta(item)).join("");
-      }
-
-      html += `</td>`;
-    });
-
-    html += `</tr>`;
-  });
-
-  html += `
-    <tr>
-      <td>
-        <div class="subarea-label">Novedades</div>
-        <div class="subarea-meta">Incapacidades, vacaciones, licencias y otros</div>
+  tbody.innerHTML = empleados.map((empleado) => {
+    const resumen = obtenerResumenEmpleado(empleado);
+    return `<tr>
+      <td class="empleado-sticky align-top">
+        <div class="empleado-matriz-nombre">${escaparHtml(empleado.nombre)}</div>
+        <div class="empleado-matriz-cargo">${escaparHtml(empleado.cargo || "Sin cargo")}</div>
+        <div class="empleado-matriz-cedula">${escaparHtml(empleado.cedula || "")}</div>
+        <div class="empleado-matriz-resumen"><span>${resumen.turnos} turno(s)</span>${resumen.extra > 0 ? `<span class="chip-extra">+${formatoHoras(resumen.extra)} h</span>` : ""}</div>
       </td>
-  `;
+      ${semanaActual.map((dia) => construirCeldaEmpleado(empleado, dia)).join("")}
+    </tr>`;
+  }).join("");
+}
 
-  semanaActual.forEach((dia) => {
-    const items = novedades[dia.fecha] || [];
+function cumpleFiltrosMatriz(empleado) {
+  const registros = Object.values(empleado.dias).flat();
+  const turnos = registros.filter((r) => String(r.tipo_registro) !== "novedad");
+  const novedades = registros.filter((r) => String(r.tipo_registro) === "novedad");
+  const identificacion = `${empleado.nombre} ${empleado.cedula} ${empleado.cargo}`.toLowerCase();
+  if (filtrosMatrizAyb.busqueda && !identificacion.includes(filtrosMatrizAyb.busqueda)) return false;
+  if (filtrosMatrizAyb.cargo && empleado.cargo !== filtrosMatrizAyb.cargo) return false;
+  if (filtrosMatrizAyb.subarea && !turnos.some((r) => r.subarea === filtrosMatrizAyb.subarea || r.subarea_2 === filtrosMatrizAyb.subarea)) return false;
+  if (filtrosMatrizAyb.estado === "con-registros" && registros.length === 0) return false;
+  if (filtrosMatrizAyb.estado === "sin-registros" && registros.length > 0) return false;
+  if (filtrosMatrizAyb.estado === "con-extra" && !turnos.some((r) => Number(r.horas_extra_estimadas || 0) > 0)) return false;
+  if (filtrosMatrizAyb.estado === "con-novedad" && novedades.length === 0) return false;
+  return true;
+}
 
-    html += `<td class="align-top">`;
-    html += `
-      <div class="acciones-celda">
-        <button class="btn btn-sm btn-outline-primary" onclick="window.abrirModalNuevaNovedadDesdeTabla('${escaparAtributo(dia.fecha)}')">+ Novedad</button>
-      </div>
-    `;
+function obtenerResumenEmpleado(empleado) {
+  const turnos = Object.values(empleado.dias).flat().filter((r) => String(r.tipo_registro) !== "novedad");
+  return { turnos: turnos.length, extra: redondearHoras(turnos.reduce((acc, r) => acc + Number(r.horas_extra_estimadas || 0), 0)) };
+}
 
-    if (!items.length) {
-      html += `<div class="text-muted small">Sin novedades</div>`;
-    } else {
-      html += items.map((item) => construirCardNovedadCompacta(item)).join("");
-    }
-
-    html += `</td>`;
-  });
-
-  html += `</tr>`;
-
-  tbody.innerHTML = html;
+function construirCeldaEmpleado(empleado, dia) {
+  const items = empleado.dias[dia.fecha] || [];
+  return `<td class="celda-dia-empleado align-top">
+    <div class="acciones-celda-matriz">
+      <button class="btn-celda-ayb btn-agregar-ayb" type="button" title="Agregar turno" onclick="window.nuevaAsignacionMatriz('${escaparAtributo(dia.fecha)}','${escaparAtributo(empleado.cedula)}')">+</button>
+      <button class="btn-celda-ayb btn-novedad-ayb" type="button" title="Agregar novedad" onclick="window.nuevaNovedadMatriz('${escaparAtributo(dia.fecha)}','${escaparAtributo(empleado.cedula)}')">N</button>
+      ${turnoCopiadoAyb ? `<button class="btn-celda-ayb btn-pegar-ayb" type="button" title="Pegar turno" onclick="window.pegarTurnoMatriz('${escaparAtributo(dia.fecha)}','${escaparAtributo(empleado.cedula)}')">P</button>` : ""}
+    </div>
+    ${items.length ? items.map((item) => item.tipo_registro === "novedad" ? construirCardNovedadCompacta(item) : construirCardTurnoCompacta(item)).join("") : `<div class="celda-libre">Libre</div>`}
+  </td>`;
 }
 
 function construirCardTurnoCompacta(item) {
-  const horario1 = item.hora_inicio && item.hora_fin ? `${item.hora_inicio} - ${item.hora_fin}` : "";
-  const extraClase = item.horas_extra_estimadas > 0 ? "extra-positive" : "extra-zero";
-
-  return `
-    <div class="turno-card-compact">
-      <div class="compact-nombre">${escaparHtml(item.nombre || "")}</div>
-      <div class="compact-cargo">${escaparHtml(item.cargo || "")}</div>
-      <div class="compact-line mt-1"><strong>T:</strong> ${escaparHtml(item.turno || "")}</div>
-      <div class="compact-line">${escaparHtml(horario1 || "Sin horario")}</div>
-      <div class="compact-line"><strong>D:</strong> ${formatoHoras(item.horas_diurnas)} h · <strong>N:</strong> ${formatoHoras(item.horas_nocturnas)} h</div>
-      <div class="compact-line"><strong>ED:</strong> ${formatoHoras(item.extra_diurna)} h · <strong>EN:</strong> ${formatoHoras(item.extra_nocturna)} h</div>
-      <div class="mt-2">
-        <span class="extra-badge ${extraClase}">Extra total: ${formatoHoras(item.horas_extra_estimadas)} h</span>
-      </div>
-      <div class="d-flex gap-1 flex-wrap mt-2">
-        <button class="btn btn-sm btn-outline-dark" onclick="window.verDetalleRegistroAyb('${escaparAtributo(item.id)}')">Ver</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="window.editarAsignacionAyb('${escaparAtributo(item.id)}')">Editar</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="window.eliminarAsignacionAybDesdeTabla('${escaparAtributo(item.id)}')">Eliminar</button>
-        <button class="btn btn-sm btn-outline-primary" onclick="window.copiarTurnoAybDesdeTabla('${escaparAtributo(item.id)}')">Copiar</button>
-      </div>
+  const subarea = SUBAREAS_AYB[item.subarea]?.codigo || item.subarea || "S/A";
+  const subarea2 = item.subarea_2 ? (SUBAREAS_AYB[item.subarea_2]?.codigo || item.subarea_2) : "";
+  const horario = item.hora_inicio && item.hora_fin ? `${item.hora_inicio}-${item.hora_fin}` : "Sin horario";
+  const horario2 = item.hora_inicio_2 && item.hora_fin_2 ? `${item.hora_inicio_2}-${item.hora_fin_2}` : "";
+  const extra = Number(item.horas_extra_estimadas || 0);
+  return `<div class="turno-matriz-card ${extra > 0 ? "tiene-extra" : ""}">
+    <div class="turno-matriz-superior">
+      <span class="chip-subarea">${escaparHtml(subarea)}</span>
+      <span class="chip-turno">T${escaparHtml(item.turno || "-")}</span>
+      ${extra > 0 ? `<span class="chip-extra">+${formatoHoras(extra)}h</span>` : ""}
     </div>
-  `;
+    <div class="turno-matriz-horario">${escaparHtml(horario)}</div>
+    ${subarea2 || horario2 ? `<div class="turno-matriz-segundo">${escaparHtml(subarea2)} · ${escaparHtml(horario2)}</div>` : ""}
+    <div class="acciones-registro-matriz">
+      <button type="button" onclick="window.verDetalleRegistroAyb('${escaparAtributo(item.id)}')">Ver</button>
+      <button type="button" onclick="window.editarAsignacionAyb('${escaparAtributo(item.id)}')">Editar</button>
+      <button type="button" onclick="window.copiarTurnoAybDesdeTabla('${escaparAtributo(item.id)}')">Copiar</button>
+      <button type="button" class="accion-eliminar" onclick="window.eliminarAsignacionAybDesdeTabla('${escaparAtributo(item.id)}')">×</button>
+    </div>
+  </div>`;
 }
 
 function construirCardNovedadCompacta(item) {
-  const claseNovedad = obtenerClaseNovedad(item.novedad_codigo);
   const titulo = NOVEDADES_LABELS[item.novedad_codigo] || item.novedad_codigo || "Novedad";
-
-  return `
-    <div class="novedad-card-compact ${claseNovedad}">
-      <div class="compact-nombre">${escaparHtml(item.nombre || "")}</div>
-      <div class="compact-cargo">${escaparHtml(item.cargo || "")}</div>
-      <div class="compact-line mt-1"><strong>${escaparHtml(titulo)}</strong></div>
-      <div class="d-flex gap-1 flex-wrap mt-2">
-        <button class="btn btn-sm btn-outline-dark" onclick="window.verDetalleRegistroAyb('${escaparAtributo(item.id)}')">Ver</button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="window.editarAsignacionAyb('${escaparAtributo(item.id)}')">Editar</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="window.eliminarAsignacionAybDesdeTabla('${escaparAtributo(item.id)}')">Eliminar</button>
-      </div>
+  return `<div class="novedad-matriz-card ${obtenerClaseNovedad(item.novedad_codigo)}">
+    <span class="chip-novedad">${escaparHtml(item.novedad_codigo || "N")}</span>
+    <div class="novedad-matriz-titulo">${escaparHtml(titulo)}</div>
+    <div class="acciones-registro-matriz">
+      <button type="button" onclick="window.verDetalleRegistroAyb('${escaparAtributo(item.id)}')">Ver</button>
+      <button type="button" onclick="window.editarAsignacionAyb('${escaparAtributo(item.id)}')">Editar</button>
+      <button type="button" class="accion-eliminar" onclick="window.eliminarAsignacionAybDesdeTabla('${escaparAtributo(item.id)}')">×</button>
     </div>
-  `;
+  </div>`;
 }
 
 function obtenerClaseNovedad(codigo) {
@@ -1366,247 +832,104 @@ function obtenerClaseNovedad(codigo) {
 }
 
 function renderResumenHorasAyb(registros) {
-  const soloTurnos = registros.filter((r) => String(r.tipo_registro) !== "novedad");
-
-  const totalHorasNetas = redondearHoras(soloTurnos.reduce((acc, r) => acc + Number(r.horas_netas || 0), 0));
-  const totalHorasExtra = redondearHoras(soloTurnos.reduce((acc, r) => acc + Number(r.horas_extra_estimadas || 0), 0));
-
-  document.getElementById("kpiHorasNetasAyb").textContent = formatoHoras(totalHorasNetas);
-  document.getElementById("kpiHorasExtraAyb").textContent = formatoHoras(totalHorasExtra);
+  const turnos = registros.filter((r) => String(r.tipo_registro) !== "novedad");
+  const netas = redondearHoras(turnos.reduce((acc, r) => acc + Number(r.horas_netas || 0), 0));
+  const extras = redondearHoras(turnos.reduce((acc, r) => acc + Number(r.horas_extra_estimadas || 0), 0));
+  document.getElementById("kpiHorasNetasAyb").textContent = formatoHoras(netas);
+  document.getElementById("kpiHorasExtraAyb").textContent = formatoHoras(extras);
   document.getElementById("kpiRegistrosAyb").textContent = String(registros.length);
-
-  const ranking = construirRankingEmpleados(soloTurnos);
+  const ranking = construirRankingEmpleados(turnos);
   const top = ranking[0];
-
   document.getElementById("kpiTopEmpleadoHorasAyb").textContent = top ? limitarTexto(top.nombre, 12) : "-";
-  document.getElementById("kpiTopEmpleadoDetalleAyb").textContent = top
-    ? `${formatoHoras(top.extra)} h extra estimadas`
-    : "Sin datos";
-
+  document.getElementById("kpiTopEmpleadoDetalleAyb").textContent = top ? `${formatoHoras(top.extra)} h extra estimadas` : "Sin datos";
   renderTablaResumenSemanal(ranking);
 }
 
-function construirRankingEmpleados(registrosTurno) {
+function construirRankingEmpleados(turnos) {
   const mapa = new Map();
-
-  registrosTurno.forEach((r) => {
-    const key = `${r.cedula}||${r.nombre}`;
-    if (!mapa.has(key)) {
-      mapa.set(key, {
-        cedula: r.cedula,
-        nombre: r.nombre,
-        cargo: r.cargo || "",
-        extra: 0,
-        netas: 0,
-        diurnas: 0,
-        nocturnas: 0,
-        extraDiurna: 0,
-        extraNocturna: 0,
-        registros: 0
-      });
-    }
-
-    const item = mapa.get(key);
+  turnos.forEach((r) => {
+    const llave = `${r.cedula}||${r.nombre}`;
+    if (!mapa.has(llave)) mapa.set(llave, { cedula: r.cedula, nombre: r.nombre, cargo: r.cargo || "", extra: 0, netas: 0, diurnas: 0, nocturnas: 0, extraDiurna: 0, extraNocturna: 0, registros: 0 });
+    const item = mapa.get(llave);
     item.extra = redondearHoras(item.extra + Number(r.horas_extra_estimadas || 0));
     item.netas = redondearHoras(item.netas + Number(r.horas_netas || 0));
     item.diurnas = redondearHoras(item.diurnas + Number(r.horas_diurnas || 0));
     item.nocturnas = redondearHoras(item.nocturnas + Number(r.horas_nocturnas || 0));
     item.extraDiurna = redondearHoras(item.extraDiurna + Number(r.extra_diurna || 0));
     item.extraNocturna = redondearHoras(item.extraNocturna + Number(r.extra_nocturna || 0));
-    item.registros += 1;
+    item.registros++;
   });
-
-  return Array.from(mapa.values()).sort((a, b) => {
-    if (b.extra !== a.extra) return b.extra - a.extra;
-    return b.netas - a.netas;
-  });
+  return [...mapa.values()].sort((a, b) => b.extra - a.extra || b.netas - a.netas);
 }
 
 function renderTablaResumenSemanal(ranking) {
   const contenedor = document.getElementById("resumenSemanalAyb");
-  if (!contenedor) return;
-
-  if (!ranking.length) {
-    contenedor.innerHTML = `<div class="text-muted">No hay turnos programados en la semana visible.</div>`;
-    return;
-  }
-
-  const top5 = ranking.slice(0, 5);
-
-  contenedor.innerHTML = `
-    <div class="mb-3">
-      <div class="fw-semibold">Top empleados con mayor sobreprogramación teórica</div>
-      <div class="small text-muted">
-        El descanso se descuenta del total sin afectar primero la franja nocturna.
-      </div>
-    </div>
-
-    <div class="table-responsive">
-      <table class="table table-sm table-striped table-ranking">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Empleado</th>
-            <th>D</th>
-            <th>N</th>
-            <th>Netas</th>
-            <th>ED</th>
-            <th>EN</th>
-            <th>Extra</th>
-            <th>Registros</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${top5.map((item, index) => `
-            <tr>
-              <td>${index + 1}</td>
-              <td>
-                <div class="fw-semibold">${escaparHtml(item.nombre)}</div>
-                <div class="small text-muted">${escaparHtml(item.cargo || "")}</div>
-              </td>
-              <td>${formatoHoras(item.diurnas)} h</td>
-              <td>${formatoHoras(item.nocturnas)} h</td>
-              <td>${formatoHoras(item.netas)} h</td>
-              <td>${formatoHoras(item.extraDiurna)} h</td>
-              <td>${formatoHoras(item.extraNocturna)} h</td>
-              <td>${formatoHoras(item.extra)} h</td>
-              <td>${item.registros}</td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
-  `;
+  if (!ranking.length) { contenedor.innerHTML = `<div class="text-muted">No hay turnos programados en la semana visible.</div>`; return; }
+  contenedor.innerHTML = `<div class="mb-3"><div class="fw-semibold">Top empleados con mayor sobreprogramación teórica</div><div class="small text-muted">El descanso se descuenta del total sin afectar primero la franja nocturna.</div></div>
+  <div class="table-responsive"><table class="table table-sm table-striped table-ranking"><thead><tr><th>#</th><th>Empleado</th><th>D</th><th>N</th><th>Netas</th><th>ED</th><th>EN</th><th>Extra</th><th>Registros</th></tr></thead><tbody>
+  ${ranking.slice(0, 5).map((item, i) => `<tr><td>${i + 1}</td><td><div class="fw-semibold">${escaparHtml(item.nombre)}</div><div class="small text-muted">${escaparHtml(item.cargo)}</div></td><td>${formatoHoras(item.diurnas)} h</td><td>${formatoHoras(item.nocturnas)} h</td><td>${formatoHoras(item.netas)} h</td><td>${formatoHoras(item.extraDiurna)} h</td><td>${formatoHoras(item.extraNocturna)} h</td><td>${formatoHoras(item.extra)} h</td><td>${item.registros}</td></tr>`).join("")}
+  </tbody></table></div>`;
 }
 
 function cargarTurnoCopiadoDesdeMemoria() {
-  try {
-    turnoCopiadoAyb = JSON.parse(localStorage.getItem("ccp_turno_copiado_ayb") || "null");
-  } catch {
-    turnoCopiadoAyb = null;
-  }
-
+  try { turnoCopiadoAyb = JSON.parse(localStorage.getItem("ccp_turno_copiado_ayb") || "null"); } catch { turnoCopiadoAyb = null; }
   renderBannerTurnoCopiado();
 }
 
 function renderBannerTurnoCopiado() {
   const banner = document.getElementById("bannerTurnoCopiadoAyb");
   const textoBanner = document.getElementById("textoTurnoCopiadoAyb");
-
   if (!banner || !textoBanner) return;
-
-  if (!turnoCopiadoAyb) {
-    banner.classList.add("d-none");
-    textoBanner.textContent = "No hay turno copiado";
-    return;
-  }
-
+  if (!turnoCopiadoAyb) { banner.classList.add("d-none"); textoBanner.textContent = "No hay turno copiado"; return; }
   banner.classList.remove("d-none");
   textoBanner.textContent = `${turnoCopiadoAyb.nombre} · Turno ${turnoCopiadoAyb.turno || ""} · ${turnoCopiadoAyb.subarea || ""}`;
 }
 
 function copiarTurnoAyb(registro) {
   if (!registro || String(registro.tipo_registro) === "novedad") return;
-
   turnoCopiadoAyb = {
-    cedula: registro.cedula || "",
-    nombre: registro.nombre || "",
-    cargo: registro.cargo || "",
-    subarea: registro.subarea || "",
-    turno: registro.turno || "",
-    hora_inicio: registro.hora_inicio || null,
-    hora_fin: registro.hora_fin || null,
-    subarea_2: registro.subarea_2 || null,
-    turno_2: registro.turno_2 || null,
-    hora_inicio_2: registro.hora_inicio_2 || null,
-    hora_fin_2: registro.hora_fin_2 || null,
-    observacion: registro.observacion || null,
-    area: AREA_AYB,
-    copiado_en: new Date().toISOString()
+    subarea: registro.subarea || "", turno: registro.turno || "", hora_inicio: registro.hora_inicio || null, hora_fin: registro.hora_fin || null,
+    subarea_2: registro.subarea_2 || null, turno_2: registro.turno_2 || null, hora_inicio_2: registro.hora_inicio_2 || null, hora_fin_2: registro.hora_fin_2 || null,
+    observacion: registro.observacion || null, nombre: registro.nombre || "", copiado_en: new Date().toISOString()
   };
-
   localStorage.setItem("ccp_turno_copiado_ayb", JSON.stringify(turnoCopiadoAyb));
   renderBannerTurnoCopiado();
-  cargarProgramacionAyb();
+  renderTablaProgramacionAyb(registrosSemanaAyb);
 }
 
 function limpiarTurnoCopiadoAyb() {
   turnoCopiadoAyb = null;
   localStorage.removeItem("ccp_turno_copiado_ayb");
   renderBannerTurnoCopiado();
-  cargarProgramacionAyb();
+  renderTablaProgramacionAyb(registrosSemanaAyb);
 }
 
-async function pegarTurnoAybEnCelda(subareaDestino, fechaDestino) {
-  if (!turnoCopiadoAyb) {
-    alert("Primero copia un turno.");
-    return;
-  }
+async function pegarTurnoAybEnEmpleado(fecha, cedula) {
+  if (!turnoCopiadoAyb) { alert("Primero copia un turno."); return; }
+  const empleado = empleadosAyb.find((emp) => String(emp.cedula) === String(cedula));
+  if (!empleado) { alert("No se encontró el empleado destino."); return; }
 
-  const cedula = texto(turnoCopiadoAyb.cedula);
-  if (!cedula || !fechaDestino) {
-    alert("La copia del turno está incompleta.");
-    return;
-  }
-
-  const { data: existentes, error: errorValidacion } = await supabase
-    .from("programacion_turnos")
-    .select("id")
-    .eq("area", AREA_AYB)
-    .eq("cedula", cedula)
-    .eq("fecha", fechaDestino)
-    .limit(1);
-
-  if (errorValidacion) {
-    console.error("Error validando pegado de turno:", errorValidacion);
-    alert("No se pudo validar si el empleado ya tiene turno ese día.");
-    return;
-  }
-
-  if (Array.isArray(existentes) && existentes.length) {
-    alert("Ese empleado ya tiene una asignación en esa fecha.");
-    return;
-  }
+  const { data: existentes, error: errorValidacion } = await supabase.from("programacion_turnos").select("id")
+    .eq("area", AREA_AYB).eq("cedula", cedula).eq("fecha", fecha).limit(1);
+  if (errorValidacion) { alert("No se pudo validar si el empleado ya tiene asignación ese día."); return; }
+  if (existentes?.length) { alert("El empleado destino ya tiene una asignación en esa fecha."); return; }
 
   const payload = {
-    area: AREA_AYB,
-    tipo_registro: "turno",
-    cedula: turnoCopiadoAyb.cedula,
-    nombre: turnoCopiadoAyb.nombre,
-    cargo: turnoCopiadoAyb.cargo,
-    subarea: subareaDestino || turnoCopiadoAyb.subarea || null,
-    fecha: fechaDestino,
-    dia: obtenerNombreDia(new Date(`${fechaDestino}T00:00:00`)),
-    turno: turnoCopiadoAyb.turno || null,
-    hora_inicio: turnoCopiadoAyb.hora_inicio || null,
-    hora_fin: turnoCopiadoAyb.hora_fin || null,
-    subarea_2: turnoCopiadoAyb.subarea_2 || null,
-    turno_2: turnoCopiadoAyb.turno_2 || null,
-    hora_inicio_2: turnoCopiadoAyb.hora_inicio_2 || null,
-    hora_fin_2: turnoCopiadoAyb.hora_fin_2 || null,
-    observacion: turnoCopiadoAyb.observacion || null,
-    novedad_codigo: null,
-    novedad_descripcion: null
+    area: AREA_AYB, tipo_registro: "turno", cedula: empleado.cedula, nombre: empleado.nombre, cargo: empleado.cargo,
+    subarea: turnoCopiadoAyb.subarea || null, fecha, dia: obtenerNombreDia(new Date(`${fecha}T00:00:00`)),
+    turno: turnoCopiadoAyb.turno || null, hora_inicio: turnoCopiadoAyb.hora_inicio || null, hora_fin: turnoCopiadoAyb.hora_fin || null,
+    subarea_2: turnoCopiadoAyb.subarea_2 || null, turno_2: turnoCopiadoAyb.turno_2 || null,
+    hora_inicio_2: turnoCopiadoAyb.hora_inicio_2 || null, hora_fin_2: turnoCopiadoAyb.hora_fin_2 || null,
+    observacion: turnoCopiadoAyb.observacion || null, novedad_codigo: null, novedad_descripcion: null
   };
 
   const { error } = await supabase.from("programacion_turnos").insert([payload]);
-
-  if (error) {
-    console.error("Error pegando turno A&B:", error);
-    alert("No se pudo pegar el turno en la fecha seleccionada.");
-    return;
-  }
-
+  if (error) { alert("No se pudo pegar el turno en la fecha seleccionada."); return; }
   await cargarProgramacionAyb();
 }
 
 async function buscarRegistroPorId(id) {
-  const { data, error } = await supabase
-    .from("programacion_turnos")
-    .select("*")
-    .eq("id", id)
-    .single();
-
+  const { data, error } = await supabase.from("programacion_turnos").select("*").eq("id", id).single();
   if (error) throw error;
   return enriquecerRegistroAyb(data);
 }
@@ -1615,343 +938,110 @@ function abrirDetalleRegistro(registro) {
   const titulo = document.getElementById("detalleNombreRegistroAyb");
   const subtitulo = document.getElementById("detalleSubtituloRegistroAyb");
   const contenido = document.getElementById("detalleContenidoRegistroAyb");
-
-  if (!titulo || !subtitulo || !contenido) return;
-
   titulo.textContent = registro.nombre || "Detalle del registro";
-
   subtitulo.textContent = registro.tipo_registro === "novedad"
     ? `${registro.fecha || ""} · ${NOVEDADES_LABELS[registro.novedad_codigo] || registro.novedad_codigo || "Novedad"}`
     : `${registro.fecha || ""} · ${registro.subarea || "Sin subárea"} · Turno ${registro.turno || ""}`;
 
   if (registro.tipo_registro === "novedad") {
-    contenido.innerHTML = `
-      <div class="row g-3 detalle-grid">
-        <div class="col-md-6"><div class="item"><div class="label">Empleado</div><div class="value">${escaparHtml(registro.nombre || "")}</div></div></div>
-        <div class="col-md-6"><div class="item"><div class="label">Cargo</div><div class="value">${escaparHtml(registro.cargo || "Sin cargo")}</div></div></div>
-        <div class="col-md-6"><div class="item"><div class="label">Fecha</div><div class="value">${escaparHtml(registro.fecha || "")}</div></div></div>
-        <div class="col-md-6"><div class="item"><div class="label">Novedad</div><div class="value">${escaparHtml(NOVEDADES_LABELS[registro.novedad_codigo] || registro.novedad_codigo || "")}</div></div></div>
-        <div class="col-12"><div class="item"><div class="label">Descripción</div><div class="value">${escaparHtml(registro.novedad_descripcion || "Sin descripción")}</div></div></div>
-        <div class="col-12"><div class="item"><div class="label">Observación</div><div class="value">${escaparHtml(registro.observacion || "Sin observación")}</div></div></div>
-      </div>
-    `;
+    contenido.innerHTML = `<div class="row g-3 detalle-grid">
+      ${detalleItem("Empleado", registro.nombre)}${detalleItem("Cargo", registro.cargo || "Sin cargo")}
+      ${detalleItem("Fecha", registro.fecha)}${detalleItem("Novedad", NOVEDADES_LABELS[registro.novedad_codigo] || registro.novedad_codigo)}
+      <div class="col-12">${detalleCaja("Descripción", registro.novedad_descripcion || "Sin descripción")}</div>
+      <div class="col-12">${detalleCaja("Observación", registro.observacion || "Sin observación")}</div>
+    </div>`;
   } else {
     const horario1 = registro.hora_inicio && registro.hora_fin ? `${registro.hora_inicio} - ${registro.hora_fin}` : "Sin horario";
-    const horario2 = registro.hora_inicio_2 && registro.hora_fin_2 ? `${registro.hora_inicio_2} - ${registro.hora_fin_2}` : "Sin horario";
-
-    contenido.innerHTML = `
-      <div class="row g-3 detalle-grid">
-        <div class="col-md-6"><div class="item"><div class="label">Empleado</div><div class="value">${escaparHtml(registro.nombre || "")}</div></div></div>
-        <div class="col-md-6"><div class="item"><div class="label">Cargo</div><div class="value">${escaparHtml(registro.cargo || "Sin cargo")}</div></div></div>
-
-        <div class="col-md-4"><div class="item"><div class="label">Fecha</div><div class="value">${escaparHtml(registro.fecha || "")}</div></div></div>
-        <div class="col-md-4"><div class="item"><div class="label">Subárea</div><div class="value">${escaparHtml(registro.subarea || "Sin subárea")}</div></div></div>
-        <div class="col-md-4"><div class="item"><div class="label">Turno bloque 1</div><div class="value">${escaparHtml(registro.turno || "")}</div></div></div>
-
-        <div class="col-md-6"><div class="item"><div class="label">Horario bloque 1</div><div class="value">${escaparHtml(horario1)}</div></div></div>
-        <div class="col-md-6"><div class="item"><div class="label">Bloque 2</div><div class="value">${escaparHtml(registro.subarea_2 || "No aplica")} ${registro.turno_2 ? `· ${escaparHtml(registro.turno_2)}` : ""} ${registro.subarea_2 || registro.turno_2 || registro.hora_inicio_2 || registro.hora_fin_2 ? `· ${escaparHtml(horario2)}` : ""}</div></div></div>
-
-        <div class="col-md-3"><div class="item"><div class="label">Horas totales</div><div class="value">${formatoHoras(registro.horas_totales)} h</div></div></div>
-        <div class="col-md-3"><div class="item"><div class="label">Diurnas</div><div class="value">${formatoHoras(registro.horas_diurnas)} h</div></div></div>
-        <div class="col-md-3"><div class="item"><div class="label">Nocturnas</div><div class="value">${formatoHoras(registro.horas_nocturnas)} h</div></div></div>
-        <div class="col-md-3"><div class="item"><div class="label">Almuerzo</div><div class="value">${formatoHoras(registro.descuento_almuerzo)} h</div></div></div>
-
-        <div class="col-md-3"><div class="item"><div class="label">Netas</div><div class="value">${formatoHoras(registro.horas_netas)} h</div></div></div>
-        <div class="col-md-3"><div class="item"><div class="label">Extra diurna</div><div class="value">${formatoHoras(registro.extra_diurna)} h</div></div></div>
-        <div class="col-md-3"><div class="item"><div class="label">Extra nocturna</div><div class="value">${formatoHoras(registro.extra_nocturna)} h</div></div></div>
-        <div class="col-md-3"><div class="item"><div class="label">Extra total</div><div class="value">${formatoHoras(registro.horas_extra_estimadas)} h</div></div></div>
-
-        <div class="col-md-6"><div class="item"><div class="label">Jornada esperada</div><div class="value">${formatoHoras(registro.jornada_esperada)} h</div></div></div>
-        <div class="col-md-6"><div class="item"><div class="label">Tipo de jornada</div><div class="value">${escaparHtml(registro.tipo_jornada || "")}</div></div></div>
-
-        <div class="col-12"><div class="item"><div class="label">Observación</div><div class="value">${escaparHtml(registro.observacion || "Sin observación")}</div></div></div>
-      </div>
-    `;
+    const horario2 = registro.hora_inicio_2 && registro.hora_fin_2 ? `${registro.hora_inicio_2} - ${registro.hora_fin_2}` : "No aplica";
+    contenido.innerHTML = `<div class="row g-3 detalle-grid">
+      ${detalleItem("Empleado", registro.nombre)}${detalleItem("Cargo", registro.cargo || "Sin cargo")}
+      ${detalleItem("Fecha", registro.fecha, "col-md-4")}${detalleItem("Subárea", registro.subarea || "Sin subárea", "col-md-4")}${detalleItem("Turno bloque 1", registro.turno, "col-md-4")}
+      ${detalleItem("Horario bloque 1", horario1)}${detalleItem("Bloque 2", registro.subarea_2 ? `${registro.subarea_2} · ${registro.turno_2 || ""} · ${horario2}` : "No aplica")}
+      ${detalleItem("Horas totales", `${formatoHoras(registro.horas_totales)} h`, "col-md-3")}${detalleItem("Diurnas", `${formatoHoras(registro.horas_diurnas)} h`, "col-md-3")}${detalleItem("Nocturnas", `${formatoHoras(registro.horas_nocturnas)} h`, "col-md-3")}${detalleItem("Almuerzo", `${formatoHoras(registro.descuento_almuerzo)} h`, "col-md-3")}
+      ${detalleItem("Netas", `${formatoHoras(registro.horas_netas)} h`, "col-md-3")}${detalleItem("Extra diurna", `${formatoHoras(registro.extra_diurna)} h`, "col-md-3")}${detalleItem("Extra nocturna", `${formatoHoras(registro.extra_nocturna)} h`, "col-md-3")}${detalleItem("Extra total", `${formatoHoras(registro.horas_extra_estimadas)} h`, "col-md-3")}
+      ${detalleItem("Jornada esperada", `${formatoHoras(registro.jornada_esperada)} h`)}${detalleItem("Tipo de jornada", registro.tipo_jornada)}
+      <div class="col-12">${detalleCaja("Observación", registro.observacion || "Sin observación")}</div>
+    </div>`;
   }
+  modalDetalleRegistroAyb?.show();
+}
 
-  if (modalDetalleRegistroAyb) {
-    modalDetalleRegistroAyb.show();
-  }
+function detalleItem(etiqueta, valor, clase = "col-md-6") {
+  return `<div class="${clase}">${detalleCaja(etiqueta, valor)}</div>`;
+}
+
+function detalleCaja(etiqueta, valor) {
+  return `<div class="item"><div class="label">${escaparHtml(etiqueta)}</div><div class="value">${escaparHtml(valor || "")}</div></div>`;
 }
 
 function configurarAccionesGlobales() {
-  const btnLimpiar = document.getElementById("btnLimpiarTurnoCopiadoAyb");
-  if (btnLimpiar) {
-    btnLimpiar.addEventListener("click", limpiarTurnoCopiadoAyb);
-  }
-
-  window.abrirModalNuevaAsignacionDesdeTabla = (fecha, subarea) => abrirModalNuevaAsignacion(fecha, subarea);
-  window.abrirModalNuevaNovedadDesdeTabla = (fecha) => abrirModalNuevaNovedad(fecha);
-
-  window.editarAsignacionAyb = async (id) => {
-    try {
-      const registro = await buscarRegistroPorId(id);
-      abrirModalEdicion(registro);
-    } catch (error) {
-      console.error("Error cargando registro:", error);
-      alert("No se pudo cargar el registro.");
-    }
-  };
-
-  window.verDetalleRegistroAyb = async (id) => {
-    try {
-      const registro = await buscarRegistroPorId(id);
-      abrirDetalleRegistro(registro);
-    } catch (error) {
-      console.error("Error cargando detalle del registro:", error);
-      alert("No se pudo cargar el detalle.");
-    }
-  };
-
-  window.eliminarAsignacionAybDesdeTabla = async (id) => {
-    await eliminarAsignacionAyb(id);
-  };
-
-  window.copiarTurnoAybDesdeTabla = async (id) => {
-    try {
-      const registro = await buscarRegistroPorId(id);
-      copiarTurnoAyb(registro);
-    } catch (error) {
-      console.error("Error copiando turno:", error);
-      alert("No se pudo copiar el turno.");
-    }
-  };
-
-  window.pegarTurnoAybEnCelda = async (subarea, fecha) => {
-    await pegarTurnoAybEnCelda(subarea, fecha);
-  };
+  window.nuevaAsignacionMatriz = (fecha, cedula) => abrirModalNuevaAsignacion(fecha, empleadosAyb.find((emp) => emp.cedula === cedula), false);
+  window.nuevaNovedadMatriz = (fecha, cedula) => abrirModalNuevaAsignacion(fecha, empleadosAyb.find((emp) => emp.cedula === cedula), true);
+  window.pegarTurnoMatriz = async (fecha, cedula) => pegarTurnoAybEnEmpleado(fecha, cedula);
+  window.editarAsignacionAyb = async (id) => { try { abrirModalEdicion(await buscarRegistroPorId(id)); } catch { alert("No se pudo cargar el registro."); } };
+  window.verDetalleRegistroAyb = async (id) => { try { abrirDetalleRegistro(await buscarRegistroPorId(id)); } catch { alert("No se pudo cargar el detalle."); } };
+  window.eliminarAsignacionAybDesdeTabla = async (id) => eliminarAsignacionAyb(id);
+  window.copiarTurnoAybDesdeTabla = async (id) => { try { copiarTurnoAyb(await buscarRegistroPorId(id)); } catch { alert("No se pudo copiar el turno."); } };
 }
 
 function generarPdfGeneralAyb() {
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    alert("La librería de PDF no está disponible.");
-    return;
-  }
-
+  if (!window.jspdf?.jsPDF) { alert("La librería de PDF no está disponible."); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-
-  let y = 12;
-  const margenX = 10;
-  const maxY = 190;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text("Programación general A&B", margenX, y);
-
-  y += 7;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(`Semana: ${document.getElementById("textoSemanaAyb")?.textContent || ""}`, margenX, y);
-
-  y += 8;
-
-  const porSubarea = agruparTurnosPorSubarea(registrosSemanaAyb);
-
-  Object.entries(porSubarea).forEach(([subarea, items]) => {
-    if (y > maxY) {
-      doc.addPage();
-      y = 12;
-    }
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text(subarea, margenX, y);
-    y += 5;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-
-    if (!items.length) {
-      doc.text("Sin registros", margenX + 4, y);
-      y += 6;
-      return;
-    }
-
+  let y = 12; const x = 10; const maxY = 190;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text("Programación general A&B", x, y);
+  y += 7; doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text(`Semana: ${document.getElementById("textoSemanaAyb")?.textContent || ""}`, x, y); y += 8;
+  agruparTurnosPorSubarea(registrosSemanaAyb).forEach(([subarea, items]) => {
+    if (y > maxY) { doc.addPage(); y = 12; }
+    doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text(subarea, x, y); y += 5;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+    if (!items.length) { doc.text("Sin registros", x + 4, y); y += 6; return; }
     items.forEach((item) => {
-      if (y > maxY) {
-        doc.addPage();
-        y = 12;
-      }
-
-      const linea = [
-        item.fecha || "",
-        item.nombre || "",
-        item.turno || (NOVEDADES_LABELS[item.novedad_codigo] || item.novedad_codigo || ""),
-        item.subarea || "Novedad",
-        `D ${formatoHoras(item.horas_diurnas)}h`,
-        `N ${formatoHoras(item.horas_nocturnas)}h`,
-        `ED ${formatoHoras(item.extra_diurna)}h`,
-        `EN ${formatoHoras(item.extra_nocturna)}h`
-      ].join(" | ");
-
-      doc.text(limitarTexto(linea, 145), margenX + 3, y);
-      y += 5;
+      if (y > maxY) { doc.addPage(); y = 12; }
+      const linea = [item.fecha || "", item.nombre || "", item.turno || (NOVEDADES_LABELS[item.novedad_codigo] || ""), item.subarea || "Novedad", `D ${formatoHoras(item.horas_diurnas)}h`, `N ${formatoHoras(item.horas_nocturnas)}h`, `ED ${formatoHoras(item.extra_diurna)}h`, `EN ${formatoHoras(item.extra_nocturna)}h`].join(" | ");
+      doc.text(limitarTexto(linea, 145), x + 3, y); y += 5;
     });
-
     y += 3;
   });
-
   doc.save(`programacion_general_ayb_${semanaActual[0]?.fecha || "semana"}.pdf`);
 }
 
 function generarPdfEmpleadoAyb() {
-  if (!window.jspdf || !window.jspdf.jsPDF) {
-    alert("La librería de PDF no está disponible.");
-    return;
-  }
-
-  const select = document.getElementById("selectEmpleadoPdfAyb");
-  const cedula = select?.value || "";
-
-  if (!cedula) {
-    alert("Selecciona un empleado para generar el PDF.");
-    return;
-  }
-
-  const empleado = empleadosAyb.find((e) => String(e.cedula) === String(cedula));
-  const registrosEmpleado = registrosSemanaAyb.filter((r) => String(r.cedula) === String(cedula));
-
-  if (!empleado) {
-    alert("No se encontró el empleado seleccionado.");
-    return;
-  }
-
+  if (!window.jspdf?.jsPDF) { alert("La librería de PDF no está disponible."); return; }
+  const cedula = document.getElementById("selectEmpleadoPdfAyb")?.value || "";
+  if (!cedula) { alert("Selecciona un empleado para generar el PDF."); return; }
+  const empleado = empleadosAyb.find((e) => e.cedula === cedula);
+  if (!empleado) { alert("No se encontró el empleado seleccionado."); return; }
+  const registros = registrosSemanaAyb.filter((r) => String(r.cedula) === String(cedula));
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-
-  let y = 15;
-  const margenX = 12;
-  const maxY = 275;
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text("Programación semanal por empleado - A&B", margenX, y);
-
-  y += 8;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(`Semana: ${document.getElementById("textoSemanaAyb")?.textContent || ""}`, margenX, y);
-  y += 6;
-  doc.text(`Empleado: ${empleado.nombre}`, margenX, y);
-  y += 6;
-  doc.text(`Cédula: ${empleado.cedula}`, margenX, y);
-  y += 6;
-  doc.text(`Cargo: ${empleado.cargo || "Sin cargo"}`, margenX, y);
-
-  y += 8;
-
-  if (!registrosEmpleado.length) {
-    doc.text("No hay registros programados para este empleado en la semana visible.", margenX, y);
-    doc.save(`programacion_${empleado.cedula}_${semanaActual[0]?.fecha || "semana"}.pdf`);
-    return;
-  }
-
-  registrosEmpleado.forEach((item) => {
-    if (y > maxY) {
-      doc.addPage();
-      y = 15;
-    }
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(`${item.fecha} - ${item.tipo_registro === "novedad" ? "Novedad" : "Turno"}`, margenX, y);
-
-    y += 5;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-
-    if (item.tipo_registro === "novedad") {
-      doc.text(`Novedad: ${item.novedad_descripcion || NOVEDADES_LABELS[item.novedad_codigo] || item.novedad_codigo || ""}`, margenX + 3, y);
-      y += 5;
-    } else {
-      const horario1 = item.hora_inicio && item.hora_fin ? `${item.hora_inicio} - ${item.hora_fin}` : "";
-      const horario2 = item.hora_inicio_2 && item.hora_fin_2 ? `${item.hora_inicio_2} - ${item.hora_fin_2}` : "";
-
-      doc.text(`Subárea: ${item.subarea || ""}`, margenX + 3, y);
-      y += 5;
-      doc.text(`Turno: ${item.turno || ""}`, margenX + 3, y);
-      y += 5;
-      doc.text(`Horario: ${horario1}`, margenX + 3, y);
-      y += 5;
-
-      if (item.subarea_2 || item.turno_2 || horario2) {
-        doc.text(`Bloque 2: ${item.subarea_2 || ""} ${item.turno_2 || ""} ${horario2}`, margenX + 3, y);
-        y += 5;
-      }
-
-      doc.text(`Horas diurnas: ${formatoHoras(item.horas_diurnas)} h`, margenX + 3, y);
-      y += 5;
-      doc.text(`Horas nocturnas: ${formatoHoras(item.horas_nocturnas)} h`, margenX + 3, y);
-      y += 5;
-      doc.text(`Horas netas: ${formatoHoras(item.horas_netas)} h`, margenX + 3, y);
-      y += 5;
-      doc.text(`Extra diurna: ${formatoHoras(item.extra_diurna)} h`, margenX + 3, y);
-      y += 5;
-      doc.text(`Extra nocturna: ${formatoHoras(item.extra_nocturna)} h`, margenX + 3, y);
-      y += 5;
-      doc.text(`Extra total: ${formatoHoras(item.horas_extra_estimadas)} h`, margenX + 3, y);
-      y += 5;
-    }
-
-    if (item.observacion) {
-      doc.text(`Observación: ${limitarTexto(item.observacion, 75)}`, margenX + 3, y);
-      y += 5;
-    }
-
+  let y = 15; const x = 12; const maxY = 275;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text("Programación semanal por empleado - A&B", x, y);
+  y += 8; doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  [`Semana: ${document.getElementById("textoSemanaAyb")?.textContent || ""}`, `Empleado: ${empleado.nombre}`, `Cédula: ${empleado.cedula}`, `Cargo: ${empleado.cargo || "Sin cargo"}`].forEach((linea) => { doc.text(linea, x, y); y += 6; });
+  y += 2;
+  if (!registros.length) doc.text("No hay registros programados para este empleado en la semana visible.", x, y);
+  registros.forEach((item) => {
+    if (y > maxY) { doc.addPage(); y = 15; }
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text(`${item.fecha} - ${item.tipo_registro === "novedad" ? "Novedad" : "Turno"}`, x, y); y += 5;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+    const lineas = item.tipo_registro === "novedad"
+      ? [`Novedad: ${item.novedad_descripcion || NOVEDADES_LABELS[item.novedad_codigo] || item.novedad_codigo || ""}`]
+      : [`Subárea: ${item.subarea || ""}`, `Turno: ${item.turno || ""}`, `Horario: ${item.hora_inicio || ""} - ${item.hora_fin || ""}`, `Horas diurnas: ${formatoHoras(item.horas_diurnas)} h`, `Horas nocturnas: ${formatoHoras(item.horas_nocturnas)} h`, `Horas netas: ${formatoHoras(item.horas_netas)} h`, `Extra total: ${formatoHoras(item.horas_extra_estimadas)} h`];
+    lineas.forEach((linea) => { doc.text(limitarTexto(linea, 95), x + 3, y); y += 5; });
     y += 3;
   });
-
   doc.save(`programacion_${empleado.cedula}_${semanaActual[0]?.fecha || "semana"}.pdf`);
 }
 
 function agruparTurnosPorSubarea(registros) {
-  const resultado = {};
-
-  Object.keys(SUBAREAS_AYB).forEach((sub) => {
-    resultado[sub] = [];
-  });
-
-  resultado["Novedades"] = [];
-
-  registros.forEach((item) => {
-    if (String(item.tipo_registro) === "novedad") {
-      resultado["Novedades"].push(item);
-      return;
-    }
-
-    const sub = item.subarea || "Sin subárea";
-    if (!resultado[sub]) resultado[sub] = [];
-    resultado[sub].push(item);
-  });
-
+  const resultado = Object.keys(SUBAREAS_AYB).map((subarea) => [subarea, registros.filter((r) => r.tipo_registro !== "novedad" && r.subarea === subarea)]);
+  resultado.push(["Novedades", registros.filter((r) => r.tipo_registro === "novedad")]);
   return resultado;
 }
 
-function texto(valor) {
-  return String(valor ?? "").trim();
-}
-
-function formatoHoras(valor) {
-  return Number(valor || 0).toFixed(2);
-}
-
-function limitarTexto(textoEntrada, maximo) {
-  const valor = String(textoEntrada || "");
-  return valor.length > maximo ? `${valor.slice(0, maximo - 3)}...` : valor;
-}
-
-function escaparHtml(textoEntrada) {
-  return String(textoEntrada ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function escaparAtributo(textoEntrada) {
-  return String(textoEntrada ?? "")
-    .replaceAll("\\", "\\\\")
-    .replaceAll("'", "\\'");
-}
+function texto(valor) { return String(valor ?? "").trim(); }
+function formatoHoras(valor) { return Number(valor || 0).toFixed(2); }
+function limitarTexto(valor, maximo) { const txt = String(valor || ""); return txt.length > maximo ? `${txt.slice(0, maximo - 3)}...` : txt; }
+function escaparHtml(valor) { return String(valor ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
+function escaparAtributo(valor) { return String(valor ?? "").replaceAll("\\", "\\\\").replaceAll("'", "\\'"); }

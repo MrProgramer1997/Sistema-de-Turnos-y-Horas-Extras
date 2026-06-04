@@ -58,6 +58,18 @@
     </div>
   </div>
 
+  <div id="bannerTurnoCopiadoChef" class="banner-turno-copiado-chef d-none mb-3">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <div class="fw-semibold">Turno copiado</div>
+        <div id="textoTurnoCopiadoChef" class="small text-muted">No hay turno copiado</div>
+      </div>
+      <button id="btnLimpiarTurnoCopiadoChef" class="btn btn-sm btn-outline-secondary" type="button">
+        Limpiar copia
+      </button>
+    </div>
+  </div>
+
   <div class="cocina-kpis mb-3">
     <div class="kpi-card">
       <span class="kpi-label">Personas visibles</span>
@@ -77,17 +89,78 @@
     </div>
   </div>
 
+  <div class="cocina-kpis cocina-kpis-horas mb-3">
+    <div class="kpi-card kpi-card-horas">
+      <span class="kpi-label">Horas netas programadas</span>
+      <strong id="kpiHorasNetasChef">0.00</strong>
+      <div class="small text-muted">Programación visible</div>
+    </div>
+    <div class="kpi-card kpi-card-horas">
+      <span class="kpi-label">Horas extra estimadas</span>
+      <strong id="kpiHorasExtraChef">0.00</strong>
+      <div class="small text-muted">Cálculo teórico</div>
+    </div>
+    <div class="kpi-card kpi-card-horas">
+      <span class="kpi-label">Colaborador con mayor extra</span>
+      <strong class="kpi-top-persona-chef" id="kpiTopEmpleadoChef">-</strong>
+      <div class="small text-muted" id="kpiTopEmpleadoDetalleChef">Sin datos</div>
+    </div>
+    <div class="kpi-card kpi-card-horas">
+      <span class="kpi-label">Turnos con horario calculable</span>
+      <strong id="kpiTurnosCalculablesChef">0</strong>
+      <div class="small text-muted">Códigos con inicio y fin</div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3 cocina-analisis-row">
+    <div class="col-12 col-xl-8">
+      <div class="card resumen-horas-chef-card h-100">
+        <div class="card-header bg-white fw-bold">Resumen semanal de horas extra estimadas</div>
+        <div class="card-body">
+          <div id="resumenSemanalHorasChef" class="text-muted">Cargando resumen...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-4">
+      <div class="card resumen-horas-chef-card h-100">
+        <div class="card-header bg-white fw-bold">Exportar programación</div>
+        <div class="card-body">
+          <button class="btn btn-outline-danger w-100 mb-3" type="button" id="btnPdfGeneralChef">
+            Descargar PDF general
+          </button>
+
+          <label for="selectEmpleadoPdfChef" class="form-label">PDF por colaborador</label>
+          <select id="selectEmpleadoPdfChef" class="form-select mb-3">
+            <option value="">Seleccione</option>
+          </select>
+          <button class="btn btn-outline-danger w-100" type="button" id="btnPdfEmpleadoChef">
+            Descargar PDF del colaborador
+          </button>
+
+          <div class="small text-muted mt-2">
+            Los PDF usan la semana visible. El PDF general respeta los filtros activos.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cocina-matriz-title">
+    <div class="fw-bold">Matriz semanal de programación Cocina Chef por colaborador</div>
+    <div class="small text-muted" id="textoResultadoMatrizChef">Cargando personal...</div>
+  </div>
+
   <div class="table-responsive cocina-table-wrap">
-    <table class="table table-bordered align-middle text-center" id="tablaCocina">
-      <thead class="table-dark">
+    <table class="table table-bordered align-middle" id="tablaCocina">
+      <thead>
         <tr id="headerDias">
-          <th>Área</th>
-          <th>Colaborador</th>
+          <th>Colaborador / Área</th>
         </tr>
       </thead>
       <tbody id="bodyTabla">
         <tr>
-          <td colspan="9" class="text-center text-muted p-4">
+          <td colspan="8" class="text-center text-muted p-4">
             Cargando programación...
           </td>
         </tr>
@@ -293,6 +366,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="../js/layout.js"></script>
 <script type="module" src="../js/cocina-chef.js"></script>
 

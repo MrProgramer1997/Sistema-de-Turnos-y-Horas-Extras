@@ -1,6 +1,6 @@
 /* ======================================================
    COCINA CHEF - CSS COMPLETO
-   Tabla operativa tipo Excel + responsive
+   Matriz semanal por colaborador + funciones propias Chef
    ====================================================== */
 
 body {
@@ -64,10 +64,23 @@ body {
   color: #0f172a;
 }
 
+.cocina-matriz-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #fff;
+  padding: 14px 16px;
+  border: 1px solid #dbe3ef;
+  border-bottom: 0;
+  border-radius: 16px 16px 0 0;
+}
+
 .cocina-table-wrap {
   background: #ffffff;
-  border: 1px solid #dbe3ef;
-  border-radius: 16px;
+  border: 1px solid #b9c7d8;
+  border-radius: 0 0 16px 16px;
   max-height: 72vh;
   overflow: auto;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
@@ -75,7 +88,7 @@ body {
 
 #tablaCocina {
   margin-bottom: 0;
-  min-width: 1280px;
+  min-width: 1260px;
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -84,106 +97,260 @@ body {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: linear-gradient(180deg, #1f4ea3 0%, #2d63c8 100%) !important;
+  background: #24438f !important;
   color: #ffffff;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  font-size: 13px;
+  font-weight: 700;
   white-space: nowrap;
   vertical-align: middle;
-  border-bottom: 1px solid #1d4ed8;
+  text-align: center;
+  padding: 15px 10px;
+  border-right: 1px solid rgba(255, 255, 255, .55);
+  border-bottom: 2px solid #18326f;
+}
+
+#tablaCocina thead th:last-child {
+  border-right: 0;
+}
+
+#tablaCocina .colaborador-col-header {
+  position: sticky;
+  left: 0;
+  z-index: 8;
+  width: 300px;
+  min-width: 300px;
+  text-align: left;
+  border-right: 2px solid #d1dbe8;
 }
 
 #tablaCocina td {
+  min-width: 136px;
+  width: 136px;
+  vertical-align: top;
+  padding: 10px 9px;
   font-size: 12px;
-  vertical-align: middle;
-  border-color: #e5edf8;
-  padding: 6px 8px;
+  background: #fff;
+  border-right: 1px solid #d1dbe8;
+  border-bottom: 2px solid #dbe3ee;
 }
 
-#tablaCocina tbody tr:nth-child(odd) td {
-  background-color: #ffffff;
+#tablaCocina td:last-child {
+  border-right: 0;
+}
+
+#tablaCocina tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 #tablaCocina tbody tr:nth-child(even) td {
-  background-color: #f8fbff;
+  background: #fbfdff;
 }
 
 #tablaCocina tbody tr:hover td {
-  background-color: #eaf2ff !important;
+  background: #f5f9ff;
 }
 
-.area-cell {
-  min-width: 130px;
-  text-align: left;
-  color: #334155;
+#tablaCocina td.colaborador-matriz-cell {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  width: 300px;
+  min-width: 300px;
+  background: #f6f8fc !important;
+  border-right: 2px solid #b9c7d8;
+  box-shadow: 5px 0 7px -7px rgba(15, 23, 42, .45);
+  padding: 14px 12px;
+}
+
+#tablaCocina tbody tr:hover td.colaborador-matriz-cell {
+  background: #edf4ff !important;
+}
+
+.chef-persona-nombre {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.chef-persona-cargo {
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 3px;
+  line-height: 1.25;
+}
+
+.chef-persona-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 9px;
+}
+
+.chef-chip-area,
+.chef-chip-tipo {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
   font-weight: 700;
-  background: #eef4ff !important;
 }
 
-.colaborador-cell {
-  min-width: 230px;
-  text-align: left;
-  background: #f8fafc !important;
+.chef-chip-area {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
-.acciones-cell {
-  width: 90px;
-  min-width: 90px;
-  text-align: center;
-  background: #f8fafc !important;
+.chef-chip-tipo {
+  background: #eef2f7;
+  color: #475569;
 }
 
-.acciones-col {
-  width: 90px;
-  min-width: 90px;
+.chef-persona-resumen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  flex-wrap: wrap;
+  color: #475569;
+  font-size: 11px;
+  margin-top: 11px;
+  padding-top: 9px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .btn-quitar-persona {
-  padding: 3px 8px;
-  font-size: 11px;
+  background: #fff;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 3px 9px;
+  font-size: 10px;
   font-weight: 700;
   border-radius: 999px;
 }
 
-.turno-vacio {
-  cursor: pointer;
-  background: #f1f5f9 !important;
-  color: #64748b;
-  font-weight: 700;
-  transition: 0.15s ease;
-  min-width: 82px;
+.btn-quitar-persona:hover {
+  background: #fff1f2;
+  border-color: #fda4af;
 }
 
-.turno-vacio:hover {
-  background: #dbeafe !important;
-  color: #1d4ed8;
+.celda-dia-chef {
+  transition: background-color .15s ease;
 }
 
-.turno-cell {
-  cursor: pointer;
-  color: #ffffff;
-  font-weight: 700;
-  min-width: 82px;
-  transition: 0.15s ease;
+.accion-celda-chef {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 7px;
+  opacity: .6;
+  transition: opacity .15s ease;
 }
 
-.turno-cell:hover {
-  filter: brightness(0.94);
+.celda-dia-chef:hover .accion-celda-chef {
+  opacity: 1;
 }
 
-.turno-codigo {
-  font-size: 15px;
-  line-height: 1.1;
-}
-
-.turno-evento {
-  display: block;
+.btn-celda-chef {
+  min-width: 27px;
+  height: 27px;
+  padding: 0 7px;
+  border: 1px solid #bfdbfe;
+  border-radius: 7px;
+  color: #2563eb;
+  background: #fff;
   font-size: 10px;
-  line-height: 1.1;
-  opacity: 0.9;
-  margin-top: 2px;
+  font-weight: 700;
 }
+
+.btn-celda-chef:hover {
+  background: #eff6ff;
+  border-color: #60a5fa;
+}
+
+.btn-agregar-chef {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.celda-libre-chef {
+  min-height: 66px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
+  background: #fafcff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.celda-libre-chef:hover {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.turno-chef-card {
+  min-height: 67px;
+  border: 1px solid #bcd3f0;
+  border-left: 4px solid var(--codigo-color, #2563eb);
+  border-radius: 9px;
+  background: #eaf3ff;
+  padding: 8px 7px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+}
+
+.turno-chef-card:hover {
+  background: #deedff;
+  border-color: #93c5fd;
+}
+
+.turno-chef-superior {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.chip-codigo-chef,
+.chip-area-turno-chef {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.chip-codigo-chef {
+  color: #fff;
+  background: var(--codigo-color, #24438f);
+}
+
+.chip-area-turno-chef {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.turno-chef-horario {
+  margin-top: 7px;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.turno-chef-evento {
+  margin-top: 4px;
+  color: #475569;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+/* Modales */
 
 .modal-content {
   border-radius: 16px;
@@ -203,58 +370,9 @@ body {
   padding: 6px 9px;
 }
 
-@media (max-width: 992px) {
-  .cocina-header,
-  .cocina-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .cocina-kpis {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .cocina-toolbar select {
-    width: 100%;
-  }
-}
-
-@media (max-width: 576px) {
-  .cocina-page {
-    padding: 10px !important;
-  }
-
-  .cocina-kpis {
-    grid-template-columns: 1fr;
-  }
-
-  .kpi-card strong {
-    font-size: 20px;
-  }
-
-  #tablaCocina th,
-  #tablaCocina td {
-    font-size: 11px;
-    padding: 6px;
-  }
-
-  .colaborador-cell {
-    min-width: 180px;
-  }
-
-  .area-cell {
-    min-width: 110px;
-  }
-
-  .acciones-cell,
-  .acciones-col {
-    min-width: 80px;
-  }
-}
-
-
 /* ======================================================
    COCINA CHEF - PROGRAMACIÓN RÁPIDA
+   Se conserva para funciones temporales existentes.
    ====================================================== */
 
 .barra-codigos-rapidos {
@@ -300,16 +418,16 @@ body {
   font-size: 14px;
   box-shadow: 0 6px 12px rgba(15, 23, 42, 0.08);
   cursor: pointer;
-  transition: 0.15s ease;
+  transition: .15s ease;
 }
 
 .btn-codigo-rapido:hover {
   transform: translateY(-1px);
-  filter: brightness(0.96);
+  filter: brightness(.96);
 }
 
 .btn-codigo-rapido.activo {
-  outline: 3px solid rgba(37, 99, 235, 0.25);
+  outline: 3px solid rgba(37, 99, 235, .25);
   border-color: #0f172a;
   transform: translateY(-1px);
 }
@@ -327,14 +445,14 @@ body {
 
 .celda-guardando {
   position: relative;
-  opacity: 0.75;
+  opacity: .75;
 }
 
 .celda-guardando::after {
   content: "Guardando";
   position: absolute;
   inset: auto 4px 4px 4px;
-  background: rgba(251, 191, 36, 0.95);
+  background: rgba(251, 191, 36, .95);
   color: #111827;
   font-size: 9px;
   font-weight: 800;
@@ -352,16 +470,61 @@ body {
   outline-offset: -3px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 992px) {
+  .cocina-header,
+  .cocina-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cocina-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cocina-toolbar select {
+    width: 100%;
+  }
+
+  #tablaCocina .colaborador-col-header,
+  #tablaCocina td.colaborador-matriz-cell {
+    min-width: 235px;
+    width: 235px;
+  }
+}
+
+@media (max-width: 576px) {
+  .cocina-page {
+    padding: 10px !important;
+  }
+
+  .cocina-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-card strong {
+    font-size: 20px;
+  }
+
+  #tablaCocina {
+    min-width: 1110px;
+  }
+
+  #tablaCocina th,
+  #tablaCocina td {
+    font-size: 11px;
+    padding: 7px;
+  }
+
+  .accion-celda-chef {
+    opacity: 1;
+  }
+
   .barra-rapida-header {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .barra-rapida-actions {
-    width: 100%;
-  }
-
+  .barra-rapida-actions,
   .barra-rapida-actions .btn {
     width: 100%;
   }
@@ -371,3 +534,103 @@ body {
     height: 36px;
   }
 }
+
+/* ======================================================
+   COCINA CHEF - COPIAR / PEGAR
+   ====================================================== */
+
+.banner-turno-copiado-chef {
+  border: 1px dashed #86b7fe;
+  background: #eef5ff;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.accion-celda-chef {
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.btn-copiar-chef {
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.btn-copiar-chef:hover {
+  color: #334155;
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.btn-pegar-chef {
+  color: #15803d;
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.btn-pegar-chef:hover {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #4ade80;
+}
+
+/* ======================================================
+   COCINA CHEF - ANÁLISIS DE HORAS Y PDF
+   ====================================================== */
+
+.cocina-kpis-horas .kpi-card-horas {
+  min-height: 112px;
+}
+
+.kpi-top-persona-chef {
+  display: block;
+  font-size: 18px !important;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.resumen-horas-chef-card {
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, .04);
+  overflow: hidden;
+}
+
+.resumen-horas-chef-card .card-header {
+  border-bottom: 1px solid #e5e7eb;
+  padding: 13px 16px;
+}
+
+.resumen-horas-chef-card .card-body {
+  padding: 16px;
+}
+
+.table-horas-chef th,
+.table-horas-chef td {
+  vertical-align: middle;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.table-horas-chef thead th {
+  color: #0f172a;
+  font-weight: 700;
+  border-bottom: 1px solid #dbe3ef;
+}
+
+.table-horas-chef tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (max-width: 992px) {
+  .cocina-kpis-horas {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .cocina-kpis-horas {
+    grid-template-columns: 1fr;
+  }
+}
+

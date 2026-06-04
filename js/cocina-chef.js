@@ -6,6 +6,10 @@
 
 import { supabase } from "../supabase/supabaseClient.js";
 
+const HORA_INICIO_NOCTURNO_CHEF = 19 * 60; // 7:00 p.m.
+const HORA_FIN_NOCTURNO_CHEF = 6 * 60; // 6:00 a.m.
+const DESCANSO_ESTANDAR_HORAS_CHEF = 0.5;
+
 let fechaBase = new Date();
 let semana = [];
 let personal = [];
@@ -15,6 +19,8 @@ let areas = [];
 let empleadosCache = [];
 let selectedCelda = null;
 let sesionActual = null;
+let turnoCopiadoChef = null;
+let festivosSemanaChef = [];
 
 document.addEventListener("DOMContentLoaded", async () => {
   try {
@@ -23,6 +29,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("fechaBase").valueAsDate = fechaBase;
 
     configurarEventos();
+    cargarTurnoCopiadoChef();
 
     generarSemana();
 
@@ -30,10 +37,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     await cargarCodigos();
     await cargarPersonal();
     await cargarProgramacion();
+    await cargarFestivosSemanaChef();
 
     pintarSelectAreas();
     renderTabla();
     renderKPIs();
+    renderSelectEmpleadoPdfChef();
   } catch (error) {
     console.error("Error inicializando Cocina Chef:", error);
     pintarErrorInicial(error);
@@ -125,6 +134,21 @@ function configurarEventos() {
   document.getElementById("guardarTurno").onclick = guardarTurno;
   document.getElementById("eliminarTurno").onclick = eliminarTurno;
   document.getElementById("guardarCodigo").onclick = guardarCodigo;
+
+  const btnLimpiarCopia = document.getElementById("btnLimpiarTurnoCopiadoChef");
+  if (btnLimpiarCopia) {
+    btnLimpiarCopia.onclick = limpiarTurnoCopiadoChef;
+  }
+
+  const btnPdfGeneral = document.getElementById("btnPdfGeneralChef");
+  if (btnPdfGeneral) {
+    btnPdfGeneral.onclick = generarPdfGeneralChef;
+  }
+
+  const btnPdfEmpleado = document.getElementById("btnPdfEmpleadoChef");
+  if (btnPdfEmpleado) {
+    btnPdfEmpleado.onclick = generarPdfEmpleadoChef;
+  }
 }
 
 // ======================================================
@@ -137,10 +161,12 @@ async function recargar() {
   await cargarCodigos();
   await cargarPersonal();
   await cargarProgramacion();
+  await cargarFestivosSemanaChef();
 
   pintarSelectAreas();
   renderTabla();
   renderKPIs();
+  renderSelectEmpleadoPdfChef();
 }
 
 // ======================================================
@@ -259,6 +285,36 @@ async function cargarProgramacion() {
   }
 
   programacion = data || [];
+}
+
+
+// ======================================================
+// FESTIVOS PARA CÁLCULO DE HORAS
+// ======================================================
+async function cargarFestivosSemanaChef() {
+  try {
+    const fechas = semana.map((dia) => formatearFechaISO(dia));
+    const fechaInicio = fechas[0];
+    const fechaFin = fechas[fechas.length - 1];
+
+    const { data, error } = await supabase
+      .from("festivos")
+      .select("fecha,nombre,activo")
+      .eq("activo", true)
+      .gte("fecha", fechaInicio)
+      .lte("fecha", fechaFin);
+
+    if (error) {
+      console.warn("No se pudieron cargar festivos para Cocina Chef:", error.message);
+      festivosSemanaChef = [];
+      return;
+    }
+
+    festivosSemanaChef = data || [];
+  } catch (error) {
+    console.warn("Error consultando festivos para Cocina Chef:", error);
+    festivosSemanaChef = [];
+  }
 }
 
 // ======================================================
@@ -400,6 +456,71 @@ function normalizarTexto(valor) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+function escaparHtmlCocina(valor) {
+  return String(valor ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function colorSeguroCocina(valor) {
+  const color = String(valor || "").trim();
+  return /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : "#2563eb";
+}
+
+function perteneceEmpleadoBaseAybCocina(emp) {
+  const areaOrigen = normalizarTexto(emp.area);
+  const centroCostos = normalizarTexto(emp.centro_costos || emp.centro_costo);
+  const dependencia = `${areaOrigen} ${centroCostos}`;
+
+  /*
+    El cargo o el punto de servicio no habilitan por sí solos al empleado.
+    Esto evita traer personal de Tenis u otras áreas solo porque su texto
+    coincide con un punto operativo o con un cargo parecido.
+  */
+  const identificadoresOrigenAyb = [
+    "alimentos",
+    "bebidas",
+    "alimentos y bebidas",
+    "alimentos & bebidas",
+    "a&b",
+    "ayb",
+    "cocina"
+  ];
+
+  return identificadoresOrigenAyb.some((clave) =>
+    dependencia.includes(normalizarTexto(clave))
+  );
+}
+
+function obtenerResumenPersonaSemana(persona) {
+  const registrosPersona = programacion.filter((registro) =>
+    registro.cronograma_personal_id === persona.id
+  );
+
+  return {
+    turnos: registrosPersona.length,
+    areas: new Set(
+      registrosPersona
+        .map((registro) => registro.area_cocina || obtenerAreaPorId(registro.area_cocina_id)?.nombre)
+        .filter(Boolean)
+    ).size
+  };
+}
+
+function obtenerTextoTipoPersonal(tipo) {
+  const mapa = {
+    fijo: "Fijo",
+    externo: "Externo",
+    medio_tiempo: "Medio tiempo",
+    pendiente: "Pendiente"
+  };
+
+  return mapa[tipo] || tipo || "Fijo";
+}
+
 // ======================================================
 // FILTROS
 // ======================================================
@@ -415,35 +536,170 @@ function obtenerPersonalFiltrado() {
   });
 }
 
+
+// ======================================================
+// COPIAR / PEGAR TURNOS EN MATRIZ CHEF
+// ======================================================
+function cargarTurnoCopiadoChef() {
+  try {
+    turnoCopiadoChef = JSON.parse(localStorage.getItem("ccp_turno_copiado_cocina_chef") || "null");
+  } catch {
+    turnoCopiadoChef = null;
+  }
+
+  renderBannerTurnoCopiadoChef();
+}
+
+function renderBannerTurnoCopiadoChef() {
+  const banner = document.getElementById("bannerTurnoCopiadoChef");
+  const textoBanner = document.getElementById("textoTurnoCopiadoChef");
+
+  if (!banner || !textoBanner) return;
+
+  if (!turnoCopiadoChef) {
+    banner.classList.add("d-none");
+    textoBanner.textContent = "No hay turno copiado";
+    return;
+  }
+
+  const area = turnoCopiadoChef.area_cocina || "Área base del colaborador destino";
+  const origen = turnoCopiadoChef.nombre_origen ? ` · Origen: ${turnoCopiadoChef.nombre_origen}` : "";
+
+  banner.classList.remove("d-none");
+  textoBanner.textContent = `Código ${turnoCopiadoChef.codigo_turno || ""} · ${area}${origen}`;
+}
+
+function copiarTurnoChef(registro, persona) {
+  if (!registro) return;
+
+  turnoCopiadoChef = {
+    codigo_turno: registro.codigo_turno || "",
+    observacion: registro.observacion || "",
+    evento: registro.evento || "",
+    area_cocina_id: registro.area_cocina_id || null,
+    area_cocina: registro.area_cocina || obtenerAreaPorId(registro.area_cocina_id)?.nombre || obtenerNombreAreaPersona(persona),
+    nombre_origen: persona?.nombre_visible || "",
+    copiado_en: new Date().toISOString()
+  };
+
+  localStorage.setItem("ccp_turno_copiado_cocina_chef", JSON.stringify(turnoCopiadoChef));
+  renderBannerTurnoCopiadoChef();
+  renderTabla();
+}
+
+function limpiarTurnoCopiadoChef() {
+  turnoCopiadoChef = null;
+  localStorage.removeItem("ccp_turno_copiado_cocina_chef");
+  renderBannerTurnoCopiadoChef();
+  renderTabla();
+}
+
+async function pegarTurnoChef(persona, fecha) {
+  if (!puedeAdministrarCocina()) {
+    alert("No tienes permisos para modificar la programación.");
+    return;
+  }
+
+  if (!turnoCopiadoChef) {
+    alert("Primero copia un turno.");
+    return;
+  }
+
+  const yaExisteEnVista = programacion.some(
+    (registro) => registro.cronograma_personal_id === persona.id && registro.fecha === fecha
+  );
+
+  if (yaExisteEnVista) {
+    alert("El colaborador ya tiene un turno asignado en esta fecha.");
+    return;
+  }
+
+  const { data: existente, error: errorConsulta } = await supabase
+    .from("cocina_programacion_turnos")
+    .select("id")
+    .eq("cronograma_personal_id", persona.id)
+    .eq("fecha", fecha)
+    .maybeSingle();
+
+  if (errorConsulta) {
+    console.error("Error validando turno destino:", errorConsulta);
+    alert("No se pudo validar la celda destino.");
+    return;
+  }
+
+  if (existente) {
+    alert("El colaborador ya tiene un turno asignado en esta fecha.");
+    await recargar();
+    return;
+  }
+
+  const areaFinalId = turnoCopiadoChef.area_cocina_id || persona.area_cocina_id || null;
+  const areaFinal = obtenerAreaPorId(areaFinalId);
+
+  const payload = {
+    cronograma_personal_id: persona.id,
+    fecha,
+    codigo_turno: turnoCopiadoChef.codigo_turno,
+    observacion: turnoCopiadoChef.observacion || "",
+    evento: turnoCopiadoChef.evento || "",
+    area_cocina_id: areaFinalId,
+    area_cocina: areaFinal?.nombre || turnoCopiadoChef.area_cocina || persona.area_cocina || null,
+    estado: "programado",
+    origen_programacion: "cocina_chef",
+    creado_por: obtenerUsuarioId(),
+    actualizado_por: obtenerUsuarioId()
+  };
+
+  const { error } = await supabase
+    .from("cocina_programacion_turnos")
+    .insert(payload);
+
+  if (error) {
+    console.error("Error pegando turno:", error);
+    alert("No se pudo pegar el turno.");
+    return;
+  }
+
+  await recargar();
+}
+
 // ======================================================
 // RENDER TABLA
 // ======================================================
 function renderTabla() {
   const header = document.getElementById("headerDias");
   const body = document.getElementById("bodyTabla");
+  const contador = document.getElementById("textoResultadoMatrizChef");
   const personalFiltrado = obtenerPersonalFiltrado();
 
   header.innerHTML = `
-    <th class="sticky-col area-col">Área</th>
-    <th class="sticky-col colaborador-col">Colaborador</th>
-    <th class="acciones-col">Acción</th>
+    <th class="colaborador-col-header">Colaborador / Área</th>
   `;
 
-  body.innerHTML = "";
-
-  semana.forEach((d) => {
+  semana.forEach((dia) => {
     const th = document.createElement("th");
     th.innerHTML = `
-      <div>${nombreDia(d)}</div>
-      <div>${d.getDate()}</div>
+      <div>${nombreDia(dia)}</div>
+      <div>${dia.getDate()}</div>
     `;
     header.appendChild(th);
   });
 
+  const idsPersonalVisible = new Set(personalFiltrado.map((persona) => persona.id));
+  const turnosVisibles = programacion.filter((registro) =>
+    idsPersonalVisible.has(registro.cronograma_personal_id)
+  ).length;
+
+  if (contador) {
+    contador.textContent = `${personalFiltrado.length} colaborador(es) visible(s) · ${turnosVisibles} turno(s)`;
+  }
+
+  body.innerHTML = "";
+
   if (!personalFiltrado.length) {
     body.innerHTML = `
       <tr>
-        <td colspan="10" class="text-center text-muted p-4">
+        <td colspan="8" class="text-center text-muted p-4">
           No hay personal para los filtros seleccionados.
         </td>
       </tr>
@@ -453,81 +709,117 @@ function renderTabla() {
 
   personalFiltrado.forEach((persona) => {
     const tr = document.createElement("tr");
+    const resumen = obtenerResumenPersonaSemana(persona);
+    const nombreAreaBase = obtenerNombreAreaPersona(persona);
+    const tipoPersona = obtenerTextoTipoPersonal(persona.tipo_personal);
 
-    const tdArea = document.createElement("td");
-    tdArea.className = "area-cell";
-    tdArea.innerText = obtenerNombreAreaPersona(persona);
-    tr.appendChild(tdArea);
-
-    const tdNombre = document.createElement("td");
-    tdNombre.className = "colaborador-cell";
-    tdNombre.innerHTML = `
-      <div class="fw-semibold">${persona.nombre_visible || ""}</div>
-      <small class="text-muted">${persona.cargo || persona.tipo_personal || ""}</small>
-    `;
-    tr.appendChild(tdNombre);
-
-    const tdAccion = document.createElement("td");
-    tdAccion.className = "acciones-cell";
-    tdAccion.innerHTML = `
-      <button class="btn btn-sm btn-outline-danger btn-quitar-persona" title="Quitar del cronograma">
-        Quitar
-      </button>
+    const tdPersona = document.createElement("td");
+    tdPersona.className = "colaborador-matriz-cell";
+    tdPersona.innerHTML = `
+      <div class="chef-persona-nombre">${escaparHtmlCocina(persona.nombre_visible || "")}</div>
+      <div class="chef-persona-cargo">${escaparHtmlCocina(persona.cargo || tipoPersona)}</div>
+      <div class="chef-persona-badges">
+        <span class="chef-chip-area">${escaparHtmlCocina(nombreAreaBase)}</span>
+        <span class="chef-chip-tipo">${escaparHtmlCocina(tipoPersona)}</span>
+      </div>
+      <div class="chef-persona-resumen">
+        <span>${resumen.turnos} turno(s)</span>
+        <button class="btn-quitar-persona" type="button" title="Quitar del cronograma">Quitar</button>
+      </div>
     `;
 
-    tdAccion.querySelector("button").onclick = async (event) => {
+    tdPersona.querySelector(".btn-quitar-persona").onclick = async (event) => {
       event.stopPropagation();
       await quitarColaboradorCronograma(persona);
     };
 
-    tr.appendChild(tdAccion);
+    tr.appendChild(tdPersona);
 
-    semana.forEach((d) => {
-      const fecha = formatearFechaISO(d);
-      const td = document.createElement("td");
-      td.className = "turno-vacio";
-
+    semana.forEach((dia) => {
+      const fecha = formatearFechaISO(dia);
       const registro = programacion.find(
-        (r) => r.cronograma_personal_id === persona.id && r.fecha === fecha
+        (item) => item.cronograma_personal_id === persona.id && item.fecha === fecha
       );
+      const td = document.createElement("td");
+      td.className = "celda-dia-chef";
 
       if (registro) {
-        const codigo = codigos.find((c) => c.codigo === registro.codigo_turno);
+        const codigo = codigos.find((item) => item.codigo === registro.codigo_turno);
         const areaTurno = obtenerAreaPorId(registro.area_cocina_id);
+        const horario = codigo?.hora_inicio && codigo?.hora_fin
+          ? `${String(codigo.hora_inicio).substring(0, 5)}-${String(codigo.hora_fin).substring(0, 5)}`
+          : "Horario por código";
+        const nombreAreaTurno = areaTurno?.nombre || registro.area_cocina || nombreAreaBase;
+        const color = colorSeguroCocina(codigo?.color);
 
         td.innerHTML = `
-          <div class="turno-codigo">${registro.codigo_turno}</div>
-          ${registro.evento ? `<small class="turno-evento">${registro.evento}</small>` : ""}
+          <div class="accion-celda-chef">
+            <button type="button" class="btn-celda-chef btn-editar-chef" title="Editar turno">Editar</button>
+            <button type="button" class="btn-celda-chef btn-copiar-chef" title="Copiar turno">Copiar</button>
+          </div>
+          <div class="turno-chef-card" style="--codigo-color:${color}">
+            <div class="turno-chef-superior">
+              <span class="chip-codigo-chef">${escaparHtmlCocina(registro.codigo_turno || "")}</span>
+              <span class="chip-area-turno-chef">${escaparHtmlCocina(nombreAreaTurno)}</span>
+            </div>
+            <div class="turno-chef-horario">${escaparHtmlCocina(horario)}</div>
+            ${registro.evento ? `<div class="turno-chef-evento">${escaparHtmlCocina(registro.evento)}</div>` : ""}
+          </div>
         `;
-
-        td.classList.remove("turno-vacio");
-        td.classList.add("turno-cell");
-
-        if (codigo?.color) {
-          td.style.backgroundColor = codigo.color;
-        }
 
         td.title = [
           codigo?.descripcion || registro.codigo_turno,
-          codigo?.hora_inicio && codigo?.hora_fin
-            ? `${String(codigo.hora_inicio).substring(0, 5)} - ${String(codigo.hora_fin).substring(0, 5)}`
-            : "",
-          areaTurno?.nombre ? `Área: ${areaTurno.nombre}` : "",
+          horario,
+          nombreAreaTurno ? `Área: ${nombreAreaTurno}` : "",
           registro.evento ? `Evento: ${registro.evento}` : "",
           registro.observacion ? `Obs: ${registro.observacion}` : ""
         ].filter(Boolean).join(" | ");
+
+        td.querySelector(".btn-editar-chef").onclick = (event) => {
+          event.stopPropagation();
+          abrirModalTurno(persona, fecha, registro);
+        };
+
+        td.querySelector(".btn-copiar-chef").onclick = (event) => {
+          event.stopPropagation();
+          copiarTurnoChef(registro, persona);
+        };
+
+        td.querySelector(".turno-chef-card").onclick = () =>
+          abrirModalTurno(persona, fecha, registro);
       } else {
-        td.innerText = "+";
-        td.title = "Asignar turno";
+        td.innerHTML = `
+          <div class="accion-celda-chef">
+            <button type="button" class="btn-celda-chef btn-agregar-chef" title="Asignar turno">+</button>
+            ${turnoCopiadoChef ? `<button type="button" class="btn-celda-chef btn-pegar-chef" title="Pegar turno">P</button>` : ""}
+          </div>
+          <div class="celda-libre-chef">Libre</div>
+        `;
+
+        td.querySelector(".btn-agregar-chef").onclick = (event) => {
+          event.stopPropagation();
+          abrirModalTurno(persona, fecha, null);
+        };
+
+        const btnPegar = td.querySelector(".btn-pegar-chef");
+        if (btnPegar) {
+          btnPegar.onclick = async (event) => {
+            event.stopPropagation();
+            await pegarTurnoChef(persona, fecha);
+          };
+        }
+
+        td.querySelector(".celda-libre-chef").onclick = () =>
+          abrirModalTurno(persona, fecha, null);
       }
 
-      td.onclick = () => abrirModalTurno(persona, fecha, registro);
       tr.appendChild(td);
     });
 
     body.appendChild(tr);
   });
 }
+
 
 // ======================================================
 // QUITAR COLABORADOR
@@ -605,6 +897,445 @@ function renderKPIs() {
   );
 
   document.getElementById("kpiAreas").innerText = areasActivas.size;
+
+  const registrosCalculados = turnosFiltrados.map(enriquecerRegistroHorasChef);
+  const ranking = construirRankingHorasChef(registrosCalculados, personalFiltrado);
+  const totalNetas = redondearHorasChef(
+    registrosCalculados.reduce((total, registro) => total + Number(registro.horas_netas || 0), 0)
+  );
+  const totalExtra = redondearHorasChef(
+    registrosCalculados.reduce((total, registro) => total + Number(registro.horas_extra_estimadas || 0), 0)
+  );
+  const calculables = registrosCalculados.filter((registro) => registro.horario_calculable).length;
+  const top = ranking[0];
+
+  asignarTextoChef("kpiHorasNetasChef", formatoHorasChef(totalNetas));
+  asignarTextoChef("kpiHorasExtraChef", formatoHorasChef(totalExtra));
+  asignarTextoChef("kpiTurnosCalculablesChef", String(calculables));
+  asignarTextoChef("kpiTopEmpleadoChef", top ? limitarTextoChef(top.nombre, 22) : "-");
+  asignarTextoChef(
+    "kpiTopEmpleadoDetalleChef",
+    top ? `${formatoHorasChef(top.extra)} h extra estimadas` : "Sin datos"
+  );
+
+  renderResumenSemanalHorasChef(ranking);
+}
+
+function asignarTextoChef(id, valor) {
+  const elemento = document.getElementById(id);
+  if (elemento) elemento.textContent = valor;
+}
+
+function obtenerTurnosVisiblesCalculadosChef() {
+  const ids = new Set(obtenerPersonalFiltrado().map((persona) => persona.id));
+  return programacion
+    .filter((registro) => ids.has(registro.cronograma_personal_id))
+    .map(enriquecerRegistroHorasChef);
+}
+
+function enriquecerRegistroHorasChef(registro) {
+  const codigo = codigos.find((item) => String(item.codigo) === String(registro.codigo_turno));
+  const inicio = codigo?.hora_inicio ? String(codigo.hora_inicio).substring(0, 5) : "";
+  const fin = codigo?.hora_fin ? String(codigo.hora_fin).substring(0, 5) : "";
+  const calculo = calcularHorasTurnoChef(inicio, fin);
+  const jornadaInfo = obtenerJornadaEsperadaChef(registro.fecha);
+  const horasExtra = redondearHorasChef(Math.max(0, calculo.netas - jornadaInfo.horas));
+
+  let extraDiurna = 0;
+  let extraNocturna = 0;
+
+  if (horasExtra > 0) {
+    const ordinariasDiurnas = Math.min(calculo.diurnas, jornadaInfo.horas);
+    extraDiurna = redondearHorasChef(Math.max(0, calculo.diurnas - ordinariasDiurnas));
+    extraNocturna = redondearHorasChef(Math.max(0, horasExtra - extraDiurna));
+  }
+
+  return {
+    ...registro,
+    codigo_info: codigo || null,
+    hora_inicio_calculada: inicio,
+    hora_fin_calculada: fin,
+    horario_calculable: Boolean(inicio && fin),
+    horas_totales: calculo.total,
+    horas_diurnas: calculo.diurnas,
+    horas_nocturnas: calculo.nocturnas,
+    horas_netas: calculo.netas,
+    descuento_almuerzo: calculo.total > 0 ? DESCANSO_ESTANDAR_HORAS_CHEF : 0,
+    jornada_esperada: jornadaInfo.horas,
+    tipo_jornada: jornadaInfo.tipo,
+    horas_extra_estimadas: horasExtra,
+    extra_diurna: extraDiurna,
+    extra_nocturna: extraNocturna
+  };
+}
+
+function calcularHorasTurnoChef(inicio, fin) {
+  if (!inicio || !fin) {
+    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
+  }
+
+  const inicioMin = horaChefAMinutos(inicio);
+  let finMin = horaChefAMinutos(fin);
+
+  if (inicioMin === null || finMin === null) {
+    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
+  }
+
+  if (finMin < inicioMin) {
+    finMin += 24 * 60;
+  }
+
+  let minutosDiurnos = 0;
+  let minutosNocturnos = 0;
+
+  for (let minuto = inicioMin; minuto < finMin; minuto++) {
+    const minutoDia = minuto % (24 * 60);
+    if (minutoDia >= HORA_INICIO_NOCTURNO_CHEF || minutoDia < HORA_FIN_NOCTURNO_CHEF) {
+      minutosNocturnos += 1;
+    } else {
+      minutosDiurnos += 1;
+    }
+  }
+
+  const minutosTotales = minutosDiurnos + minutosNocturnos;
+  if (minutosTotales === 0) {
+    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
+  }
+
+  let descuento = DESCANSO_ESTANDAR_HORAS_CHEF * 60;
+
+  if (minutosDiurnos >= descuento) {
+    minutosDiurnos -= descuento;
+  } else {
+    const restante = descuento - minutosDiurnos;
+    minutosDiurnos = 0;
+    minutosNocturnos = Math.max(0, minutosNocturnos - restante);
+  }
+
+  return {
+    total: redondearHorasChef(minutosTotales / 60),
+    diurnas: redondearHorasChef(minutosDiurnos / 60),
+    nocturnas: redondearHorasChef(minutosNocturnos / 60),
+    netas: redondearHorasChef((minutosDiurnos + minutosNocturnos) / 60)
+  };
+}
+
+function horaChefAMinutos(hora) {
+  const partes = String(hora || "").split(":").map(Number);
+  if (partes.length < 2 || partes.some(Number.isNaN)) return null;
+  return (partes[0] * 60) + partes[1];
+}
+
+function obtenerJornadaEsperadaChef(fechaISO) {
+  if (festivosSemanaChef.some((festivo) => String(festivo.fecha) === String(fechaISO))) {
+    return { horas: 8.5, tipo: "Festivo" };
+  }
+
+  const dia = new Date(`${fechaISO}T00:00:00`).getDay();
+  if (dia === 0 || dia === 6) {
+    return { horas: 8.5, tipo: "Sábado/Domingo" };
+  }
+
+  return { horas: 7.5, tipo: "Lunes a viernes / día hábil" };
+}
+
+function redondearHorasChef(valor) {
+  return Math.round((Number(valor || 0) + Number.EPSILON) * 100) / 100;
+}
+
+function formatoHorasChef(valor) {
+  return Number(valor || 0).toFixed(2);
+}
+
+function limitarTextoChef(valor, maximo) {
+  const texto = String(valor || "");
+  return texto.length > maximo ? `${texto.substring(0, maximo - 3)}...` : texto;
+}
+
+function construirRankingHorasChef(registros, personalVisible) {
+  const personasPorId = new Map(personalVisible.map((persona) => [persona.id, persona]));
+  const mapa = new Map();
+
+  registros.forEach((registro) => {
+    const persona = personasPorId.get(registro.cronograma_personal_id);
+    const llave = registro.cronograma_personal_id;
+
+    if (!mapa.has(llave)) {
+      mapa.set(llave, {
+        id: llave,
+        nombre: persona?.nombre_visible || "Colaborador",
+        cargo: persona?.cargo || obtenerTextoTipoPersonal(persona?.tipo_personal),
+        diurnas: 0,
+        nocturnas: 0,
+        netas: 0,
+        extraDiurna: 0,
+        extraNocturna: 0,
+        extra: 0,
+        registros: 0
+      });
+    }
+
+    const item = mapa.get(llave);
+    item.diurnas = redondearHorasChef(item.diurnas + Number(registro.horas_diurnas || 0));
+    item.nocturnas = redondearHorasChef(item.nocturnas + Number(registro.horas_nocturnas || 0));
+    item.netas = redondearHorasChef(item.netas + Number(registro.horas_netas || 0));
+    item.extraDiurna = redondearHorasChef(item.extraDiurna + Number(registro.extra_diurna || 0));
+    item.extraNocturna = redondearHorasChef(item.extraNocturna + Number(registro.extra_nocturna || 0));
+    item.extra = redondearHorasChef(item.extra + Number(registro.horas_extra_estimadas || 0));
+    item.registros += 1;
+  });
+
+  return Array.from(mapa.values()).sort((a, b) => b.extra - a.extra || b.netas - a.netas);
+}
+
+function renderResumenSemanalHorasChef(ranking) {
+  const contenedor = document.getElementById("resumenSemanalHorasChef");
+  if (!contenedor) return;
+
+  if (!ranking.length) {
+    contenedor.innerHTML = `<div class="text-muted">No hay turnos programados en la semana visible.</div>`;
+    return;
+  }
+
+  contenedor.innerHTML = `
+    <div class="mb-3">
+      <div class="fw-semibold">Top colaboradores con mayor sobreprogramación teórica</div>
+      <div class="small text-muted">
+        Descanso de 0.5 h; nocturna de 7:00 p.m. a 6:00 a.m.; festivos y fines de semana con jornada de 8.5 h.
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-striped table-horas-chef mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Colaborador</th>
+            <th>D</th>
+            <th>N</th>
+            <th>Netas</th>
+            <th>ED</th>
+            <th>EN</th>
+            <th>Extra</th>
+            <th>Registros</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ranking.slice(0, 8).map((item, indice) => `
+            <tr>
+              <td>${indice + 1}</td>
+              <td>
+                <div class="fw-semibold">${escaparHtmlCocina(item.nombre)}</div>
+                <div class="small text-muted">${escaparHtmlCocina(item.cargo || "")}</div>
+              </td>
+              <td>${formatoHorasChef(item.diurnas)} h</td>
+              <td>${formatoHorasChef(item.nocturnas)} h</td>
+              <td>${formatoHorasChef(item.netas)} h</td>
+              <td>${formatoHorasChef(item.extraDiurna)} h</td>
+              <td>${formatoHorasChef(item.extraNocturna)} h</td>
+              <td>${formatoHorasChef(item.extra)} h</td>
+              <td>${item.registros}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderSelectEmpleadoPdfChef() {
+  const select = document.getElementById("selectEmpleadoPdfChef");
+  if (!select) return;
+
+  const valorActual = select.value;
+  const opciones = [...personal].sort((a, b) =>
+    String(a.nombre_visible || "").localeCompare(String(b.nombre_visible || ""), "es")
+  );
+
+  select.innerHTML = `<option value="">Seleccione</option>` + opciones.map((persona) =>
+    `<option value="${escaparHtmlCocina(persona.id)}">${escaparHtmlCocina(persona.nombre_visible || "Colaborador")}${persona.cargo ? ` - ${escaparHtmlCocina(persona.cargo)}` : ""}</option>`
+  ).join("");
+
+  if (opciones.some((persona) => String(persona.id) === String(valorActual))) {
+    select.value = valorActual;
+  }
+}
+
+function obtenerNombreSemanaChef() {
+  return `${formatearFechaCorta(semana[0])} - ${formatearFechaCorta(semana[6])}`;
+}
+
+function generarPdfGeneralChef() {
+  if (!window.jspdf?.jsPDF) {
+    alert("La librería de PDF no está disponible.");
+    return;
+  }
+
+  const personalVisible = obtenerPersonalFiltrado();
+  const idsVisibles = new Set(personalVisible.map((persona) => persona.id));
+  const registros = programacion
+    .filter((registro) => idsVisibles.has(registro.cronograma_personal_id))
+    .map(enriquecerRegistroHorasChef);
+
+  if (!personalVisible.length) {
+    alert("No hay colaboradores visibles para exportar.");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const margenX = 10;
+  const maxY = 190;
+  let y = 12;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text("Programación general - Cocina Chef", margenX, y);
+  y += 7;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(`Semana: ${obtenerNombreSemanaChef()}`, margenX, y);
+  y += 5;
+  doc.text(`Colaboradores visibles: ${personalVisible.length} | Turnos: ${registros.length}`, margenX, y);
+  y += 8;
+
+  personalVisible.forEach((persona) => {
+    const turnosPersona = registros.filter((registro) => registro.cronograma_personal_id === persona.id);
+
+    if (y > maxY - 12) {
+      doc.addPage();
+      y = 12;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(limitarTextoChef(`${persona.nombre_visible || "Colaborador"} - ${persona.cargo || obtenerTextoTipoPersonal(persona.tipo_personal)}`, 100), margenX, y);
+    y += 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+
+    if (!turnosPersona.length) {
+      doc.text("Sin turnos programados", margenX + 3, y);
+      y += 6;
+      return;
+    }
+
+    turnosPersona.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha))).forEach((turno) => {
+      if (y > maxY) {
+        doc.addPage();
+        y = 12;
+      }
+
+      const area = turno.area_cocina || obtenerAreaPorId(turno.area_cocina_id)?.nombre || "";
+      const horario = turno.horario_calculable
+        ? `${turno.hora_inicio_calculada}-${turno.hora_fin_calculada}`
+        : "Sin horario";
+      const linea = `${turno.fecha} | ${turno.codigo_turno || ""} | ${area} | ${horario} | Netas ${formatoHorasChef(turno.horas_netas)} h | Extra ${formatoHorasChef(turno.horas_extra_estimadas)} h`;
+
+      doc.text(limitarTextoChef(linea, 145), margenX + 3, y);
+      y += 5;
+    });
+
+    y += 3;
+  });
+
+  doc.save(`programacion_general_cocina_chef_${formatearFechaISO(semana[0])}.pdf`);
+}
+
+function generarPdfEmpleadoChef() {
+  if (!window.jspdf?.jsPDF) {
+    alert("La librería de PDF no está disponible.");
+    return;
+  }
+
+  const personaId = document.getElementById("selectEmpleadoPdfChef")?.value || "";
+  if (!personaId) {
+    alert("Selecciona un colaborador para generar el PDF.");
+    return;
+  }
+
+  const persona = personal.find((item) => String(item.id) === String(personaId));
+  if (!persona) {
+    alert("No se encontró el colaborador seleccionado.");
+    return;
+  }
+
+  const registros = programacion
+    .filter((registro) => String(registro.cronograma_personal_id) === String(personaId))
+    .map(enriquecerRegistroHorasChef)
+    .sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const margenX = 12;
+  const maxY = 275;
+  let y = 15;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.text("Programación semanal - Cocina Chef", margenX, y);
+  y += 8;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(`Semana: ${obtenerNombreSemanaChef()}`, margenX, y);
+  y += 6;
+  doc.text(`Colaborador: ${persona.nombre_visible || ""}`, margenX, y);
+  y += 6;
+  doc.text(`Cargo / tipo: ${persona.cargo || obtenerTextoTipoPersonal(persona.tipo_personal)}`, margenX, y);
+  y += 6;
+  doc.text(`Área base: ${obtenerNombreAreaPersona(persona)}`, margenX, y);
+  y += 9;
+
+  if (!registros.length) {
+    doc.text("No hay turnos programados para este colaborador en la semana visible.", margenX, y);
+    doc.save(`programacion_cocina_chef_${persona.id}_${formatearFechaISO(semana[0])}.pdf`);
+    return;
+  }
+
+  registros.forEach((turno) => {
+    if (y > maxY - 45) {
+      doc.addPage();
+      y = 15;
+    }
+
+    const area = turno.area_cocina || obtenerAreaPorId(turno.area_cocina_id)?.nombre || "";
+    const horario = turno.horario_calculable
+      ? `${turno.hora_inicio_calculada} - ${turno.hora_fin_calculada}`
+      : "Sin horario configurado";
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(`${turno.fecha} - Código ${turno.codigo_turno || ""}`, margenX, y);
+    y += 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    [
+      `Área operativa: ${area}`,
+      `Horario: ${horario}`,
+      `Horas diurnas: ${formatoHorasChef(turno.horas_diurnas)} h | Horas nocturnas: ${formatoHorasChef(turno.horas_nocturnas)} h`,
+      `Horas netas: ${formatoHorasChef(turno.horas_netas)} h | Extra total: ${formatoHorasChef(turno.horas_extra_estimadas)} h`,
+      `Extra diurna: ${formatoHorasChef(turno.extra_diurna)} h | Extra nocturna: ${formatoHorasChef(turno.extra_nocturna)} h`,
+      `Jornada esperada: ${formatoHorasChef(turno.jornada_esperada)} h | ${turno.tipo_jornada}`
+    ].forEach((linea) => {
+      doc.text(limitarTextoChef(linea, 95), margenX + 3, y);
+      y += 5;
+    });
+
+    if (turno.evento) {
+      doc.text(limitarTextoChef(`Evento: ${turno.evento}`, 95), margenX + 3, y);
+      y += 5;
+    }
+
+    if (turno.observacion) {
+      doc.text(limitarTextoChef(`Observación: ${turno.observacion}`, 95), margenX + 3, y);
+      y += 5;
+    }
+
+    y += 4;
+  });
+
+  doc.save(`programacion_cocina_chef_${persona.id}_${formatearFechaISO(semana[0])}.pdf`);
 }
 
 // ======================================================
@@ -859,6 +1590,11 @@ async function cargarEmpleadosBase() {
     </tr>
   `;
 
+  /*
+    Se conserva la consulta general para no depender de nombres de columnas
+    adicionales en Supabase. La restricción obligatoria se realiza en cliente
+    mediante perteneceEmpleadoBaseAybCocina().
+  */
   const { data, error } = await supabase
     .from("empleados")
     .select("*");
@@ -876,86 +1612,34 @@ async function cargarEmpleadosBase() {
     return;
   }
 
-  empleadosCache = data || [];
+  empleadosCache = (data || []).filter(perteneceEmpleadoBaseAybCocina);
 }
 
 function filtrarEmpleadosModal() {
-  const filtro = document.getElementById("buscarEmpleado").value.trim().toLowerCase();
-
-  const palabrasPermitidas = [
-    "alimentos",
-    "bebidas",
-    "ayb",
-    "a&b",
-    "cocina",
-    "chef",
-    "cocinero",
-    "cocinera",
-    "mesero",
-    "mesera",
-    "barista",
-    "steward",
-    "cajero",
-    "cajera",
-    "auxiliar cocina",
-    "auxiliar de cocina",
-    "auxiliar punto",
-    "auxiliar punto de venta",
-    "restaurante",
-    "rialto",
-    "hoyo 19",
-    "hoyo19",
-    "piscina",
-    "tenis",
-    "porcionamiento",
-    "eventos"
-  ];
-
-  const palabrasBloqueadas = [
-    "infraestructura",
-    "mantenimiento",
-    "bienestar",
-    "administracion",
-    "administrativa",
-    "contabilidad",
-    "compras",
-    "cartera",
-    "seguridad",
-    "sistemas",
-    "oficios varios",
-    "servicios generales",
-    "operaciones locativo",
-    "auxiliar mantenimiento",
-    "jardinero",
-    "jardineria",
-    "aseo general"
-  ];
+  const filtro = normalizarTexto(document.getElementById("buscarEmpleado").value);
 
   return empleadosCache
     .filter((emp) => {
-      const nombre = obtenerNombreEmpleado(emp).toLowerCase();
-      const documento = obtenerDocumentoEmpleado(emp).toLowerCase();
-      const cargo = String(emp.cargo || "").toLowerCase();
-      const centroCostos = String(emp.centro_costos || emp.centro_costo || "").toLowerCase();
-      const area = String(emp.area || "").toLowerCase();
-      const subarea = String(emp.subarea || "").toLowerCase();
+      /*
+        Validación defensiva adicional: aunque el caché ya está limitado,
+        solo se ofrece personal cuyo origen real pertenece a A&B/Cocina.
+        El punto operativo destino (por ejemplo, Tenis o Piscina) no se usa
+        para incluir empleados.
+      */
+      if (!perteneceEmpleadoBaseAybCocina(emp)) return false;
 
-      const textoCompleto = `
-        ${nombre}
-        ${documento}
-        ${cargo}
-        ${centroCostos}
-        ${area}
-        ${subarea}
-      `.toLowerCase();
+      const textoBusqueda = normalizarTexto([
+        obtenerNombreEmpleado(emp),
+        obtenerDocumentoEmpleado(emp),
+        emp.cargo,
+        emp.centro_costos,
+        emp.centro_costo,
+        emp.area
+      ].filter(Boolean).join(" "));
 
-      const permitido = palabrasPermitidas.some((p) => textoCompleto.includes(p));
-      const bloqueado = palabrasBloqueadas.some((p) => textoCompleto.includes(p));
-      const coincideFiltro = !filtro || textoCompleto.includes(filtro);
-
-      return permitido && !bloqueado && coincideFiltro;
+      return !filtro || textoBusqueda.includes(filtro);
     })
-    .sort((a, b) => obtenerNombreEmpleado(a).localeCompare(obtenerNombreEmpleado(b)));
+    .sort((a, b) => obtenerNombreEmpleado(a).localeCompare(obtenerNombreEmpleado(b), "es"));
 }
 
 function renderListaEmpleados(empleados) {
@@ -966,7 +1650,7 @@ function renderListaEmpleados(empleados) {
     tbody.innerHTML = `
       <tr>
         <td colspan="5" class="text-center text-muted">
-          No se encontraron empleados operativos A&B.
+          No se encontraron empleados de A&B / Cocina.
         </td>
       </tr>
     `;
@@ -976,16 +1660,14 @@ function renderListaEmpleados(empleados) {
   empleados.forEach((emp) => {
     const nombre = obtenerNombreEmpleado(emp);
     const documento = obtenerDocumentoEmpleado(emp);
-
+    const centro = emp.centro_costos || emp.centro_costo || emp.area || "";
     const tr = document.createElement("tr");
 
     tr.innerHTML = `
-      <td>
-        <div class="fw-semibold">${nombre}</div>
-      </td>
-      <td>${documento || ""}</td>
-      <td>${emp.cargo || ""}</td>
-      <td>${emp.centro_costos || emp.centro_costo || emp.area || ""}</td>
+      <td><div class="fw-semibold">${escaparHtmlCocina(nombre)}</div></td>
+      <td>${escaparHtmlCocina(documento)}</td>
+      <td>${escaparHtmlCocina(emp.cargo || "")}</td>
+      <td>${escaparHtmlCocina(centro)}</td>
       <td class="text-end">
         <button class="btn btn-sm btn-success">Agregar</button>
       </td>
