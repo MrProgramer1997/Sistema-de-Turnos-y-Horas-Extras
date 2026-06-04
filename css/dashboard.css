@@ -682,3 +682,111 @@ body {
     max-height: 360px;
   }
 }
+
+/* =========================================================
+   INTEGRACIÓN COCINA CHEF - PANEL EXTERNO Y CONTROL
+   ========================================================= */
+
+.seccion-externos-chef {
+  border-left-color: #f97316 !important;
+}
+
+.panel-nota-externos {
+  border: 1px solid #fed7aa;
+  border-radius: var(--dash-radius-sm);
+  background: #fff7ed;
+  color: #9a3412;
+  font-weight: 600;
+}
+
+.externo-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 118px;
+  border-radius: var(--dash-radius);
+  background: linear-gradient(135deg, #f97316, #c2410c);
+  box-shadow: var(--dash-shadow-soft);
+}
+
+.externo-card::after {
+  content: "";
+  position: absolute;
+  right: -34px;
+  bottom: -42px;
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .15);
+}
+
+.externo-card .titulo {
+  position: relative;
+  z-index: 1;
+  color: rgba(255, 255, 255, .85);
+  font-size: .78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .045em;
+  margin-bottom: 8px;
+}
+
+.externo-card .valor {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-size: clamp(1.75rem, 2.1vw, 2.35rem);
+  font-weight: 950;
+  letter-spacing: -.04em;
+}
+
+.externo-card .kpi-subtexto {
+  position: relative;
+  z-index: 1;
+  color: rgba(255, 255, 255, .82) !important;
+  font-weight: 600;
+  margin-bottom: 0;
+}
+
+.bloque-externos-chef {
+  border: 1px solid #fed7aa !important;
+}
+
+.badge-externo-chef {
+  background: #fff7ed !important;
+  border: 1px solid #fdba74;
+  color: #c2410c !important;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 900;
+  padding: .45rem .7rem;
+}
+
+.bloque-externos-chef .table thead th,
+#controlIntegracionChef .table thead th {
+  background: linear-gradient(180deg, #9a3412, #f97316) !important;
+  color: #fff !important;
+  font-size: .72rem;
+  text-transform: uppercase;
+  font-weight: 900;
+  padding: 12px 10px;
+}
+
+#controlIntegracionChef {
+  border-color: #fed7aa;
+}
+
+#controlIntegracionChef > summary {
+  color: #9a3412;
+  background: linear-gradient(180deg, #fff, #fff7ed);
+}
+
+#controlIntegracionChef > summary::after {
+  color: #f97316;
+}
+
+@media (max-width: 768px) {
+  .externo-card {
+    min-height: 106px;
+  }
+}
+

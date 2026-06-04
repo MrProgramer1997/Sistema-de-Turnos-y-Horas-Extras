@@ -22,7 +22,7 @@
             <div class="col-12 col-xl-7">
               <div class="hero-pill mb-3">Panel operativo · Alimentos y Bebidas</div>
               <h1>Dashboard Operacional A&amp;B</h1>
-              <p class="hero-subtitle mb-0">Control de turnos, novedades, incapacidades y horas extra del área.</p>
+              <p class="hero-subtitle mb-0">Personal oficial del Club en A&amp;B consolidado con Programación A&amp;B y Cocina Chef.</p>
 
               <div class="hero-meta">
                 <span class="hero-pill">Usuario: <strong id="nombreUsuario">Usuario</strong></span>
@@ -116,7 +116,7 @@
         </div>
 
         <div class="seccion-titulo">
-          <h5>Resumen ejecutivo</h5>
+          <h5>Resumen ejecutivo · Personal oficial del Club A&amp;B</h5>
           <span class="subtexto-validacion">Vista general del periodo y del día</span>
         </div>
 
@@ -165,25 +165,25 @@
         <div class="row g-3 mb-4 seccion-dashboard">
           <div class="col-12 col-md-6 col-xl-3">
             <div class="resumen-extra-card shadow-sm p-3">
-              <div class="titulo">A&B en semana</div>
+              <div class="titulo">Oficial A&amp;B en semana</div>
               <div class="valor" id="kpiSemanaAyb">0</div>
-              <div class="text-muted small">Asignaciones del módulo A&B</div>
+              <div class="text-muted small">Programación A&amp;B + Cocina Chef consolidada</div>
             </div>
           </div>
 
           <div class="col-12 col-md-6 col-xl-3">
             <div class="resumen-extra-card shadow-sm p-3">
-              <div class="titulo">Administrativo en semana</div>
-              <div class="valor" id="kpiSemanaAdmin">0</div>
-              <div class="text-muted small">Asignaciones administrativas</div>
+              <div class="titulo">Duplicidades detectadas</div>
+              <div class="valor" id="kpiDuplicidadesChef">0</div>
+              <div class="text-muted small">Misma persona y fecha en ambos módulos</div>
             </div>
           </div>
 
           <div class="col-12 col-md-6 col-xl-3">
             <div class="resumen-extra-card shadow-sm p-3">
-              <div class="titulo">Operaciones en semana</div>
-              <div class="valor" id="kpiSemanaOperaciones">0</div>
-              <div class="text-muted small">Operación y servicios</div>
+              <div class="titulo">Pendientes clasificación</div>
+              <div class="valor" id="kpiRevisionChef">0</div>
+              <div class="text-muted small">Registros Chef sin vínculo confirmado</div>
             </div>
           </div>
 
@@ -271,6 +271,141 @@
           </div>
         </div>
 
+
+        <div class="seccion-titulo seccion-externos-chef">
+          <h5>Personal externo programado por Cocina Chef</h5>
+          <span class="subtexto-validacion">Lectura operativa independiente · No empleados del Club y no incluidos en indicadores oficiales</span>
+        </div>
+
+        <div class="alert alert-info panel-nota-externos mb-4" role="alert">
+          Esta sección presenta únicamente personas registradas como <strong>externas</strong> en Cocina Chef.
+          Sus horas son informativas para control operativo y no se suman a nómina ni a las métricas del personal vinculado al Club.
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard kpi-externos-chef">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Externos programados</div>
+              <div class="valor" id="kpiExternosPersonas">0</div>
+              <p class="kpi-subtexto">Personas externas en el filtro</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Turnos externos</div>
+              <div class="valor" id="kpiExternosTurnos">0</div>
+              <p class="kpi-subtexto">Registros Cocina Chef</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Horas diurnas</div>
+              <div class="valor" id="kpiExternosHorasDiurnas">0</div>
+              <p class="kpi-subtexto">Control externo</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Horas nocturnas</div>
+              <div class="valor" id="kpiExternosHorasNocturnas">0</div>
+              <p class="kpi-subtexto">Control externo</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Horas netas</div>
+              <div class="valor" id="kpiExternosHorasNetas">0</div>
+              <p class="kpi-subtexto">Programación externa</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Extra diurna</div>
+              <div class="valor" id="kpiExternosExtraDiurna">0</div>
+              <p class="kpi-subtexto">Estimación operativa</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Extra nocturna</div>
+              <div class="valor" id="kpiExternosExtraNocturna">0</div>
+              <p class="kpi-subtexto">Estimación operativa</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Extra total</div>
+              <div class="valor" id="kpiExternosExtraTotal">0</div>
+              <p class="kpi-subtexto">No suma a nómina oficial</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard bloque-externos-chef">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-bold">Detalle semanal / periodo de externos Cocina Chef</span>
+            <span class="badge badge-externo-chef">NO EMPLEADOS DEL CLUB</span>
+          </div>
+          <div class="card-body bloque-scroll">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Externo</th>
+                    <th>Documento</th>
+                    <th>Fecha</th>
+                    <th>Punto</th>
+                    <th>Turno(s)</th>
+                    <th>D</th>
+                    <th>N</th>
+                    <th>Netas</th>
+                    <th>ED</th>
+                    <th>EN</th>
+                    <th>Extra</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyExternosChef">
+                  <tr><td colspan="12" class="texto-vacio">Cargando personal externo...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <details class="dashboard-collapse mb-4" id="controlIntegracionChef">
+          <summary>Control de integración Cocina Chef: duplicidades y registros por revisar</summary>
+          <div class="dashboard-collapse-content">
+            <div class="row g-3">
+              <div class="col-12 col-xl-6">
+                <h6 class="fw-bold mb-3">Duplicidades excluidas del total oficial</h6>
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0">
+                    <thead>
+                      <tr><th>#</th><th>Empleado</th><th>Cédula</th><th>Fecha</th><th>Regla aplicada</th></tr>
+                    </thead>
+                    <tbody id="tbodyDuplicidadesChef">
+                      <tr><td colspan="5" class="texto-vacio">Cargando validación...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="col-12 col-xl-6">
+                <h6 class="fw-bold mb-3">Pendientes de clasificación</h6>
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0">
+                    <thead>
+                      <tr><th>#</th><th>Persona</th><th>Fecha</th><th>Detalle</th></tr>
+                    </thead>
+                    <tbody id="tbodyRevisionChef">
+                      <tr><td colspan="4" class="texto-vacio">Cargando revisión...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
 
         <div class="seccion-titulo">
           <h5>Novedades e incapacidades A&amp;B</h5>
@@ -966,7 +1101,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="../js/layout.js"></script>
-  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260603-ui2"></script>
+  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260604-chef-integracion1"></script>
 
   <script>
     function usuarioPuedeVerSolicitudesBienestarDashboard(sesion) {

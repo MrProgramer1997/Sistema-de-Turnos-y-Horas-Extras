@@ -149,6 +149,11 @@ function configurarEventos() {
   if (btnPdfEmpleado) {
     btnPdfEmpleado.onclick = generarPdfEmpleadoChef;
   }
+
+  const checkTurnoPartido = document.getElementById("checkTurnoPartidoChef");
+  if (checkTurnoPartido) {
+    checkTurnoPartido.onchange = actualizarVistaTurnoPartidoChef;
+  }
 }
 
 // ======================================================
@@ -325,6 +330,7 @@ function pintarSelectAreas() {
   llenarSelectArea("extArea", "Seleccione área");
   llenarSelectArea("empleadoAreaAgregar", "Autodetectar área");
   llenarSelectArea("turnoArea", "Usar área del colaborador");
+  llenarSelectArea("turnoArea2", "Usar área del bloque 1");
 }
 
 function llenarSelectArea(idSelect, placeholder) {
@@ -566,7 +572,7 @@ function renderBannerTurnoCopiadoChef() {
   const origen = turnoCopiadoChef.nombre_origen ? ` · Origen: ${turnoCopiadoChef.nombre_origen}` : "";
 
   banner.classList.remove("d-none");
-  textoBanner.textContent = `Código ${turnoCopiadoChef.codigo_turno || ""} · ${area}${origen}`;
+  textoBanner.textContent = `Código ${turnoCopiadoChef.codigo_turno || ""}${turnoCopiadoChef.codigo_turno_2 ? ` + ${turnoCopiadoChef.codigo_turno_2} (partido)` : ""} · ${area}${origen}`;
 }
 
 function copiarTurnoChef(registro, persona) {
@@ -578,6 +584,11 @@ function copiarTurnoChef(registro, persona) {
     evento: registro.evento || "",
     area_cocina_id: registro.area_cocina_id || null,
     area_cocina: registro.area_cocina || obtenerAreaPorId(registro.area_cocina_id)?.nombre || obtenerNombreAreaPersona(persona),
+    codigo_turno_2: registro.codigo_turno_2 || null,
+    observacion_2: registro.observacion_2 || null,
+    evento_2: registro.evento_2 || null,
+    area_cocina_id_2: registro.area_cocina_id_2 || null,
+    area_cocina_2: registro.area_cocina_2 || obtenerAreaPorId(registro.area_cocina_id_2)?.nombre || null,
     nombre_origen: persona?.nombre_visible || "",
     copiado_en: new Date().toISOString()
   };
@@ -644,6 +655,11 @@ async function pegarTurnoChef(persona, fecha) {
     evento: turnoCopiadoChef.evento || "",
     area_cocina_id: areaFinalId,
     area_cocina: areaFinal?.nombre || turnoCopiadoChef.area_cocina || persona.area_cocina || null,
+    codigo_turno_2: turnoCopiadoChef.codigo_turno_2 || null,
+    observacion_2: turnoCopiadoChef.observacion_2 || null,
+    evento_2: turnoCopiadoChef.evento_2 || null,
+    area_cocina_id_2: turnoCopiadoChef.area_cocina_id_2 || null,
+    area_cocina_2: turnoCopiadoChef.area_cocina_2 || null,
     estado: "programado",
     origen_programacion: "cocina_chef",
     creado_por: obtenerUsuarioId(),
@@ -751,6 +767,14 @@ function renderTabla() {
           : "Horario por código";
         const nombreAreaTurno = areaTurno?.nombre || registro.area_cocina || nombreAreaBase;
         const color = colorSeguroCocina(codigo?.color);
+        const codigo2 = registro.codigo_turno_2
+          ? codigos.find((item) => item.codigo === registro.codigo_turno_2)
+          : null;
+        const areaTurno2 = registro.area_cocina_id_2 ? obtenerAreaPorId(registro.area_cocina_id_2) : null;
+        const horario2 = codigo2?.hora_inicio && codigo2?.hora_fin
+          ? `${String(codigo2.hora_inicio).substring(0, 5)}-${String(codigo2.hora_fin).substring(0, 5)}`
+          : "";
+        const nombreAreaTurno2 = areaTurno2?.nombre || registro.area_cocina_2 || "";
 
         td.innerHTML = `
           <div class="accion-celda-chef">
@@ -764,6 +788,16 @@ function renderTabla() {
             </div>
             <div class="turno-chef-horario">${escaparHtmlCocina(horario)}</div>
             ${registro.evento ? `<div class="turno-chef-evento">${escaparHtmlCocina(registro.evento)}</div>` : ""}
+            ${registro.codigo_turno_2 ? `
+              <div class="turno-chef-divider"></div>
+              <div class="turno-chef-superior">
+                <span class="chip-partido-chef">B2</span>
+                <span class="chip-codigo-chef">${escaparHtmlCocina(registro.codigo_turno_2)}</span>
+                ${nombreAreaTurno2 ? `<span class="chip-area-turno-chef">${escaparHtmlCocina(nombreAreaTurno2)}</span>` : ""}
+              </div>
+              <div class="turno-chef-horario">${escaparHtmlCocina(horario2 || "Horario por código")}</div>
+              ${registro.evento_2 ? `<div class="turno-chef-evento">${escaparHtmlCocina(registro.evento_2)}</div>` : ""}
+            ` : ""}
           </div>
         `;
 
@@ -772,7 +806,10 @@ function renderTabla() {
           horario,
           nombreAreaTurno ? `Área: ${nombreAreaTurno}` : "",
           registro.evento ? `Evento: ${registro.evento}` : "",
-          registro.observacion ? `Obs: ${registro.observacion}` : ""
+          registro.observacion ? `Obs: ${registro.observacion}` : "",
+          registro.codigo_turno_2 ? `Bloque 2: ${registro.codigo_turno_2} ${horario2}` : "",
+          registro.evento_2 ? `Evento B2: ${registro.evento_2}` : "",
+          registro.observacion_2 ? `Obs B2: ${registro.observacion_2}` : ""
         ].filter(Boolean).join(" | ");
 
         td.querySelector(".btn-editar-chef").onclick = (event) => {
@@ -934,33 +971,53 @@ function obtenerTurnosVisiblesCalculadosChef() {
 }
 
 function enriquecerRegistroHorasChef(registro) {
-  const codigo = codigos.find((item) => String(item.codigo) === String(registro.codigo_turno));
-  const inicio = codigo?.hora_inicio ? String(codigo.hora_inicio).substring(0, 5) : "";
-  const fin = codigo?.hora_fin ? String(codigo.hora_fin).substring(0, 5) : "";
-  const calculo = calcularHorasTurnoChef(inicio, fin);
+  const codigo1 = codigos.find((item) => String(item.codigo) === String(registro.codigo_turno));
+  const inicio1 = codigo1?.hora_inicio ? String(codigo1.hora_inicio).substring(0, 5) : "";
+  const fin1 = codigo1?.hora_fin ? String(codigo1.hora_fin).substring(0, 5) : "";
+  const bloque1 = calcularHorasTurnoChef(inicio1, fin1);
+
+  const codigo2 = registro.codigo_turno_2
+    ? codigos.find((item) => String(item.codigo) === String(registro.codigo_turno_2))
+    : null;
+  const inicio2 = codigo2?.hora_inicio ? String(codigo2.hora_inicio).substring(0, 5) : "";
+  const fin2 = codigo2?.hora_fin ? String(codigo2.hora_fin).substring(0, 5) : "";
+  const bloque2 = calcularHorasTurnoChef(inicio2, fin2);
+
+  const horasTotales = redondearHorasChef(bloque1.total + bloque2.total);
+  const horasDiurnas = redondearHorasChef(bloque1.diurnas + bloque2.diurnas);
+  const horasNocturnas = redondearHorasChef(bloque1.nocturnas + bloque2.nocturnas);
+  const horasNetas = redondearHorasChef(horasDiurnas + horasNocturnas);
+
   const jornadaInfo = obtenerJornadaEsperadaChef(registro.fecha);
-  const horasExtra = redondearHorasChef(Math.max(0, calculo.netas - jornadaInfo.horas));
+  const horasExtra = redondearHorasChef(Math.max(0, horasNetas - jornadaInfo.horas));
 
   let extraDiurna = 0;
   let extraNocturna = 0;
 
   if (horasExtra > 0) {
-    const ordinariasDiurnas = Math.min(calculo.diurnas, jornadaInfo.horas);
-    extraDiurna = redondearHorasChef(Math.max(0, calculo.diurnas - ordinariasDiurnas));
+    const ordinariasDiurnas = Math.min(horasDiurnas, jornadaInfo.horas);
+    extraDiurna = redondearHorasChef(Math.max(0, horasDiurnas - ordinariasDiurnas));
     extraNocturna = redondearHorasChef(Math.max(0, horasExtra - extraDiurna));
   }
 
   return {
     ...registro,
-    codigo_info: codigo || null,
-    hora_inicio_calculada: inicio,
-    hora_fin_calculada: fin,
-    horario_calculable: Boolean(inicio && fin),
-    horas_totales: calculo.total,
-    horas_diurnas: calculo.diurnas,
-    horas_nocturnas: calculo.nocturnas,
-    horas_netas: calculo.netas,
-    descuento_almuerzo: calculo.total > 0 ? DESCANSO_ESTANDAR_HORAS_CHEF : 0,
+    codigo_info: codigo1 || null,
+    codigo_info_2: codigo2 || null,
+    hora_inicio_calculada: inicio1,
+    hora_fin_calculada: fin1,
+    hora_inicio_calculada_2: inicio2,
+    hora_fin_calculada_2: fin2,
+    horario_calculable: Boolean(inicio1 && fin1) && (!registro.codigo_turno_2 || Boolean(inicio2 && fin2)),
+    horas_bloque_1: bloque1.netas,
+    horas_bloque_2: bloque2.netas,
+    horas_totales: horasTotales,
+    horas_diurnas: horasDiurnas,
+    horas_nocturnas: horasNocturnas,
+    horas_netas: horasNetas,
+    descuento_almuerzo: horasTotales > 0
+      ? (registro.codigo_turno_2 ? DESCANSO_ESTANDAR_HORAS_CHEF * 2 : DESCANSO_ESTANDAR_HORAS_CHEF)
+      : 0,
     jornada_esperada: jornadaInfo.horas,
     tipo_jornada: jornadaInfo.tipo,
     horas_extra_estimadas: horasExtra,
@@ -1230,7 +1287,10 @@ function generarPdfGeneralChef() {
       const horario = turno.horario_calculable
         ? `${turno.hora_inicio_calculada}-${turno.hora_fin_calculada}`
         : "Sin horario";
-      const linea = `${turno.fecha} | ${turno.codigo_turno || ""} | ${area} | ${horario} | Netas ${formatoHorasChef(turno.horas_netas)} h | Extra ${formatoHorasChef(turno.horas_extra_estimadas)} h`;
+      const bloque2 = turno.codigo_turno_2
+        ? ` | B2 ${turno.codigo_turno_2} ${turno.hora_inicio_calculada_2 || ""}-${turno.hora_fin_calculada_2 || ""}`
+        : "";
+      const linea = `${turno.fecha} | B1 ${turno.codigo_turno || ""} | ${area} | ${horario}${bloque2} | Netas ${formatoHorasChef(turno.horas_netas)} h | Extra ${formatoHorasChef(turno.horas_extra_estimadas)} h`;
 
       doc.text(limitarTextoChef(linea, 145), margenX + 3, y);
       y += 5;
@@ -1311,8 +1371,12 @@ function generarPdfEmpleadoChef() {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     [
-      `Área operativa: ${area}`,
-      `Horario: ${horario}`,
+      `Área operativa bloque 1: ${area}`,
+      `Horario bloque 1: ${horario}`,
+      ...(turno.codigo_turno_2 ? [
+        `Bloque 2: Código ${turno.codigo_turno_2} | Área: ${turno.area_cocina_2 || obtenerAreaPorId(turno.area_cocina_id_2)?.nombre || ""}`,
+        `Horario bloque 2: ${turno.hora_inicio_calculada_2 || ""} - ${turno.hora_fin_calculada_2 || ""}`
+      ] : []),
       `Horas diurnas: ${formatoHorasChef(turno.horas_diurnas)} h | Horas nocturnas: ${formatoHorasChef(turno.horas_nocturnas)} h`,
       `Horas netas: ${formatoHorasChef(turno.horas_netas)} h | Extra total: ${formatoHorasChef(turno.horas_extra_estimadas)} h`,
       `Extra diurna: ${formatoHorasChef(turno.extra_diurna)} h | Extra nocturna: ${formatoHorasChef(turno.extra_nocturna)} h`,
@@ -1328,7 +1392,17 @@ function generarPdfEmpleadoChef() {
     }
 
     if (turno.observacion) {
-      doc.text(limitarTextoChef(`Observación: ${turno.observacion}`, 95), margenX + 3, y);
+      doc.text(limitarTextoChef(`Observación B1: ${turno.observacion}`, 95), margenX + 3, y);
+      y += 5;
+    }
+
+    if (turno.evento_2) {
+      doc.text(limitarTextoChef(`Evento B2: ${turno.evento_2}`, 95), margenX + 3, y);
+      y += 5;
+    }
+
+    if (turno.observacion_2) {
+      doc.text(limitarTextoChef(`Observación B2: ${turno.observacion_2}`, 95), margenX + 3, y);
       y += 5;
     }
 
@@ -1336,6 +1410,61 @@ function generarPdfEmpleadoChef() {
   });
 
   doc.save(`programacion_cocina_chef_${persona.id}_${formatearFechaISO(semana[0])}.pdf`);
+}
+
+// ======================================================
+// TURNO PARTIDO / SEGUNDO BLOQUE
+// ======================================================
+function actualizarVistaTurnoPartidoChef() {
+  const check = document.getElementById("checkTurnoPartidoChef");
+  const bloque = document.getElementById("bloqueTurnoPartidoChef");
+  if (!check || !bloque) return;
+
+  bloque.classList.toggle("d-none", !check.checked);
+
+  if (!check.checked) {
+    const select2 = document.getElementById("selectTurno2");
+    const area2 = document.getElementById("turnoArea2");
+    const evento2 = document.getElementById("turnoEvento2");
+    const obs2 = document.getElementById("obsTurno2");
+
+    if (select2) select2.value = "";
+    if (area2) area2.value = "";
+    if (evento2) evento2.value = "";
+    if (obs2) obs2.value = "";
+  }
+}
+
+function cargarOpcionesCodigoTurnoChef(selectElement, permitirVacio = false) {
+  if (!selectElement) return;
+
+  selectElement.innerHTML = "";
+
+  if (permitirVacio) {
+    const optVacio = document.createElement("option");
+    optVacio.value = "";
+    optVacio.textContent = "Seleccione código";
+    selectElement.appendChild(optVacio);
+  }
+
+  if (!codigos.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No hay códigos activos";
+    selectElement.appendChild(opt);
+    return;
+  }
+
+  codigos.forEach((codigo) => {
+    const opt = document.createElement("option");
+    opt.value = codigo.codigo;
+    const hora =
+      codigo.hora_inicio && codigo.hora_fin
+        ? ` (${String(codigo.hora_inicio).substring(0, 5)} - ${String(codigo.hora_fin).substring(0, 5)})`
+        : "";
+    opt.textContent = `${codigo.codigo} - ${codigo.descripcion || ""}${hora}`;
+    selectElement.appendChild(opt);
+  });
 }
 
 // ======================================================
@@ -1354,56 +1483,65 @@ function abrirModalTurno(persona, fecha, registro) {
     registro
   };
 
-  const select = document.getElementById("selectTurno");
-  const obs = document.getElementById("obsTurno");
+  const select1 = document.getElementById("selectTurno");
+  const select2 = document.getElementById("selectTurno2");
+  const obs1 = document.getElementById("obsTurno");
+  const obs2 = document.getElementById("obsTurno2");
   const btnEliminar = document.getElementById("eliminarTurno");
-  const turnoArea = document.getElementById("turnoArea");
-  const turnoEvento = document.getElementById("turnoEvento");
+  const turnoArea1 = document.getElementById("turnoArea");
+  const turnoArea2 = document.getElementById("turnoArea2");
+  const turnoEvento1 = document.getElementById("turnoEvento");
+  const turnoEvento2 = document.getElementById("turnoEvento2");
+  const checkPartido = document.getElementById("checkTurnoPartidoChef");
   const info = document.getElementById("infoTurnoSeleccionado");
 
-  select.innerHTML = "";
-
-  if (!codigos.length) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "No hay códigos activos";
-    select.appendChild(opt);
-  }
-
-  codigos.forEach((codigo) => {
-    const opt = document.createElement("option");
-    opt.value = codigo.codigo;
-
-    const hora =
-      codigo.hora_inicio && codigo.hora_fin
-        ? ` (${String(codigo.hora_inicio).substring(0, 5)} - ${String(codigo.hora_fin).substring(0, 5)})`
-        : "";
-
-    opt.textContent = `${codigo.codigo} - ${codigo.descripcion || ""}${hora}`;
-    select.appendChild(opt);
-  });
-
+  cargarOpcionesCodigoTurnoChef(select1, false);
+  cargarOpcionesCodigoTurnoChef(select2, true);
   pintarSelectAreas();
 
   info.innerHTML = `
-    <strong>${persona.nombre_visible}</strong><br>
+    <strong>${escaparHtmlCocina(persona.nombre_visible || "")}</strong><br>
     <span>${formatearFechaCorta(new Date(fecha + "T00:00:00"))}</span><br>
-    <small>Área base: ${obtenerNombreAreaPersona(persona)}</small>
+    <small>Área base: ${escaparHtmlCocina(obtenerNombreAreaPersona(persona))}</small>
   `;
 
   if (registro) {
-    select.value = registro.codigo_turno;
-    obs.value = registro.observacion || "";
-    turnoEvento.value = registro.evento || "";
-    turnoArea.value = registro.area_cocina_id || "";
+    select1.value = registro.codigo_turno || "";
+    obs1.value = registro.observacion || "";
+    turnoEvento1.value = registro.evento || "";
+    turnoArea1.value = registro.area_cocina_id || "";
+
+    const tieneBloque2 = Boolean(
+      registro.codigo_turno_2 ||
+      registro.area_cocina_id_2 ||
+      registro.area_cocina_2 ||
+      registro.evento_2 ||
+      registro.observacion_2
+    );
+
+    checkPartido.checked = tieneBloque2;
+    select2.value = registro.codigo_turno_2 || "";
+    obs2.value = registro.observacion_2 || "";
+    turnoEvento2.value = registro.evento_2 || "";
+    turnoArea2.value = registro.area_cocina_id_2 || "";
+
     btnEliminar.style.display = "inline-block";
   } else {
-    obs.value = "";
-    turnoEvento.value = "";
-    turnoArea.value = "";
+    if (select1.options.length) select1.selectedIndex = 0;
+    obs1.value = "";
+    turnoEvento1.value = "";
+    turnoArea1.value = "";
+
+    checkPartido.checked = false;
+    select2.value = "";
+    obs2.value = "";
+    turnoEvento2.value = "";
+    turnoArea2.value = "";
+
     btnEliminar.style.display = "none";
   }
 
+  actualizarVistaTurnoPartidoChef();
   abrirModal("modalTurno");
 }
 
@@ -1413,27 +1551,52 @@ function abrirModalTurno(persona, fecha, registro) {
 async function guardarTurno() {
   if (!selectedCelda) return;
 
-  const codigo = document.getElementById("selectTurno").value;
-  const observacion = document.getElementById("obsTurno").value.trim();
-  const evento = document.getElementById("turnoEvento").value.trim();
-  const areaIdSeleccionada = document.getElementById("turnoArea").value;
+  const codigo1 = document.getElementById("selectTurno").value;
+  const observacion1 = document.getElementById("obsTurno").value.trim();
+  const evento1 = document.getElementById("turnoEvento").value.trim();
+  const areaId1 = document.getElementById("turnoArea").value;
 
-  if (!codigo) {
-    alert("Selecciona un código de turno.");
+  const esPartido = document.getElementById("checkTurnoPartidoChef").checked;
+  const codigo2 = document.getElementById("selectTurno2").value;
+  const observacion2 = document.getElementById("obsTurno2").value.trim();
+  const evento2 = document.getElementById("turnoEvento2").value.trim();
+  const areaId2Seleccionada = document.getElementById("turnoArea2").value;
+
+  if (!codigo1) {
+    alert("Selecciona un código de turno para el bloque 1.");
     return;
   }
 
-  const areaFinalId = areaIdSeleccionada || selectedCelda.persona.area_cocina_id || null;
-  const areaFinal = obtenerAreaPorId(areaFinalId);
+  if (esPartido && !codigo2) {
+    alert("Selecciona un código de turno para el bloque 2.");
+    return;
+  }
+
+  const areaFinalId1 = areaId1 || selectedCelda.persona.area_cocina_id || null;
+  const areaFinal1 = obtenerAreaPorId(areaFinalId1);
+
+  const areaFinalId2 = esPartido
+    ? (areaId2Seleccionada || areaFinalId1 || selectedCelda.persona.area_cocina_id || null)
+    : null;
+  const areaFinal2 = obtenerAreaPorId(areaFinalId2);
 
   const payload = {
     cronograma_personal_id: selectedCelda.personaId,
     fecha: selectedCelda.fecha,
-    codigo_turno: codigo,
-    observacion,
-    evento,
-    area_cocina_id: areaFinalId,
-    area_cocina: areaFinal?.nombre || selectedCelda.persona.area_cocina || null,
+    codigo_turno: codigo1,
+    observacion: observacion1,
+    evento: evento1,
+    area_cocina_id: areaFinalId1,
+    area_cocina: areaFinal1?.nombre || selectedCelda.persona.area_cocina || null,
+
+    codigo_turno_2: esPartido ? codigo2 : null,
+    observacion_2: esPartido ? observacion2 : null,
+    evento_2: esPartido ? evento2 : null,
+    area_cocina_id_2: esPartido ? String(areaFinalId2 || "") || null : null,
+    area_cocina_2: esPartido
+      ? (areaFinal2?.nombre || areaFinal1?.nombre || selectedCelda.persona.area_cocina || null)
+      : null,
+
     estado: "programado",
     origen_programacion: "cocina_chef",
     actualizado_por: obtenerUsuarioId()
@@ -1451,7 +1614,7 @@ async function guardarTurno() {
 
   if (error) {
     console.error("Error guardando turno:", error);
-    alert("No se pudo guardar el turno.");
+    alert("No se pudo guardar el turno. Valida que hayas ejecutado el SQL de turno partido en Supabase.");
     return;
   }
 

@@ -4,6 +4,11 @@ let sesionActiva = null;
 let registrosBase = [];
 let solicitudesBienestarBase = [];
 let directorioEmpleadosBase = [];
+let directorioEmpleadosCompleto = [];
+let registrosExternosChefBase = [];
+let registrosRevisionChefBase = [];
+let registrosDuplicadosBase = [];
+let festivosDashboard = [];
 let filtrosActuales = {
   fechaInicio: "",
   fechaFin: "",
@@ -31,21 +36,12 @@ const DASHBOARD_ALCANCE_AYB = true;
 const PALABRAS_CLAVE_AYB_DASHBOARD = [
   "ALIMENTOS",
   "BEBIDAS",
+  "ALIMENTOS Y BEBIDAS",
+  "ALIMENTOS & BEBIDAS",
   "A&B",
   "AYB",
-  "COCINA",
-  "RESTAURANTE",
-  "RESTAURANTES",
-  "BAR",
-  "MESERO",
-  "MESERA",
-  "CAJERO",
-  "CAJERA",
-  "CAPITAN",
-  "CAPITÁN",
-  "EVENTOS A&B"
+  "COCINA"
 ];
-
 
 function normalizarTextoAlcanceAyb(valor) {
   return String(valor || "")
@@ -58,67 +54,65 @@ function normalizarTextoAlcanceAyb(valor) {
 function textoContieneAybDashboard(valor) {
   const texto = normalizarTextoAlcanceAyb(valor);
   if (!texto) return false;
-  return PALABRAS_CLAVE_AYB_DASHBOARD.some((clave) => texto.includes(normalizarTextoAlcanceAyb(clave)));
-}
-
-function esRegistroAybDashboard(registro) {
-  if (!registro) return false;
-  const texto = [
-    registro.centro_costos,
-    registro.area,
-    registro.subarea,
-    registro.cargo,
-    registro.nombre_area,
-    registro.nombre_centro_costo,
-    registro.departamento,
-    registro.dependencia,
-    registro.punto,
-    registro.ubicacion
-  ].join(" ");
-
-  return textoContieneAybDashboard(texto);
+  return PALABRAS_CLAVE_AYB_DASHBOARD.some((clave) =>
+    texto.includes(normalizarTextoAlcanceAyb(clave))
+  );
 }
 
 function esEmpleadoAybDashboard(empleado) {
   if (!empleado) return false;
-  const texto = [
-    empleado.area,
-    empleado.centro_costos,
-    empleado.cargo,
-    empleado.nombre_area,
-    empleado.nombre_centro_costo,
-    empleado.departamento,
-    empleado.dependencia,
+
+  /*
+    Regla institucional: el empleado pertenece al panel oficial solo cuando
+    su área o centro de costos oficial corresponde a A&B/Cocina.
+    El cargo, subárea o punto de servicio no habilitan inclusión.
+  */
+  const textoOrigen = [
     empleado.raw?.area,
     empleado.raw?.centro_costos,
-    empleado.raw?.cargo
+    empleado.raw?.centro_costo,
+    empleado.raw?.nombre_area,
+    empleado.raw?.nombre_centro_costo,
+    empleado.raw?.departamento,
+    empleado.raw?.dependencia,
+    empleado.area
   ].join(" ");
 
-  return textoContieneAybDashboard(texto);
+  return textoContieneAybDashboard(textoOrigen);
+}
+
+function obtenerEmpleadoOficialAybPorCedula(cedula) {
+  const documento = normalizarDocumentoEmpleado(cedula);
+  if (!documento) return null;
+
+  return directorioEmpleadosBase.find(
+    (empleado) => normalizarDocumentoEmpleado(empleado.cedula) === documento
+  ) || null;
+}
+
+function obtenerEmpleadoOficialAybPorId(idEmpleado) {
+  const id = String(idEmpleado || "").trim();
+  if (!id) return null;
+
+  return directorioEmpleadosBase.find(
+    (empleado) => String(empleado.raw?.id || "").trim() === id
+  ) || null;
+}
+
+function esRegistroAybDashboard(registro) {
+  if (!registro) return false;
+  const cedula = registro.cedula || registro.documento || registro.numero_documento || "";
+  return Boolean(obtenerEmpleadoOficialAybPorCedula(cedula));
 }
 
 function esSolicitudAybDashboard(solicitud) {
   if (!solicitud) return false;
   const cedula = normalizarDocumentoEmpleado(
-    solicitud._cedula || solicitud.cedula || solicitud.documento || solicitud.numero_documento || solicitud.identificacion || ""
+    solicitud._cedula || solicitud.cedula || solicitud.documento ||
+    solicitud.numero_documento || solicitud.identificacion || ""
   );
-  const empleadoBase = cedula ? obtenerEmpleadoBasePorCedula(cedula) : null;
 
-  const texto = [
-    solicitud._area,
-    solicitud.area,
-    solicitud.centro_costos,
-    solicitud.subarea,
-    solicitud.cargo,
-    solicitud.dependencia,
-    solicitud.departamento,
-    empleadoBase?.area,
-    empleadoBase?.raw?.area,
-    empleadoBase?.raw?.centro_costos,
-    empleadoBase?.raw?.cargo
-  ].join(" ");
-
-  return textoContieneAybDashboard(texto);
+  return Boolean(obtenerEmpleadoOficialAybPorCedula(cedula));
 }
 
 function aplicarAlcanceAybRegistros(registros) {
@@ -220,6 +214,181 @@ function cargarFechaDashboard() {
   setText("fechaDashboard", texto);
 }
 
+async function cargarFestivosDashboardSeguro() {
+  try {
+    const { data, error } = await supabase
+      .from("festivos")
+      .select("fecha,nombre,activo")
+      .eq("activo", true);
+
+    if (error) {
+      console.warn("No se pudieron cargar festivos en Dashboard A&B:", error.message || error);
+      festivosDashboard = [];
+      return;
+    }
+
+    festivosDashboard = data || [];
+  } catch (error) {
+    console.warn("Error consultando festivos en Dashboard A&B:", error);
+    festivosDashboard = [];
+  }
+}
+
+async function cargarFuenteCocinaChefDashboard() {
+  try {
+    const [respuestaTurnos, respuestaPersonal, respuestaCodigos] = await Promise.all([
+      supabase.from("cocina_programacion_turnos").select("*").order("fecha", { ascending: true }),
+      supabase.from("cocina_cronograma_personal").select("*"),
+      supabase.from("cocina_codigos_turno").select("*")
+    ]);
+
+    if (respuestaTurnos.error || respuestaPersonal.error || respuestaCodigos.error) {
+      console.warn(
+        "No se pudo cargar completamente la fuente Cocina Chef:",
+        respuestaTurnos.error || respuestaPersonal.error || respuestaCodigos.error
+      );
+      return { oficiales: [], externos: [], revision: [] };
+    }
+
+    const personalPorId = new Map(
+      (respuestaPersonal.data || []).map((persona) => [String(persona.id), persona])
+    );
+    const codigosPorCodigo = new Map(
+      (respuestaCodigos.data || []).map((codigo) => [String(codigo.codigo), codigo])
+    );
+
+    const oficiales = [];
+    const externos = [];
+    const revision = [];
+
+    (respuestaTurnos.data || []).forEach((turno) => {
+      const persona = personalPorId.get(String(turno.cronograma_personal_id));
+      if (!persona) {
+        revision.push({
+          tipo_revision: "Sin persona relacionada",
+          fecha: turno.fecha,
+          nombre: "Registro Cocina Chef sin colaborador",
+          detalle: `Turno ${turno.codigo_turno || "-"}`
+        });
+        return;
+      }
+
+      const empleadoOficial =
+        obtenerEmpleadoOficialAybPorId(persona.empleado_id) ||
+        obtenerEmpleadoOficialAybPorCedula(persona.documento);
+
+      const registro = transformarRegistroCocinaChefDashboard(
+        turno,
+        persona,
+        empleadoOficial,
+        codigosPorCodigo
+      );
+
+      if (empleadoOficial) {
+        oficiales.push(registro);
+        return;
+      }
+
+      const tipoPersonal = String(persona.tipo_personal || "").trim().toLowerCase();
+      if (tipoPersonal === "externo" || Boolean(persona.externo_id)) {
+        externos.push(registro);
+        return;
+      }
+
+      revision.push({
+        tipo_revision: "Vinculación sin confirmar",
+        fecha: turno.fecha,
+        nombre: persona.nombre_visible || "Sin nombre",
+        detalle: `${persona.tipo_personal || "Sin tipo"} · ${turno.area_cocina || persona.area_cocina || "Sin área"}`
+      });
+    });
+
+    return { oficiales, externos, revision };
+  } catch (error) {
+    console.warn("Error cargando integración de Cocina Chef:", error);
+    return { oficiales: [], externos: [], revision: [] };
+  }
+}
+
+function transformarRegistroCocinaChefDashboard(turno, persona, empleadoOficial, codigosPorCodigo) {
+  const codigo1 = codigosPorCodigo.get(String(turno.codigo_turno || ""));
+  const codigo2 = codigosPorCodigo.get(String(turno.codigo_turno_2 || ""));
+  const esOficial = Boolean(empleadoOficial);
+
+  return {
+    id: `chef_${turno.id}`,
+    id_origen: turno.id,
+    origen_datos: "cocina_chef",
+    origen_lectura: esOficial ? "Cocina Chef - empleado Club" : "Cocina Chef - externo",
+    cronograma_personal_id: turno.cronograma_personal_id,
+    empleado_id: persona.empleado_id || null,
+    externo_id: persona.externo_id || null,
+    tipo_personal: persona.tipo_personal || "",
+    cedula: empleadoOficial?.cedula || persona.documento || "",
+    nombre: empleadoOficial?.nombre || persona.nombre_visible || "Sin nombre",
+    cargo: persona.cargo || (esOficial ? "" : "Externo"),
+    area: esOficial ? "ALIMENTOS Y BEBIDAS" : "PERSONAL EXTERNO COCINA CHEF",
+    centro_costos: esOficial ? "ALIMENTOS Y BEBIDAS" : "PERSONAL EXTERNO COCINA CHEF",
+    subarea: turno.area_cocina || persona.area_cocina || "Cocina Chef",
+    fecha: turno.fecha,
+    tipo_registro: "turno",
+    turno: turno.codigo_turno || "",
+    hora_inicio: codigo1?.hora_inicio ? String(codigo1.hora_inicio).substring(0, 5) : null,
+    hora_fin: codigo1?.hora_fin ? String(codigo1.hora_fin).substring(0, 5) : null,
+    subarea_2: turno.area_cocina_2 || null,
+    turno_2: turno.codigo_turno_2 || null,
+    hora_inicio_2: codigo2?.hora_inicio ? String(codigo2.hora_inicio).substring(0, 5) : null,
+    hora_fin_2: codigo2?.hora_fin ? String(codigo2.hora_fin).substring(0, 5) : null,
+    observacion: turno.observacion || "",
+    observacion_2: turno.observacion_2 || "",
+    evento: turno.evento || "",
+    evento_2: turno.evento_2 || "",
+    estado_extra: "pendiente",
+    aprobado_por: "",
+    fecha_aprobacion: null,
+    observacion_aprobacion: esOficial
+      ? "Lectura desde Cocina Chef; validación operativa pendiente."
+      : "Personal externo; lectura operativa independiente."
+  };
+}
+
+function consolidarRegistrosOficialesDashboard(registrosProgramacion, registrosChef) {
+  const llavesChef = new Set(
+    registrosChef.map((registro) =>
+      `${normalizarDocumentoEmpleado(registro.cedula)}__${String(registro.fecha || "")}`
+    )
+  );
+
+  const registrosConsolidados = [];
+  const duplicados = [];
+
+  registrosProgramacion.forEach((registro) => {
+    const llave = `${normalizarDocumentoEmpleado(registro.cedula)}__${String(registro.fecha || "")}`;
+
+    if (llavesChef.has(llave)) {
+      duplicados.push({
+        cedula: registro.cedula || "",
+        nombre: obtenerNombreEmpleado(registro),
+        fecha: registro.fecha || "",
+        registro_ayb: registro,
+        motivo: "Existe programación en Programación A&B y Cocina Chef para el mismo colaborador y fecha. Se contabiliza Cocina Chef."
+      });
+      return;
+    }
+
+    registrosConsolidados.push(registro);
+  });
+
+  registrosConsolidados.push(...registrosChef);
+
+  return {
+    registros: registrosConsolidados.sort((a, b) =>
+      String(a.fecha || "").localeCompare(String(b.fecha || ""))
+    ),
+    duplicados
+  };
+}
+
 async function cargarDashboardReal(sesion) {
   try {
     const hoy = new Date();
@@ -227,6 +396,11 @@ async function cargarDashboardReal(sesion) {
     const inicioSemana = obtenerInicioSemanaOperativa(new Date());
     const semana = construirSemana(inicioSemana);
     const fechasSemana = semana.map((d) => d.fecha);
+
+    directorioEmpleadosCompleto = await cargarDirectorioEmpleadosSeguro();
+    directorioEmpleadosBase = directorioEmpleadosCompleto.filter(esEmpleadoAybDashboard);
+
+    await cargarFestivosDashboardSeguro();
 
     const { data, error } = await supabase
       .from("programacion_turnos")
@@ -241,9 +415,27 @@ async function cargarDashboardReal(sesion) {
     }
 
     const registrosPermitidos = filtrarRegistrosPorPermisos(data || [], sesion);
-    registrosBase = aplicarAlcanceAybRegistros(registrosPermitidos).map(enriquecerRegistroDashboard);
-    directorioEmpleadosBase = await cargarDirectorioEmpleadosSeguro();
-    directorioEmpleadosBase = directorioEmpleadosBase.filter(esEmpleadoAybDashboard);
+    const registrosProgramacionAyb = aplicarAlcanceAybRegistros(registrosPermitidos)
+      .map((registro) => enriquecerRegistroDashboard({
+        ...registro,
+        origen_datos: "programacion_ayb",
+        origen_lectura: "Programación A&B"
+      }));
+
+    const fuenteChef = await cargarFuenteCocinaChefDashboard();
+    const registrosChefOficiales = fuenteChef.oficiales.map(enriquecerRegistroDashboard);
+
+    registrosExternosChefBase = fuenteChef.externos.map(enriquecerRegistroDashboard);
+    registrosRevisionChefBase = fuenteChef.revision;
+
+    const consolidado = consolidarRegistrosOficialesDashboard(
+      registrosProgramacionAyb,
+      registrosChefOficiales
+    );
+
+    registrosBase = consolidado.registros;
+    registrosDuplicadosBase = consolidado.duplicados;
+
     const solicitudesBienestar = await cargarSolicitudesBienestarSeguras(sesion);
     solicitudesBienestarBase = aplicarAlcanceAybSolicitudes(solicitudesBienestar);
 
@@ -260,8 +452,8 @@ async function cargarDashboardReal(sesion) {
     const asignacionesSemana = registrosSemana.length;
 
     const semanaAyb = registrosSemana.filter((r) => esAyb(r)).length;
-    const semanaAdmin = registrosSemana.filter((r) => esAdministrativo(r)).length;
-    const semanaOperaciones = registrosSemana.filter((r) => esOperaciones(r)).length;
+    const semanaAdmin = 0;
+    const semanaOperaciones = 0;
     const empleadosSemana = new Set(
       registrosSemana.map((r) => String(r.cedula || "").trim()).filter(Boolean)
     ).size;
@@ -432,7 +624,15 @@ function calcularHorasTurnoProtegiendoNocturnas(inicio, fin) {
 
 function obtenerJornadaEsperadaPorFecha(fechaISO) {
   if (!fechaISO) {
-    return { horas: 7.5, tipo: "Martes a viernes / día hábil" };
+    return { horas: 7.5, tipo: "Lunes a viernes / día hábil" };
+  }
+
+  const esFestivo = festivosDashboard.some(
+    (festivo) => String(festivo.fecha) === String(fechaISO)
+  );
+
+  if (esFestivo) {
+    return { horas: 8.5, tipo: "Festivo" };
   }
 
   const fecha = new Date(`${fechaISO}T00:00:00`);
@@ -442,7 +642,7 @@ function obtenerJornadaEsperadaPorFecha(fechaISO) {
     return { horas: 8.5, tipo: "Sábado/Domingo" };
   }
 
-  return { horas: 7.5, tipo: "Martes a viernes / día hábil" };
+  return { horas: 7.5, tipo: "Lunes a viernes / día hábil" };
 }
 
 function horaTextoAMinutos(horaTexto) {
@@ -625,6 +825,8 @@ function aplicarFiltrosAnaliticos() {
   renderTablaValidacionExtras(registrosFiltrados);
   renderDashboardBienestar();
   renderTablaMenorCarga(registrosFiltrados);
+  renderPanelExternosChef();
+  renderControlIntegracionChef();
 
   renderGraficaAreas(registrosFiltrados);
   renderGraficaDias(registrosFiltrados);
@@ -635,6 +837,110 @@ function aplicarFiltrosAnaliticos() {
   renderGraficaTendenciaFechas(registrosFiltrados);
   renderGraficaMeses(registrosBase);
   renderGraficaAnios(registrosBase);
+}
+
+function obtenerRegistrosExternosChefFiltrados() {
+  return registrosExternosChefBase.filter((item) => {
+    const fecha = String(item.fecha || "");
+    const subarea = String(item.subarea || "").trim();
+    const empleado = obtenerNombreEmpleado(item);
+
+    if (filtrosActuales.fechaInicio && fecha < filtrosActuales.fechaInicio) return false;
+    if (filtrosActuales.fechaFin && fecha > filtrosActuales.fechaFin) return false;
+    if (filtrosActuales.subarea && subarea !== filtrosActuales.subarea) return false;
+    if (filtrosActuales.empleado && empleado !== filtrosActuales.empleado) return false;
+
+    return true;
+  });
+}
+
+function renderPanelExternosChef() {
+  const registros = obtenerRegistrosExternosChefFiltrados();
+  const empleados = new Set(
+    registros.map((item) => String(item.externo_id || item.cedula || obtenerNombreEmpleado(item))).filter(Boolean)
+  ).size;
+  const soloTurnos = registros.filter((item) => !esNovedad(item));
+
+  const diurnas = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_diurnas || 0), 0));
+  const nocturnas = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_nocturnas || 0), 0));
+  const netas = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_netas || 0), 0));
+  const extraDiurna = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.extra_diurna || 0), 0));
+  const extraNocturna = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.extra_nocturna || 0), 0));
+  const extraTotal = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_extra_estimadas || 0), 0));
+
+  setText("kpiExternosPersonas", empleados);
+  setText("kpiExternosTurnos", registros.length);
+  setText("kpiExternosHorasDiurnas", formatearNumero(diurnas));
+  setText("kpiExternosHorasNocturnas", formatearNumero(nocturnas));
+  setText("kpiExternosHorasNetas", formatearNumero(netas));
+  setText("kpiExternosExtraDiurna", formatearNumero(extraDiurna));
+  setText("kpiExternosExtraNocturna", formatearNumero(extraNocturna));
+  setText("kpiExternosExtraTotal", formatearNumero(extraTotal));
+
+  const tbody = document.getElementById("tbodyExternosChef");
+  if (!tbody) return;
+
+  if (!registros.length) {
+    tbody.innerHTML = `<tr><td colspan="12" class="texto-vacio">No hay personal externo programado en Cocina Chef para el filtro actual.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = registros
+    .sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || "")))
+    .map((item, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escaparHtml(obtenerNombreEmpleado(item))}</td>
+        <td>${escaparHtml(item.cedula || "-")}</td>
+        <td>${escaparHtml(formatearFechaCorta(item.fecha))}</td>
+        <td>${escaparHtml(item.subarea || "-")}</td>
+        <td>${escaparHtml(item.turno || "-")}${item.turno_2 ? ` / ${escaparHtml(item.turno_2)}` : ""}</td>
+        <td>${formatearNumero(item.horas_diurnas || 0)}</td>
+        <td>${formatearNumero(item.horas_nocturnas || 0)}</td>
+        <td>${formatearNumero(item.horas_netas || 0)}</td>
+        <td>${formatearNumero(item.extra_diurna || 0)}</td>
+        <td>${formatearNumero(item.extra_nocturna || 0)}</td>
+        <td>${formatearNumero(item.horas_extra_estimadas || 0)}</td>
+      </tr>
+    `).join("");
+}
+
+function renderControlIntegracionChef() {
+  setText("kpiDuplicidadesChef", registrosDuplicadosBase.length);
+  setText("kpiRevisionChef", registrosRevisionChefBase.length);
+
+  const tbodyDuplicados = document.getElementById("tbodyDuplicidadesChef");
+  if (tbodyDuplicados) {
+    if (!registrosDuplicadosBase.length) {
+      tbodyDuplicados.innerHTML = `<tr><td colspan="5" class="texto-vacio">No se detectaron duplicidades entre Programación A&B y Cocina Chef.</td></tr>`;
+    } else {
+      tbodyDuplicados.innerHTML = registrosDuplicadosBase.map((item, index) => `
+        <tr class="fila-alerta">
+          <td>${index + 1}</td>
+          <td>${escaparHtml(item.nombre)}</td>
+          <td>${escaparHtml(item.cedula)}</td>
+          <td>${escaparHtml(formatearFechaCorta(item.fecha))}</td>
+          <td>${escaparHtml(item.motivo)}</td>
+        </tr>
+      `).join("");
+    }
+  }
+
+  const tbodyRevision = document.getElementById("tbodyRevisionChef");
+  if (tbodyRevision) {
+    if (!registrosRevisionChefBase.length) {
+      tbodyRevision.innerHTML = `<tr><td colspan="4" class="texto-vacio">No hay registros pendientes de clasificación.</td></tr>`;
+    } else {
+      tbodyRevision.innerHTML = registrosRevisionChefBase.map((item, index) => `
+        <tr class="fila-alerta">
+          <td>${index + 1}</td>
+          <td>${escaparHtml(item.nombre)}</td>
+          <td>${escaparHtml(formatearFechaCorta(item.fecha))}</td>
+          <td>${escaparHtml(item.tipo_revision)} · ${escaparHtml(item.detalle)}</td>
+        </tr>
+      `).join("");
+    }
+  }
 }
 
 function obtenerRegistrosFiltrados() {
@@ -1163,7 +1469,7 @@ function renderTablaValidacionExtras(registros) {
                 Rechazar
               </button>
             </div>
-          ` : `<span class="text-muted small">Sin acción</span>`}
+          ` : `<span class="text-muted small">${String(item.origen_datos || "") === "cocina_chef" ? "Lectura Chef" : "Sin acción"}</span>`}
         </td>
       </tr>
     `;
@@ -1574,6 +1880,11 @@ function obtenerRegistrosConExtras(registros) {
 
 function usuarioPuedeValidarRegistro(sesion, registro) {
   if (!sesion) return false;
+
+  // Los registros consolidados desde Cocina Chef son lectura operativa.
+  // Su flujo de aprobación no se escribe en programacion_turnos para evitar actualizar una tabla incorrecta.
+  if (String(registro?.origen_datos || "") === "cocina_chef") return false;
+
   if (sesion.puede_ver_todo === true) return true;
 
   const rol = String(sesion.rol || "").trim().toLowerCase();
@@ -2356,6 +2667,8 @@ function renderVaciosAnaliticos() {
   renderTablaValidacionExtras([]);
   renderDashboardBienestarVacio();
   renderTablaMenorCarga([]);
+  renderPanelExternosChef();
+  renderControlIntegracionChef();
   renderKPIsGeneralesAnaliticos([]);
   renderKPIsAnaliticos([]);
   renderKPIsHoras([]);
@@ -2450,45 +2763,19 @@ function obtenerEmpleadoBasePorCedula(cedula) {
 }
 
 function obtenerUniversoEmpleadosAyb() {
-  const mapa = {};
-
-  registrosBase
-    .filter((item) => String(item.cedula || "").trim())
-    .filter((item) => esAyb(item) || obtenerAreaAmigable(item).toUpperCase().includes("ALIMENTOS"))
-    .forEach((item) => {
-      const cedula = normalizarDocumentoEmpleado(item.cedula || "");
-      if (!cedula || mapa[cedula]) return;
-
-      const empleado = {
-        cedula,
-        nombre: obtenerNombreEmpleado(item),
-        area: obtenerAreaAmigable(item)
-      };
-
-      const textoEmpleado = String(empleado.nombre + " " + empleado.cedula).toUpperCase();
-      if (filtrosActuales.empleado && !textoEmpleado.includes(String(filtrosActuales.empleado).toUpperCase())) return;
-
-      mapa[cedula] = empleado;
-    });
-
-  directorioEmpleadosBase
+  return directorioEmpleadosBase
     .filter((item) => item.cedula)
     .filter((item) => {
-      const area = String(item.area || "").toUpperCase();
-      return area.includes("ALIMENTOS") || area.includes("BEBIDAS") || area.includes("A&B");
+      const textoEmpleado = `${item.nombre || ""} ${item.cedula || ""}`.toUpperCase();
+      return !filtrosActuales.empleado ||
+        textoEmpleado.includes(String(filtrosActuales.empleado).toUpperCase());
     })
-    .forEach((item) => {
-      if (mapa[item.cedula]) return;
-      const textoEmpleado = String(item.nombre + " " + item.cedula).toUpperCase();
-      if (filtrosActuales.empleado && !textoEmpleado.includes(String(filtrosActuales.empleado).toUpperCase())) return;
-      mapa[item.cedula] = {
-        cedula: item.cedula,
-        nombre: item.nombre || "Sin nombre",
-        area: item.area || "Alimentos y Bebidas"
-      };
-    });
-
-  return Object.values(mapa).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    .map((item) => ({
+      cedula: item.cedula,
+      nombre: item.nombre || "Sin nombre",
+      area: item.area || "Alimentos y Bebidas"
+    }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
 function obtenerNombreEmpleado(item) {
@@ -2659,8 +2946,10 @@ function calcularMaximoConsecutivo(fechasOrdenadas) {
 }
 
 function esAyb(item) {
-  const texto = String((item.centro_costos || "") + " " + (item.area || "") + " " + (item.subarea || "") + " " + (item.cargo || "")).toUpperCase();
-  return texto.includes("ALIMENTOS") || texto.includes("BEBIDAS") || texto.includes("A&B") || texto.includes("AYB");
+  if (!item) return false;
+  return String(item.area || "").toUpperCase().includes("ALIMENTOS") ||
+    String(item.centro_costos || "").toUpperCase().includes("ALIMENTOS") ||
+    String(item.origen_datos || "") === "cocina_chef";
 }
 
 function esOperaciones(item) {
@@ -2715,7 +3004,10 @@ function exportarExcelAprobados() {
   try {
     const registrosFiltrados = obtenerRegistrosFiltrados();
     const aprobados = obtenerRegistrosConExtras(registrosFiltrados)
-      .filter((item) => normalizarEstadoExtra(item.estado_extra) === "aprobado");
+      .filter((item) =>
+        normalizarEstadoExtra(item.estado_extra) === "aprobado" &&
+        String(item.origen_datos || "") !== "cocina_chef"
+      );
 
     if (!aprobados.length) {
       alert("No hay registros aprobados para exportar con los filtros actuales.");
