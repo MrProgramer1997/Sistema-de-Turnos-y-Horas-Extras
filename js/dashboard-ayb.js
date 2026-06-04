@@ -343,12 +343,14 @@ function transformarRegistroCocinaChefDashboard(turno, persona, empleadoOficial,
     observacion_2: turno.observacion_2 || "",
     evento: turno.evento || "",
     evento_2: turno.evento_2 || "",
-    estado_extra: "pendiente",
-    aprobado_por: "",
-    fecha_aprobacion: null,
-    observacion_aprobacion: esOficial
-      ? "Lectura desde Cocina Chef; validación operativa pendiente."
-      : "Personal externo; lectura operativa independiente."
+    estado_extra: turno.estado_extra || "pendiente",
+    aprobado_por: turno.aprobado_por || "",
+    fecha_aprobacion: turno.fecha_aprobacion || null,
+    observacion_aprobacion: turno.observacion_aprobacion || (
+      esOficial
+        ? "Pendiente de validación."
+        : "Personal externo; lectura operativa independiente."
+    )
   };
 }
 
@@ -1469,7 +1471,7 @@ function renderTablaValidacionExtras(registros) {
                 Rechazar
               </button>
             </div>
-          ` : `<span class="text-muted small">${String(item.origen_datos || "") === "cocina_chef" ? "Lectura Chef" : "Sin acción"}</span>`}
+          ` : `<span class="text-muted small">${String(item.tipo_personal || "").trim().toLowerCase() === "externo" ? "Externo · solo lectura" : "Sin permiso"}</span>`}
         </td>
       </tr>
     `;
@@ -1516,14 +1518,23 @@ async function actualizarEstadoExtraRegistro(id, estado, observacion) {
       observacion_aprobacion: String(observacion || "").trim() || null
     };
 
+    const vieneDeCocinaChef = String(registroLocal.origen_datos || "") === "cocina_chef";
+    const tablaDestino = vieneDeCocinaChef ? "cocina_programacion_turnos" : "programacion_turnos";
+    const idDestino = vieneDeCocinaChef ? registroLocal.id_origen : registroLocal.id;
+
+    if (!idDestino) {
+      alert("No se encontró el identificador de origen del registro.");
+      return;
+    }
+
     const { error } = await supabase
-      .from("programacion_turnos")
+      .from(tablaDestino)
       .update(payload)
-      .eq("id", id);
+      .eq("id", idDestino);
 
     if (error) {
-      console.error("Error actualizando estado_extra:", error);
-      alert("No fue posible actualizar el estado de validación.");
+      console.error(`Error actualizando estado_extra en ${tablaDestino}:`, error);
+      alert("No fue posible actualizar el estado de validación. Valida que el SQL de aprobación ya se haya ejecutado en Supabase.");
       return;
     }
 
@@ -1879,11 +1890,15 @@ function obtenerRegistrosConExtras(registros) {
 }
 
 function usuarioPuedeValidarRegistro(sesion, registro) {
-  if (!sesion) return false;
+  if (!sesion || !registro) return false;
 
-  // Los registros consolidados desde Cocina Chef son lectura operativa.
-  // Su flujo de aprobación no se escribe en programacion_turnos para evitar actualizar una tabla incorrecta.
-  if (String(registro?.origen_datos || "") === "cocina_chef") return false;
+  // Los externos nunca ingresan al flujo oficial de aprobación de nómina.
+  if (
+    String(registro.origen_datos || "") === "cocina_chef" &&
+    String(registro.tipo_personal || "").trim().toLowerCase() === "externo"
+  ) {
+    return false;
+  }
 
   if (sesion.puede_ver_todo === true) return true;
 
@@ -3006,7 +3021,7 @@ function exportarExcelAprobados() {
     const aprobados = obtenerRegistrosConExtras(registrosFiltrados)
       .filter((item) =>
         normalizarEstadoExtra(item.estado_extra) === "aprobado" &&
-        String(item.origen_datos || "") !== "cocina_chef"
+        String(item.tipo_personal || "").trim().toLowerCase() !== "externo"
       );
 
     if (!aprobados.length) {

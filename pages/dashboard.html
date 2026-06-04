@@ -4,488 +4,50 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard | Sistema de Turnos Club</title>
+  <title>Dashboard A&B | Sistema de Turnos Club</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="../css/estilos.css" />
   <link rel="stylesheet" href="../css/dashboard.css" />
   <link rel="stylesheet" href="../css/layout.css" />
-  <style>
-    .mini-badge-fecha {
-      display: inline-block;
-      padding: 0.35rem 0.75rem;
-      border-radius: 999px;
-      background: #eef3ff;
-      color: #1d4ed8;
-      font-size: 0.9rem;
-      font-weight: 600;
-    }
 
-    .resumen-extra-card,
-    .analitica-card,
-    .filtro-card,
-    .grafica-card,
-    .novedad-card,
-    .preview-card,
-    .alerta-card,
-    .validacion-card {
-      border-radius: 1rem;
-      border: 1px solid #e9ecef;
-      background: #fff;
-      height: 100%;
-    }
-
-    .resumen-extra-card .titulo,
-    .analitica-card .titulo,
-    .novedad-card .titulo,
-    .preview-card .titulo,
-    .alerta-card .titulo,
-    .validacion-card .titulo {
-      font-size: 0.9rem;
-      color: #6c757d;
-    }
-
-    .resumen-extra-card .valor,
-    .analitica-card .valor,
-    .novedad-card .valor,
-    .preview-card .valor,
-    .alerta-card .valor,
-    .validacion-card .valor {
-      font-size: 1.8rem;
-      font-weight: 700;
-      line-height: 1.1;
-    }
-
-    .dashboard-bloque {
-      border-radius: 1rem;
-      overflow: hidden;
-    }
-
-    .tabla-ranking td,
-    .tabla-ranking th {
-      vertical-align: middle;
-    }
-
-    .kpi-subtexto {
-      font-size: 0.85rem;
-      color: #6c757d;
-      margin-top: 0.35rem;
-      margin-bottom: 0;
-    }
-
-    .badge-soft {
-      display: inline-block;
-      padding: 0.35rem 0.7rem;
-      border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 700;
-      background: #f1f3f5;
-      color: #495057;
-    }
-
-    .texto-vacio {
-      color: #6c757d;
-      text-align: center;
-      padding: 1rem 0;
-    }
-
-    .filtro-card label {
-      font-size: 0.88rem;
-      font-weight: 600;
-      color: #495057;
-      margin-bottom: 0.35rem;
-    }
-
-    .bloque-scroll {
-      max-height: 420px;
-      overflow: auto;
-    }
-
-    .chart-wrap {
-      position: relative;
-      width: 100%;
-      height: 320px;
-    }
-
-    .chart-wrap.chart-sm {
-      height: 280px;
-    }
-
-    .chart-wrap.chart-xs {
-      height: 240px;
-    }
-
-    .chart-wrap canvas {
-      width: 100% !important;
-      height: 100% !important;
-    }
-
-    .seccion-dashboard {
-      margin-bottom: 1.25rem;
-    }
-
-    .kpi-comparativo {
-      font-size: 0.82rem;
-      font-weight: 700;
-      margin-top: 0.5rem;
-    }
-
-    .kpi-comparativo.sube {
-      color: #198754;
-    }
-
-    .kpi-comparativo.baja {
-      color: #dc3545;
-    }
-
-    .kpi-comparativo.neutro {
-      color: #6c757d;
-    }
-
-    .badge-novedad {
-      display: inline-block;
-      padding: 0.3rem 0.55rem;
-      border-radius: 999px;
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-      white-space: nowrap;
-    }
-
-    .badge-incapacidad {
-      background: #fde2e1;
-      color: #b42318;
-    }
-
-    .badge-vacaciones {
-      background: #fff1d6;
-      color: #b54708;
-    }
-
-    .badge-licencia {
-      background: #dbeafe;
-      color: #1d4ed8;
-    }
-
-    .badge-descanso {
-      background: #e8fff2;
-      color: #067647;
-    }
-
-    .badge-otra {
-      background: #eceff3;
-      color: #344054;
-    }
-
-    .badge-estado {
-      display: inline-block;
-      padding: 0.32rem 0.7rem;
-      border-radius: 999px;
-      font-size: 0.76rem;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    .estado-pendiente {
-      background: #fef3c7;
-      color: #b54708;
-    }
-
-    .estado-aprobado {
-      background: #dcfce7;
-      color: #15803d;
-    }
-
-    .estado-rechazado {
-      background: #fee2e2;
-      color: #b42318;
-    }
-
-    .fila-alerta {
-      background: #fff8db;
-    }
-
-    .fila-critica {
-      background: #fff1f3;
-    }
-
-    .preview-empty {
-      border: 1px dashed #d0d5dd;
-      border-radius: 1rem;
-      padding: 1rem;
-      color: #667085;
-      background: #fcfcfd;
-      font-size: 0.92rem;
-    }
-
-    .alerta-semaforo {
-      display: inline-block;
-      min-width: 86px;
-      text-align: center;
-      padding: 0.32rem 0.7rem;
-      border-radius: 999px;
-      font-size: 0.76rem;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    .alerta-rojo {
-      background: #fee4e2;
-      color: #b42318;
-    }
-
-    .alerta-amarillo {
-      background: #fef3c7;
-      color: #b54708;
-    }
-
-    .alerta-verde {
-      background: #dcfce7;
-      color: #15803d;
-    }
-
-    .dashboard-bloque .card-header {
-      border-bottom: 1px solid #e7edf5;
-      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%) !important;
-    }
-
-    .dashboard-bloque .table {
-      margin-bottom: 0;
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-
-    .dashboard-bloque .table thead th {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-      background: linear-gradient(180deg, #1f4ea3 0%, #2d63c8 100%) !important;
-      color: #ffffff !important;
-      border-bottom: 0 !important;
-      font-size: 0.82rem;
-      letter-spacing: 0.01em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-
-    .dashboard-bloque .table tbody tr:nth-child(odd):not(.fila-alerta):not(.fila-critica) {
-      background: #fcfdff;
-    }
-
-    .dashboard-bloque .table tbody tr:nth-child(even):not(.fila-alerta):not(.fila-critica) {
-      background: #f5f9ff;
-    }
-
-    .dashboard-bloque .table tbody td {
-      border-bottom: 1px solid #e8eef6;
-      vertical-align: middle;
-    }
-
-    .dashboard-bloque .table tbody td:first-child {
-      font-weight: 700;
-      color: #1d4ed8;
-      background: rgba(29, 78, 216, 0.05);
-      border-right: 1px solid #e8eef6;
-      width: 58px;
-      text-align: center;
-    }
-
-    .dashboard-bloque .table tbody tr:hover:not(.fila-alerta):not(.fila-critica) {
-      background: #eaf2ff !important;
-      transition: background 0.2s ease;
-    }
-
-    .dashboard-bloque .table tbody tr.fila-alerta td {
-      background: #fff7d6 !important;
-    }
-
-    .dashboard-bloque .table tbody tr.fila-critica td {
-      background: #ffe4ea !important;
-    }
-
-    .dashboard-bloque .table-responsive {
-      border: 1px solid #e7edf5;
-      border-radius: 0.9rem;
-      overflow: auto;
-      background: #ffffff;
-    }
-
-    .dashboard-bloque .table tbody td:nth-child(2) {
-      font-weight: 600;
-      color: #1f2937;
-    }
-
-    .dashboard-bloque .table tbody td:last-child {
-      font-weight: 600;
-    }
-
-    .seccion-titulo {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: 0.75rem;
-      flex-wrap: wrap;
-    }
-
-    .seccion-titulo h5 {
-      margin: 0;
-      font-size: 1rem;
-      font-weight: 700;
-      color: #1d4ed8;
-    }
-
-    .subtexto-validacion {
-      font-size: 0.86rem;
-      color: #6c757d;
-    }
-
-    .acciones-validacion {
-      display: flex;
-      gap: 0.4rem;
-      flex-wrap: wrap;
-    }
-
-    .acciones-validacion .btn {
-      min-width: 90px;
-    }
-
-    #btnExportarPDF,
-    #btnExportarExcel {
-      min-width: 150px;
-      font-weight: 600;
-    }
-
-
-
-.lectura-ejecutiva-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.lectura-ejecutiva-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 14px 16px;
-  background: linear-gradient(135deg, #ffffff, #f8fafc);
-  height: 100%;
-}
-
-.lectura-ejecutiva-card .label {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #64748b;
-  font-weight: 800;
-  margin-bottom: 6px;
-}
-
-.lectura-ejecutiva-card .valor {
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: #0f172a;
-  line-height: 1.25;
-}
-
-.lectura-ejecutiva-card .detalle {
-  margin-top: 6px;
-  font-size: 0.86rem;
-  color: #64748b;
-}
-
-.lectura-ejecutiva-card.alerta {
-  border-color: #fbbf24;
-  background: linear-gradient(135deg, #fffbeb, #ffffff);
-}
-
-.lectura-ejecutiva-card.ok {
-  border-color: #86efac;
-  background: linear-gradient(135deg, #f0fdf4, #ffffff);
-}
-
-.lectura-ejecutiva-card.critico {
-  border-color: #fca5a5;
-  background: linear-gradient(135deg, #fef2f2, #ffffff);
-}
-    @media print {
-      .sidebar,
-      #btnActualizarTablero,
-      #btnLimpiarFiltros,
-      #btnExportarPDF,
-      #btnExportarExcel,
-      .columna-acciones,
-      .acciones-validacion {
-        display: none !important;
-      }
-
-      body,
-      .container-fluid,
-      .row,
-      main {
-        background: #ffffff !important;
-      }
-
-      .dashboard-bloque,
-      .card,
-      .grafica-card,
-      .analitica-card,
-      .resumen-extra-card,
-      .novedad-card,
-      .alerta-card,
-      .preview-card,
-      .validacion-card {
-        box-shadow: none !important;
-        break-inside: avoid;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .chart-wrap {
-        height: 260px;
-      }
-
-      .chart-wrap.chart-sm {
-        height: 240px;
-      }
-
-      .chart-wrap.chart-xs {
-        height: 220px;
-      }
-    }
-  </style>
 </head>
 
 <body>
   <div id="sidebar-container"></div>
 
   <div class="container-fluid" id="dashboardExportable">
-    <main class="main-content p-4 fondo-modulo">
-        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-          <div>
-            <h2 class="mb-1">Dashboard General</h2>
-            <p class="text-muted mb-1">
-              Bienvenido, <span id="nombreUsuario">Usuario</span> |
-              Rol: <span id="rolUsuario">Sin rol</span>
-            </p>
-            <p class="text-muted mb-0">
-              Cargo: <span id="cargoUsuario">Sin cargo</span> |
-              Área base: <span id="centroCostosUsuario">Sin área</span>
-            </p>
-          </div>
+    <main class="main-content p-4 fondo-modulo dashboard-shell">
+        <section class="dashboard-hero">
+          <div class="row align-items-center g-3">
+            <div class="col-12 col-xl-7">
+              <div class="hero-pill mb-3">Panel operativo · Alimentos y Bebidas</div>
+              <h1>Dashboard Operacional A&amp;B</h1>
+              <p class="hero-subtitle mb-0">Personal oficial del Club en A&amp;B consolidado con Programación A&amp;B y Cocina Chef.</p>
 
-          <div class="text-end">
-            <div class="mini-badge-fecha mb-2" id="fechaDashboard">Cargando fecha...</div>
-            <div class="d-flex gap-2 justify-content-end flex-wrap">
-              <button class="btn btn-outline-secondary" id="btnLimpiarFiltros">Limpiar filtros</button>
-              <button class="btn btn-outline-success" id="btnExportarExcel">Exportar Excel</button>
-              <button class="btn btn-outline-dark" id="btnExportarPDF">Exportar PDF</button>
-              <button class="btn btn-primary" id="btnActualizarTablero">Actualizar tablero</button>
+              <div class="hero-meta">
+                <span class="hero-pill">Usuario: <strong id="nombreUsuario">Usuario</strong></span>
+                <span class="hero-pill">Rol: <strong id="rolUsuario">Sin rol</strong></span>
+                <span class="hero-pill">Cargo: <strong id="cargoUsuario">Sin cargo</strong></span>
+                <span class="hero-pill">Área base: <strong id="centroCostosUsuario">Sin área</strong></span>
+              </div>
+            </div>
+
+            <div class="col-12 col-xl-5">
+              <div class="text-xl-end">
+                <div class="mini-badge-fecha mb-3" id="fechaDashboard">Cargando fecha...</div>
+                <div class="hero-actions">
+                  <button class="btn btn-outline-secondary" id="btnLimpiarFiltros">Limpiar filtros</button>
+                  <button class="btn btn-outline-success" id="btnExportarExcel">Exportar Excel</button>
+                  <button class="btn btn-outline-dark" id="btnExportarPDF">Exportar PDF</button>
+                  <button class="btn btn-primary" id="btnActualizarTablero">Actualizar tablero</button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
+
+        <div class="card shadow-sm border-0 mb-4 dashboard-bloque dashboard-panel dashboard-filters seccion-dashboard">
           <div class="card-header bg-white fw-bold">Filtros analíticos</div>
           <div class="card-body">
             <div class="row g-3">
@@ -553,46 +115,12 @@
           </div>
         </div>
 
-<div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
-  <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <span class="fw-bold">Lectura ejecutiva del tablero</span>
-    <span class="text-muted small" id="dashboardUltimaActualizacion">Última actualización: cargando...</span>
-  </div>
-  <div class="card-body">
-    <div class="lectura-ejecutiva-grid">
-      <div class="lectura-ejecutiva-card" id="cardInsightValidacion">
-        <div class="label">Validación de extras</div>
-        <div class="valor" id="insightValidacionExtras">Sin datos</div>
-        <div class="detalle" id="insightValidacionExtrasDetalle">Pendientes, aprobados y rechazados del filtro actual.</div>
-      </div>
-
-      <div class="lectura-ejecutiva-card" id="cardInsightNomina">
-        <div class="label">Listo para nómina</div>
-        <div class="valor" id="insightNomina">0 registros aprobados</div>
-        <div class="detalle" id="insightNominaDetalle">Exporta únicamente horas extra aprobadas.</div>
-      </div>
-
-      <div class="lectura-ejecutiva-card" id="cardInsightBienestar">
-        <div class="label">Bienestar</div>
-        <div class="valor" id="insightBienestar">Sin alertas</div>
-        <div class="detalle" id="insightBienestarDetalle">Solicitudes y novedades filtradas por usuario.</div>
-      </div>
-
-      <div class="lectura-ejecutiva-card" id="cardInsightCobertura">
-        <div class="label">Cobertura del periodo</div>
-        <div class="valor" id="insightCobertura">0 empleados</div>
-        <div class="detalle" id="insightCoberturaDetalle">Empleados únicos y días con programación.</div>
-      </div>
-    </div>
-  </div>
-</div>
-
         <div class="seccion-titulo">
-          <h5>Resumen ejecutivo</h5>
+          <h5>Resumen ejecutivo · Personal oficial del Club A&amp;B</h5>
           <span class="subtexto-validacion">Vista general del periodo y del día</span>
         </div>
 
-        <div class="row g-3 mb-4 seccion-dashboard">
+        <div class="row g-3 mb-4 seccion-dashboard kpi-grid-highlight">
           <div class="col-12 col-md-6 col-xl-3">
             <div class="card indicador-card indicador-1">
               <div class="card-body">
@@ -637,25 +165,25 @@
         <div class="row g-3 mb-4 seccion-dashboard">
           <div class="col-12 col-md-6 col-xl-3">
             <div class="resumen-extra-card shadow-sm p-3">
-              <div class="titulo">A&B en semana</div>
+              <div class="titulo">Oficial A&amp;B en semana</div>
               <div class="valor" id="kpiSemanaAyb">0</div>
-              <div class="text-muted small">Asignaciones del módulo A&B</div>
+              <div class="text-muted small">Programación A&amp;B + Cocina Chef consolidada</div>
             </div>
           </div>
 
           <div class="col-12 col-md-6 col-xl-3">
             <div class="resumen-extra-card shadow-sm p-3">
-              <div class="titulo">Administrativo en semana</div>
-              <div class="valor" id="kpiSemanaAdmin">0</div>
-              <div class="text-muted small">Asignaciones administrativas</div>
+              <div class="titulo">Duplicidades detectadas</div>
+              <div class="valor" id="kpiDuplicidadesChef">0</div>
+              <div class="text-muted small">Misma persona y fecha en ambos módulos</div>
             </div>
           </div>
 
           <div class="col-12 col-md-6 col-xl-3">
             <div class="resumen-extra-card shadow-sm p-3">
-              <div class="titulo">Operaciones en semana</div>
-              <div class="valor" id="kpiSemanaOperaciones">0</div>
-              <div class="text-muted small">Operación y servicios</div>
+              <div class="titulo">Pendientes clasificación</div>
+              <div class="valor" id="kpiRevisionChef">0</div>
+              <div class="text-muted small">Registros Chef sin vínculo confirmado</div>
             </div>
           </div>
 
@@ -744,9 +272,144 @@
         </div>
 
 
+        <div class="seccion-titulo seccion-externos-chef">
+          <h5>Personal externo programado por Cocina Chef</h5>
+          <span class="subtexto-validacion">Lectura operativa independiente · No empleados del Club y no incluidos en indicadores oficiales</span>
+        </div>
+
+        <div class="alert alert-info panel-nota-externos mb-4" role="alert">
+          Esta sección presenta únicamente personas registradas como <strong>externas</strong> en Cocina Chef.
+          Sus horas son informativas para control operativo y no se suman a nómina ni a las métricas del personal vinculado al Club.
+        </div>
+
+        <div class="row g-3 mb-4 seccion-dashboard kpi-externos-chef">
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Externos programados</div>
+              <div class="valor" id="kpiExternosPersonas">0</div>
+              <p class="kpi-subtexto">Personas externas en el filtro</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Turnos externos</div>
+              <div class="valor" id="kpiExternosTurnos">0</div>
+              <p class="kpi-subtexto">Registros Cocina Chef</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Horas diurnas</div>
+              <div class="valor" id="kpiExternosHorasDiurnas">0</div>
+              <p class="kpi-subtexto">Control externo</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Horas nocturnas</div>
+              <div class="valor" id="kpiExternosHorasNocturnas">0</div>
+              <p class="kpi-subtexto">Control externo</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Horas netas</div>
+              <div class="valor" id="kpiExternosHorasNetas">0</div>
+              <p class="kpi-subtexto">Programación externa</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Extra diurna</div>
+              <div class="valor" id="kpiExternosExtraDiurna">0</div>
+              <p class="kpi-subtexto">Estimación operativa</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Extra nocturna</div>
+              <div class="valor" id="kpiExternosExtraNocturna">0</div>
+              <p class="kpi-subtexto">Estimación operativa</p>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="externo-card p-3">
+              <div class="titulo">Extra total</div>
+              <div class="valor" id="kpiExternosExtraTotal">0</div>
+              <p class="kpi-subtexto">No suma a nómina oficial</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard bloque-externos-chef">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="fw-bold">Detalle semanal / periodo de externos Cocina Chef</span>
+            <span class="badge badge-externo-chef">NO EMPLEADOS DEL CLUB</span>
+          </div>
+          <div class="card-body bloque-scroll">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Externo</th>
+                    <th>Documento</th>
+                    <th>Fecha</th>
+                    <th>Punto</th>
+                    <th>Turno(s)</th>
+                    <th>D</th>
+                    <th>N</th>
+                    <th>Netas</th>
+                    <th>ED</th>
+                    <th>EN</th>
+                    <th>Extra</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyExternosChef">
+                  <tr><td colspan="12" class="texto-vacio">Cargando personal externo...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <details class="dashboard-collapse mb-4" id="controlIntegracionChef">
+          <summary>Control de integración Cocina Chef: duplicidades y registros por revisar</summary>
+          <div class="dashboard-collapse-content">
+            <div class="row g-3">
+              <div class="col-12 col-xl-6">
+                <h6 class="fw-bold mb-3">Duplicidades excluidas del total oficial</h6>
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0">
+                    <thead>
+                      <tr><th>#</th><th>Empleado</th><th>Cédula</th><th>Fecha</th><th>Regla aplicada</th></tr>
+                    </thead>
+                    <tbody id="tbodyDuplicidadesChef">
+                      <tr><td colspan="5" class="texto-vacio">Cargando validación...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="col-12 col-xl-6">
+                <h6 class="fw-bold mb-3">Pendientes de clasificación</h6>
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0">
+                    <thead>
+                      <tr><th>#</th><th>Persona</th><th>Fecha</th><th>Detalle</th></tr>
+                    </thead>
+                    <tbody id="tbodyRevisionChef">
+                      <tr><td colspan="4" class="texto-vacio">Cargando revisión...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+
         <div class="seccion-titulo">
-          <h5>Dashboard de Bienestar</h5>
-          <span class="subtexto-validacion">Indicadores calculados desde solicitudes_empleado y cruzados con programación</span>
+          <h5>Novedades e incapacidades A&amp;B</h5>
+          <span class="subtexto-validacion">Indicadores calculados solo con solicitudes y programación de Alimentos y Bebidas</span>
         </div>
 
         <div class="row g-3 mb-4 seccion-dashboard">
@@ -789,8 +452,8 @@
 
         <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
           <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <span class="fw-bold">Ranking de empleados con más novedades</span>
-            <span class="text-muted small">Base: solicitudes_empleado en el periodo filtrado</span>
+            <span class="fw-bold">Ranking A&amp;B de empleados con más novedades</span>
+            <span class="text-muted small">Base: solicitudes_empleado filtradas únicamente por A&amp;B</span>
           </div>
           <div class="card-body bloque-scroll">
             <div class="table-responsive">
@@ -1437,8 +1100,8 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="../js/layout.js?v=permisos-20260504"></script>
-  <script type="module" src="../js/dashboard.js?v=permisos-20260504"></script>
+  <script src="../js/layout.js"></script>
+  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260604-chef-integracion1"></script>
 
   <script>
     function usuarioPuedeVerSolicitudesBienestarDashboard(sesion) {
@@ -1447,6 +1110,11 @@
       const cedula = String(sesion.cedula || sesion.usuario || sesion.username || "").trim();
       const nombre = String(sesion.nombre_completo || `${sesion.nombres || ""} ${sesion.apellidos || ""}`).toLowerCase();
       const rol = String(sesion.rol || "").trim().toLowerCase();
+      const cargo = String(sesion.cargo || "").trim().toLowerCase();
+      const centroCostos = String(sesion.centro_costos || sesion.area || "").trim().toLowerCase();
+      const areasPermitidas = Array.isArray(sesion.areas_permitidas)
+        ? sesion.areas_permitidas.map((area) => String(area || "").toLowerCase()).join(" ")
+        : "";
       const modulosPermitidos = Array.isArray(sesion.modulos_permitidos) ? sesion.modulos_permitidos : [];
 
       const esJhonnier =
@@ -1454,15 +1122,22 @@
         nombre.includes("jhonnier") ||
         nombre.includes("villada");
 
-      return (
-        sesion.puede_ver_todo === true ||
-        esJhonnier ||
-        rol === "admin" ||
-        rol === "administrador" ||
-        rol === "gerencia" ||
-        rol === "bienestar" ||
-        modulosPermitidos.includes("solicitudes-bienestar")
-      );
+      const perteneceBienestar =
+        rol.includes("bienestar") ||
+        cargo.includes("bienestar") ||
+        centroCostos.includes("bienestar") ||
+        areasPermitidas.includes("bienestar");
+
+      const esAdministradorBienestar =
+        perteneceBienestar &&
+        (
+          rol.includes("admin") ||
+          rol.includes("administrador") ||
+          rol.includes("bienestar") ||
+          modulosPermitidos.includes("solicitudes-bienestar")
+        );
+
+      return esJhonnier || esAdministradorBienestar;
     }
 
     function aplicarAccesoSolicitudesBienestarDashboard() {
@@ -1491,8 +1166,6 @@
       setTimeout(aplicarAccesoSolicitudesBienestarDashboard, 900);
     });
   </script>
-
-  <script type="module" src="../js/dashboard-cocina-chef.js?v=1"></script>
 </body>
 
 </html>
