@@ -47,8 +47,8 @@
       <div id="bannerTurnoCopiadoAyb" class="banner-turno-copiado d-none mb-3">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
           <div>
-            <div class="fw-semibold">Turno copiado</div>
-            <div id="textoTurnoCopiadoAyb" class="small text-muted">No hay turno copiado</div>
+            <div class="fw-semibold">Registro copiado</div>
+            <div id="textoTurnoCopiadoAyb" class="small text-muted">No hay registro copiado</div>
           </div>
           <button id="btnLimpiarTurnoCopiadoAyb" class="btn btn-sm btn-outline-secondary" type="button">
             Limpiar copia
@@ -365,9 +365,15 @@
                 </select>
               </div>
 
-              <div class="col-md-6">
-                <label for="fechaAyb" class="form-label">Fecha</label>
+              <div class="col-md-3">
+                <label for="fechaAyb" class="form-label">Fecha inicio</label>
                 <input type="date" class="form-control" id="fechaAyb" required>
+              </div>
+
+              <div class="col-md-3 d-none" id="bloqueFechaFinNovedadAyb">
+                <label for="fechaFinNovedadAyb" class="form-label">Fecha fin novedad</label>
+                <input type="date" class="form-control" id="fechaFinNovedadAyb">
+                <div class="form-text">Aplica solo para novedades de varios días.</div>
               </div>
 
               <div class="col-12 d-none" id="alertaNovedadEmpleadoAyb">
@@ -456,6 +462,7 @@
                       <option value="COMP">COMP · Compensatorio</option>
                       <option value="ELECCION">ELECCION · Elección</option>
                       <option value="PASA">PASA · Pasa a otro punto</option>
+                      <option value="NNJ">NNJ · Novedad no justificada</option>
                     </select>
                   </div>
                   <div class="col-md-6">
@@ -464,7 +471,7 @@
                   </div>
                   <div class="col-12">
                     <div class="small text-muted border rounded p-2 bg-light ayb-help-box">
-                      Las novedades no llevan restaurante, subárea ni horas. Aquí entran vacaciones, incapacidad, día de la familia, licencia no remunerada, suspensión y demás días especiales.
+                      Las novedades no llevan restaurante, subárea ni horas. Use fecha fin cuando la novedad cubra varios días. La novedad no justificada se resalta en rojo por criticidad operativa.
                     </div>
                   </div>
                 </div>

@@ -85,16 +85,12 @@ function obtenerPermisosPorRol(rol) {
     ayb: {
       puede_ver_todo: false,
       areas_permitidas: [
-        "ALIMENTOS",
-        "BEBIDAS",
-        "A&B",
-        "AYB",
-        "COCINA",
-        "RESTAURANTES",
-        "BAR"
+        "Alimentos y Bebidas"
       ],
       modulos_permitidos: [
         "dashboard",
+        "dashboard-ayb",
+        "solicitudes-bienestar",
         "programacion-ayb",
         "cocina-chef",
         "mis-turnos-ayb"

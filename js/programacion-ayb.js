@@ -41,7 +41,8 @@ const NOVEDADES_LABELS = {
   CITA: "Cita",
   COMP: "Compensatorio",
   ELECCION: "Elección",
-  PASA: "Pasa a otro punto"
+  PASA: "Pasa a otro punto",
+  NNJ: "Novedad no justificada"
 };
 
 const HORA_INICIO_NOCTURNO = 19 * 60;
@@ -189,6 +190,23 @@ function formatearFechaISO(fecha) {
   return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
 }
 
+function obtenerFechasRangoAyb(fechaInicioISO, fechaFinISO) {
+  if (!fechaInicioISO) return [];
+
+  const inicio = new Date(`${fechaInicioISO}T00:00:00`);
+  const fin = new Date(`${(fechaFinISO || fechaInicioISO)}T00:00:00`);
+
+  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime()) || fin < inicio) return [];
+
+  const fechas = [];
+  const actual = new Date(inicio);
+  while (actual <= fin) {
+    fechas.push(formatearFechaISO(actual));
+    actual.setDate(actual.getDate() + 1);
+  }
+  return fechas;
+}
+
 function obtenerNombreDia(fecha) {
   return ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][fecha.getDay()];
 }
@@ -283,6 +301,13 @@ function configurarFormulario() {
   ["input", "change"].forEach((evento) => {
     document.getElementById("cedulaEmpleadoAyb")?.addEventListener(evento, validarNovedadEmpleadoAyb);
     document.getElementById("fechaAyb")?.addEventListener(evento, validarNovedadEmpleadoAyb);
+    document.getElementById("fechaFinNovedadAyb")?.addEventListener(evento, validarNovedadEmpleadoAyb);
+  });
+  document.getElementById("fechaAyb")?.addEventListener("change", () => {
+    const tipo = document.getElementById("tipoRegistroAyb")?.value;
+    const fecha = document.getElementById("fechaAyb")?.value || "";
+    const fechaFin = document.getElementById("fechaFinNovedadAyb");
+    if (tipo === "novedad" && fechaFin && (!fechaFin.value || fechaFin.value < fecha)) fechaFin.value = fecha;
   });
 }
 
@@ -310,11 +335,14 @@ function configurarTipoRegistro() {
 function actualizarVistaTipoRegistro() {
   const esNovedad = document.getElementById("tipoRegistroAyb")?.value === "novedad";
   const subarea = document.getElementById("subareaAyb");
+  const fechaFinNovedad = document.getElementById("fechaFinNovedadAyb");
   document.getElementById("bloqueTurnoNormal")?.classList.toggle("d-none", esNovedad);
   document.getElementById("bloqueNovedad")?.classList.toggle("d-none", !esNovedad);
+  document.getElementById("bloqueFechaFinNovedadAyb")?.classList.toggle("d-none", !esNovedad);
   document.getElementById("bloqueSubareaAyb")?.classList.toggle("d-none", esNovedad);
   document.getElementById("bloqueInfoSubareaAyb")?.classList.toggle("d-none", esNovedad);
   if (subarea) subarea.required = !esNovedad;
+  if (fechaFinNovedad) fechaFinNovedad.required = esNovedad;
   if (esNovedad) {
     if (subarea) subarea.value = "";
     ["turnoAyb", "horaInicioAyb", "horaFinAyb", "subarea2Ayb", "turno2Ayb", "horaInicio2Ayb", "horaFin2Ayb"].forEach((id) => {
@@ -612,6 +640,8 @@ function abrirModalNuevaAsignacion(fecha = "", empleado = null, esNovedad = fals
   document.getElementById("btnSubmitAsignacionAyb").textContent = "Guardar asignación";
   document.getElementById("tipoRegistroAyb").value = esNovedad ? "novedad" : "turno";
   document.getElementById("fechaAyb").value = fecha || semanaActual[0]?.fecha || "";
+  const fechaFinNovedad = document.getElementById("fechaFinNovedadAyb");
+  if (fechaFinNovedad) fechaFinNovedad.value = fecha || semanaActual[0]?.fecha || "";
   actualizarVistaTipoRegistro();
   if (empleado) precargarEmpleadoFormulario(empleado, fecha);
   ocultarAlertaNovedadEmpleadoAyb();
@@ -633,6 +663,8 @@ function abrirModalEdicion(registro) {
   if (registro.tipo_registro === "novedad") {
     document.getElementById("novedadCodigoAyb").value = registro.novedad_codigo || "";
     document.getElementById("novedadDescripcionAyb").value = registro.novedad_descripcion || "";
+    const fechaFinNovedad = document.getElementById("fechaFinNovedadAyb");
+    if (fechaFinNovedad) fechaFinNovedad.value = registro.fecha || "";
   } else {
     document.getElementById("subareaAyb").value = registro.subarea || "";
     document.getElementById("turnoAyb").value = registro.turno || "";
@@ -656,6 +688,8 @@ function limpiarFormularioAyb() {
   document.getElementById("formAsignacionAyb")?.reset();
   document.getElementById("registroIdAyb").value = "";
   document.getElementById("cargoEmpleadoAyb").value = "";
+  const fechaFinNovedad = document.getElementById("fechaFinNovedadAyb");
+  if (fechaFinNovedad) fechaFinNovedad.value = "";
   document.getElementById("checkTurnoPartido").checked = false;
   document.getElementById("bloqueTurnoPartido").classList.add("d-none");
   actualizarVistaTipoRegistro();
@@ -726,6 +760,7 @@ async function guardarAsignacionAyb() {
     const nombre = texto(document.getElementById("nombreEmpleadoAyb").value);
     const cargo = texto(document.getElementById("cargoEmpleadoAyb").value);
     const fecha = document.getElementById("fechaAyb").value;
+    const fechaFinNovedad = document.getElementById("fechaFinNovedadAyb")?.value || fecha;
     const observacion = texto(document.getElementById("observacionAyb").value);
 
     if (!cedula || !nombre || !fecha) { mostrarErrorFormulario("Debe completar empleado y fecha."); return; }
@@ -742,9 +777,27 @@ async function guardarAsignacionAyb() {
     if (tipo === "novedad") {
       const codigo = texto(document.getElementById("novedadCodigoAyb").value);
       if (!codigo) { mostrarErrorFormulario("Debe seleccionar una novedad."); return; }
+      const fechasNovedad = obtenerFechasRangoAyb(fecha, fechaFinNovedad);
+      if (!fechasNovedad.length) { mostrarErrorFormulario("La fecha fin de la novedad no puede ser anterior a la fecha inicial."); return; }
       payload.novedad_codigo = codigo;
       payload.novedad_descripcion = texto(document.getElementById("novedadDescripcionAyb").value) || NOVEDADES_LABELS[codigo] || codigo;
       payload.turno = codigo;
+      if (!modoEdicion && fechasNovedad.length > 1) {
+        const payloads = fechasNovedad.map((fechaRango) => ({
+          ...payload,
+          fecha: fechaRango,
+          dia: obtenerNombreDia(new Date(`${fechaRango}T00:00:00`))
+        }));
+        const { error } = await supabase.from("programacion_turnos").insert(payloads);
+        if (error) { mostrarErrorFormulario(error.message || "No se pudo guardar la novedad en Supabase."); return; }
+        mostrarOkFormulario(`Novedad guardada correctamente en ${payloads.length} día(s).`);
+        setTimeout(async () => {
+          modalAsignacionAyb?.hide();
+          limpiarFormularioAyb();
+          await cargarProgramacionAyb();
+        }, 600);
+        return;
+      }
     } else {
       const subarea = texto(document.getElementById("subareaAyb").value);
       const turno = texto(document.getElementById("turnoAyb").value);
@@ -993,6 +1046,7 @@ function construirCardNovedadCompacta(item) {
     <div class="acciones-registro-matriz">
       <button type="button" onclick="window.verDetalleRegistroAyb('${escaparAtributo(item.id)}')">Ver</button>
       <button type="button" onclick="window.editarAsignacionAyb('${escaparAtributo(item.id)}')">Editar</button>
+      <button type="button" onclick="window.copiarNovedadAybDesdeTabla('${escaparAtributo(item.id)}')">Copiar</button>
       <button type="button" class="accion-eliminar" onclick="window.eliminarAsignacionAybDesdeTabla('${escaparAtributo(item.id)}')">×</button>
     </div>
   </div>`;
@@ -1003,6 +1057,7 @@ function obtenerClaseNovedad(codigo) {
   if (c === "INC") return "novedad-inc";
   if (c === "VAC") return "novedad-vac";
   if (c === "LR") return "novedad-lr";
+  if (c === "NNJ") return "novedad-nnj";
   return "novedad-default";
 }
 
@@ -1055,17 +1110,38 @@ function renderBannerTurnoCopiado() {
   const banner = document.getElementById("bannerTurnoCopiadoAyb");
   const textoBanner = document.getElementById("textoTurnoCopiadoAyb");
   if (!banner || !textoBanner) return;
-  if (!turnoCopiadoAyb) { banner.classList.add("d-none"); textoBanner.textContent = "No hay turno copiado"; return; }
+  if (!turnoCopiadoAyb) { banner.classList.add("d-none"); textoBanner.textContent = "No hay registro copiado"; return; }
   banner.classList.remove("d-none");
-  textoBanner.textContent = `${turnoCopiadoAyb.nombre} · Turno ${turnoCopiadoAyb.turno || ""} · ${turnoCopiadoAyb.subarea || ""}`;
+  if (turnoCopiadoAyb.tipo_registro === "novedad") {
+    textoBanner.textContent = `${turnoCopiadoAyb.nombre} · Novedad ${turnoCopiadoAyb.novedad_codigo || ""} · ${turnoCopiadoAyb.novedad_descripcion || ""}`;
+  } else {
+    textoBanner.textContent = `${turnoCopiadoAyb.nombre} · Turno ${turnoCopiadoAyb.turno || ""} · ${turnoCopiadoAyb.subarea || ""}`;
+  }
 }
 
 function copiarTurnoAyb(registro) {
   if (!registro || String(registro.tipo_registro) === "novedad") return;
   turnoCopiadoAyb = {
+    tipo_registro: "turno",
     subarea: registro.subarea || "", turno: registro.turno || "", hora_inicio: registro.hora_inicio || null, hora_fin: registro.hora_fin || null,
     subarea_2: registro.subarea_2 || null, turno_2: registro.turno_2 || null, hora_inicio_2: registro.hora_inicio_2 || null, hora_fin_2: registro.hora_fin_2 || null,
     observacion: registro.observacion || null, nombre: registro.nombre || "", copiado_en: new Date().toISOString()
+  };
+  localStorage.setItem("ccp_turno_copiado_ayb", JSON.stringify(turnoCopiadoAyb));
+  renderBannerTurnoCopiado();
+  renderTablaProgramacionAyb(registrosSemanaAyb);
+}
+
+
+function copiarNovedadAyb(registro) {
+  if (!registro || String(registro.tipo_registro) !== "novedad") return;
+  turnoCopiadoAyb = {
+    tipo_registro: "novedad",
+    novedad_codigo: registro.novedad_codigo || "",
+    novedad_descripcion: registro.novedad_descripcion || "",
+    observacion: registro.observacion || null,
+    nombre: registro.nombre || "",
+    copiado_en: new Date().toISOString()
   };
   localStorage.setItem("ccp_turno_copiado_ayb", JSON.stringify(turnoCopiadoAyb));
   renderBannerTurnoCopiado();
@@ -1089,7 +1165,16 @@ async function pegarTurnoAybEnEmpleado(fecha, cedula) {
   if (errorValidacion) { alert("No se pudo validar si el empleado ya tiene asignación ese día."); return; }
   if (existentes?.length) { alert("El empleado destino ya tiene una asignación en esa fecha."); return; }
 
-  const payload = {
+  const esNovedadCopiada = turnoCopiadoAyb.tipo_registro === "novedad";
+  const payload = esNovedadCopiada ? {
+    area: AREA_AYB, tipo_registro: "novedad", cedula: empleado.cedula, nombre: empleado.nombre, cargo: empleado.cargo,
+    subarea: null, fecha, dia: obtenerNombreDia(new Date(`${fecha}T00:00:00`)),
+    turno: turnoCopiadoAyb.novedad_codigo || null, hora_inicio: null, hora_fin: null,
+    subarea_2: null, turno_2: null, hora_inicio_2: null, hora_fin_2: null,
+    observacion: turnoCopiadoAyb.observacion || null,
+    novedad_codigo: turnoCopiadoAyb.novedad_codigo || null,
+    novedad_descripcion: turnoCopiadoAyb.novedad_descripcion || NOVEDADES_LABELS[turnoCopiadoAyb.novedad_codigo] || turnoCopiadoAyb.novedad_codigo || null
+  } : {
     area: AREA_AYB, tipo_registro: "turno", cedula: empleado.cedula, nombre: empleado.nombre, cargo: empleado.cargo,
     subarea: turnoCopiadoAyb.subarea || null, fecha, dia: obtenerNombreDia(new Date(`${fecha}T00:00:00`)),
     turno: turnoCopiadoAyb.turno || null, hora_inicio: turnoCopiadoAyb.hora_inicio || null, hora_fin: turnoCopiadoAyb.hora_fin || null,
@@ -1157,6 +1242,7 @@ function configurarAccionesGlobales() {
   window.verDetalleRegistroAyb = async (id) => { try { abrirDetalleRegistro(await buscarRegistroPorId(id)); } catch { alert("No se pudo cargar el detalle."); } };
   window.eliminarAsignacionAybDesdeTabla = async (id) => eliminarAsignacionAyb(id);
   window.copiarTurnoAybDesdeTabla = async (id) => { try { copiarTurnoAyb(await buscarRegistroPorId(id)); } catch { alert("No se pudo copiar el turno."); } };
+  window.copiarNovedadAybDesdeTabla = async (id) => { try { copiarNovedadAyb(await buscarRegistroPorId(id)); } catch { alert("No se pudo copiar la novedad."); } };
 }
 
 function generarPdfGeneralAyb() {

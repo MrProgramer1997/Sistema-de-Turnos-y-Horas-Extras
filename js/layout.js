@@ -36,9 +36,9 @@ function esPaginaLoginSidebar() {
 
 async function cargarHtmlSidebarSeguro() {
   const rutas = [
-    "../components/sidebar.html?v=roles-dashboard-ayb-20260603",
-    "./components/sidebar.html?v=roles-dashboard-ayb-20260603",
-    "/components/sidebar.html?v=roles-dashboard-ayb-20260603"
+    "../components/sidebar.html?v=roles-bienestar-ayb-20260611",
+    "./components/sidebar.html?v=roles-bienestar-ayb-20260611",
+    "/components/sidebar.html?v=roles-bienestar-ayb-20260611"
   ];
 
   let ultimoError = null;

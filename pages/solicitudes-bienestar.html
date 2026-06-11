@@ -1097,6 +1097,9 @@
       "Administración"
     ];
 
+    const AREAS_BIENESTAR_AYB = ["Alimentos y Bebidas"];
+    const FILTRO_SUPABASE_AREA_AYB = "area.ilike.%Alimentos%,area.ilike.%Bebidas%,area.ilike.%A&B%,area.ilike.%AYB%";
+
     const CATALOG_TIPOS = {
       incapacidad: { codigo: "INC", requiere_documentos: true, afecta_programacion: true },
       calamidad: { codigo: "CAL", requiere_documentos: true, afecta_programacion: true },
@@ -1263,6 +1266,59 @@
       return null;
     }
 
+    function normalizarAreaBienestar(valor) {
+      return String(valor || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/&/g, "y")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+    }
+
+    function esRolAybBienestar(usuario) {
+      if (!usuario) return false;
+
+      const rol = normalizarAreaBienestar(usuario.rol);
+      const cargo = normalizarAreaBienestar(usuario.cargo);
+      const centroCostos = normalizarAreaBienestar(usuario.centro_costos || usuario.area);
+      const areasPermitidas = Array.isArray(usuario.areas_permitidas)
+        ? usuario.areas_permitidas.map(normalizarAreaBienestar).join(" ")
+        : "";
+
+      return (
+        rol === "ayb" ||
+        rol === "ayb admin" ||
+        rol.includes("ayb") ||
+        rol.includes("alimentos") ||
+        rol.includes("bebidas") ||
+        cargo.includes("alimentos") ||
+        cargo.includes("bebidas") ||
+        centroCostos.includes("alimentos") ||
+        centroCostos.includes("bebidas") ||
+        centroCostos.includes("ayb") ||
+        areasPermitidas.includes("alimentos") ||
+        areasPermitidas.includes("bebidas") ||
+        areasPermitidas.includes("ayb")
+      );
+    }
+
+    function esAreaAlimentosBebidas(valor) {
+      const area = normalizarAreaBienestar(valor);
+      if (!area) return false;
+
+      return (
+        (area.includes("alimentos") && area.includes("bebidas")) ||
+        area === "ayb" ||
+        area.includes(" ayb ") ||
+        area.includes("a b")
+      );
+    }
+
+    function esUsuarioAybBienestar(usuario) {
+      return esRolAybBienestar(usuario);
+    }
+
     function esUsuarioAutorizadoSolicitudesBienestar(usuario) {
       if (!usuario) return false;
 
@@ -1275,6 +1331,9 @@
         ? usuario.areas_permitidas.map(area => String(area || "").toLowerCase()).join(" ")
         : "";
       const modulosPermitidos = Array.isArray(usuario.modulos_permitidos) ? usuario.modulos_permitidos : [];
+
+      if (esUsuarioAybBienestar(usuario)) return true;
+      if (Array.isArray(modulosPermitidos) && modulosPermitidos.includes("solicitudes-bienestar")) return true;
 
       const esJhonnier =
         cedula === "1088029438" ||
@@ -1312,6 +1371,7 @@
         ? usuario.areas_permitidas.map(area => String(area || "").toLowerCase()).join(" ")
         : "";
 
+      if (esUsuarioAybBienestar(usuario)) return false;
       if (usuario.puede_ver_todo === true || aBoolean(usuario.puede_ver_todo)) return true;
       if (cedula === "1088029438") return true;
       if (nombre.includes("jhonnier") || nombre.includes("villada")) return true;
@@ -1381,11 +1441,66 @@
 
     function obtenerAreasPermitidasUsuario(usuario) {
       if (!usuario) return [];
+      if (esUsuarioAybBienestar(usuario)) return [...AREAS_BIENESTAR_AYB];
       if (esUsuarioAccesoTotalBienestar(usuario)) return [...AREAS_SISTEMA];
       if (Array.isArray(usuario.areas_permitidas) && usuario.areas_permitidas.length) return usuario.areas_permitidas;
       if (texto(usuario.area)) return [usuario.area];
       if (texto(usuario.centro_costos)) return [usuario.centro_costos];
       return [];
+    }
+
+    function buscarEmpleadoRelacionadoSolicitud(solicitud) {
+      if (!solicitud || !Array.isArray(empleadosCache)) return null;
+
+      const empleadoId = texto(solicitud.empleado_id);
+      const cedula = normalizarAreaBienestar(solicitud.cedula);
+      const codigoEmpleado = normalizarAreaBienestar(solicitud.codigo_empleado);
+
+      return empleadosCache.find(emp => {
+        const empId = texto(emp.id);
+        const empCedula = normalizarAreaBienestar(emp.cedula);
+        const empCodigo = normalizarAreaBienestar(emp.codigo);
+
+        return (empleadoId && empId && empleadoId === empId) ||
+          (cedula && empCedula && cedula === empCedula) ||
+          (codigoEmpleado && empCodigo && codigoEmpleado === empCodigo);
+      }) || null;
+    }
+
+    function obtenerAreaRealSolicitud(solicitud) {
+      const areaDirecta = texto(solicitud?.area);
+      if (areaDirecta) return areaDirecta;
+
+      const empleadoRelacionado = buscarEmpleadoRelacionadoSolicitud(solicitud);
+      return empleadoRelacionado?.area || empleadoRelacionado?.centro_costos || "";
+    }
+
+    function enriquecerSolicitudesConAreaEmpleado(registros) {
+      if (!Array.isArray(registros)) return [];
+
+      return registros.map(item => {
+        const areaReal = obtenerAreaRealSolicitud(item);
+        if (!areaReal || texto(item.area)) return item;
+        return { ...item, area: areaReal, area_origen_empleado: true };
+      });
+    }
+
+    function filtrarRegistrosPorPermisoAreaBienestar(registros, usuario) {
+      if (!Array.isArray(registros)) return [];
+      const registrosConArea = enriquecerSolicitudesConAreaEmpleado(registros);
+
+      if (esUsuarioAccesoTotalBienestar(usuario)) return registrosConArea;
+      if (esUsuarioAybBienestar(usuario)) {
+        return registrosConArea.filter(item => esAreaAlimentosBebidas(obtenerAreaRealSolicitud(item)));
+      }
+
+      const areasPermitidas = obtenerAreasPermitidasUsuario(usuario).map(normalizarAreaBienestar).filter(Boolean);
+      if (!areasPermitidas.length) return [];
+
+      return registrosConArea.filter(item => {
+        const areaItem = normalizarAreaBienestar(obtenerAreaRealSolicitud(item));
+        return areasPermitidas.some(area => areaItem === area);
+      });
     }
 
     function puedeGestionar(usuario) {
@@ -1440,6 +1555,7 @@
         ${escaparHtml(nombreCompleto(usuarioActual) || "Usuario")}
         · Rol: <strong>${escaparHtml(usuarioActual.rol || "sin rol")}</strong>
         · Puede ver todo: <strong>${esUsuarioAccesoTotalBienestar(usuarioActual) ? "Sí" : "No"}</strong>
+        · Alcance Bienestar: <strong>${esUsuarioAybBienestar(usuarioActual) ? "Solo Alimentos y Bebidas" : "Según permisos"}</strong>
       `;
     }
 
@@ -1455,10 +1571,16 @@
       estado.textContent = "Cargando base de empleados...";
 
       try {
-        const { data, error } = await sb
+        let query = sb
           .from("empleados")
           .select("id,codigo,cedula,nombres,apellidos,cargo,area,centro_costos,estado")
           .order("nombres", { ascending: true });
+
+        if (!esUsuarioAccesoTotalBienestar(usuarioActual) && esUsuarioAybBienestar(usuarioActual)) {
+          query = query.or(FILTRO_SUPABASE_AREA_AYB);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
           console.error(error);
@@ -1467,7 +1589,7 @@
           return;
         }
 
-        empleadosCache = Array.isArray(data) ? data : [];
+        empleadosCache = filtrarRegistrosPorPermisoAreaBienestar(Array.isArray(data) ? data : [], usuarioActual);
         estado.textContent = `Base de empleados cargada: ${empleadosCache.length} registro(s).`;
       } catch (error) {
         console.error(error);
@@ -2353,7 +2475,14 @@
       const verTodo = esUsuarioAccesoTotalBienestar(usuarioActual);
       const areas = obtenerAreasPermitidasUsuario(usuarioActual);
 
-      if (!verTodo && areas.length) {
+      if (!verTodo && esUsuarioAybBienestar(usuarioActual)) {
+        /*
+          No se aplica filtro SQL por area para A&B porque en datos historicos
+          solicitudes_empleado.area puede venir en NULL. La restriccion se aplica
+          despues de enriquecer cada solicitud con el area real del empleado
+          usando empleado_id, cedula o codigo_empleado.
+        */
+      } else if (!verTodo && areas.length) {
         query = query.in("area", areas);
       }
 
@@ -2365,7 +2494,7 @@
         return;
       }
 
-      solicitudesGestion = Array.isArray(data) ? data : [];
+      solicitudesGestion = filtrarRegistrosPorPermisoAreaBienestar(Array.isArray(data) ? data : [], usuarioActual);
       aplicarFiltrosGestion();
       actualizarMiniKPIsGestion();
     }
