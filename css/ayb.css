@@ -456,3 +456,255 @@
     opacity: 1;
   }
 }
+
+/* =========================================================
+   VISUAL SEMANAL DE DISPONIBILIDAD A&B
+   Vista de consulta. No modifica programación ni datos.
+   ========================================================= */
+
+.visual-kpi-ayb {
+  border: 1px solid #e2e8f0;
+  border-radius: .9rem;
+  padding: .9rem 1rem;
+  background: #f8fafc;
+  height: 100%;
+}
+
+.visual-kpi-ayb .visual-kpi-label {
+  font-size: .78rem;
+  color: #64748b;
+  font-weight: 600;
+  margin-bottom: .25rem;
+}
+
+.visual-kpi-ayb .visual-kpi-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+}
+
+.visual-kpi-ok {
+  background: #eefbf3;
+  border-color: #bbf7d0;
+}
+
+.visual-kpi-warning {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.visual-kpi-danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.visual-wrapper-ayb {
+  max-height: 70vh;
+  overflow: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: .55rem;
+  background: #fff;
+}
+
+.visual-semanal-ayb {
+  min-width: 1380px;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 0;
+}
+
+.visual-semanal-ayb thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #0f766e;
+  color: #fff;
+  text-align: center;
+  font-size: .82rem;
+  padding: .75rem .45rem;
+  border-right: 1px solid rgba(255,255,255,.45);
+}
+
+.visual-semanal-ayb td {
+  min-width: 140px;
+  padding: .5rem;
+  font-size: .76rem;
+  vertical-align: top;
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.visual-semanal-ayb .visual-col-empleado-ayb {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  min-width: 250px;
+  width: 250px;
+  background: #f8fafc !important;
+  border-right: 2px solid #cbd5e1;
+}
+
+.visual-semanal-ayb thead .visual-col-empleado-ayb {
+  z-index: 8;
+  background: #115e59 !important;
+}
+
+.visual-dia-libre-ayb {
+  background: #f0fdf4 !important;
+  color: #166534;
+  text-align: center;
+  font-weight: 700;
+}
+
+.visual-dia-libre-ayb span {
+  display: inline-block;
+  margin-top: .15rem;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  padding: .12rem .45rem;
+  background: #dcfce7;
+}
+
+.visual-dia-ocupado-ayb {
+  background: #f8fafc !important;
+}
+
+.visual-chip-ayb {
+  display: block;
+  border-radius: .45rem;
+  padding: .24rem .35rem;
+  margin-bottom: .25rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.visual-chip-ayb:last-child {
+  margin-bottom: 0;
+}
+
+.visual-chip-turno-ayb {
+  background: #dbeafe;
+  color: #1e3a8a;
+  border: 1px solid #bfdbfe;
+}
+
+.visual-chip-novedad-ayb {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.visual-resumen-ayb {
+  min-width: 160px;
+}
+
+.visual-resumen-ayb .badge {
+  display: inline-block;
+  margin: 0 .16rem .22rem 0;
+}
+
+/* Exportes A&B */
+#btnPdfCalendarioAyb, #btnPdfOperativoAyb, #btnPdfEmpleadoMejoradoAyb { white-space: nowrap; }
+
+/* Paquete 05 - Festivos visibles y aprobación integral */
+.calendario-ayb th.th-festivo-ayb,
+.visual-semanal-ayb th.th-festivo-ayb {
+  background: linear-gradient(180deg, #fff1f1 0%, #ffe4e6 100%) !important;
+  color: #991b1b !important;
+  border-color: #fca5a5 !important;
+}
+
+.marca-festivo-header {
+  margin-top: .2rem;
+  display: inline-block;
+  padding: .08rem .42rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: .64rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.nombre-festivo-header {
+  margin-top: .15rem;
+  color: #7f1d1d;
+  font-size: .66rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.calendario-ayb td.celda-festivo-ayb,
+.visual-semanal-ayb td.visual-dia-festivo-ayb {
+  background: #fff7ed !important;
+  border-left: 3px solid #ef4444 !important;
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, .22);
+}
+
+.festivo-celda-label,
+.visual-festivo-label {
+  margin: 0 0 .35rem 0;
+  padding: .22rem .38rem;
+  border: 1px solid #fecaca;
+  border-radius: .45rem;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: .68rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.turno-matriz-card.turno-festivo-ayb {
+  background: #fff1f2;
+  border-color: #f87171;
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, .28);
+}
+
+.chip-festivo-turno {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 900;
+}
+
+.turno-festivo-info,
+.turno-extra-festiva {
+  margin-top: .28rem;
+  font-size: .7rem;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.chip-aprobacion-festivo {
+  display: inline-block;
+  margin-top: .3rem;
+  padding: .12rem .42rem;
+  border-radius: 999px;
+  font-size: .65rem;
+  font-weight: 800;
+}
+
+.chip-aprobacion-festivo.aprobado {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.chip-aprobacion-festivo.pendiente {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+
+.chip-aprobacion-festivo.rechazado {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}

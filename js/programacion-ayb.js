@@ -53,12 +53,14 @@ let fechaInicioSemana = null;
 let sesionActual = null;
 let modalAsignacionAyb = null;
 let modalDetalleRegistroAyb = null;
+let modalVisualSemanalAyb = null;
 let empleadosAyb = [];
 let modoEdicion = false;
 let turnoCopiadoAyb = null;
 let registrosSemanaAyb = [];
 let festivosSemana = [];
 let filtrosMatrizAyb = { busqueda: "", cargo: "", subarea: "", estado: "todos" };
+let filtrosVisualSemanalAyb = { busqueda: "", estado: "todos" };
 
 document.addEventListener("DOMContentLoaded", async () => {
   sesionActual = JSON.parse(localStorage.getItem("ccp_sesion") || "null");
@@ -86,6 +88,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   configurarTurnosAutollenado();
   configurarInfoSubarea();
   configurarFiltrosMatrizAyb();
+  configurarFiltrosVisualSemanalAyb();
   cargarTurnoCopiadoDesdeMemoria();
   configurarAccionesGlobales();
 
@@ -96,8 +99,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 function inicializarModales() {
   const asignacion = document.getElementById("modalAsignacionAyb");
   const detalle = document.getElementById("modalDetalleRegistroAyb");
+  const visual = document.getElementById("modalVisualSemanalAyb");
   if (asignacion) modalAsignacionAyb = new bootstrap.Modal(asignacion);
   if (detalle) modalDetalleRegistroAyb = new bootstrap.Modal(detalle);
+  if (visual) modalVisualSemanalAyb = new bootstrap.Modal(visual);
 }
 
 function protegerModulo(sesion) {
@@ -166,9 +171,9 @@ function traducirRol(rol) {
 
 function obtenerInicioSemanaOperativa(fechaBase) {
   const fecha = new Date(fechaBase);
-  const diasDesdeMartes = (fecha.getDay() + 5) % 7;
+  const diasDesdeLunes = (fecha.getDay() + 6) % 7;
   fecha.setHours(0, 0, 0, 0);
-  fecha.setDate(fecha.getDate() - diasDesdeMartes);
+  fecha.setDate(fecha.getDate() - diasDesdeLunes);
   return fecha;
 }
 
@@ -195,8 +200,27 @@ function obtenerNombreMes(index) {
 function renderEncabezadosSemana() {
   semanaActual.forEach((dia, index) => {
     const th = document.getElementById(`thDia${index + 1}`);
-    if (th) th.textContent = dia.etiqueta;
+    const festivo = obtenerFestivoAyb(dia.fecha);
+    if (th) {
+      th.classList.toggle("th-festivo-ayb", Boolean(festivo));
+      th.innerHTML = festivo
+        ? `${escaparHtml(dia.etiqueta)}<div class="marca-festivo-header">FESTIVO</div><div class="nombre-festivo-header">${escaparHtml(festivo.nombre || "Festivo")}</div>`
+        : escaparHtml(dia.etiqueta);
+    }
   });
+}
+
+function obtenerFestivoAyb(fechaISO) {
+  return festivosSemana.find((f) => String(f.fecha) === String(fechaISO)) || null;
+}
+
+function esFechaFestivaAyb(fechaISO) {
+  return Boolean(obtenerFestivoAyb(fechaISO));
+}
+
+function textoFestivoAyb(fechaISO) {
+  const festivo = obtenerFestivoAyb(fechaISO);
+  return festivo ? (festivo.nombre || "Festivo") : "";
 }
 
 function renderTextosSemana() {
@@ -232,8 +256,12 @@ function configurarBotones() {
     await cambiarSemanaVisible();
   });
   document.getElementById("btnNuevaAsignacion")?.addEventListener("click", () => abrirModalNuevaAsignacion());
+  document.getElementById("btnVisualSemanalAyb")?.addEventListener("click", abrirVisualSemanalAyb);
   document.getElementById("btnPdfGeneral")?.addEventListener("click", generarPdfGeneralAyb);
+  document.getElementById("btnPdfCalendarioAyb")?.addEventListener("click", generarPdfCalendarioSemanalAyb);
+  document.getElementById("btnPdfOperativoAyb")?.addEventListener("click", generarPdfOperativoAyb);
   document.getElementById("btnPdfEmpleado")?.addEventListener("click", generarPdfEmpleadoAyb);
+  document.getElementById("btnPdfEmpleadoMejoradoAyb")?.addEventListener("click", generarPdfEmpleadoMejoradoAyb);
   document.getElementById("btnLimpiarTurnoCopiadoAyb")?.addEventListener("click", limpiarTurnoCopiadoAyb);
 }
 
@@ -349,6 +377,136 @@ function configurarFiltrosMatrizAyb() {
     document.getElementById("selectFiltroEstadoMatrizAyb").value = "todos";
     actualizar();
   });
+}
+
+
+function configurarFiltrosVisualSemanalAyb() {
+  const actualizar = () => {
+    filtrosVisualSemanalAyb = {
+      busqueda: texto(document.getElementById("visualBuscarAyb")?.value).toLowerCase(),
+      estado: texto(document.getElementById("visualEstadoAyb")?.value) || "todos"
+    };
+    renderVisualSemanalAyb();
+  };
+  document.getElementById("visualBuscarAyb")?.addEventListener("input", actualizar);
+  document.getElementById("visualEstadoAyb")?.addEventListener("change", actualizar);
+  document.getElementById("btnLimpiarVisualAyb")?.addEventListener("click", () => {
+    const buscar = document.getElementById("visualBuscarAyb");
+    const estado = document.getElementById("visualEstadoAyb");
+    if (buscar) buscar.value = "";
+    if (estado) estado.value = "todos";
+    actualizar();
+  });
+}
+
+function abrirVisualSemanalAyb() {
+  renderVisualSemanalAyb();
+  modalVisualSemanalAyb?.show();
+}
+
+function construirMapaVisualSemanalAyb() {
+  const mapa = new Map();
+  empleadosAyb.forEach((emp) => mapa.set(emp.cedula, { ...emp, dias: {} }));
+  registrosSemanaAyb.forEach((registro) => {
+    const cedula = texto(registro.cedula) || `registro-${registro.id}`;
+    if (!mapa.has(cedula)) mapa.set(cedula, { cedula: registro.cedula || "", nombre: registro.nombre || "Empleado", cargo: registro.cargo || "", dias: {} });
+    if (!mapa.get(cedula).dias[registro.fecha]) mapa.get(cedula).dias[registro.fecha] = [];
+    mapa.get(cedula).dias[registro.fecha].push(registro);
+  });
+  return [...mapa.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+}
+
+function obtenerResumenVisualEmpleadoAyb(empleado) {
+  const registros = Object.values(empleado.dias || {}).flat();
+  const turnos = registros.filter((r) => String(r.tipo_registro) !== "novedad");
+  const novedades = registros.filter((r) => String(r.tipo_registro) === "novedad");
+  const diasOcupados = new Set(registros.map((r) => r.fecha)).size;
+  const diasLibres = Math.max(0, semanaActual.length - diasOcupados);
+  return { registros, turnos, novedades, diasOcupados, diasLibres };
+}
+
+function cumpleFiltrosVisualSemanalAyb(empleado) {
+  const resumen = obtenerResumenVisualEmpleadoAyb(empleado);
+  const identificacion = `${empleado.nombre} ${empleado.cedula} ${empleado.cargo}`.toLowerCase();
+  if (filtrosVisualSemanalAyb.busqueda && !identificacion.includes(filtrosVisualSemanalAyb.busqueda)) return false;
+  if (filtrosVisualSemanalAyb.estado === "sin-programacion" && resumen.registros.length > 0) return false;
+  if (filtrosVisualSemanalAyb.estado === "con-programacion" && resumen.turnos.length === 0) return false;
+  if (filtrosVisualSemanalAyb.estado === "con-novedad" && resumen.novedades.length === 0) return false;
+  if (filtrosVisualSemanalAyb.estado === "libre-hoy" && resumen.diasLibres === 0) return false;
+  return true;
+}
+
+function renderVisualSemanalAyb() {
+  const tbody = document.getElementById("tbodyVisualSemanalAyb");
+  if (!tbody) return;
+
+  semanaActual.forEach((dia, index) => {
+    const th = document.getElementById(`visualDia${index + 1}Ayb`);
+    const festivo = obtenerFestivoAyb(dia.fecha);
+    if (th) {
+      th.classList.toggle("th-festivo-ayb", Boolean(festivo));
+      th.innerHTML = festivo
+        ? `${escaparHtml(dia.etiqueta)}<div class="marca-festivo-header">FESTIVO</div><div class="nombre-festivo-header">${escaparHtml(festivo.nombre || "Festivo")}</div>`
+        : escaparHtml(dia.etiqueta);
+    }
+  });
+
+  const subtitulo = document.getElementById("visualSemanaSubtituloAyb");
+  if (subtitulo) subtitulo.textContent = document.getElementById("textoSemanaAyb")?.textContent || "Semana visible";
+
+  const empleados = construirMapaVisualSemanalAyb();
+  const empleadosFiltrados = empleados.filter(cumpleFiltrosVisualSemanalAyb);
+  const conProgramacion = empleados.filter((e) => obtenerResumenVisualEmpleadoAyb(e).turnos.length > 0).length;
+  const sinProgramacion = empleados.filter((e) => obtenerResumenVisualEmpleadoAyb(e).registros.length === 0).length;
+  const conNovedades = empleados.filter((e) => obtenerResumenVisualEmpleadoAyb(e).novedades.length > 0).length;
+
+  const totalEl = document.getElementById("visualTotalEmpleadosAyb");
+  const conEl = document.getElementById("visualConProgramacionAyb");
+  const sinEl = document.getElementById("visualSinProgramacionAyb");
+  const novEl = document.getElementById("visualConNovedadesAyb");
+  if (totalEl) totalEl.textContent = String(empleados.length);
+  if (conEl) conEl.textContent = String(conProgramacion);
+  if (sinEl) sinEl.textContent = String(sinProgramacion);
+  if (novEl) novEl.textContent = String(conNovedades);
+
+  if (!empleadosFiltrados.length) {
+    tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No hay empleados que coincidan con los filtros del visual semanal.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = empleadosFiltrados.map((empleado) => {
+    const resumen = obtenerResumenVisualEmpleadoAyb(empleado);
+    return `<tr>
+      <td class="visual-col-empleado-ayb">
+        <div class="empleado-matriz-nombre">${escaparHtml(empleado.nombre)}</div>
+        <div class="empleado-matriz-cargo">${escaparHtml(empleado.cargo || "Sin cargo")}</div>
+        <div class="empleado-matriz-cedula">${escaparHtml(empleado.cedula || "")}</div>
+      </td>
+      ${semanaActual.map((dia) => construirCeldaVisualSemanalAyb(empleado, dia)).join("")}
+      <td class="visual-resumen-ayb">
+        <span class="badge text-bg-primary">${resumen.turnos.length} turno(s)</span>
+        <span class="badge text-bg-warning">${resumen.diasLibres} libre(s)</span>
+        ${resumen.novedades.length ? `<span class="badge text-bg-danger">${resumen.novedades.length} novedad(es)</span>` : ""}
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function construirCeldaVisualSemanalAyb(empleado, dia) {
+  const items = empleado.dias[dia.fecha] || [];
+  const festivo = obtenerFestivoAyb(dia.fecha);
+  const claseFestivo = festivo ? " visual-dia-festivo-ayb" : "";
+  const avisoFestivo = festivo ? `<div class="visual-festivo-label">FESTIVO · ${escaparHtml(festivo.nombre || "Festivo")}</div>` : "";
+  if (!items.length) return `<td class="visual-dia-libre-ayb${claseFestivo}">${avisoFestivo}<span>Libre</span></td>`;
+  return `<td class="visual-dia-ocupado-ayb${claseFestivo}">${avisoFestivo}${items.map((item) => {
+    if (item.tipo_registro === "novedad") {
+      const titulo = NOVEDADES_LABELS[item.novedad_codigo] || item.novedad_codigo || "Novedad";
+      return `<div class="visual-chip-ayb visual-chip-novedad-ayb">${escaparHtml(item.novedad_codigo || "N")} · ${escaparHtml(titulo)}</div>`;
+    }
+    const subarea = SUBAREAS_AYB[item.subarea]?.codigo || item.subarea || "S/A";
+    const horario = item.hora_inicio && item.hora_fin ? `${item.hora_inicio}-${item.hora_fin}` : "Sin horario";
+    return `<div class="visual-chip-ayb visual-chip-turno-ayb">${escaparHtml(subarea)} · T${escaparHtml(item.turno || "-")} · ${escaparHtml(horario)}</div>`;
+  }).join("")}</td>`;
 }
 
 async function cargarEmpleadosParaBusqueda() {
@@ -648,7 +806,7 @@ function mostrarOkFormulario(mensaje) {
 }
 
 async function cargarFestivosSemana() {
-  const { data, error } = await supabase.from("festivos").select("fecha,nombre,activo").eq("activo", true)
+  const { data, error } = await supabase.from("festivos").select("fecha,nombre,tipo,activo").eq("activo", true)
     .gte("fecha", semanaActual[0]?.fecha).lte("fecha", semanaActual[6]?.fecha);
   festivosSemana = error ? [] : (data || []);
 }
@@ -656,12 +814,14 @@ async function cargarFestivosSemana() {
 async function cargarProgramacionAyb() {
   try {
     await cargarFestivosSemana();
+    renderEncabezadosSemana();
     const { data, error } = await supabase.from("programacion_turnos").select("*").eq("area", AREA_AYB)
       .gte("fecha", semanaActual[0]?.fecha).lte("fecha", semanaActual[6]?.fecha).order("fecha", { ascending: true });
     if (error) throw error;
     registrosSemanaAyb = (data || []).map(enriquecerRegistroAyb);
     renderTablaProgramacionAyb(registrosSemanaAyb);
     renderResumenHorasAyb(registrosSemanaAyb);
+    renderVisualSemanalAyb();
   } catch (error) {
     console.error("Error cargando programación A&B:", error);
     document.getElementById("tbodyProgramacionAYB").innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">No se pudo cargar la programación.</td></tr>`;
@@ -674,7 +834,7 @@ function enriquecerRegistroAyb(registro) {
 
 function calcularMetricasRegistro(registro) {
   if (String(registro.tipo_registro) === "novedad") {
-    return { horas_bloque_1: 0, horas_bloque_2: 0, horas_totales: 0, horas_programadas: 0, descuento_almuerzo: 0, horas_diurnas: 0, horas_nocturnas: 0, horas_netas: 0, jornada_esperada: 0, horas_extra_estimadas: 0, extra_diurna: 0, extra_nocturna: 0, tipo_jornada: "Novedad" };
+    return { horas_bloque_1: 0, horas_bloque_2: 0, horas_totales: 0, horas_programadas: 0, descuento_almuerzo: 0, horas_diurnas: 0, horas_nocturnas: 0, horas_netas: 0, jornada_esperada: 0, horas_extra_estimadas: 0, extra_diurna: 0, extra_nocturna: 0, extra_diurna_festiva: 0, extra_nocturna_festiva: 0, tipo_jornada: "Novedad" };
   }
   const b1 = calcularHorasTurnoProtegiendoNocturnas(registro.hora_inicio, registro.hora_fin);
   const b2 = calcularHorasTurnoProtegiendoNocturnas(registro.hora_inicio_2, registro.hora_fin_2);
@@ -684,9 +844,14 @@ function calcularMetricasRegistro(registro) {
   const horasNetas = redondearHoras(horasDiurnas + horasNocturnas);
   const jornadaInfo = obtenerJornadaEsperadaPorFecha(registro.fecha);
   const extra = redondearHoras(Math.max(0, horasNetas - jornadaInfo.horas));
-  const extraDiurna = extra > 0 ? redondearHoras(Math.max(0, horasDiurnas - Math.min(horasDiurnas, jornadaInfo.horas))) : 0;
-  const extraNocturna = redondearHoras(Math.max(0, extra - extraDiurna));
-  return { horas_bloque_1: redondearHoras(b1.netas), horas_bloque_2: redondearHoras(b2.netas), horas_totales: horasTotales, horas_programadas: horasTotales, descuento_almuerzo: horasTotales > 0 ? DESCANSO_ESTANDAR_HORAS : 0, horas_diurnas: horasDiurnas, horas_nocturnas: horasNocturnas, horas_netas: horasNetas, jornada_esperada: jornadaInfo.horas, horas_extra_estimadas: extra, extra_diurna: extraDiurna, extra_nocturna: extraNocturna, tipo_jornada: jornadaInfo.tipo };
+  const extraDiurnaCalculada = extra > 0 ? redondearHoras(Math.max(0, horasDiurnas - Math.min(horasDiurnas, jornadaInfo.horas))) : 0;
+  const extraNocturnaCalculada = redondearHoras(Math.max(0, extra - extraDiurnaCalculada));
+  const esFestivo = jornadaInfo.esFestivo === true || String(jornadaInfo.tipo || "").toLowerCase().includes("festivo");
+  const extraDiurna = esFestivo ? 0 : extraDiurnaCalculada;
+  const extraNocturna = esFestivo ? 0 : extraNocturnaCalculada;
+  const extraDiurnaFestiva = esFestivo ? extraDiurnaCalculada : 0;
+  const extraNocturnaFestiva = esFestivo ? extraNocturnaCalculada : 0;
+  return { horas_bloque_1: redondearHoras(b1.netas), horas_bloque_2: redondearHoras(b2.netas), horas_totales: horasTotales, horas_programadas: horasTotales, descuento_almuerzo: horasTotales > 0 ? DESCANSO_ESTANDAR_HORAS : 0, horas_diurnas: horasDiurnas, horas_nocturnas: horasNocturnas, horas_netas: horasNetas, jornada_esperada: jornadaInfo.horas, horas_extra_estimadas: extra, extra_diurna: extraDiurna, extra_nocturna: extraNocturna, extra_diurna_festiva: extraDiurnaFestiva, extra_nocturna_festiva: extraNocturnaFestiva, tipo_jornada: jornadaInfo.tipo };
 }
 
 function calcularHorasTurnoProtegiendoNocturnas(inicio, fin) {
@@ -713,7 +878,8 @@ function horaTextoAMinutos(hora) {
 }
 
 function obtenerJornadaEsperadaPorFecha(fechaISO) {
-  if (festivosSemana.some((f) => String(f.fecha) === String(fechaISO))) return { horas: 8.5, tipo: "Festivo" };
+  const festivo = obtenerFestivoAyb(fechaISO);
+  if (festivo) return { horas: 8.5, tipo: `Festivo - ${festivo.nombre || "Festivo"}`, esFestivo: true };
   const dia = new Date(`${fechaISO}T00:00:00`).getDay();
   return dia === 0 || dia === 6 ? { horas: 8.5, tipo: "Sábado/Domingo" } : { horas: 7.5, tipo: "Martes a viernes / día hábil" };
 }
@@ -777,7 +943,10 @@ function obtenerResumenEmpleado(empleado) {
 
 function construirCeldaEmpleado(empleado, dia) {
   const items = empleado.dias[dia.fecha] || [];
-  return `<td class="celda-dia-empleado align-top">
+  const festivo = obtenerFestivoAyb(dia.fecha);
+  const claseFestivo = festivo ? " celda-festivo-ayb" : "";
+  const avisoFestivo = festivo ? `<div class="festivo-celda-label">FESTIVO · ${escaparHtml(festivo.nombre || "Festivo")}</div>` : "";
+  return `<td class="celda-dia-empleado align-top${claseFestivo}">${avisoFestivo}
     <div class="acciones-celda-matriz">
       <button class="btn-celda-ayb btn-agregar-ayb" type="button" title="Agregar turno" onclick="window.nuevaAsignacionMatriz('${escaparAtributo(dia.fecha)}','${escaparAtributo(empleado.cedula)}')">+</button>
       <button class="btn-celda-ayb btn-novedad-ayb" type="button" title="Agregar novedad" onclick="window.nuevaNovedadMatriz('${escaparAtributo(dia.fecha)}','${escaparAtributo(empleado.cedula)}')">N</button>
@@ -788,18 +957,24 @@ function construirCeldaEmpleado(empleado, dia) {
 }
 
 function construirCardTurnoCompacta(item) {
+  const festivo = obtenerFestivoAyb(item.fecha);
+  const estado = String(item.estado_extra || "pendiente").toLowerCase();
+  const estadoFestivo = festivo ? `<span class="chip-aprobacion-festivo ${estado === "aprobado" ? "aprobado" : estado === "rechazado" ? "rechazado" : "pendiente"}">${estado === "aprobado" ? "Aprobado" : estado === "rechazado" ? "Rechazado" : "Pendiente aprobación"}</span>` : "";
   const subarea = SUBAREAS_AYB[item.subarea]?.codigo || item.subarea || "S/A";
   const subarea2 = item.subarea_2 ? (SUBAREAS_AYB[item.subarea_2]?.codigo || item.subarea_2) : "";
   const horario = item.hora_inicio && item.hora_fin ? `${item.hora_inicio}-${item.hora_fin}` : "Sin horario";
   const horario2 = item.hora_inicio_2 && item.hora_fin_2 ? `${item.hora_inicio_2}-${item.hora_fin_2}` : "";
   const extra = Number(item.horas_extra_estimadas || 0);
-  return `<div class="turno-matriz-card ${extra > 0 ? "tiene-extra" : ""}">
+  return `<div class="turno-matriz-card ${extra > 0 ? "tiene-extra" : ""} ${festivo ? "turno-festivo-ayb" : ""}">
     <div class="turno-matriz-superior">
+      ${festivo ? `<span class="chip-festivo-turno">F</span>` : ""}
       <span class="chip-subarea">${escaparHtml(subarea)}</span>
       <span class="chip-turno">T${escaparHtml(item.turno || "-")}</span>
       ${extra > 0 ? `<span class="chip-extra">+${formatoHoras(extra)}h</span>` : ""}
     </div>
     <div class="turno-matriz-horario">${escaparHtml(horario)}</div>
+    ${festivo ? `<div class="turno-festivo-info">Festivo: ${escaparHtml(festivo.nombre || "Festivo")}</div>${estadoFestivo}` : ""}
+    ${Number(item.extra_diurna_festiva || 0) > 0 || Number(item.extra_nocturna_festiva || 0) > 0 ? `<div class="turno-extra-festiva">HE festivas: D ${formatoHoras(item.extra_diurna_festiva)}h · N ${formatoHoras(item.extra_nocturna_festiva)}h</div>` : ""}
     ${subarea2 || horario2 ? `<div class="turno-matriz-segundo">${escaparHtml(subarea2)} · ${escaparHtml(horario2)}</div>` : ""}
     <div class="acciones-registro-matriz">
       <button type="button" onclick="window.verDetalleRegistroAyb('${escaparAtributo(item.id)}')">Ver</button>
@@ -958,7 +1133,7 @@ function abrirDetalleRegistro(registro) {
       ${detalleItem("Fecha", registro.fecha, "col-md-4")}${detalleItem("Subárea", registro.subarea || "Sin subárea", "col-md-4")}${detalleItem("Turno bloque 1", registro.turno, "col-md-4")}
       ${detalleItem("Horario bloque 1", horario1)}${detalleItem("Bloque 2", registro.subarea_2 ? `${registro.subarea_2} · ${registro.turno_2 || ""} · ${horario2}` : "No aplica")}
       ${detalleItem("Horas totales", `${formatoHoras(registro.horas_totales)} h`, "col-md-3")}${detalleItem("Diurnas", `${formatoHoras(registro.horas_diurnas)} h`, "col-md-3")}${detalleItem("Nocturnas", `${formatoHoras(registro.horas_nocturnas)} h`, "col-md-3")}${detalleItem("Almuerzo", `${formatoHoras(registro.descuento_almuerzo)} h`, "col-md-3")}
-      ${detalleItem("Netas", `${formatoHoras(registro.horas_netas)} h`, "col-md-3")}${detalleItem("Extra diurna", `${formatoHoras(registro.extra_diurna)} h`, "col-md-3")}${detalleItem("Extra nocturna", `${formatoHoras(registro.extra_nocturna)} h`, "col-md-3")}${detalleItem("Extra total", `${formatoHoras(registro.horas_extra_estimadas)} h`, "col-md-3")}
+      ${detalleItem("Netas", `${formatoHoras(registro.horas_netas)} h`, "col-md-3")}${detalleItem("Extra diurna", `${formatoHoras(registro.extra_diurna)} h`, "col-md-3")}${detalleItem("Extra nocturna", `${formatoHoras(registro.extra_nocturna)} h`, "col-md-3")}${detalleItem("Extra diurna festiva", `${formatoHoras(registro.extra_diurna_festiva)} h`, "col-md-3")}${detalleItem("Extra nocturna festiva", `${formatoHoras(registro.extra_nocturna_festiva)} h`, "col-md-3")}${detalleItem("Extra total", `${formatoHoras(registro.horas_extra_estimadas)} h`, "col-md-3")}
       ${detalleItem("Jornada esperada", `${formatoHoras(registro.jornada_esperada)} h`)}${detalleItem("Tipo de jornada", registro.tipo_jornada)}
       <div class="col-12">${detalleCaja("Observación", registro.observacion || "Sin observación")}</div>
     </div>`;
@@ -1027,11 +1202,235 @@ function generarPdfEmpleadoAyb() {
     doc.setFont("helvetica", "normal"); doc.setFontSize(9);
     const lineas = item.tipo_registro === "novedad"
       ? [`Novedad: ${item.novedad_descripcion || NOVEDADES_LABELS[item.novedad_codigo] || item.novedad_codigo || ""}`]
-      : [`Subárea: ${item.subarea || ""}`, `Turno: ${item.turno || ""}`, `Horario: ${item.hora_inicio || ""} - ${item.hora_fin || ""}`, `Horas diurnas: ${formatoHoras(item.horas_diurnas)} h`, `Horas nocturnas: ${formatoHoras(item.horas_nocturnas)} h`, `Horas netas: ${formatoHoras(item.horas_netas)} h`, `Extra total: ${formatoHoras(item.horas_extra_estimadas)} h`];
+      : [`Subárea: ${item.subarea || ""}`, `Turno: ${item.turno || ""}`, `Horario: ${item.hora_inicio || ""} - ${item.hora_fin || ""}`, `Horas diurnas: ${formatoHoras(item.horas_diurnas)} h`, `Horas nocturnas: ${formatoHoras(item.horas_nocturnas)} h`, `Horas netas: ${formatoHoras(item.horas_netas)} h`, `Extra diurna festiva: ${formatoHoras(item.extra_diurna_festiva)} h`, `Extra nocturna festiva: ${formatoHoras(item.extra_nocturna_festiva)} h`, `Extra total: ${formatoHoras(item.horas_extra_estimadas)} h`];
     lineas.forEach((linea) => { doc.text(limitarTexto(linea, 95), x + 3, y); y += 5; });
     y += 3;
   });
   doc.save(`programacion_${empleado.cedula}_${semanaActual[0]?.fecha || "semana"}.pdf`);
+}
+
+
+function generarPdfCalendarioSemanalAyb() {
+  if (!window.jspdf?.jsPDF) { alert("La librería de PDF no está disponible."); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const margenX = 6;
+  const anchoNombre = 52;
+  const anchoDia = (doc.internal.pageSize.getWidth() - (margenX * 2) - anchoNombre) / 7;
+  let y = 12;
+  prepararEncabezadoPdfAyb(doc, "Programación A&B - Calendario semanal", y);
+  y += calcularSaltoEncabezadoPdfAyb();
+  const empleados = empleadosAyb.slice().sort((a, b) => texto(a.nombre).localeCompare(texto(b.nombre), "es"));
+  const registrosPorEmpleadoFecha = new Map();
+  registrosSemanaAyb.forEach((registro) => {
+    const key = `${registro.cedula || ""}__${registro.fecha || ""}`;
+    if (!registrosPorEmpleadoFecha.has(key)) registrosPorEmpleadoFecha.set(key, []);
+    registrosPorEmpleadoFecha.get(key).push(registro);
+  });
+  dibujarFilaCalendarioAyb(doc, margenX, y, ["Empleado", ...semanaActual.map((d) => `${d.nombre.slice(0, 3)} ${d.fecha.slice(8, 10)}${esFechaFestivaAyb(d.fecha) ? " F" : ""}`)], true, anchoNombre, anchoDia);
+  y += 9;
+  empleados.forEach((empleado) => {
+    if (y > 184) {
+      doc.addPage();
+      y = 12;
+      prepararEncabezadoPdfAyb(doc, "Programación A&B - Calendario semanal", y);
+      y += calcularSaltoEncabezadoPdfAyb();
+      dibujarFilaCalendarioAyb(doc, margenX, y, ["Empleado", ...semanaActual.map((d) => `${d.nombre.slice(0, 3)} ${d.fecha.slice(8, 10)}${esFechaFestivaAyb(d.fecha) ? " F" : ""}`)], true, anchoNombre, anchoDia);
+      y += 9;
+    }
+    const fila = [limitarTexto(empleado.nombre || empleado.cedula || "Sin nombre", 27)];
+    semanaActual.forEach((dia) => {
+      fila.push(textoCeldaProgramacionAyb(registrosPorEmpleadoFecha.get(`${empleado.cedula || ""}__${dia.fecha}`) || []));
+    });
+    dibujarFilaCalendarioAyb(doc, margenX, y, fila, false, anchoNombre, anchoDia);
+    y += 12;
+  });
+  doc.save(`programacion_ayb_calendario_${semanaActual[0]?.fecha || "semana"}.pdf`);
+}
+
+function generarPdfOperativoAyb() {
+  if (!window.jspdf?.jsPDF) { alert("La librería de PDF no está disponible."); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  let y = 14;
+  prepararEncabezadoPdfAyb(doc, "Programación A&B - Vista operativa", y);
+  y += calcularSaltoEncabezadoPdfAyb() + 2;
+  const grupos = agruparRegistrosOperativosAyb();
+  Object.entries(grupos).forEach(([subarea, registros]) => {
+    if (y > 265) { doc.addPage(); y = 14; prepararEncabezadoPdfAyb(doc, "Programación A&B - Vista operativa", y); y += calcularSaltoEncabezadoPdfAyb() + 2; }
+    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(subarea, 12, y); y += 7;
+    if (!registros.length) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.text("Sin registros para la semana visible.", 16, y); y += 7;
+      return;
+    }
+    registros.forEach((registro) => {
+      if (y > 274) { doc.addPage(); y = 14; prepararEncabezadoPdfAyb(doc, "Programación A&B - Vista operativa", y); y += calcularSaltoEncabezadoPdfAyb() + 2; }
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      const nombre = limitarTexto(registro.nombre || "Sin nombre", 28).padEnd(30, ".");
+      const festivo = obtenerFestivoAyb(registro.fecha);
+      const marcaFestivo = festivo ? ` FESTIVO ${normalizarEstadoPdfAyb(registro.estado_extra)}` : "";
+      const heFestiva = Number(registro.extra_diurna_festiva || 0) + Number(registro.extra_nocturna_festiva || 0);
+      const turno = registro.tipo_registro === "novedad" ? `NOVEDAD: ${NOVEDADES_LABELS[registro.novedad_codigo] || registro.novedad_codigo || ""}` : `${registro.turno || ""} ${registro.hora_inicio || ""}-${registro.hora_fin || ""}${heFestiva > 0 ? ` HEF ${formatoHoras(heFestiva)}h` : ""}`;
+      doc.text(`${registro.fecha || ""}${marcaFestivo}  ${nombre}  ${turno}`, 16, y);
+      y += 5;
+    });
+    y += 4;
+  });
+  doc.save(`programacion_ayb_operativa_${semanaActual[0]?.fecha || "semana"}.pdf`);
+}
+
+function generarPdfEmpleadoMejoradoAyb() {
+  if (!window.jspdf?.jsPDF) { alert("La librería de PDF no está disponible."); return; }
+  const cedula = document.getElementById("selectEmpleadoPdfAyb")?.value || "";
+  if (!cedula) { alert("Selecciona un empleado para generar el PDF."); return; }
+  const empleado = empleadosAyb.find((e) => String(e.cedula) === String(cedula));
+  if (!empleado) { alert("No se encontró el empleado seleccionado."); return; }
+  const registros = registrosSemanaAyb.filter((r) => String(r.cedula) === String(cedula));
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  let y = 14;
+  prepararEncabezadoPdfAyb(doc, "Programación individual A&B", y);
+  y += calcularSaltoEncabezadoPdfAyb();
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10);
+  [`Empleado: ${empleado.nombre || ""}`, `Cédula: ${empleado.cedula || ""}`, `Cargo: ${empleado.cargo || "Sin cargo"}`, `Área: ${empleado.area || AREA_AYB}`, `Semana: ${document.getElementById("textoSemanaAyb")?.textContent || ""}`].forEach((linea) => { doc.text(linea, 12, y); y += 6; });
+  y += 4;
+  const registrosPorFecha = new Map();
+  registros.forEach((registro) => {
+    if (!registrosPorFecha.has(registro.fecha)) registrosPorFecha.set(registro.fecha, []);
+    registrosPorFecha.get(registro.fecha).push(registro);
+  });
+  dibujarTablaEmpleadoMejoradoAyb(doc, y, registrosPorFecha);
+  y = doc.lastAutoY || 0;
+  y = Math.max(y, 98);
+  if (y > 230) { doc.addPage(); y = 14; }
+  const resumen = calcularResumenEmpleadoPdfAyb(registros);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.text("Resumen semanal", 12, y); y += 7;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  [
+    `Turnos: ${resumen.turnos}`,
+    `Descansos o días sin programación: ${resumen.descansos}`,
+    `Novedades: ${resumen.novedades}`,
+    `Turnos festivos: ${resumen.turnosFestivos}`,
+    `Horas netas: ${formatoHoras(resumen.netas)} h`,
+    `Extra diurna: ${formatoHoras(resumen.extraDiurna)} h`,
+    `Extra nocturna: ${formatoHoras(resumen.extraNocturna)} h`,
+    `Extra diurna festiva: ${formatoHoras(resumen.extraDiurnaFestiva)} h`,
+    `Extra nocturna festiva: ${formatoHoras(resumen.extraNocturnaFestiva)} h`,
+    `Total horas extra: ${formatoHoras(resumen.extraTotal)} h`
+  ].forEach((linea) => { doc.text(linea, 14, y); y += 5; });
+  doc.save(`programacion_ayb_individual_mejorada_${empleado.cedula}_${semanaActual[0]?.fecha || "semana"}.pdf`);
+}
+
+function calcularSaltoEncabezadoPdfAyb() {
+  return obtenerFestivosSemanaAyb().length ? 22 : 15;
+}
+
+function prepararEncabezadoPdfAyb(doc, titulo, y) {
+  doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text(titulo, 10, y);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+  doc.text(`Semana: ${document.getElementById("textoSemanaAyb")?.textContent || ""}`, 10, y + 6);
+  doc.text(`Generado: ${new Date().toLocaleString("es-CO")}`, 210, y + 6, { align: "right" });
+  const festivos = obtenerFestivosSemanaAyb();
+  if (festivos.length) {
+    doc.setTextColor(180, 55, 55);
+    doc.setFont("helvetica", "bold");
+    doc.text(doc.splitTextToSize(`Festivos: ${festivos.map((f) => `${String(f.fecha).slice(8,10)}/${String(f.fecha).slice(5,7)} ${f.nombre || "Festivo"}`).join(" · ")}`, doc.internal.pageSize.getWidth() - 20).slice(0, 2), 10, y + 11);
+    doc.setTextColor(0, 0, 0);
+  }
+}
+
+function obtenerFestivosSemanaAyb() {
+  return semanaActual.map((dia) => obtenerFestivoAyb(dia.fecha)).filter(Boolean);
+}
+
+function dibujarFilaCalendarioAyb(doc, x, y, valores, encabezado, anchoNombre, anchoDia) {
+  doc.setFont("helvetica", encabezado ? "bold" : "normal");
+  doc.setFontSize(encabezado ? 8 : 7);
+  let cursorX = x;
+  valores.forEach((valor, index) => {
+    const ancho = index === 0 ? anchoNombre : anchoDia;
+    doc.rect(cursorX, y - 5, ancho, encabezado ? 8 : 10);
+    const textoCelda = String(valor || "");
+    const lineas = doc.splitTextToSize(textoCelda, ancho - 3).slice(0, encabezado ? 1 : 3);
+    doc.text(lineas, cursorX + 1.5, y);
+    cursorX += ancho;
+  });
+}
+
+function textoCeldaProgramacionAyb(registros) {
+  if (!registros.length) return "LIBRE";
+  return registros.map((registro) => {
+    const festivo = obtenerFestivoAyb(registro.fecha);
+    const prefijo = festivo ? "F " : "";
+    if (registro.tipo_registro === "novedad") return `${prefijo}${NOVEDADES_LABELS[registro.novedad_codigo] || registro.novedad_codigo || "Novedad"}`.trim();
+    const horario = registro.hora_inicio && registro.hora_fin ? `${registro.hora_inicio}-${registro.hora_fin}` : "";
+    const extraFestiva = Number(registro.extra_diurna_festiva || 0) + Number(registro.extra_nocturna_festiva || 0);
+    const estado = festivo ? ` ${normalizarEstadoPdfAyb(registro.estado_extra)}` : "";
+    const extras = extraFestiva > 0 ? ` HEF ${formatoHoras(extraFestiva)}h` : "";
+    return `${prefijo}${registro.turno || "Turno"} ${horario}${extras}${estado}`.trim();
+  }).join(" / ");
+}
+
+function normalizarEstadoPdfAyb(estado) {
+  const valor = String(estado || "pendiente").toLowerCase();
+  if (valor === "aprobado") return "OK";
+  if (valor === "rechazado") return "RECH";
+  return "PEND";
+}
+
+function agruparRegistrosOperativosAyb() {
+  const grupos = {};
+  Object.keys(SUBAREAS_AYB).forEach((subarea) => { grupos[subarea] = []; });
+  grupos.Novedades = [];
+  registrosSemanaAyb.slice().sort((a, b) => `${a.fecha || ""}${a.nombre || ""}`.localeCompare(`${b.fecha || ""}${b.nombre || ""}`, "es")).forEach((registro) => {
+    if (registro.tipo_registro === "novedad") grupos.Novedades.push(registro);
+    else {
+      const subarea = registro.subarea || "Sin subárea";
+      if (!grupos[subarea]) grupos[subarea] = [];
+      grupos[subarea].push(registro);
+    }
+  });
+  return grupos;
+}
+
+function dibujarTablaEmpleadoMejoradoAyb(doc, yInicial, registrosPorFecha) {
+  let y = yInicial;
+  const columnas = [12, 38, 76, 122, 163];
+  const anchos = [26, 38, 46, 41, 35];
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+  ["Fecha", "Día", "Turno / novedad", "Horario", "Observación"].forEach((titulo, i) => { doc.rect(columnas[i], y - 5, anchos[i], 8); doc.text(titulo, columnas[i] + 1.5, y); });
+  y += 8;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+  semanaActual.forEach((dia) => {
+    if (y > 270) { doc.addPage(); y = 14; }
+    const registros = registrosPorFecha.get(dia.fecha) || [];
+    const textoTurno = registros.length ? registros.map((r) => r.tipo_registro === "novedad" ? (NOVEDADES_LABELS[r.novedad_codigo] || r.novedad_codigo || "Novedad") : `${r.turno || ""} ${r.subarea || ""}`.trim()).join(" / ") : "Descanso / Libre";
+    const horario = registros.filter((r) => r.tipo_registro !== "novedad").map((r) => `${r.hora_inicio || ""}-${r.hora_fin || ""}`).join(" / ");
+    const festivo = obtenerFestivoAyb(dia.fecha);
+    const obsBase = registros.map((r) => r.observacion || r.novedad_descripcion || "").filter(Boolean).join(" / ");
+    const obs = [festivo ? `FESTIVO: ${festivo.nombre || "Festivo"}` : "", obsBase].filter(Boolean).join(" / ");
+    const diaNombre = festivo ? `${dia.nombre} (F)` : dia.nombre;
+    [dia.fecha, diaNombre, textoTurno, horario || "-", limitarTexto(obs || "-", 22)].forEach((valor, i) => { doc.rect(columnas[i], y - 5, anchos[i], 9); doc.text(doc.splitTextToSize(String(valor || ""), anchos[i] - 3).slice(0, 1), columnas[i] + 1.5, y); });
+    y += 9;
+  });
+  doc.lastAutoY = y + 5;
+}
+
+function calcularResumenEmpleadoPdfAyb(registros) {
+  const turnos = registros.filter((r) => r.tipo_registro !== "novedad").length;
+  const novedades = registros.filter((r) => r.tipo_registro === "novedad").length;
+  return {
+    turnos,
+    novedades,
+    descansos: Math.max(0, semanaActual.length - new Set(registros.map((r) => r.fecha)).size),
+    netas: registros.reduce((acc, r) => acc + Number(r.horas_netas || 0), 0),
+    extraDiurna: registros.reduce((acc, r) => acc + Number(r.extra_diurna || 0), 0),
+    extraNocturna: registros.reduce((acc, r) => acc + Number(r.extra_nocturna || 0), 0),
+    extraDiurnaFestiva: registros.reduce((acc, r) => acc + Number(r.extra_diurna_festiva || 0), 0),
+    extraNocturnaFestiva: registros.reduce((acc, r) => acc + Number(r.extra_nocturna_festiva || 0), 0),
+    extraTotal: registros.reduce((acc, r) => acc + Number(r.horas_extra_estimadas || 0), 0),
+    turnosFestivos: registros.filter((r) => r.tipo_registro !== "novedad" && esFechaFestivaAyb(r.fecha)).length
+  };
 }
 
 function agruparTurnosPorSubarea(registros) {

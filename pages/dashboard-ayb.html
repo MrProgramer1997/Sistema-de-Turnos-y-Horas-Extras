@@ -238,11 +238,12 @@
         <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
           <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span class="fw-bold">Validación de horas extra</span>
-            <span class="text-muted small">Solo se listan registros con horas extra estimadas</span>
+            <span class="text-muted small">Se listan horas extra y festivos por aprobar</span>
           </div>
-          <div class="card-body bloque-scroll">
-            <div class="table-responsive">
-              <table class="table table-hover mb-0">
+          <div class="card-body bloque-scroll bloque-validacion-extras">
+            <div class="scroll-superior-validacion" id="scrollSuperiorValidacionExtras"><div></div></div>
+            <div class="table-responsive" id="scrollTablaValidacionExtras">
+              <table class="table table-hover mb-0 tabla-validacion-extras">
                 <thead class="table-light">
                   <tr>
                     <th>#</th>
@@ -253,6 +254,8 @@
                     <th>Subárea</th>
                     <th>Extra diurna</th>
                     <th>Extra nocturna</th>
+                    <th>Extra diurna festiva</th>
+                    <th>Extra nocturna festiva</th>
                     <th>Total extra</th>
                     <th>Estado</th>
                     <th>Aprobado por</th>
@@ -263,7 +266,7 @@
                 </thead>
                 <tbody id="tbodyValidacionExtras">
                   <tr>
-                    <td colspan="14" class="texto-vacio">Cargando validaciones...</td>
+                    <td colspan="16" class="texto-vacio">Cargando validaciones...</td>
                   </tr>
                 </tbody>
               </table>

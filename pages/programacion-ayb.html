@@ -37,7 +37,10 @@
           <button class="btn btn-outline-primary" id="btnSemanaActual" type="button">Semana actual</button>
           <button class="btn btn-outline-primary" id="btnSemanaSiguiente" type="button">Semana siguiente</button>
           <button class="btn btn-primary" id="btnNuevaAsignacion" type="button">Nueva asignación</button>
+          <button class="btn btn-outline-success" id="btnVisualSemanalAyb" type="button">Visual semanal</button>
           <button class="btn btn-outline-danger" id="btnPdfGeneral" type="button">PDF general</button>
+          <button class="btn btn-outline-danger" id="btnPdfCalendarioAyb" type="button">PDF calendario</button>
+          <button class="btn btn-outline-danger" id="btnPdfOperativoAyb" type="button">PDF operativo</button>
         </div>
       </div>
 
@@ -113,8 +116,11 @@
               <select id="selectEmpleadoPdfAyb" class="form-select mb-3">
                 <option value="">Seleccione</option>
               </select>
-              <button class="btn btn-outline-danger w-100" id="btnPdfEmpleado" type="button">Descargar PDF del empleado</button>
-              <div class="small text-muted mt-2">Descarga la programación de la semana visible para el empleado seleccionado.</div>
+              <div class="d-grid gap-2">
+                <button class="btn btn-outline-danger" id="btnPdfEmpleado" type="button">PDF empleado actual</button>
+                <button class="btn btn-danger" id="btnPdfEmpleadoMejoradoAyb" type="button">PDF empleado mejorado</button>
+              </div>
+              <div class="small text-muted mt-2">El formato mejorado resume turnos, novedades, descansos y horas extra de la semana visible.</div>
             </div>
           </div>
         </div>
@@ -200,6 +206,101 @@
       </div>
     </div>
   </main>
+
+
+  <div class="modal fade" id="modalVisualSemanalAyb" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title mb-1">Visual semanal de disponibilidad A&B</h5>
+            <div class="text-muted small" id="visualSemanaSubtituloAyb">Semana visible</div>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info py-2 mb-3">
+            Esta vista muestra todo el personal A&B de la semana visible, incluyendo empleados con turnos, con novedades y sin programación. Es solo de consulta; para modificar use los botones de la matriz principal.
+          </div>
+
+          <div class="row g-3 mb-3" id="visualKpisAyb">
+            <div class="col-12 col-md-3">
+              <div class="visual-kpi-ayb">
+                <div class="visual-kpi-label">Empleados del área</div>
+                <div class="visual-kpi-value" id="visualTotalEmpleadosAyb">0</div>
+              </div>
+            </div>
+            <div class="col-12 col-md-3">
+              <div class="visual-kpi-ayb visual-kpi-ok">
+                <div class="visual-kpi-label">Con programación</div>
+                <div class="visual-kpi-value" id="visualConProgramacionAyb">0</div>
+              </div>
+            </div>
+            <div class="col-12 col-md-3">
+              <div class="visual-kpi-ayb visual-kpi-warning">
+                <div class="visual-kpi-label">Sin programación</div>
+                <div class="visual-kpi-value" id="visualSinProgramacionAyb">0</div>
+              </div>
+            </div>
+            <div class="col-12 col-md-3">
+              <div class="visual-kpi-ayb visual-kpi-danger">
+                <div class="visual-kpi-label">Con novedades</div>
+                <div class="visual-kpi-value" id="visualConNovedadesAyb">0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+              <div class="row g-3 align-items-end">
+                <div class="col-12 col-md-5">
+                  <label class="form-label" for="visualBuscarAyb">Buscar empleado</label>
+                  <input class="form-control" id="visualBuscarAyb" type="text" placeholder="Nombre, cédula o cargo">
+                </div>
+                <div class="col-12 col-md-4">
+                  <label class="form-label" for="visualEstadoAyb">Estado semanal</label>
+                  <select class="form-select" id="visualEstadoAyb">
+                    <option value="todos">Todos</option>
+                    <option value="sin-programacion">Sin programación en toda la semana</option>
+                    <option value="con-programacion">Con al menos un turno</option>
+                    <option value="con-novedad">Con novedades</option>
+                    <option value="libre-hoy">Libre en algún día de la semana</option>
+                  </select>
+                </div>
+                <div class="col-12 col-md-3">
+                  <button class="btn btn-outline-secondary w-100" id="btnLimpiarVisualAyb" type="button">Limpiar filtros</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-responsive visual-wrapper-ayb">
+            <table class="table table-bordered align-middle visual-semanal-ayb">
+              <thead>
+                <tr>
+                  <th class="visual-col-empleado-ayb">Empleado / Cargo</th>
+                  <th id="visualDia1Ayb">Día 1</th>
+                  <th id="visualDia2Ayb">Día 2</th>
+                  <th id="visualDia3Ayb">Día 3</th>
+                  <th id="visualDia4Ayb">Día 4</th>
+                  <th id="visualDia5Ayb">Día 5</th>
+                  <th id="visualDia6Ayb">Día 6</th>
+                  <th id="visualDia7Ayb">Día 7</th>
+                  <th>Resumen</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyVisualSemanalAyb">
+                <tr><td colspan="9" class="text-center text-muted py-4">Cargando visual semanal...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="modal fade" id="modalAsignacionAyb" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-fullscreen-lg-down modal-dialog-scrollable">

@@ -218,7 +218,7 @@ async function cargarFestivosDashboardSeguro() {
   try {
     const { data, error } = await supabase
       .from("festivos")
-      .select("fecha,nombre,activo")
+      .select("fecha,nombre,tipo,activo")
       .eq("activo", true);
 
     if (error) {
@@ -489,12 +489,7 @@ function enriquecerRegistroDashboard(registro) {
       aprobado_por: registro.aprobado_por || "",
       fecha_aprobacion: registro.fecha_aprobacion || null,
       observacion_aprobacion: registro.observacion_aprobacion || "",
-      horas_diurnas: Number(registro.horas_diurnas || 0),
-      horas_nocturnas: Number(registro.horas_nocturnas || 0),
-      horas_netas: Number(registro.horas_netas || 0),
-      extra_diurna: Number(registro.extra_diurna || 0),
-      extra_nocturna: Number(registro.extra_nocturna || 0),
-      horas_extra_estimadas: Number(registro.horas_extra_estimadas || 0)
+      ...normalizarMetricasGuardadasDashboard(registro)
     };
   }
 
@@ -513,12 +508,7 @@ function enriquecerRegistroDashboard(registro) {
       aprobado_por: registro.aprobado_por || "",
       fecha_aprobacion: registro.fecha_aprobacion || null,
       observacion_aprobacion: registro.observacion_aprobacion || "",
-      horas_diurnas: Number(registro.horas_diurnas || 0),
-      horas_nocturnas: Number(registro.horas_nocturnas || 0),
-      horas_netas: Number(registro.horas_netas || 0),
-      extra_diurna: Number(registro.extra_diurna || 0),
-      extra_nocturna: Number(registro.extra_nocturna || 0),
-      horas_extra_estimadas: Number(registro.horas_extra_estimadas || 0)
+      ...normalizarMetricasGuardadasDashboard(registro)
     };
   }
 
@@ -531,6 +521,28 @@ function enriquecerRegistroDashboard(registro) {
     fecha_aprobacion: registro.fecha_aprobacion || null,
     observacion_aprobacion: registro.observacion_aprobacion || "",
     ...calculado
+  };
+}
+
+
+function normalizarMetricasGuardadasDashboard(registro) {
+  const jornadaInfo = obtenerJornadaEsperadaPorFecha(registro.fecha);
+  const esFestivo = jornadaInfo.esFestivo === true || String(registro.tipo_jornada || jornadaInfo.tipo || "").toLowerCase().includes("festivo");
+  const extraDiurnaOriginal = Number(registro.extra_diurna || 0);
+  const extraNocturnaOriginal = Number(registro.extra_nocturna || 0);
+
+  return {
+    horas_diurnas: Number(registro.horas_diurnas || 0),
+    horas_nocturnas: Number(registro.horas_nocturnas || 0),
+    horas_netas: Number(registro.horas_netas || 0),
+    extra_diurna: esFestivo ? 0 : extraDiurnaOriginal,
+    extra_nocturna: esFestivo ? 0 : extraNocturnaOriginal,
+    extra_diurna_festiva: Number(registro.extra_diurna_festiva || (esFestivo ? extraDiurnaOriginal : 0)),
+    extra_nocturna_festiva: Number(registro.extra_nocturna_festiva || (esFestivo ? extraNocturnaOriginal : 0)),
+    horas_extra_estimadas: Number(registro.horas_extra_estimadas || 0),
+    tipo_jornada: registro.tipo_jornada || jornadaInfo.tipo,
+    es_festivo: esFestivo,
+    nombre_festivo: jornadaInfo.nombreFestivo || ""
   };
 }
 
@@ -554,14 +566,20 @@ function calcularMetricasRegistroDashboard(registro) {
 
   const horasExtraEstimadas = redondearHoras(Math.max(0, horasNetas - jornada));
 
-  let extraDiurna = 0;
-  let extraNocturna = 0;
+  let extraDiurnaCalculada = 0;
+  let extraNocturnaCalculada = 0;
 
   if (horasExtraEstimadas > 0) {
     const ordinariasDiurnas = Math.min(horasDiurnas, jornada);
-    extraDiurna = redondearHoras(Math.max(0, horasDiurnas - ordinariasDiurnas));
-    extraNocturna = redondearHoras(Math.max(0, horasExtraEstimadas - extraDiurna));
+    extraDiurnaCalculada = redondearHoras(Math.max(0, horasDiurnas - ordinariasDiurnas));
+    extraNocturnaCalculada = redondearHoras(Math.max(0, horasExtraEstimadas - extraDiurnaCalculada));
   }
+
+  const esFestivo = jornadaInfo.esFestivo === true || String(jornadaInfo.tipo || "").toLowerCase().includes("festivo");
+  const extraDiurna = esFestivo ? 0 : extraDiurnaCalculada;
+  const extraNocturna = esFestivo ? 0 : extraNocturnaCalculada;
+  const extraDiurnaFestiva = esFestivo ? extraDiurnaCalculada : 0;
+  const extraNocturnaFestiva = esFestivo ? extraNocturnaCalculada : 0;
 
   return {
     horas_diurnas: horasDiurnas,
@@ -569,7 +587,12 @@ function calcularMetricasRegistroDashboard(registro) {
     horas_netas: horasNetas,
     extra_diurna: extraDiurna,
     extra_nocturna: extraNocturna,
-    horas_extra_estimadas: horasExtraEstimadas
+    extra_diurna_festiva: extraDiurnaFestiva,
+    extra_nocturna_festiva: extraNocturnaFestiva,
+    horas_extra_estimadas: horasExtraEstimadas,
+    tipo_jornada: jornadaInfo.tipo,
+    es_festivo: esFestivo,
+    nombre_festivo: jornadaInfo.nombreFestivo || ""
   };
 }
 
@@ -626,25 +649,25 @@ function calcularHorasTurnoProtegiendoNocturnas(inicio, fin) {
 
 function obtenerJornadaEsperadaPorFecha(fechaISO) {
   if (!fechaISO) {
-    return { horas: 7.5, tipo: "Lunes a viernes / día hábil" };
+    return { horas: 7.5, tipo: "Lunes a viernes / día hábil", esFestivo: false };
   }
 
-  const esFestivo = festivosDashboard.some(
-    (festivo) => String(festivo.fecha) === String(fechaISO)
+  const festivo = festivosDashboard.find(
+    (item) => String(item.fecha) === String(fechaISO)
   );
 
-  if (esFestivo) {
-    return { horas: 8.5, tipo: "Festivo" };
+  if (festivo) {
+    return { horas: 8.5, tipo: `Festivo - ${festivo.nombre || "Festivo"}`, esFestivo: true, nombreFestivo: festivo.nombre || "Festivo" };
   }
 
   const fecha = new Date(`${fechaISO}T00:00:00`);
   const dia = fecha.getDay();
 
   if (dia === 6 || dia === 0) {
-    return { horas: 8.5, tipo: "Sábado/Domingo" };
+    return { horas: 8.5, tipo: "Sábado/Domingo", esFestivo: false };
   }
 
-  return { horas: 7.5, tipo: "Lunes a viernes / día hábil" };
+  return { horas: 7.5, tipo: "Lunes a viernes / día hábil", esFestivo: false };
 }
 
 function horaTextoAMinutos(horaTexto) {
@@ -894,7 +917,7 @@ function renderPanelExternosChef() {
         <td>${index + 1}</td>
         <td>${escaparHtml(obtenerNombreEmpleado(item))}</td>
         <td>${escaparHtml(item.cedula || "-")}</td>
-        <td>${escaparHtml(formatearFechaCorta(item.fecha))}</td>
+        <td>${escaparHtml(formatearFechaCorta(item.fecha))}${item.es_festivo ? `<div class="badge-festivo-dashboard">FESTIVO${item.nombre_festivo ? ` · ${escaparHtml(item.nombre_festivo)}` : ""}</div>` : ""}</td>
         <td>${escaparHtml(item.subarea || "-")}</td>
         <td>${escaparHtml(item.turno || "-")}${item.turno_2 ? ` / ${escaparHtml(item.turno_2)}` : ""}</td>
         <td>${formatearNumero(item.horas_diurnas || 0)}</td>
@@ -902,6 +925,8 @@ function renderPanelExternosChef() {
         <td>${formatearNumero(item.horas_netas || 0)}</td>
         <td>${formatearNumero(item.extra_diurna || 0)}</td>
         <td>${formatearNumero(item.extra_nocturna || 0)}</td>
+        <td>${formatearNumero(item.extra_diurna_festiva || 0)}</td>
+        <td>${formatearNumero(item.extra_nocturna_festiva || 0)}</td>
         <td>${formatearNumero(item.horas_extra_estimadas || 0)}</td>
       </tr>
     `).join("");
@@ -921,7 +946,7 @@ function renderControlIntegracionChef() {
           <td>${index + 1}</td>
           <td>${escaparHtml(item.nombre)}</td>
           <td>${escaparHtml(item.cedula)}</td>
-          <td>${escaparHtml(formatearFechaCorta(item.fecha))}</td>
+          <td>${escaparHtml(formatearFechaCorta(item.fecha))}${item.es_festivo ? `<div class="badge-festivo-dashboard">FESTIVO${item.nombre_festivo ? ` · ${escaparHtml(item.nombre_festivo)}` : ""}</div>` : ""}</td>
           <td>${escaparHtml(item.motivo)}</td>
         </tr>
       `).join("");
@@ -937,7 +962,7 @@ function renderControlIntegracionChef() {
         <tr class="fila-alerta">
           <td>${index + 1}</td>
           <td>${escaparHtml(item.nombre)}</td>
-          <td>${escaparHtml(formatearFechaCorta(item.fecha))}</td>
+          <td>${escaparHtml(formatearFechaCorta(item.fecha))}${item.es_festivo ? `<div class="badge-festivo-dashboard">FESTIVO${item.nombre_festivo ? ` · ${escaparHtml(item.nombre_festivo)}` : ""}</div>` : ""}</td>
           <td>${escaparHtml(item.tipo_revision)} · ${escaparHtml(item.detalle)}</td>
         </tr>
       `).join("");
@@ -1389,7 +1414,7 @@ function renderTablaAusentesHoy(registros) {
         <td>${escaparHtml(obtenerNombreEmpleado(item))}</td>
         <td>${escaparHtml(obtenerAreaAmigable(item))}</td>
         <td>${crearBadgeNovedad(tipo, label)}</td>
-        <td>${escaparHtml(formatearFechaCorta(item.fecha))}</td>
+        <td>${escaparHtml(formatearFechaCorta(item.fecha))}${item.es_festivo ? `<div class="badge-festivo-dashboard">FESTIVO${item.nombre_festivo ? ` · ${escaparHtml(item.nombre_festivo)}` : ""}</div>` : ""}</td>
       </tr>
     `;
   }).join("");
@@ -1432,7 +1457,7 @@ function renderTablaValidacionExtras(registros) {
     });
 
   if (!extras.length) {
-    tbody.innerHTML = `<tr><td colspan="14" class="texto-vacio">No hay registros con horas extra en el filtro actual.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16" class="texto-vacio">No hay registros con horas extra o festivos por validar en el filtro actual.</td></tr>`;
     return;
   }
 
@@ -1441,15 +1466,17 @@ function renderTablaValidacionExtras(registros) {
     const estado = normalizarEstadoExtra(item.estado_extra);
 
     return `
-      <tr class="${estado === "pendiente" ? "fila-alerta" : ""}">
+      <tr class="${estado === "pendiente" ? "fila-alerta" : ""} ${item.es_festivo ? "fila-festivo-validacion" : ""}">
         <td>${index + 1}</td>
         <td>${escaparHtml(obtenerNombreEmpleado(item))}</td>
         <td>${escaparHtml(item.cedula || "")}</td>
-        <td>${escaparHtml(formatearFechaCorta(item.fecha))}</td>
+        <td>${escaparHtml(formatearFechaCorta(item.fecha))}${item.es_festivo ? `<div class="badge-festivo-dashboard">FESTIVO${item.nombre_festivo ? ` · ${escaparHtml(item.nombre_festivo)}` : ""}</div>` : ""}</td>
         <td>${escaparHtml(obtenerAreaAmigable(item))}</td>
         <td>${escaparHtml(String(item.subarea || "").trim() || "-")}</td>
         <td>${formatearNumero(item.extra_diurna || 0)}</td>
         <td>${formatearNumero(item.extra_nocturna || 0)}</td>
+        <td>${formatearNumero(item.extra_diurna_festiva || 0)}</td>
+        <td>${formatearNumero(item.extra_nocturna_festiva || 0)}</td>
         <td>${formatearNumero(item.horas_extra_estimadas || 0)}</td>
         <td>${crearBadgeEstadoExtra(estado)}</td>
         <td>${escaparHtml(item.aprobado_por || "-")}</td>
@@ -1478,6 +1505,44 @@ function renderTablaValidacionExtras(registros) {
   }).join("");
 
   enlazarEventosValidacion();
+  configurarScrollSuperiorValidacionExtras();
+}
+
+
+function configurarScrollSuperiorValidacionExtras() {
+  const scrollSuperior = document.getElementById("scrollSuperiorValidacionExtras");
+  const scrollTabla = document.getElementById("scrollTablaValidacionExtras");
+  const tabla = scrollTabla?.querySelector("table");
+  const relleno = scrollSuperior?.firstElementChild;
+  if (!scrollSuperior || !scrollTabla || !tabla || !relleno) return;
+
+  const actualizarAncho = () => {
+    relleno.style.width = `${tabla.scrollWidth}px`;
+    if (scrollSuperior.scrollLeft !== scrollTabla.scrollLeft) {
+      scrollSuperior.scrollLeft = scrollTabla.scrollLeft;
+    }
+  };
+
+  actualizarAncho();
+  requestAnimationFrame(actualizarAncho);
+
+  if (!scrollSuperior.dataset.sincronizado) {
+    let sincronizando = false;
+    scrollSuperior.addEventListener("scroll", () => {
+      if (sincronizando) return;
+      sincronizando = true;
+      scrollTabla.scrollLeft = scrollSuperior.scrollLeft;
+      sincronizando = false;
+    });
+    scrollTabla.addEventListener("scroll", () => {
+      if (sincronizando) return;
+      sincronizando = true;
+      scrollSuperior.scrollLeft = scrollTabla.scrollLeft;
+      sincronizando = false;
+    });
+    window.addEventListener("resize", actualizarAncho);
+    scrollSuperior.dataset.sincronizado = "1";
+  }
 }
 
 function enlazarEventosValidacion() {
@@ -1886,7 +1951,16 @@ function renderRankingNovedadesBienestar(solicitudes) {
 }
 
 function obtenerRegistrosConExtras(registros) {
-  return registros.filter((item) => Number(item.horas_extra_estimadas || 0) > 0);
+  return registros.filter((item) => {
+    if (esNovedad(item)) return false;
+    const esFestivo = item.es_festivo === true || String(item.tipo_jornada || "").toLowerCase().includes("festivo");
+    const extras = Number(item.horas_extra_estimadas || 0) > 0
+      || Number(item.extra_diurna || 0) > 0
+      || Number(item.extra_nocturna || 0) > 0
+      || Number(item.extra_diurna_festiva || 0) > 0
+      || Number(item.extra_nocturna_festiva || 0) > 0;
+    return esFestivo || extras;
+  });
 }
 
 function usuarioPuedeValidarRegistro(sesion, registro) {
@@ -3039,6 +3113,8 @@ function exportarExcelAprobados() {
       "Horas nocturnas": Number(item.horas_nocturnas || 0),
       "Extra diurna": Number(item.extra_diurna || 0),
       "Extra nocturna": Number(item.extra_nocturna || 0),
+      "Extra diurna festiva": Number(item.extra_diurna_festiva || 0),
+      "Extra nocturna festiva": Number(item.extra_nocturna_festiva || 0),
       "Total extra": Number(item.horas_extra_estimadas || 0),
       Estado: normalizarEstadoExtra(item.estado_extra),
       "Aprobado por": item.aprobado_por || "",
@@ -3209,9 +3285,9 @@ function obtenerClaveModulo(href) {
 function obtenerInicioSemanaOperativa(fechaBase) {
   const fecha = new Date(fechaBase);
   const dia = fecha.getDay();
-  const diasDesdeMartes = (dia + 5) % 7;
+  const diasDesdeLunes = (dia + 6) % 7;
   fecha.setHours(0, 0, 0, 0);
-  fecha.setDate(fecha.getDate() - diasDesdeMartes);
+  fecha.setDate(fecha.getDate() - diasDesdeLunes);
   return fecha;
 }
 

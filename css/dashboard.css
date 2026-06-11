@@ -790,3 +790,100 @@ body {
   }
 }
 
+
+/* Paquete 05 - Validación de festivos en Dashboard A&B */
+.fila-festivo-validacion td {
+  background: #fff7ed !important;
+}
+
+.fila-festivo-validacion td:first-child {
+  border-left: 4px solid #dc2626;
+}
+
+.badge-festivo-dashboard {
+  display: inline-block;
+  margin-top: .25rem;
+  padding: .12rem .42rem;
+  border: 1px solid #fca5a5;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: .66rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+
+/* =========================================================
+   Ajuste 06: Validacion extras con scroll horizontal superior
+   ========================================================= */
+.bloque-validacion-extras {
+  max-height: 560px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+.scroll-superior-validacion {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  height: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: #ffffff;
+  border-bottom: 1px solid #d8e2f1;
+  margin-bottom: 6px;
+}
+
+.scroll-superior-validacion > div {
+  height: 1px;
+}
+
+#scrollTablaValidacionExtras {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  max-width: 100%;
+}
+
+.tabla-validacion-extras {
+  min-width: 1480px;
+  table-layout: auto;
+}
+
+.tabla-validacion-extras th,
+.tabla-validacion-extras td {
+  vertical-align: middle;
+}
+
+.tabla-validacion-extras th:nth-child(1),
+.tabla-validacion-extras td:nth-child(1) { min-width: 44px; }
+.tabla-validacion-extras th:nth-child(2),
+.tabla-validacion-extras td:nth-child(2) { min-width: 150px; }
+.tabla-validacion-extras th:nth-child(3),
+.tabla-validacion-extras td:nth-child(3) { min-width: 110px; }
+.tabla-validacion-extras th:nth-child(4),
+.tabla-validacion-extras td:nth-child(4) { min-width: 120px; }
+.tabla-validacion-extras th:nth-child(5),
+.tabla-validacion-extras td:nth-child(5) { min-width: 130px; }
+.tabla-validacion-extras th:nth-child(6),
+.tabla-validacion-extras td:nth-child(6) { min-width: 120px; }
+.tabla-validacion-extras th:nth-child(7),
+.tabla-validacion-extras td:nth-child(7),
+.tabla-validacion-extras th:nth-child(8),
+.tabla-validacion-extras td:nth-child(8),
+.tabla-validacion-extras th:nth-child(9),
+.tabla-validacion-extras td:nth-child(9),
+.tabla-validacion-extras th:nth-child(10),
+.tabla-validacion-extras td:nth-child(10),
+.tabla-validacion-extras th:nth-child(11),
+.tabla-validacion-extras td:nth-child(11) { min-width: 95px; text-align: center; }
+.tabla-validacion-extras th:nth-child(12),
+.tabla-validacion-extras td:nth-child(12) { min-width: 110px; }
+.tabla-validacion-extras th:nth-child(13),
+.tabla-validacion-extras td:nth-child(13) { min-width: 130px; }
+.tabla-validacion-extras th:nth-child(14),
+.tabla-validacion-extras td:nth-child(14) { min-width: 140px; }
+.tabla-validacion-extras th:nth-child(15),
+.tabla-validacion-extras td:nth-child(15) { min-width: 150px; }
+.tabla-validacion-extras th:nth-child(16),
+.tabla-validacion-extras td:nth-child(16) { min-width: 160px; }
