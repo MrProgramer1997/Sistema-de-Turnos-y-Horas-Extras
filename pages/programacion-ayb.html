@@ -20,7 +20,7 @@
         <small>Módulo web A&B · Corporación Club Campestre de Pereira</small>
       </div>
       <div class="text-end">
-        <div class="fw-semibold">Semana actual</div>
+        <div class="fw-semibold">Periodo operativo</div>
         <div class="fw-bold" id="textoMesAnioAyb">Cargando mes...</div>
         <small id="textoSemanaAyb">Cargando semana...</small>
       </div>
@@ -33,14 +33,37 @@
           <p class="text-muted mb-0" id="subtituloAyb">Matriz semanal por empleado</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-          <button class="btn btn-outline-primary" id="btnSemanaAnterior" type="button">Semana anterior</button>
+          <button class="btn btn-outline-primary" id="btnSemanaAnterior" type="button">Periodo anterior</button>
           <button class="btn btn-outline-primary" id="btnSemanaActual" type="button">Semana actual</button>
-          <button class="btn btn-outline-primary" id="btnSemanaSiguiente" type="button">Semana siguiente</button>
+          <button class="btn btn-outline-primary" id="btnSemanaSiguiente" type="button">Periodo siguiente</button>
           <button class="btn btn-primary" id="btnNuevaAsignacion" type="button">Nueva asignación</button>
           <button class="btn btn-outline-success" id="btnVisualSemanalAyb" type="button">Visual semanal</button>
           <button class="btn btn-outline-danger" id="btnPdfGeneral" type="button">PDF general</button>
           <button class="btn btn-outline-danger" id="btnPdfCalendarioAyb" type="button">PDF calendario</button>
           <button class="btn btn-outline-danger" id="btnPdfOperativoAyb" type="button">PDF operativo</button>
+        </div>
+      </div>
+
+
+      <div class="card resumen-card mb-4 periodo-operativo-ayb">
+        <div class="card-header bg-white fw-bold">Periodo operativo A&B</div>
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-4 col-lg-3">
+              <label for="fechaInicioPeriodoAyb" class="form-label">Fecha inicio</label>
+              <input type="date" class="form-control" id="fechaInicioPeriodoAyb">
+            </div>
+            <div class="col-12 col-md-4 col-lg-3">
+              <label for="fechaFinPeriodoAyb" class="form-label">Fecha fin</label>
+              <input type="date" class="form-control" id="fechaFinPeriodoAyb">
+            </div>
+            <div class="col-12 col-md-4 col-lg-2">
+              <button class="btn btn-primary w-100" id="btnCargarPeriodoOperativoAyb" type="button">Cargar periodo</button>
+            </div>
+            <div class="col-12 col-lg-4">
+              <div class="small text-muted">El conteo de 44 horas, festivos, horas extra, PDFs y visual semanal se calcula sobre este rango operativo.</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -62,7 +85,7 @@
             <div class="card-body">
               <div class="kpi-label">Horas netas programadas</div>
               <div class="kpi-value" id="kpiHorasNetasAyb">0.0</div>
-              <div class="small text-muted">Semana visible</div>
+              <div class="small text-muted">Periodo operativo visible</div>
             </div>
           </div>
         </div>
@@ -72,7 +95,7 @@
             <div class="card-body">
               <div class="kpi-label">Horas extra estimadas</div>
               <div class="kpi-value" id="kpiHorasExtraAyb">0.0</div>
-              <div class="small text-muted">Programación teórica</div>
+              <div class="small text-muted">Sobre 44 horas del periodo</div>
             </div>
           </div>
         </div>
@@ -177,14 +200,14 @@
 
       <div class="card shadow-sm border-0 mt-4">
         <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <div class="fw-bold">Matriz semanal de programación A&B por empleado</div>
+          <div class="fw-bold">Matriz de programación A&B por periodo operativo</div>
           <div id="textoResultadoMatrizAyb" class="small text-muted">Cargando empleados...</div>
         </div>
         <div class="card-body">
           <div class="table-responsive matriz-wrapper-ayb">
             <table class="table table-bordered calendario-ayb matriz-ayb">
               <thead>
-                <tr>
+                <tr id="trEncabezadosMatrizAyb">
                   <th class="columna-empleado-ayb">Empleado / Cargo</th>
                   <th id="thDia1">Martes</th>
                   <th id="thDia2">Miércoles</th>
@@ -197,7 +220,7 @@
               </thead>
               <tbody id="tbodyProgramacionAYB">
                 <tr>
-                  <td colspan="8" class="text-center text-muted py-4">Cargando programación...</td>
+                  <td colspan="8" class="text-center text-muted py-4">Cargando programación del periodo...</td>
                 </tr>
               </tbody>
             </table>
@@ -213,14 +236,14 @@
       <div class="modal-content">
         <div class="modal-header">
           <div>
-            <h5 class="modal-title mb-1">Visual semanal de disponibilidad A&B</h5>
-            <div class="text-muted small" id="visualSemanaSubtituloAyb">Semana visible</div>
+            <h5 class="modal-title mb-1">Visual de disponibilidad por periodo A&B</h5>
+            <div class="text-muted small" id="visualSemanaSubtituloAyb">Periodo operativo visible</div>
           </div>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
         </div>
         <div class="modal-body">
           <div class="alert alert-info py-2 mb-3">
-            Esta vista muestra todo el personal A&B de la semana visible, incluyendo empleados con turnos, con novedades y sin programación. Es solo de consulta; para modificar use los botones de la matriz principal.
+            Esta vista muestra todo el personal A&B del periodo operativo visible, incluyendo empleados con turnos, con novedades y sin programación. Es solo de consulta; para modificar use los botones de la matriz principal.
           </div>
 
           <div class="row g-3 mb-3" id="visualKpisAyb">
@@ -258,13 +281,13 @@
                   <input class="form-control" id="visualBuscarAyb" type="text" placeholder="Nombre, cédula o cargo">
                 </div>
                 <div class="col-12 col-md-4">
-                  <label class="form-label" for="visualEstadoAyb">Estado semanal</label>
+                  <label class="form-label" for="visualEstadoAyb">Estado del periodo</label>
                   <select class="form-select" id="visualEstadoAyb">
                     <option value="todos">Todos</option>
-                    <option value="sin-programacion">Sin programación en toda la semana</option>
+                    <option value="sin-programacion">Sin programación en todo el periodo</option>
                     <option value="con-programacion">Con al menos un turno</option>
                     <option value="con-novedad">Con novedades</option>
-                    <option value="libre-hoy">Libre en algún día de la semana</option>
+                    <option value="libre-hoy">Libre en algún día del periodo</option>
                   </select>
                 </div>
                 <div class="col-12 col-md-3">
@@ -277,7 +300,7 @@
           <div class="table-responsive visual-wrapper-ayb">
             <table class="table table-bordered align-middle visual-semanal-ayb">
               <thead>
-                <tr>
+                <tr id="trVisualSemanalAyb">
                   <th class="visual-col-empleado-ayb">Empleado / Cargo</th>
                   <th id="visualDia1Ayb">Día 1</th>
                   <th id="visualDia2Ayb">Día 2</th>
@@ -290,7 +313,7 @@
                 </tr>
               </thead>
               <tbody id="tbodyVisualSemanalAyb">
-                <tr><td colspan="9" class="text-center text-muted py-4">Cargando visual semanal...</td></tr>
+                <tr><td colspan="9" class="text-center text-muted py-4">Cargando visual del periodo...</td></tr>
               </tbody>
             </table>
           </div>

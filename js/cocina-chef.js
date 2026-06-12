@@ -10,6 +10,34 @@ const HORA_INICIO_NOCTURNO_CHEF = 19 * 60; // 7:00 p.m.
 const HORA_FIN_NOCTURNO_CHEF = 6 * 60; // 6:00 a.m.
 const DESCANSO_ESTANDAR_HORAS_CHEF = 0.5;
 
+const TURNOS_CHEF_7H_NETAS = {
+  "1": { descripcion: "5:30am - 1:00pm · 7h netas", hora_inicio: "05:30", hora_fin: "13:00" },
+  "2": { descripcion: "6:00am - 1:30pm · 7h netas", hora_inicio: "06:00", hora_fin: "13:30" },
+  "3": { descripcion: "7:00am - 2:30pm · 7h netas", hora_inicio: "07:00", hora_fin: "14:30" },
+  "4": { descripcion: "8:00am - 3:30pm · 7h netas", hora_inicio: "08:00", hora_fin: "15:30" },
+  "5": { descripcion: "9:00am - 4:30pm · 7h netas", hora_inicio: "09:00", hora_fin: "16:30" },
+  "6": { descripcion: "10:00am - 5:30pm · 7h netas", hora_inicio: "10:00", hora_fin: "17:30" },
+  "7": { descripcion: "11:00am - 6:30pm · 7h netas", hora_inicio: "11:00", hora_fin: "18:30" },
+  "8": { descripcion: "12:00pm - 7:30pm · 7h netas", hora_inicio: "12:00", hora_fin: "19:30" },
+  "9": { descripcion: "1:00pm - 8:30pm · 7h netas", hora_inicio: "13:00", hora_fin: "20:30" },
+  "10": { descripcion: "2:00pm - 9:30pm · 7h netas", hora_inicio: "14:00", hora_fin: "21:30" },
+  "11": { descripcion: "3:00pm - 10:30pm · 7h netas", hora_inicio: "15:00", hora_fin: "22:30" }
+};
+
+const TURNOS_CHEF_8H_NETAS = {
+  "1": { descripcion: "5:30am - 2:00pm · 8h netas", hora_inicio: "05:30", hora_fin: "14:00" },
+  "2": { descripcion: "6:00am - 2:30pm · 8h netas", hora_inicio: "06:00", hora_fin: "14:30" },
+  "3": { descripcion: "7:00am - 3:30pm · 8h netas", hora_inicio: "07:00", hora_fin: "15:30" },
+  "4": { descripcion: "8:00am - 4:30pm · 8h netas", hora_inicio: "08:00", hora_fin: "16:30" },
+  "5": { descripcion: "9:00am - 5:30pm · 8h netas", hora_inicio: "09:00", hora_fin: "17:30" },
+  "6": { descripcion: "10:00am - 6:30pm · 8h netas", hora_inicio: "10:00", hora_fin: "18:30" },
+  "7": { descripcion: "11:00am - 7:30pm · 8h netas", hora_inicio: "11:00", hora_fin: "19:30" },
+  "8": { descripcion: "12:00pm - 8:30pm · 8h netas", hora_inicio: "12:00", hora_fin: "20:30" },
+  "9": { descripcion: "1:00pm - 9:30pm · 8h netas", hora_inicio: "13:00", hora_fin: "21:30" },
+  "10": { descripcion: "2:00pm - 10:30pm · 8h netas", hora_inicio: "14:00", hora_fin: "22:30" },
+  "11": { descripcion: "3:00pm - 11:30pm · 8h netas", hora_inicio: "15:00", hora_fin: "23:30" }
+};
+
 let fechaBase = new Date();
 let semana = [];
 let personal = [];
@@ -760,7 +788,7 @@ function renderTabla() {
       td.className = "celda-dia-chef";
 
       if (registro) {
-        const codigo = codigos.find((item) => item.codigo === registro.codigo_turno);
+        const codigo = obtenerCodigoTurnoChef(registro.codigo_turno, registro.fecha);
         const areaTurno = obtenerAreaPorId(registro.area_cocina_id);
         const horario = codigo?.hora_inicio && codigo?.hora_fin
           ? `${String(codigo.hora_inicio).substring(0, 5)}-${String(codigo.hora_fin).substring(0, 5)}`
@@ -768,7 +796,7 @@ function renderTabla() {
         const nombreAreaTurno = areaTurno?.nombre || registro.area_cocina || nombreAreaBase;
         const color = colorSeguroCocina(codigo?.color);
         const codigo2 = registro.codigo_turno_2
-          ? codigos.find((item) => item.codigo === registro.codigo_turno_2)
+          ? obtenerCodigoTurnoChef(registro.codigo_turno_2, registro.fecha)
           : null;
         const areaTurno2 = registro.area_cocina_id_2 ? obtenerAreaPorId(registro.area_cocina_id_2) : null;
         const horario2 = codigo2?.hora_inicio && codigo2?.hora_fin
@@ -971,32 +999,26 @@ function obtenerTurnosVisiblesCalculadosChef() {
 }
 
 function enriquecerRegistroHorasChef(registro) {
-  const codigo1 = codigos.find((item) => String(item.codigo) === String(registro.codigo_turno));
+  const codigo1 = obtenerCodigoTurnoChef(registro.codigo_turno, registro.fecha);
   const inicio1 = codigo1?.hora_inicio ? String(codigo1.hora_inicio).substring(0, 5) : "";
   const fin1 = codigo1?.hora_fin ? String(codigo1.hora_fin).substring(0, 5) : "";
-  const bloque1 = calcularHorasTurnoChef(inicio1, fin1);
 
   const codigo2 = registro.codigo_turno_2
-    ? codigos.find((item) => String(item.codigo) === String(registro.codigo_turno_2))
+    ? obtenerCodigoTurnoChef(registro.codigo_turno_2, registro.fecha)
     : null;
   const inicio2 = codigo2?.hora_inicio ? String(codigo2.hora_inicio).substring(0, 5) : "";
   const fin2 = codigo2?.hora_fin ? String(codigo2.hora_fin).substring(0, 5) : "";
-  const bloque2 = calcularHorasTurnoChef(inicio2, fin2);
 
-  const horasTotales = redondearHorasChef(bloque1.total + bloque2.total);
-  const horasDiurnas = redondearHorasChef(bloque1.diurnas + bloque2.diurnas);
-  const horasNocturnas = redondearHorasChef(bloque1.nocturnas + bloque2.nocturnas);
-  const horasNetas = redondearHorasChef(horasDiurnas + horasNocturnas);
-
+  const detalle = calcularDetalleHorasChef(inicio1, fin1, inicio2, fin2);
   const jornadaInfo = obtenerJornadaEsperadaChef(registro.fecha);
-  const horasExtra = redondearHorasChef(Math.max(0, horasNetas - jornadaInfo.horas));
+  const horasExtra = redondearHorasChef(Math.max(0, detalle.horas_netas - jornadaInfo.horas));
 
   let extraDiurna = 0;
   let extraNocturna = 0;
 
   if (horasExtra > 0) {
-    const ordinariasDiurnas = Math.min(horasDiurnas, jornadaInfo.horas);
-    extraDiurna = redondearHorasChef(Math.max(0, horasDiurnas - ordinariasDiurnas));
+    const ordinariasDiurnas = Math.min(detalle.horas_diurnas, jornadaInfo.horas);
+    extraDiurna = redondearHorasChef(Math.max(0, detalle.horas_diurnas - ordinariasDiurnas));
     extraNocturna = redondearHorasChef(Math.max(0, horasExtra - extraDiurna));
   }
 
@@ -1009,15 +1031,13 @@ function enriquecerRegistroHorasChef(registro) {
     hora_inicio_calculada_2: inicio2,
     hora_fin_calculada_2: fin2,
     horario_calculable: Boolean(inicio1 && fin1) && (!registro.codigo_turno_2 || Boolean(inicio2 && fin2)),
-    horas_bloque_1: bloque1.netas,
-    horas_bloque_2: bloque2.netas,
-    horas_totales: horasTotales,
-    horas_diurnas: horasDiurnas,
-    horas_nocturnas: horasNocturnas,
-    horas_netas: horasNetas,
-    descuento_almuerzo: horasTotales > 0
-      ? (registro.codigo_turno_2 ? DESCANSO_ESTANDAR_HORAS_CHEF * 2 : DESCANSO_ESTANDAR_HORAS_CHEF)
-      : 0,
+    horas_bloque_1: detalle.horas_bloque_1,
+    horas_bloque_2: detalle.horas_bloque_2,
+    horas_totales: detalle.horas_totales,
+    horas_diurnas: detalle.horas_diurnas,
+    horas_nocturnas: detalle.horas_nocturnas,
+    horas_netas: detalle.horas_netas,
+    descuento_almuerzo: detalle.descuento_almuerzo,
     jornada_esperada: jornadaInfo.horas,
     tipo_jornada: jornadaInfo.tipo,
     horas_extra_estimadas: horasExtra,
@@ -1026,55 +1046,63 @@ function enriquecerRegistroHorasChef(registro) {
   };
 }
 
-function calcularHorasTurnoChef(inicio, fin) {
-  if (!inicio || !fin) {
-    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
-  }
-
-  const inicioMin = horaChefAMinutos(inicio);
-  let finMin = horaChefAMinutos(fin);
-
-  if (inicioMin === null || finMin === null) {
-    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
-  }
-
-  if (finMin < inicioMin) {
-    finMin += 24 * 60;
-  }
-
-  let minutosDiurnos = 0;
-  let minutosNocturnos = 0;
-
-  for (let minuto = inicioMin; minuto < finMin; minuto++) {
-    const minutoDia = minuto % (24 * 60);
-    if (minutoDia >= HORA_INICIO_NOCTURNO_CHEF || minutoDia < HORA_FIN_NOCTURNO_CHEF) {
-      minutosNocturnos += 1;
-    } else {
-      minutosDiurnos += 1;
-    }
-  }
-
-  const minutosTotales = minutosDiurnos + minutosNocturnos;
-  if (minutosTotales === 0) {
-    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
-  }
-
-  let descuento = DESCANSO_ESTANDAR_HORAS_CHEF * 60;
-
-  if (minutosDiurnos >= descuento) {
-    minutosDiurnos -= descuento;
-  } else {
-    const restante = descuento - minutosDiurnos;
-    minutosDiurnos = 0;
-    minutosNocturnos = Math.max(0, minutosNocturnos - restante);
-  }
+function calcularDetalleHorasChef(inicio1, fin1, inicio2, fin2) {
+  const segmentosB1 = construirSegmentosMinutoChef(inicio1, fin1, "bloque_1");
+  const segmentosB2 = construirSegmentosMinutoChef(inicio2, fin2, "bloque_2");
+  const segmentosBrutos = [...segmentosB1, ...segmentosB2];
+  const minutosBrutos = segmentosBrutos.length;
+  const descuentoMinutos = minutosBrutos > 0 ? Math.min(DESCANSO_ESTANDAR_HORAS_CHEF * 60, minutosBrutos) : 0;
+  const segmentosNetos = aplicarDescuentoAlmuerzoUnaVezChef(segmentosBrutos, descuentoMinutos);
+  const minutosDiurnos = segmentosNetos.filter((s) => s.tipo === "diurna").length;
+  const minutosNocturnos = segmentosNetos.filter((s) => s.tipo === "nocturna").length;
 
   return {
-    total: redondearHorasChef(minutosTotales / 60),
-    diurnas: redondearHorasChef(minutosDiurnos / 60),
-    nocturnas: redondearHorasChef(minutosNocturnos / 60),
-    netas: redondearHorasChef((minutosDiurnos + minutosNocturnos) / 60)
+    horas_bloque_1: redondearHorasChef(segmentosNetos.filter((s) => s.bloque === "bloque_1").length / 60),
+    horas_bloque_2: redondearHorasChef(segmentosNetos.filter((s) => s.bloque === "bloque_2").length / 60),
+    horas_totales: redondearHorasChef(minutosBrutos / 60),
+    descuento_almuerzo: redondearHorasChef(descuentoMinutos / 60),
+    horas_diurnas: redondearHorasChef(minutosDiurnos / 60),
+    horas_nocturnas: redondearHorasChef(minutosNocturnos / 60),
+    horas_netas: redondearHorasChef((minutosDiurnos + minutosNocturnos) / 60)
   };
+}
+
+function construirSegmentosMinutoChef(inicio, fin, bloque) {
+  if (!inicio || !fin) return [];
+  const inicioMin = horaChefAMinutos(inicio);
+  let finMin = horaChefAMinutos(fin);
+  if (inicioMin === null || finMin === null) return [];
+  if (finMin < inicioMin) finMin += 24 * 60;
+
+  const segmentos = [];
+  for (let minuto = inicioMin; minuto < finMin; minuto++) {
+    const minutoDia = minuto % (24 * 60);
+    segmentos.push({
+      bloque,
+      tipo: minutoDia >= HORA_INICIO_NOCTURNO_CHEF || minutoDia < HORA_FIN_NOCTURNO_CHEF ? "nocturna" : "diurna"
+    });
+  }
+  return segmentos;
+}
+
+function aplicarDescuentoAlmuerzoUnaVezChef(segmentos, descuentoMinutos) {
+  if (!segmentos.length || descuentoMinutos <= 0) return segmentos.slice();
+  const remover = new Set();
+  let pendiente = descuentoMinutos;
+
+  for (let i = 0; i < segmentos.length && pendiente > 0; i++) {
+    if (segmentos[i].tipo === "diurna") {
+      remover.add(i);
+      pendiente--;
+    }
+  }
+  for (let i = 0; i < segmentos.length && pendiente > 0; i++) {
+    if (!remover.has(i)) {
+      remover.add(i);
+      pendiente--;
+    }
+  }
+  return segmentos.filter((_, index) => !remover.has(index));
 }
 
 function horaChefAMinutos(hora) {
@@ -1085,15 +1113,15 @@ function horaChefAMinutos(hora) {
 
 function obtenerJornadaEsperadaChef(fechaISO) {
   if (festivosSemanaChef.some((festivo) => String(festivo.fecha) === String(fechaISO))) {
-    return { horas: 8.5, tipo: "Festivo" };
+    return { horas: 8, tipo: "Festivo / 8h netas" };
   }
 
   const dia = new Date(`${fechaISO}T00:00:00`).getDay();
   if (dia === 0 || dia === 6) {
-    return { horas: 8.5, tipo: "Sábado/Domingo" };
+    return { horas: 8, tipo: "Sábado/Domingo / 8h netas" };
   }
 
-  return { horas: 7.5, tipo: "Lunes a viernes / día hábil" };
+  return { horas: 7, tipo: "Martes a viernes / 7h netas" };
 }
 
 function redondearHorasChef(valor) {
@@ -1435,6 +1463,26 @@ function actualizarVistaTurnoPartidoChef() {
   }
 }
 
+function obtenerCatalogoTurnosChefPorFecha(fechaISO) {
+  if (!fechaISO) return TURNOS_CHEF_7H_NETAS;
+  const festivo = festivosSemanaChef.some((festivo) => String(festivo.fecha) === String(fechaISO));
+  const fecha = new Date(`${fechaISO}T00:00:00`);
+  const dia = fecha.getDay();
+  return festivo || dia === 0 || dia === 6 ? TURNOS_CHEF_8H_NETAS : TURNOS_CHEF_7H_NETAS;
+}
+
+function obtenerCodigoTurnoChef(codigo, fechaISO) {
+  const base = codigos.find((item) => String(item.codigo) === String(codigo)) || { codigo };
+  const dinamico = obtenerCatalogoTurnosChefPorFecha(fechaISO)[String(codigo)];
+  if (!dinamico) return base;
+  return {
+    ...base,
+    descripcion: dinamico.descripcion || base.descripcion || "",
+    hora_inicio: dinamico.hora_inicio,
+    hora_fin: dinamico.hora_fin
+  };
+}
+
 function cargarOpcionesCodigoTurnoChef(selectElement, permitirVacio = false) {
   if (!selectElement) return;
 
@@ -1455,7 +1503,9 @@ function cargarOpcionesCodigoTurnoChef(selectElement, permitirVacio = false) {
     return;
   }
 
-  codigos.forEach((codigo) => {
+  const fechaReferencia = selectedCelda?.fecha || formatearFechaISO(fechaBase);
+  codigos.forEach((codigoBase) => {
+    const codigo = obtenerCodigoTurnoChef(codigoBase.codigo, fechaReferencia);
     const opt = document.createElement("option");
     opt.value = codigo.codigo;
     const hora =

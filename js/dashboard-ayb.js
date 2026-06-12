@@ -31,6 +31,11 @@ let chartHorasExtraEmpleados = null;
 const HORA_INICIO_NOCTURNO = 19 * 60;
 const HORA_FIN_NOCTURNO = 6 * 60;
 const DESCANSO_ESTANDAR_HORAS = 0.5;
+const STORAGE_PERIODO_OPERATIVO_AYB = "ccp_periodo_operativo_ayb";
+const JORNADA_SEMANAL_AYB_HORAS = 44;
+const JORNADA_SEMANAL_AYB_HORAS_REDUCIDA = 42;
+const FECHA_CAMBIO_REDUCCION_JORNADA_AYB = "2026-07-15";
+const JORNADA_SEMANAL_AYB_MINUTOS = JORNADA_SEMANAL_AYB_HORAS * 60;
 
 const DASHBOARD_ALCANCE_AYB = true;
 const PALABRAS_CLAVE_AYB_DASHBOARD = [
@@ -42,6 +47,16 @@ const PALABRAS_CLAVE_AYB_DASHBOARD = [
   "AYB",
   "COCINA"
 ];
+
+function obtenerJornadaSemanalAybHoras(fechaReferenciaISO = "") {
+  return String(fechaReferenciaISO || "") >= FECHA_CAMBIO_REDUCCION_JORNADA_AYB
+    ? JORNADA_SEMANAL_AYB_HORAS_REDUCIDA
+    : JORNADA_SEMANAL_AYB_HORAS;
+}
+
+function obtenerJornadaSemanalAybMinutos(fechaReferenciaISO = "") {
+  return obtenerJornadaSemanalAybHoras(fechaReferenciaISO) * 60;
+}
 
 function normalizarTextoAlcanceAyb(valor) {
   return String(valor || "")
@@ -435,7 +450,7 @@ async function cargarDashboardReal(sesion) {
       registrosChefOficiales
     );
 
-    registrosBase = consolidado.registros;
+    registrosBase = aplicarCalculoSemanal44Dashboard(consolidado.registros);
     registrosDuplicadosBase = consolidado.duplicados;
 
     const solicitudesBienestar = await cargarSolicitudesBienestarSeguras(sesion);
@@ -555,96 +570,180 @@ function normalizarEstadoExtra(valor) {
 }
 
 function calcularMetricasRegistroDashboard(registro) {
-  const b1 = calcularHorasTurnoProtegiendoNocturnas(registro.hora_inicio, registro.hora_fin);
-  const b2 = calcularHorasTurnoProtegiendoNocturnas(registro.hora_inicio_2, registro.hora_fin_2);
-
-  const horasDiurnas = redondearHoras(b1.diurnas + b2.diurnas);
-  const horasNocturnas = redondearHoras(b1.nocturnas + b2.nocturnas);
-  const horasNetas = redondearHoras(horasDiurnas + horasNocturnas);
+  const detalle = calcularDetalleHorasRegistroDashboard(registro);
   const jornadaInfo = obtenerJornadaEsperadaPorFecha(registro.fecha);
-  const jornada = jornadaInfo.horas;
-
-  const horasExtraEstimadas = redondearHoras(Math.max(0, horasNetas - jornada));
-
-  let extraDiurnaCalculada = 0;
-  let extraNocturnaCalculada = 0;
-
-  if (horasExtraEstimadas > 0) {
-    const ordinariasDiurnas = Math.min(horasDiurnas, jornada);
-    extraDiurnaCalculada = redondearHoras(Math.max(0, horasDiurnas - ordinariasDiurnas));
-    extraNocturnaCalculada = redondearHoras(Math.max(0, horasExtraEstimadas - extraDiurnaCalculada));
-  }
-
-  const esFestivo = jornadaInfo.esFestivo === true || String(jornadaInfo.tipo || "").toLowerCase().includes("festivo");
-  const extraDiurna = esFestivo ? 0 : extraDiurnaCalculada;
-  const extraNocturna = esFestivo ? 0 : extraNocturnaCalculada;
-  const extraDiurnaFestiva = esFestivo ? extraDiurnaCalculada : 0;
-  const extraNocturnaFestiva = esFestivo ? extraNocturnaCalculada : 0;
 
   return {
-    horas_diurnas: horasDiurnas,
-    horas_nocturnas: horasNocturnas,
-    horas_netas: horasNetas,
-    extra_diurna: extraDiurna,
-    extra_nocturna: extraNocturna,
-    extra_diurna_festiva: extraDiurnaFestiva,
-    extra_nocturna_festiva: extraNocturnaFestiva,
-    horas_extra_estimadas: horasExtraEstimadas,
+    horas_diurnas: detalle.horas_diurnas,
+    horas_nocturnas: detalle.horas_nocturnas,
+    horas_netas: detalle.horas_netas,
+    horas_totales: detalle.horas_totales,
+    descuento_almuerzo: detalle.descuento_almuerzo,
+    extra_diurna: 0,
+    extra_nocturna: 0,
+    extra_diurna_festiva: 0,
+    extra_nocturna_festiva: 0,
+    horas_extra_estimadas: 0,
+    jornada_esperada: JORNADA_SEMANAL_AYB_HORAS,
     tipo_jornada: jornadaInfo.tipo,
-    es_festivo: esFestivo,
-    nombre_festivo: jornadaInfo.nombreFestivo || ""
+    es_festivo: Boolean(jornadaInfo.esFestivo),
+    nombre_festivo: jornadaInfo.nombreFestivo || "",
+    _segmentos_netos_ayb: detalle.segmentos_netos
   };
 }
 
-function calcularHorasTurnoProtegiendoNocturnas(inicio, fin) {
-  if (!inicio || !fin) {
-    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
-  }
-
-  const inicioMin = horaTextoAMinutos(inicio);
-  let finMin = horaTextoAMinutos(fin);
-
-  if (inicioMin === null || finMin === null) {
-    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
-  }
-
-  if (finMin < inicioMin) {
-    finMin += 24 * 60;
-  }
-
-  let minutosDiurnos = 0;
-  let minutosNocturnos = 0;
-
-  for (let m = inicioMin; m < finMin; m++) {
-    const minutoDelDia = m % (24 * 60);
-    if (esMinutoNocturno(minutoDelDia)) {
-      minutosNocturnos += 1;
-    } else {
-      minutosDiurnos += 1;
-    }
-  }
-
-  const minutosTotales = minutosDiurnos + minutosNocturnos;
-  if (minutosTotales === 0) {
-    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
-  }
-
-  let descuentoMinutos = DESCANSO_ESTANDAR_HORAS * 60;
-
-  if (minutosDiurnos >= descuentoMinutos) {
-    minutosDiurnos -= descuentoMinutos;
-  } else {
-    const restante = descuentoMinutos - minutosDiurnos;
-    minutosDiurnos = 0;
-    minutosNocturnos = Math.max(0, minutosNocturnos - restante);
-  }
+function calcularDetalleHorasRegistroDashboard(registro) {
+  const segmentosB1 = construirSegmentosMinutoDashboard(registro.hora_inicio, registro.hora_fin, "bloque_1");
+  const segmentosB2 = construirSegmentosMinutoDashboard(registro.hora_inicio_2, registro.hora_fin_2, "bloque_2");
+  const segmentosBrutos = [...segmentosB1, ...segmentosB2];
+  const minutosBrutos = segmentosBrutos.length;
+  const descuentoMinutos = minutosBrutos > 0 ? Math.min(DESCANSO_ESTANDAR_HORAS * 60, minutosBrutos) : 0;
+  const segmentosNetos = aplicarDescuentoAlmuerzoUnaVezDashboard(segmentosBrutos, descuentoMinutos);
+  const minutosDiurnos = segmentosNetos.filter((s) => s.tipo === "diurna").length;
+  const minutosNocturnos = segmentosNetos.filter((s) => s.tipo === "nocturna").length;
 
   return {
-    total: redondearHoras(minutosTotales / 60),
-    diurnas: redondearHoras(minutosDiurnos / 60),
-    nocturnas: redondearHoras(minutosNocturnos / 60),
-    netas: redondearHoras((minutosDiurnos + minutosNocturnos) / 60)
+    horas_totales: redondearHoras(minutosBrutos / 60),
+    descuento_almuerzo: redondearHoras(descuentoMinutos / 60),
+    horas_diurnas: redondearHoras(minutosDiurnos / 60),
+    horas_nocturnas: redondearHoras(minutosNocturnos / 60),
+    horas_netas: redondearHoras((minutosDiurnos + minutosNocturnos) / 60),
+    segmentos_netos: segmentosNetos
   };
+}
+
+function construirSegmentosMinutoDashboard(inicio, fin, bloque) {
+  if (!inicio || !fin) return [];
+  const inicioMin = horaTextoAMinutos(inicio);
+  let finMin = horaTextoAMinutos(fin);
+  if (inicioMin === null || finMin === null) return [];
+  if (finMin < inicioMin) finMin += 24 * 60;
+
+  const segmentos = [];
+  for (let m = inicioMin; m < finMin; m++) {
+    const minuto = m % (24 * 60);
+    segmentos.push({
+      bloque,
+      tipo: esMinutoNocturno(minuto) ? "nocturna" : "diurna"
+    });
+  }
+  return segmentos;
+}
+
+function aplicarDescuentoAlmuerzoUnaVezDashboard(segmentos, descuentoMinutos) {
+  if (!segmentos.length || descuentoMinutos <= 0) return segmentos.slice();
+  const remover = new Set();
+  let pendiente = descuentoMinutos;
+
+  for (let i = 0; i < segmentos.length && pendiente > 0; i++) {
+    if (segmentos[i].tipo === "diurna") {
+      remover.add(i);
+      pendiente--;
+    }
+  }
+  for (let i = 0; i < segmentos.length && pendiente > 0; i++) {
+    if (!remover.has(i)) {
+      remover.add(i);
+      pendiente--;
+    }
+  }
+  return segmentos.filter((_, index) => !remover.has(index));
+}
+
+function aplicarCalculoSemanal44Dashboard(registros) {
+  const grupos = new Map();
+  registros.forEach((registro) => {
+    if (esNovedad(registro)) return;
+    const cedula = String(registro.cedula || "").trim();
+    const semana = obtenerClaveSemanaOperativaDashboard(registro.fecha);
+    if (!cedula || !semana) return;
+    const clave = `${cedula}__${semana}`;
+    if (!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave).push(registro);
+  });
+
+  grupos.forEach((items) => {
+    const fechaReferenciaGrupo = items[0]?.registro?.fecha || periodoOperativoDashboardAyb?.inicio || "";
+    const limiteSemanalMinutos = obtenerJornadaSemanalAybMinutos(fechaReferenciaGrupo);
+    const limiteSemanalHoras = obtenerJornadaSemanalAybHoras(fechaReferenciaGrupo);
+    let minutosAcumuladosSemana = 0;
+    items.sort(compararRegistrosPorFechaHoraDashboard);
+
+    items.forEach((registro) => {
+      const segmentos = Array.isArray(registro._segmentos_netos_ayb) ? registro._segmentos_netos_ayb : [];
+      let extraDiurnaMin = 0;
+      let extraNocturnaMin = 0;
+
+      segmentos.forEach((segmento) => {
+        if (minutosAcumuladosSemana >= limiteSemanalMinutos) {
+          if (segmento.tipo === "nocturna") extraNocturnaMin++;
+          else extraDiurnaMin++;
+        }
+        minutosAcumuladosSemana++;
+      });
+
+      const esFestivo = Boolean(registro.es_festivo || obtenerFestivoDashboard(registro.fecha));
+      const extraDiurnaHoras = redondearHoras(extraDiurnaMin / 60);
+      const extraNocturnaHoras = redondearHoras(extraNocturnaMin / 60);
+
+      registro.extra_diurna = esFestivo ? 0 : extraDiurnaHoras;
+      registro.extra_nocturna = esFestivo ? 0 : extraNocturnaHoras;
+      registro.extra_diurna_festiva = esFestivo ? extraDiurnaHoras : 0;
+      registro.extra_nocturna_festiva = esFestivo ? extraNocturnaHoras : 0;
+      registro.horas_extra_estimadas = redondearHoras(extraDiurnaHoras + extraNocturnaHoras);
+      registro.jornada_esperada = limiteSemanalHoras;
+      registro.tipo_jornada = esFestivo
+        ? `Festivo - ${registro.nombre_festivo || obtenerFestivoDashboard(registro.fecha)?.nombre || "Festivo"}`
+        : `Base semanal ${limiteSemanalHoras} horas`;
+      delete registro._segmentos_netos_ayb;
+    });
+  });
+
+  return registros.map((registro) => {
+    if (registro._segmentos_netos_ayb) delete registro._segmentos_netos_ayb;
+    return registro;
+  });
+}
+
+function compararRegistrosPorFechaHoraDashboard(a, b) {
+  const fa = String(a.fecha || "");
+  const fb = String(b.fecha || "");
+  if (fa !== fb) return fa.localeCompare(fb);
+  const ha = horaTextoAMinutos(a.hora_inicio) ?? 0;
+  const hb = horaTextoAMinutos(b.hora_inicio) ?? 0;
+  if (ha !== hb) return ha - hb;
+  return String(a.created_at || a.id || "").localeCompare(String(b.created_at || b.id || ""));
+}
+
+function obtenerClaveSemanaOperativaDashboard(fechaISO) {
+  if (!fechaISO) return "";
+
+  // Corrección crítica: Dashboard A&B debe calcular 44 horas sobre el rango filtrado
+  // o periodo operativo cargado, no sobre semanas calendario lunes-domingo.
+  const inicioFiltro = filtrosActuales?.fechaInicio || document.getElementById("filtroFechaInicio")?.value || "";
+  const finFiltro = filtrosActuales?.fechaFin || document.getElementById("filtroFechaFin")?.value || "";
+  if (inicioFiltro && finFiltro && fechaISO >= inicioFiltro && fechaISO <= finFiltro) {
+    return `${inicioFiltro}__${finFiltro}`;
+  }
+
+  const fecha = new Date(`${fechaISO}T00:00:00`);
+  if (Number.isNaN(fecha.getTime())) return "";
+  const inicio = obtenerInicioSemanaOperativa(fecha);
+  return formatearFechaISO(inicio);
+}
+
+function calcularHorasTurnoProtegiendoNocturnas(inicio, fin) {
+  const detalle = calcularDetalleHorasRegistroDashboard({ hora_inicio: inicio, hora_fin: fin });
+  return {
+    total: detalle.horas_totales,
+    diurnas: detalle.horas_diurnas,
+    nocturnas: detalle.horas_nocturnas,
+    netas: detalle.horas_netas
+  };
+}
+
+function obtenerFestivoDashboard(fechaISO) {
+  return festivosDashboard.find((item) => String(item.fecha) === String(fechaISO));
 }
 
 function obtenerJornadaEsperadaPorFecha(fechaISO) {
@@ -721,11 +820,16 @@ function inicializarFiltrosRango() {
   if (!filtroFechaInicio || !filtroFechaFin) return;
 
   if (!filtrosActuales.fechaInicio || !filtrosActuales.fechaFin) {
-    const hoy = new Date();
-    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-
-    filtroFechaInicio.value = formatearFechaISO(inicioMes);
-    filtroFechaFin.value = formatearFechaISO(hoy);
+    const periodoAyb = leerPeriodoOperativoDashboardAyb();
+    if (periodoAyb) {
+      filtroFechaInicio.value = periodoAyb.inicio;
+      filtroFechaFin.value = periodoAyb.fin;
+    } else {
+      const hoy = new Date();
+      const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      filtroFechaInicio.value = formatearFechaISO(inicioMes);
+      filtroFechaFin.value = formatearFechaISO(hoy);
+    }
 
     filtrosActuales.fechaInicio = filtroFechaInicio.value;
     filtrosActuales.fechaFin = filtroFechaFin.value;
@@ -736,6 +840,18 @@ function inicializarFiltrosRango() {
 
   if (filtroEstadoExtra) {
     filtroEstadoExtra.value = filtrosActuales.estadoExtra || "";
+  }
+}
+
+function leerPeriodoOperativoDashboardAyb() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_PERIODO_OPERATIVO_AYB) || "null");
+    if (!raw?.inicio || !raw?.fin) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw.inicio) || !/^\d{4}-\d{2}-\d{2}$/.test(raw.fin)) return null;
+    if (raw.fin < raw.inicio) return null;
+    return { inicio: raw.inicio, fin: raw.fin };
+  } catch {
+    return null;
   }
 }
 
@@ -800,6 +916,7 @@ function actualizarBadgeFiltroUsuario() {
 }
 
 function limpiarFiltros() {
+  const periodoAyb = leerPeriodoOperativoDashboardAyb();
   const hoy = new Date();
   const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
 
@@ -810,8 +927,8 @@ function limpiarFiltros() {
   const filtroEmpleado = document.getElementById("filtroEmpleado");
   const filtroEstadoExtra = document.getElementById("filtroEstadoExtra");
 
-  if (filtroFechaInicio) filtroFechaInicio.value = formatearFechaISO(inicioMes);
-  if (filtroFechaFin) filtroFechaFin.value = formatearFechaISO(hoy);
+  if (filtroFechaInicio) filtroFechaInicio.value = periodoAyb?.inicio || formatearFechaISO(inicioMes);
+  if (filtroFechaFin) filtroFechaFin.value = periodoAyb?.fin || formatearFechaISO(hoy);
   if (filtroArea) filtroArea.value = "";
   if (filtroSubarea) filtroSubarea.value = "";
   if (filtroEmpleado) filtroEmpleado.value = "";
@@ -999,8 +1116,8 @@ function actualizarBadgesAnaliticos(registros) {
   ).size;
 
   const rangoTexto = filtrosActuales.fechaInicio || filtrosActuales.fechaFin
-    ? `Rango activo: ${filtrosActuales.fechaInicio || "inicio"} a ${filtrosActuales.fechaFin || "hoy"}`
-    : "Rango activo: todo el historial";
+    ? `Periodo operativo activo: ${filtrosActuales.fechaInicio || "inicio"} a ${filtrosActuales.fechaFin || "hoy"}`
+    : "Periodo operativo activo: todo el historial";
 
   setText("badgeRangoActivo", rangoTexto);
   setText("badgeRegistrosAnalizados", `Registros analizados: ${registros.length}`);

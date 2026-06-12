@@ -719,3 +719,16 @@
   color: #991b1b;
   border: 1px solid #fca5a5;
 }
+
+/* Periodo operativo A&B */
+.periodo-operativo-ayb {
+  border-left: 4px solid #0d6efd;
+}
+.periodo-operativo-ayb .form-label {
+  font-weight: 600;
+  color: #334155;
+}
+.matriz-ayb th.th-festivo-ayb {
+  background: #fff3cd !important;
+  border-color: #f0ad4e !important;
+}
