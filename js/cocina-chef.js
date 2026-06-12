@@ -6,7 +6,7 @@
 
 import { supabase } from "../supabase/supabaseClient.js";
 
-const HORA_INICIO_NOCTURNO_CHEF = 19 * 60; // 7:00 p.m.
+const HORA_INICIO_NOCTURNO_CHEF = 21 * 60; // 9:00 p.m.
 const HORA_FIN_NOCTURNO_CHEF = 6 * 60; // 6:00 a.m.
 const DESCANSO_ESTANDAR_HORAS_CHEF = 0.5;
 
@@ -1011,16 +1011,20 @@ function enriquecerRegistroHorasChef(registro) {
 
   const detalle = calcularDetalleHorasChef(inicio1, fin1, inicio2, fin2);
   const jornadaInfo = obtenerJornadaEsperadaChef(registro.fecha);
-  const horasExtra = redondearHorasChef(Math.max(0, detalle.horas_netas - jornadaInfo.horas));
+  const limiteDiaMinutos = Math.max(0, Number(jornadaInfo.horas || 0) * 60);
+  let extraDiurnaMin = 0;
+  let extraNocturnaMin = 0;
 
-  let extraDiurna = 0;
-  let extraNocturna = 0;
+  (detalle.segmentos_netos || []).forEach((segmento, index) => {
+    if (index >= limiteDiaMinutos) {
+      if (segmento.tipo === "nocturna") extraNocturnaMin++;
+      else extraDiurnaMin++;
+    }
+  });
 
-  if (horasExtra > 0) {
-    const ordinariasDiurnas = Math.min(detalle.horas_diurnas, jornadaInfo.horas);
-    extraDiurna = redondearHorasChef(Math.max(0, detalle.horas_diurnas - ordinariasDiurnas));
-    extraNocturna = redondearHorasChef(Math.max(0, horasExtra - extraDiurna));
-  }
+  const extraDiurna = redondearHorasChef(extraDiurnaMin / 60);
+  const extraNocturna = redondearHorasChef(extraNocturnaMin / 60);
+  const horasExtra = redondearHorasChef(extraDiurna + extraNocturna);
 
   return {
     ...registro,
@@ -1063,7 +1067,8 @@ function calcularDetalleHorasChef(inicio1, fin1, inicio2, fin2) {
     descuento_almuerzo: redondearHorasChef(descuentoMinutos / 60),
     horas_diurnas: redondearHorasChef(minutosDiurnos / 60),
     horas_nocturnas: redondearHorasChef(minutosNocturnos / 60),
-    horas_netas: redondearHorasChef((minutosDiurnos + minutosNocturnos) / 60)
+    horas_netas: redondearHorasChef((minutosDiurnos + minutosNocturnos) / 60),
+    segmentos_netos: segmentosNetos
   };
 }
 

@@ -61,7 +61,7 @@ const NOVEDADES_LABELS = {
   NNJ: "Novedad no justificada"
 };
 
-const HORA_INICIO_NOCTURNO = 19 * 60;
+const HORA_INICIO_NOCTURNO = 21 * 60;
 const HORA_FIN_NOCTURNO = 6 * 60;
 const DESCANSO_ESTANDAR_HORAS = 0.5;
 const JORNADA_SEMANAL_AYB_HORAS = 44;
@@ -1156,21 +1156,34 @@ function aplicarCalculoSemanal44Ayb(registros) {
     const fechaReferenciaGrupo = items[0]?.registro?.fecha || semanaActual[0]?.fecha || "";
     const limiteSemanalMinutos = obtenerJornadaSemanalAybMinutos(fechaReferenciaGrupo);
     const limiteSemanalHoras = obtenerJornadaSemanalAybHoras(fechaReferenciaGrupo);
-    let minutosAcumuladosSemana = 0;
+    let minutosAcumuladosPeriodo = 0;
+    const minutosAcumuladosDia = new Map();
+
     items.sort((a, b) => compararRegistrosPorFechaHoraAyb(a.registro, b.registro));
 
     items.forEach(({ registro }) => {
       const segmentos = Array.isArray(registro._segmentos_netos_ayb) ? registro._segmentos_netos_ayb : [];
+      const fechaRegistro = String(registro.fecha || "");
+      const jornadaDiaInfo = obtenerJornadaEsperadaPorFecha(fechaRegistro);
+      const limiteDiaMinutos = Math.max(0, Number(jornadaDiaInfo.horas || 0) * 60);
+      let minutosDia = minutosAcumuladosDia.get(fechaRegistro) || 0;
       let extraDiurnaMin = 0;
       let extraNocturnaMin = 0;
 
       segmentos.forEach((segmento) => {
-        if (minutosAcumuladosSemana >= limiteSemanalMinutos) {
+        const excedeDia = minutosDia >= limiteDiaMinutos;
+        const excedePeriodo = minutosAcumuladosPeriodo >= limiteSemanalMinutos;
+
+        if (excedeDia || excedePeriodo) {
           if (segmento.tipo === "nocturna") extraNocturnaMin++;
           else extraDiurnaMin++;
         }
-        minutosAcumuladosSemana++;
+
+        minutosDia++;
+        minutosAcumuladosPeriodo++;
       });
+
+      minutosAcumuladosDia.set(fechaRegistro, minutosDia);
 
       const esFestivo = Boolean(registro.es_festivo || obtenerFestivoAyb(registro.fecha));
       const extraDiurnaHoras = redondearHoras(extraDiurnaMin / 60);
@@ -1181,10 +1194,11 @@ function aplicarCalculoSemanal44Ayb(registros) {
       registro.extra_diurna_festiva = esFestivo ? extraDiurnaHoras : 0;
       registro.extra_nocturna_festiva = esFestivo ? extraNocturnaHoras : 0;
       registro.horas_extra_estimadas = redondearHoras(extraDiurnaHoras + extraNocturnaHoras);
-      registro.jornada_esperada = limiteSemanalHoras;
+      registro.jornada_esperada = jornadaDiaInfo.horas;
+      registro.jornada_periodo = limiteSemanalHoras;
       registro.tipo_jornada = esFestivo
         ? `Festivo - ${registro.nombre_festivo || obtenerFestivoAyb(registro.fecha)?.nombre || "Festivo"}`
-        : `Base semanal ${limiteSemanalHoras} horas`;
+        : `${jornadaDiaInfo.tipo} · Base periodo ${limiteSemanalHoras} horas`;
       delete registro._segmentos_netos_ayb;
     });
   });

@@ -28,7 +28,7 @@ let chartAnios = null;
 let chartHorasTipo = null;
 let chartHorasExtraEmpleados = null;
 
-const HORA_INICIO_NOCTURNO = 19 * 60;
+const HORA_INICIO_NOCTURNO = 21 * 60;
 const HORA_FIN_NOCTURNO = 6 * 60;
 const DESCANSO_ESTANDAR_HORAS = 0.5;
 const STORAGE_PERIODO_OPERATIVO_AYB = "ccp_periodo_operativo_ayb";
@@ -663,24 +663,36 @@ function aplicarCalculoSemanal44Dashboard(registros) {
   });
 
   grupos.forEach((items) => {
-    const fechaReferenciaGrupo = items[0]?.registro?.fecha || periodoOperativoDashboardAyb?.inicio || "";
+    const fechaReferenciaGrupo = items[0]?.fecha || periodoOperativoDashboardAyb?.inicio || "";
     const limiteSemanalMinutos = obtenerJornadaSemanalAybMinutos(fechaReferenciaGrupo);
     const limiteSemanalHoras = obtenerJornadaSemanalAybHoras(fechaReferenciaGrupo);
-    let minutosAcumuladosSemana = 0;
+    let minutosAcumuladosPeriodo = 0;
+    const minutosAcumuladosDia = new Map();
     items.sort(compararRegistrosPorFechaHoraDashboard);
 
     items.forEach((registro) => {
       const segmentos = Array.isArray(registro._segmentos_netos_ayb) ? registro._segmentos_netos_ayb : [];
+      const fechaRegistro = String(registro.fecha || "");
+      const jornadaDiaInfo = obtenerJornadaEsperadaPorFecha(fechaRegistro);
+      const limiteDiaMinutos = Math.max(0, Number(jornadaDiaInfo.horas || 0) * 60);
+      let minutosDia = minutosAcumuladosDia.get(fechaRegistro) || 0;
       let extraDiurnaMin = 0;
       let extraNocturnaMin = 0;
 
       segmentos.forEach((segmento) => {
-        if (minutosAcumuladosSemana >= limiteSemanalMinutos) {
+        const excedeDia = minutosDia >= limiteDiaMinutos;
+        const excedePeriodo = minutosAcumuladosPeriodo >= limiteSemanalMinutos;
+
+        if (excedeDia || excedePeriodo) {
           if (segmento.tipo === "nocturna") extraNocturnaMin++;
           else extraDiurnaMin++;
         }
-        minutosAcumuladosSemana++;
+
+        minutosDia++;
+        minutosAcumuladosPeriodo++;
       });
+
+      minutosAcumuladosDia.set(fechaRegistro, minutosDia);
 
       const esFestivo = Boolean(registro.es_festivo || obtenerFestivoDashboard(registro.fecha));
       const extraDiurnaHoras = redondearHoras(extraDiurnaMin / 60);
@@ -691,10 +703,11 @@ function aplicarCalculoSemanal44Dashboard(registros) {
       registro.extra_diurna_festiva = esFestivo ? extraDiurnaHoras : 0;
       registro.extra_nocturna_festiva = esFestivo ? extraNocturnaHoras : 0;
       registro.horas_extra_estimadas = redondearHoras(extraDiurnaHoras + extraNocturnaHoras);
-      registro.jornada_esperada = limiteSemanalHoras;
+      registro.jornada_esperada = jornadaDiaInfo.horas;
+      registro.jornada_periodo = limiteSemanalHoras;
       registro.tipo_jornada = esFestivo
         ? `Festivo - ${registro.nombre_festivo || obtenerFestivoDashboard(registro.fecha)?.nombre || "Festivo"}`
-        : `Base semanal ${limiteSemanalHoras} horas`;
+        : `${jornadaDiaInfo.tipo} · Base periodo ${limiteSemanalHoras} horas`;
       delete registro._segmentos_netos_ayb;
     });
   });
@@ -748,7 +761,7 @@ function obtenerFestivoDashboard(fechaISO) {
 
 function obtenerJornadaEsperadaPorFecha(fechaISO) {
   if (!fechaISO) {
-    return { horas: 7.5, tipo: "Lunes a viernes / día hábil", esFestivo: false };
+    return { horas: 7, tipo: "Día hábil / 7h netas", esFestivo: false };
   }
 
   const festivo = festivosDashboard.find(
@@ -756,17 +769,17 @@ function obtenerJornadaEsperadaPorFecha(fechaISO) {
   );
 
   if (festivo) {
-    return { horas: 8.5, tipo: `Festivo - ${festivo.nombre || "Festivo"}`, esFestivo: true, nombreFestivo: festivo.nombre || "Festivo" };
+    return { horas: 8, tipo: `Festivo - ${festivo.nombre || "Festivo"}`, esFestivo: true, nombreFestivo: festivo.nombre || "Festivo" };
   }
 
   const fecha = new Date(`${fechaISO}T00:00:00`);
   const dia = fecha.getDay();
 
   if (dia === 6 || dia === 0) {
-    return { horas: 8.5, tipo: "Sábado/Domingo", esFestivo: false };
+    return { horas: 8, tipo: "Sábado/Domingo / 8h netas", esFestivo: false };
   }
 
-  return { horas: 7.5, tipo: "Lunes a viernes / día hábil", esFestivo: false };
+  return { horas: 7, tipo: "Día hábil / 7h netas", esFestivo: false };
 }
 
 function horaTextoAMinutos(horaTexto) {
