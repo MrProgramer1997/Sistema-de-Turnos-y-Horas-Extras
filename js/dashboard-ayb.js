@@ -664,9 +664,7 @@ function aplicarCalculoSemanal44Dashboard(registros) {
 
   grupos.forEach((items) => {
     const fechaReferenciaGrupo = items[0]?.fecha || periodoOperativoDashboardAyb?.inicio || "";
-    const limiteSemanalMinutos = obtenerJornadaSemanalAybMinutos(fechaReferenciaGrupo);
-    const limiteSemanalHoras = obtenerJornadaSemanalAybHoras(fechaReferenciaGrupo);
-    let minutosAcumuladosPeriodo = 0;
+    const limitePeriodoHoras = obtenerJornadaSemanalAybHoras(fechaReferenciaGrupo);
     const minutosAcumuladosDia = new Map();
     items.sort(compararRegistrosPorFechaHoraDashboard);
 
@@ -679,17 +677,18 @@ function aplicarCalculoSemanal44Dashboard(registros) {
       let extraDiurnaMin = 0;
       let extraNocturnaMin = 0;
 
+      // Las horas nocturnas/festivas trabajadas son recargos.
+      // Solo son horas extra si superan la jornada neta esperada del día.
+      // No se suma un segundo cálculo por periodo para evitar doble conteo.
       segmentos.forEach((segmento) => {
-        const excedeDia = minutosDia >= limiteDiaMinutos;
-        const excedePeriodo = minutosAcumuladosPeriodo >= limiteSemanalMinutos;
+        const excedeJornadaDia = minutosDia >= limiteDiaMinutos;
 
-        if (excedeDia || excedePeriodo) {
+        if (excedeJornadaDia) {
           if (segmento.tipo === "nocturna") extraNocturnaMin++;
           else extraDiurnaMin++;
         }
 
         minutosDia++;
-        minutosAcumuladosPeriodo++;
       });
 
       minutosAcumuladosDia.set(fechaRegistro, minutosDia);
@@ -704,10 +703,10 @@ function aplicarCalculoSemanal44Dashboard(registros) {
       registro.extra_nocturna_festiva = esFestivo ? extraNocturnaHoras : 0;
       registro.horas_extra_estimadas = redondearHoras(extraDiurnaHoras + extraNocturnaHoras);
       registro.jornada_esperada = jornadaDiaInfo.horas;
-      registro.jornada_periodo = limiteSemanalHoras;
+      registro.jornada_periodo = limitePeriodoHoras;
       registro.tipo_jornada = esFestivo
         ? `Festivo - ${registro.nombre_festivo || obtenerFestivoDashboard(registro.fecha)?.nombre || "Festivo"}`
-        : `${jornadaDiaInfo.tipo} · Base periodo ${limiteSemanalHoras} horas`;
+        : `${jornadaDiaInfo.tipo} · Referencia periodo ${limitePeriodoHoras} horas`;
       delete registro._segmentos_netos_ayb;
     });
   });

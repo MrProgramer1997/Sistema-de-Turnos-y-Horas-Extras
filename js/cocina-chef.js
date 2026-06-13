@@ -1015,6 +1015,8 @@ function enriquecerRegistroHorasChef(registro) {
   let extraDiurnaMin = 0;
   let extraNocturnaMin = 0;
 
+  // Las horas nocturnas/festivas trabajadas son recargos, no horas extra por sí solas.
+  // Solo se clasifican como extra cuando superan la jornada neta esperada del día.
   (detalle.segmentos_netos || []).forEach((segmento, index) => {
     if (index >= limiteDiaMinutos) {
       if (segmento.tipo === "nocturna") extraNocturnaMin++;
@@ -1191,7 +1193,7 @@ function renderResumenSemanalHorasChef(ranking) {
     <div class="mb-3">
       <div class="fw-semibold">Top colaboradores con mayor sobreprogramación teórica</div>
       <div class="small text-muted">
-        Descanso de 0.5 h; nocturna de 7:00 p.m. a 6:00 a.m.; festivos y fines de semana con jornada de 8.5 h.
+        Descanso de 0.5 h; nocturna de 9:00 p.m. a 6:00 a.m.; festivos y fines de semana con jornada de 8 h netas.
       </div>
     </div>
     <div class="table-responsive">

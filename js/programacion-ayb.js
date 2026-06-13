@@ -1154,9 +1154,7 @@ function aplicarCalculoSemanal44Ayb(registros) {
 
   grupos.forEach((items) => {
     const fechaReferenciaGrupo = items[0]?.registro?.fecha || semanaActual[0]?.fecha || "";
-    const limiteSemanalMinutos = obtenerJornadaSemanalAybMinutos(fechaReferenciaGrupo);
-    const limiteSemanalHoras = obtenerJornadaSemanalAybHoras(fechaReferenciaGrupo);
-    let minutosAcumuladosPeriodo = 0;
+    const limitePeriodoHoras = obtenerJornadaSemanalAybHoras(fechaReferenciaGrupo);
     const minutosAcumuladosDia = new Map();
 
     items.sort((a, b) => compararRegistrosPorFechaHoraAyb(a.registro, b.registro));
@@ -1170,17 +1168,20 @@ function aplicarCalculoSemanal44Ayb(registros) {
       let extraDiurnaMin = 0;
       let extraNocturnaMin = 0;
 
+      // Regla crítica de nómina A&B:
+      // - Las horas nocturnas/festivas trabajadas son recargos, pero NO son horas extra por sí solas.
+      // - Una hora solo se marca como extra cuando supera la jornada neta esperada del día:
+      //   martes a viernes = 7.00 h netas; sábados, domingos y festivos = 8.00 h netas.
+      // - El acumulado del periodo se muestra como referencia, pero no se suma otra vez para evitar doble cobro.
       segmentos.forEach((segmento) => {
-        const excedeDia = minutosDia >= limiteDiaMinutos;
-        const excedePeriodo = minutosAcumuladosPeriodo >= limiteSemanalMinutos;
+        const excedeJornadaDia = minutosDia >= limiteDiaMinutos;
 
-        if (excedeDia || excedePeriodo) {
+        if (excedeJornadaDia) {
           if (segmento.tipo === "nocturna") extraNocturnaMin++;
           else extraDiurnaMin++;
         }
 
         minutosDia++;
-        minutosAcumuladosPeriodo++;
       });
 
       minutosAcumuladosDia.set(fechaRegistro, minutosDia);
@@ -1195,10 +1196,10 @@ function aplicarCalculoSemanal44Ayb(registros) {
       registro.extra_nocturna_festiva = esFestivo ? extraNocturnaHoras : 0;
       registro.horas_extra_estimadas = redondearHoras(extraDiurnaHoras + extraNocturnaHoras);
       registro.jornada_esperada = jornadaDiaInfo.horas;
-      registro.jornada_periodo = limiteSemanalHoras;
+      registro.jornada_periodo = limitePeriodoHoras;
       registro.tipo_jornada = esFestivo
         ? `Festivo - ${registro.nombre_festivo || obtenerFestivoAyb(registro.fecha)?.nombre || "Festivo"}`
-        : `${jornadaDiaInfo.tipo} · Base periodo ${limiteSemanalHoras} horas`;
+        : `${jornadaDiaInfo.tipo} · Referencia periodo ${limitePeriodoHoras} horas`;
       delete registro._segmentos_netos_ayb;
     });
   });
