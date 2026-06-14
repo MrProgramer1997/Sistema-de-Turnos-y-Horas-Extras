@@ -10,7 +10,7 @@ body {
   position: fixed;
   top: 0;
   left: 0;
-  width: 250px;
+  width: 280px;
   height: 100vh;
   background: #1f2937;
   color: white;
@@ -18,6 +18,26 @@ body {
   overflow-y: auto;
   z-index: 1000;
   transition: transform 0.3s ease;
+  box-sizing: border-box;
+}
+
+/* HEADER SIDEBAR */
+.sidebar-header {
+  position: relative;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 8px 8px 12px 58px;
+  box-sizing: border-box;
+}
+
+.sidebar-header h4 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  line-height: 1.2;
 }
 
 /* NAV */
@@ -46,14 +66,56 @@ body {
 
 /* CONTENIDO */
 .main-content {
-  margin-left: 250px;
+  margin-left: 280px;
   padding: 20px;
+  transition: margin-left 0.3s ease;
 }
 
-/* 🔴 MOBILE */
-@media (max-width: 768px) {
+/* BOTÓN HAMBURGUESA GLOBAL */
+.btn-toggle-sidebar-desktop,
+.btn-toggle-sidebar {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 1200;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 800;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, .25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
 
+.btn-toggle-sidebar-desktop:hover,
+.btn-toggle-sidebar:hover {
+  background: #1d4ed8;
+}
+
+/* SIDEBAR OCULTO */
+body.sidebar-collapsed .sidebar-global {
+  transform: translateX(-100%);
+}
+
+body.sidebar-collapsed .main-content {
+  margin-left: 0;
+}
+
+body.sidebar-collapsed .btn-toggle-sidebar-desktop,
+body.sidebar-collapsed .btn-toggle-sidebar {
+  background: #0f172a;
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
   .sidebar-global {
+    width: 280px;
     transform: translateX(-100%);
   }
 
@@ -63,17 +125,10 @@ body {
 
   .main-content {
     margin-left: 0;
+    padding: 16px;
   }
 
-  .btn-toggle-sidebar {
-    position: fixed;
-    top: 15px;
-    left: 15px;
-    z-index: 1100;
-    background: #2563eb;
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 6px;
+  body.sidebar-collapsed .sidebar-global {
+    transform: translateX(-100%);
   }
 }

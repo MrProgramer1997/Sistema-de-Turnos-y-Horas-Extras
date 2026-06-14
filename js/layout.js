@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     activarLinkActivo();
     configurarLogout();
     configurarToggleMobile();
+    configurarToggleSidebarEscritorio();
 
   } catch (error) {
     console.error("Error cargando sidebar:", error);
@@ -36,9 +37,9 @@ function esPaginaLoginSidebar() {
 
 async function cargarHtmlSidebarSeguro() {
   const rutas = [
-    "../components/sidebar.html?v=roles-bienestar-ayb-20260611",
-    "./components/sidebar.html?v=roles-bienestar-ayb-20260611",
-    "/components/sidebar.html?v=roles-bienestar-ayb-20260611"
+    "../components/sidebar.html?v=roles-dashboard-ayb-20260603",
+    "./components/sidebar.html?v=roles-dashboard-ayb-20260603",
+    "/components/sidebar.html?v=roles-dashboard-ayb-20260603"
   ];
 
   let ultimoError = null;
@@ -327,6 +328,34 @@ function configurarLogout() {
     sessionStorage.clear();
 
     window.location.href = "login.html";
+  });
+}
+
+function configurarToggleSidebarEscritorio() {
+  const sidebar = document.querySelector(".sidebar-global");
+  if (!sidebar) return;
+
+  let btn = document.getElementById("btnToggleSidebarDesktop");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "btnToggleSidebarDesktop";
+    btn.type = "button";
+    btn.className = "btn-toggle-sidebar-desktop";
+    btn.setAttribute("aria-label", "Ocultar o mostrar menú de navegación");
+    btn.title = "Ocultar / mostrar menú";
+    btn.innerHTML = "☰";
+    document.body.appendChild(btn);
+  }
+
+  const estadoGuardado = localStorage.getItem("ccp_sidebar_colapsado") === "1";
+  document.body.classList.toggle("sidebar-collapsed", estadoGuardado);
+  btn.setAttribute("aria-pressed", estadoGuardado ? "true" : "false");
+
+  btn.addEventListener("click", () => {
+    const colapsado = !document.body.classList.contains("sidebar-collapsed");
+    document.body.classList.toggle("sidebar-collapsed", colapsado);
+    localStorage.setItem("ccp_sidebar_colapsado", colapsado ? "1" : "0");
+    btn.setAttribute("aria-pressed", colapsado ? "true" : "false");
   });
 }
 

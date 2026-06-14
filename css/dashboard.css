@@ -790,3 +790,35 @@ body {
   }
 }
 
+
+
+/* Barra horizontal superior para tablas anchas de validación */
+.scroll-superior-tabla {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 18px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #e2e8f0;
+}
+
+.scroll-superior-tabla > div {
+  height: 1px;
+}
+
+.scroll-superior-tabla::-webkit-scrollbar {
+  height: 12px;
+}
+
+.scroll-superior-tabla::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 999px;
+}
+
+.scroll-superior-tabla::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 999px;
+}
