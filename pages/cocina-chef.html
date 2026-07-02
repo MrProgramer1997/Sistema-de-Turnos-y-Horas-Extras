@@ -32,6 +32,7 @@
       <button class="btn btn-outline-primary" id="btnGestionCodigos">Códigos</button>
       <button class="btn btn-primary" id="btnAgregarExterno">+ Externo</button>
       <button class="btn btn-success" id="btnAgregarEmpleado">+ Desde A&B</button>
+      <button class="btn btn-outline-dark" id="btnVisualProgramacionChef" type="button">Visual programación</button>
     </div>
   </div>
 
@@ -55,6 +56,29 @@
         <option value="medio_tiempo">Medio tiempo</option>
         <option value="pendiente">Pendiente</option>
       </select>
+    </div>
+  </div>
+
+
+  <div class="card resumen-horas-chef-card mb-3 periodo-operativo-chef">
+    <div class="card-header bg-white fw-bold">Periodo operativo Chef</div>
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-4 col-lg-3">
+          <label for="fechaInicioPeriodoChef" class="form-label">Fecha inicio</label>
+          <input type="date" class="form-control" id="fechaInicioPeriodoChef">
+        </div>
+        <div class="col-12 col-md-4 col-lg-3">
+          <label for="fechaFinPeriodoChef" class="form-label">Fecha fin</label>
+          <input type="date" class="form-control" id="fechaFinPeriodoChef">
+        </div>
+        <div class="col-12 col-md-4 col-lg-2">
+          <button class="btn btn-primary w-100" id="btnCargarPeriodoOperativoChef" type="button">Cargar periodo</button>
+        </div>
+        <div class="col-12 col-lg-4">
+          <div class="small text-muted">El conteo de horas, festivos, extras, visualización y PDFs de Chef se calcula sobre este rango operativo.</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -126,16 +150,25 @@
       <div class="card resumen-horas-chef-card h-100">
         <div class="card-header bg-white fw-bold">Exportar programación</div>
         <div class="card-body">
-          <button class="btn btn-outline-danger w-100 mb-3" type="button" id="btnPdfGeneralChef">
-            Descargar PDF general
+          <button class="btn btn-outline-danger w-100 mb-2" type="button" id="btnPdfGeneralChef">
+            PDF general actual
+          </button>
+          <button class="btn btn-danger w-100 mb-2" type="button" id="btnPdfCalendarioChef">
+            PDF calendario semanal
+          </button>
+          <button class="btn btn-outline-danger w-100 mb-3" type="button" id="btnPdfOperativoChef">
+            PDF operativo por área
           </button>
 
           <label for="selectEmpleadoPdfChef" class="form-label">PDF por colaborador</label>
-          <select id="selectEmpleadoPdfChef" class="form-select mb-3">
+          <select id="selectEmpleadoPdfChef" class="form-select mb-2">
             <option value="">Seleccione</option>
           </select>
-          <button class="btn btn-outline-danger w-100" type="button" id="btnPdfEmpleadoChef">
-            Descargar PDF del colaborador
+          <button class="btn btn-outline-danger w-100 mb-2" type="button" id="btnPdfEmpleadoChef">
+            PDF colaborador actual
+          </button>
+          <button class="btn btn-danger w-100" type="button" id="btnPdfEmpleadoMejoradoChef">
+            PDF colaborador mejorado
           </button>
 
           <div class="small text-muted mt-2">
@@ -388,6 +421,68 @@
         </div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL VISUAL PROGRAMACIÓN CHEF -->
+<div class="modal fade" id="modalVisualProgramacionChef" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-fullscreen">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title mb-0">Visual de programación Cocina Chef</h5>
+          <small id="visualChefSubtitulo" class="text-muted">Semana visible</small>
+        </div>
+        <button class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body visual-chef-modal-body">
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-md-5">
+            <label class="form-label" for="visualChefBuscar">Buscar colaborador</label>
+            <input type="text" id="visualChefBuscar" class="form-control" placeholder="Nombre, documento, cargo o área">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="visualChefArea">Área</label>
+            <select id="visualChefArea" class="form-select">
+              <option value="">Todas las áreas</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="visualChefEstado">Estado</label>
+            <select id="visualChefEstado" class="form-select">
+              <option value="todos">Todos</option>
+              <option value="con-programacion">Con programación</option>
+              <option value="sin-programacion">Sin programación</option>
+              <option value="externo">Externos</option>
+            </select>
+          </div>
+          <div class="col-md-1">
+            <button class="btn btn-outline-secondary w-100" id="btnLimpiarVisualChef" type="button">Limpiar</button>
+          </div>
+        </div>
+
+        <div class="visual-chef-resumen mb-3">
+          <span><strong id="visualChefTotal">0</strong> visible(s)</span>
+          <span><strong id="visualChefConProgramacion">0</strong> con turnos</span>
+          <span><strong id="visualChefSinProgramacion">0</strong> sin turnos</span>
+          <span><strong id="visualChefExternos">0</strong> externos</span>
+        </div>
+
+        <div class="table-responsive visual-chef-wrapper">
+          <table class="table table-bordered align-middle visual-chef-table">
+            <thead>
+              <tr id="trVisualChef">
+                <th class="visual-chef-col-persona">Colaborador / Área</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyVisualChef">
+              <tr><td colspan="8" class="text-center text-muted py-4">Cargando visual de programación...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </div>

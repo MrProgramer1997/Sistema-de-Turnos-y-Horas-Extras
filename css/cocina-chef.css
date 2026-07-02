@@ -684,3 +684,255 @@ body {
   min-height: 112px;
 }
 
+
+/* ======================================================
+   Mejoras visuales Cocina Chef: agrupación, festivos y visual
+   ====================================================== */
+.chef-area-group-row td {
+  background: #f1f5f9 !important;
+  border-top: 2px solid #1d4ed8 !important;
+  border-bottom: 1px solid #cbd5e1 !important;
+  padding: 10px 12px !important;
+}
+
+.chef-area-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 800;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.chef-area-group-title small {
+  font-weight: 600;
+  color: #64748b;
+  text-transform: none;
+}
+
+.chef-dia-festivo-header {
+  background: #fff1f2 !important;
+  color: #991b1b !important;
+  border-color: #fb7185 !important;
+}
+
+.chef-festivo-head-label {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: .68rem;
+  font-weight: 800;
+}
+
+.chef-festivo-head-name {
+  margin-top: 2px;
+  color: #991b1b;
+  font-size: .7rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.celda-dia-chef-festivo {
+  background: #fff7f7 !important;
+  border-left: 3px solid #ef4444 !important;
+  border-right: 1px solid #fecaca !important;
+}
+
+.chef-festivo-label {
+  color: #991b1b;
+  background: #fff1f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 4px 6px;
+  margin-bottom: 6px;
+  font-size: .72rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.turno-chef-card-festivo {
+  border: 1px solid #ef4444 !important;
+  background: #fff7f7 !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, .12);
+}
+
+.chip-festivo-chef {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: .75rem;
+  font-weight: 900;
+}
+
+.visual-chef-modal-body {
+  background: #f8fafc;
+}
+
+.visual-chef-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.visual-chef-resumen span {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: #334155;
+}
+
+.visual-chef-wrapper {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  max-height: calc(100vh - 245px);
+  overflow: auto;
+}
+
+.visual-chef-table {
+  min-width: 1180px;
+  margin-bottom: 0;
+}
+
+.visual-chef-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #1d4ed8;
+  color: #fff;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.visual-chef-col-persona {
+  min-width: 250px;
+  width: 250px;
+  background: #f8fafc;
+}
+
+.visual-chef-table thead .visual-chef-col-persona {
+  left: 0;
+  z-index: 4;
+  background: #1e3a8a;
+}
+
+.visual-chef-table tbody .visual-chef-col-persona {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #f8fafc;
+  box-shadow: 3px 0 8px rgba(15, 23, 42, .08);
+}
+
+.visual-chef-col-persona strong,
+.visual-chef-col-persona span,
+.visual-chef-col-persona small {
+  display: block;
+}
+
+.visual-chef-col-persona strong {
+  color: #0f172a;
+  font-size: .88rem;
+}
+
+.visual-chef-col-persona span,
+.visual-chef-col-persona small {
+  color: #64748b;
+  font-size: .76rem;
+}
+
+.visual-chef-area-row td {
+  background: #e0f2fe !important;
+  color: #075985;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.visual-chef-area-row small {
+  margin-left: 10px;
+  color: #0369a1;
+  font-weight: 600;
+  text-transform: none;
+}
+
+.visual-chef-libre,
+.visual-chef-ocupado {
+  min-width: 135px;
+  height: 92px;
+  vertical-align: top;
+}
+
+.visual-chef-libre span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 54px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.visual-chef-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.visual-chef-chip strong {
+  color: #1e3a8a;
+}
+
+.visual-chef-chip span {
+  color: #334155;
+  font-size: .78rem;
+}
+
+.visual-chef-chip small {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.visual-chef-festivo,
+.visual-chef-dia-festivo-head {
+  background: #fff1f2 !important;
+  color: #991b1b !important;
+  border-color: #fecaca !important;
+}
+
+.visual-chef-festivo-label,
+.visual-chef-festivo-head {
+  color: #991b1b;
+  font-size: .68rem;
+  font-weight: 900;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+
+/* Periodo operativo Chef */
+.periodo-operativo-chef {
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.periodo-operativo-chef .form-label {
+  font-weight: 600;
+  color: #334155;
+}
