@@ -1324,7 +1324,12 @@ function renderKPIs() {
 
   document.getElementById("kpiAreas").innerText = areasActivas.size;
 
-  const registrosCalculados = turnosFiltrados;
+  // Chef conserva su propio motor separado de A&B.
+  // Los turnos cargados desde Supabase se enriquecen con el catálogo de códigos
+  // antes de alimentar KPIs, resumen semanal y PDFs.
+  const registrosCalculados = aplicarCalculoPeriodoChef(
+    turnosFiltrados.map(enriquecerRegistroHorasChef)
+  );
   const ranking = construirRankingHorasChef(registrosCalculados, personalFiltrado);
   const totalNetas = redondearHorasChef(
     registrosCalculados.reduce((total, registro) => total + Number(registro.horas_netas || 0), 0)
@@ -1354,8 +1359,11 @@ function asignarTextoChef(id, valor) {
 
 function obtenerTurnosVisiblesCalculadosChef() {
   const ids = new Set(obtenerPersonalFiltrado().map((persona) => persona.id));
-  return programacion
-    .filter((registro) => ids.has(registro.cronograma_personal_id));
+  return aplicarCalculoPeriodoChef(
+    programacion
+      .filter((registro) => ids.has(registro.cronograma_personal_id))
+      .map(enriquecerRegistroHorasChef)
+  );
 }
 
 function enriquecerRegistroHorasChef(registro) {
@@ -2221,8 +2229,9 @@ function obtenerCatalogoTurnosChefPorFecha(fechaISO) {
 }
 
 function obtenerCodigoTurnoChef(codigo, fechaISO) {
-  const base = codigos.find((item) => String(item.codigo) === String(codigo)) || { codigo };
-  const dinamico = obtenerCatalogoTurnosChefPorFecha(fechaISO)[String(codigo)];
+  const codigoNormalizado = String(codigo || "").trim();
+  const base = codigos.find((item) => String(item.codigo || "").trim() === codigoNormalizado) || { codigo: codigoNormalizado };
+  const dinamico = obtenerCatalogoTurnosChefPorFecha(fechaISO)[codigoNormalizado];
   if (!dinamico) return base;
   return {
     ...base,
