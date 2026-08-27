@@ -9,6 +9,7 @@ let registrosExternosChefBase = [];
 let registrosRevisionChefBase = [];
 let registrosDuplicadosBase = [];
 let festivosDashboard = [];
+let revisionNominaRealBase = [];
 let filtrosActuales = {
   fechaInicio: "",
   fechaFin: "",
@@ -211,9 +212,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   configurarBotonActualizar();
   configurarBotonExportarPDF();
   configurarBotonExportarExcel();
+  configurarRevisionNominaReal();
   configurarFiltros();
 
   await cargarDashboardReal(sesion);
+  await cargarRevisionNominaReal();
 });
 
 function cargarDatosUsuario(sesion) {
@@ -3505,4 +3508,182 @@ function escaparHtml(valor) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+// ============================================================
+// REVISION BIOMETRICA / PROSOF - CAPA NUEVA E INDEPENDIENTE
+// ============================================================
+function usuarioRevisionActual() {
+  return String(sesionActiva?.usuario || "").trim();
+}
+
+function fechaISORevision(d) {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`;
+}
+
+function inicializarFechasRevision() {
+  const desde=document.getElementById("revisionFechaDesde");
+  const hasta=document.getElementById("revisionFechaHasta");
+  if (!desde || !hasta || desde.value || hasta.value) return;
+  const h=new Date(); const d=new Date(h); d.setDate(h.getDate()-14);
+  desde.value=fechaISORevision(d); hasta.value=fechaISORevision(h);
+}
+
+function configurarRevisionNominaReal() {
+  inicializarFechasRevision();
+  ["revisionFechaDesde","revisionFechaHasta","revisionEstado","revisionBuscar"].forEach(id=>{
+    document.getElementById(id)?.addEventListener(id==="revisionBuscar"?"input":"change", renderRevisionNominaReal);
+  });
+  document.getElementById("btnActualizarRevisionNomina")?.addEventListener("click", cargarRevisionNominaReal);
+  document.getElementById("btnGenerarProsof")?.addEventListener("click", generarPlantillaProsof);
+}
+
+async function cargarRevisionNominaReal() {
+  const tbody=document.getElementById("tbodyRevisionNominaReal");
+  if (!tbody) return;
+  tbody.innerHTML='<tr><td colspan="11" class="text-muted text-center">Actualizando información real...</td></tr>';
+  try {
+    const desde=document.getElementById("revisionFechaDesde")?.value;
+    const hasta=document.getElementById("revisionFechaHasta")?.value;
+    if (desde && hasta) {
+      const { error: prepError } = await supabase.rpc("preparar_conceptos_revision", {p_fecha_desde:desde,p_fecha_hasta:hasta,p_grupo_codigo:"ALIMENTOS_BEBIDAS",p_proceso_codigo:null});
+      if (prepError) console.warn("No se pudo materializar candidatos:",prepError.message);
+    }
+    let q=supabase.from("vw_turnos_bandeja_revision").select("*").eq("grupo_codigo","ALIMENTOS_BEBIDAS").order("fecha",{ascending:false});
+    if (desde) q=q.gte("fecha",desde); if (hasta) q=q.lte("fecha",hasta);
+    const {data,error}=await q;
+    if (error) throw error;
+    revisionNominaRealBase=Array.isArray(data)?data:[];
+    renderRevisionNominaReal();
+  } catch(e) {
+    console.error("Bandeja revisión:",e);
+    tbody.innerHTML=`<tr><td colspan="11" class="text-danger text-center">No fue posible cargar la bandeja: ${escaparHtml(e.message||String(e))}</td></tr>`;
+  }
+}
+
+function registrosRevisionFiltrados() {
+  const estado=String(document.getElementById("revisionEstado")?.value||"").toLowerCase();
+  const buscar=String(document.getElementById("revisionBuscar")?.value||"").trim().toLowerCase();
+  return revisionNominaRealBase.filter(x=>{
+    if (estado && String(x.estado_revision||"").toLowerCase()!==estado) return false;
+    if (buscar && !`${x.empleado||""} ${x.cedula||""} ${x.concepto_codigo||""} ${x.concepto_nombre||""}`.toLowerCase().includes(buscar)) return false;
+    return true;
+  });
+}
+
+function formatearHorasRevision(valor) {
+  const decimal = Number(valor || 0);
+  if (!Number.isFinite(decimal)) return "0.00 h (0 h 00 min)";
+  let horas = Math.floor(decimal);
+  let minutos = Math.round((decimal - horas) * 60);
+  if (minutos === 60) { horas += 1; minutos = 0; }
+  return `${decimal.toFixed(2)} h (${horas} h ${String(minutos).padStart(2,"0")} min)`;
+}
+
+function minutosHoraRevision(valor) {
+  const texto = String(valor || "").trim();
+  const m = texto.match(/(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function horaTimestampRevision(valor) {
+  if (!valor) return "-";
+  const texto = String(valor);
+  const m = texto.match(/(?:T|\s)(\d{2}):(\d{2})/);
+  return m ? `${m[1]}:${m[2]}` : (texto.match(/^(\d{1,2}:\d{2})/)?.[1] || "-");
+}
+
+function diferenciaHorarioRevision(programada, real, tipo) {
+  const p = minutosHoraRevision(programada);
+  const r = minutosHoraRevision(real);
+  if (p == null || r == null) return '<span class="small text-muted">Sin comparación</span>';
+  let diff = r - p;
+  if (diff > 720) diff -= 1440;
+  if (diff < -720) diff += 1440;
+  const minutos = Math.abs(diff);
+  if (minutos === 0) return '<span class="badge bg-success-subtle text-success">A tiempo</span>';
+  if (tipo === "entrada") {
+    return diff > 0
+      ? `<span class="badge bg-warning-subtle text-warning-emphasis">Llegó ${minutos} min tarde</span>`
+      : `<span class="badge bg-info-subtle text-info-emphasis">Llegó ${minutos} min antes</span>`;
+  }
+  return diff > 0
+    ? `<span class="badge bg-warning-subtle text-warning-emphasis">Salió ${minutos} min tarde</span>`
+    : `<span class="badge bg-danger-subtle text-danger-emphasis">Salió ${minutos} min temprano</span>`;
+}
+
+function bloqueHorarioRevision(programada, realTimestamp, tipo) {
+  const real = horaTimestampRevision(realTimestamp);
+  const prog = String(programada || "").slice(0,5) || "-";
+  return `<div><strong>Prog.</strong> ${escaparHtml(prog)}</div><div><strong>Real</strong> ${escaparHtml(real)}</div><div class="mt-1">${diferenciaHorarioRevision(prog, real, tipo)}</div>`;
+}
+
+function renderRevisionNominaReal() {
+  const tbody=document.getElementById("tbodyRevisionNominaReal"); if(!tbody)return;
+  const rows=registrosRevisionFiltrados();
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="11" class="text-muted text-center">No hay conceptos para los filtros seleccionados.</td></tr>';return;}
+  tbody.innerHTML=rows.map(x=>{
+    const estado=String(x.estado_revision||"pendiente");
+    const cerrado=["aprobado","rechazado"].includes(estado);
+    return `<tr>
+      <td><strong>${escaparHtml(x.empleado||"")}</strong><div class="small text-muted">${escaparHtml(x.codigo_erp||"Sin código ERP")} · ${escaparHtml(x.cedula||"")}</div></td>
+      <td>${escaparHtml(formatearFechaCorta(x.fecha)||x.fecha||"")}</td>
+      <td>${formatearHorasRevision(x.horas_programadas_netas||0)}<div class="small text-muted">${escaparHtml(x.turno||"")} · ${escaparHtml((x.hora_inicio||"-").slice(0,5))}–${escaparHtml((x.hora_fin||"-").slice(0,5))}</div></td>
+      <td>${formatearHorasRevision(x.horas_reales||0)}<div class="small text-muted">${x.total_marcaciones||0} marcación(es)</div></td>
+      <td>${bloqueHorarioRevision(x.hora_inicio,x.primera_marcacion,"entrada")}</td>
+      <td>${bloqueHorarioRevision(x.hora_fin,x.ultima_marcacion,"salida")}</td>
+      <td><strong>${escaparHtml(x.concepto_codigo||"")}</strong><div class="small">${escaparHtml(x.concepto_nombre||"")}</div></td>
+      <td>${formatearHorasRevision(x.horas_calculadas ?? x.horas_candidatas ?? 0)}</td>
+      <td>${x.horas_aprobadas==null?"-":formatearHorasRevision(x.horas_aprobadas)}</td>
+      <td>${crearBadgeEstadoExtra(estado)}</td>
+      <td>${cerrado ? `<div class="d-flex flex-column align-items-start gap-1"><span class="small text-muted">Cerrado</span><button class="btn btn-outline-primary btn-sm" onclick="window.editarRevisionNomina('${x.revision_id}',${Number(x.horas_aprobadas||0)})">Editar</button></div>` : !x.permite_revision ? `<span class="small text-muted">Solo seguimiento</span>` : `<div class="d-flex flex-wrap gap-1"><button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','aprobar')">Aprobar</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','ajustar')">Ajustar</button><button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','rechazar')">Rechazar</button></div>`}</td>
+    </tr>`;
+  }).join("");
+}
+
+window.resolverRevisionNomina=async function(id,accion){
+  const usuario=usuarioRevisionActual(); if(!usuario){alert("No se pudo identificar el usuario de la sesión.");return;}
+  let horas=null,obs=null;
+  if(accion==="ajustar"){
+    const raw=prompt("Horas que se aprobarán:"); if(raw===null)return; horas=Number(String(raw).replace(",","."));
+    if(!Number.isFinite(horas)||horas<=0){alert("Ingresa una cantidad de horas válida.");return;}
+    obs=prompt("Justificación obligatoria del ajuste:"); if(!obs?.trim())return alert("El ajuste requiere justificación.");
+  } else if(["rechazar","observar"].includes(accion)){
+    obs=prompt(accion==="rechazar"?"Motivo obligatorio del rechazo:":"Observación obligatoria:"); if(!obs?.trim())return alert("Debes registrar una observación.");
+  } else if(!confirm("¿Confirmas la aprobación de las horas calculadas?")) return;
+  const {error}=await supabase.rpc("resolver_concepto_revision",{p_revision_id:id,p_accion:accion,p_usuario:usuario,p_horas_aprobadas:horas,p_observacion:obs});
+  if(error){console.error(error);alert("No fue posible guardar la decisión: "+error.message);return;}
+  await cargarRevisionNominaReal();
+};
+
+window.editarRevisionNomina=async function(id,horasActuales){
+  const usuario=usuarioRevisionActual();
+  if(!usuario){alert("No se pudo identificar el usuario de la sesión.");return;}
+  const actual=Number(horasActuales||0);
+  const raw=prompt(`Horas aprobadas corregidas (actual: ${formatearHorasRevision(actual)}):`,actual.toFixed(2));
+  if(raw===null)return;
+  const horas=Number(String(raw).replace(",","."));
+  if(!Number.isFinite(horas)||horas<0){alert("Ingresa una cantidad de horas válida.");return;}
+  const obs=prompt("Motivo obligatorio de la corrección. Este cambio quedará registrado en auditoría:");
+  if(!obs?.trim()){alert("Debes registrar el motivo de la corrección.");return;}
+  if(!confirm(`¿Confirmas cambiar las horas aprobadas a ${formatearHorasRevision(horas)}?`))return;
+  const {error}=await supabase.rpc("editar_concepto_revision",{p_revision_id:id,p_usuario:usuario,p_horas_aprobadas:horas,p_observacion:obs.trim()});
+  if(error){console.error(error);alert("No fue posible corregir la decisión: "+error.message);return;}
+  await cargarRevisionNominaReal();
+};
+
+async function generarPlantillaProsof(){
+  try{
+    const desde=document.getElementById("revisionFechaDesde")?.value; const hasta=document.getElementById("revisionFechaHasta")?.value;
+    let q=supabase.from("vw_prosof_exportacion_por_area").select('*').eq("grupo_codigo","ALIMENTOS_BEBIDAS").order("Fecha",{ascending:true});
+    if(desde)q=q.gte("Fecha",desde); if(hasta)q=q.lte("Fecha",hasta);
+    const {data,error}=await q; if(error)throw error;
+    if(!data?.length)return alert("No hay conceptos aprobados y elegibles para PROSOF en el período seleccionado.");
+    const filas=data.map(x=>({Empleado:x.Empleado||"",Concepto:x.Concepto||"",Fecha:x.Fecha||"",Dias:x.Dias??"",FechaInici:x.FechaInici??"",Horas:Number(x.Horas||0),Valor:x.Valor??"",LiquidarEnPrima:x.LiquidarEnPrima||"N","Centro de costos":x["Centro de costos"]??""}));
+    const ws=window.XLSX.utils.json_to_sheet(filas,{header:["Empleado","Concepto","Fecha","Dias","FechaInici","Horas","Valor","LiquidarEnPrima","Centro de costos"]});
+    const wb=window.XLSX.utils.book_new(); window.XLSX.utils.book_append_sheet(wb,ws,"PROSOF");
+    window.XLSX.writeFile(wb,`PROSOF_AYB_${desde||"inicio"}_${hasta||"fin"}.xlsx`);
+  }catch(e){console.error("PROSOF:",e);alert("No fue posible generar la plantilla PROSOF: "+(e.message||e));}
 }

@@ -84,6 +84,10 @@ let registrosSemanaAyb = [];
 let festivosSemana = [];
 let filtrosMatrizAyb = { busqueda: "", cargo: "", subarea: "", estado: "todos" };
 let filtrosVisualSemanalAyb = { busqueda: "", estado: "todos" };
+let turnosParticularesAyb = [];
+let personalDisponibleAyb = [];
+let modalGestionPersonalAyb = null;
+let modalCodigosTurnoAyb = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   sesionActual = JSON.parse(localStorage.getItem("ccp_sesion") || "null");
@@ -116,6 +120,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   cargarTurnoCopiadoDesdeMemoria();
   configurarAccionesGlobales();
 
+  await cargarCodigosParticularesAyb();
   await cargarEmpleadosParaBusqueda();
   await cargarProgramacionAyb();
 });
@@ -134,9 +139,13 @@ function inicializarModales() {
   const asignacion = document.getElementById("modalAsignacionAyb");
   const detalle = document.getElementById("modalDetalleRegistroAyb");
   const visual = document.getElementById("modalVisualSemanalAyb");
+  const personal = document.getElementById("modalGestionPersonalAyb");
+  const codigos = document.getElementById("modalCodigosTurnoAyb");
   if (asignacion) modalAsignacionAyb = new bootstrap.Modal(asignacion);
   if (detalle) modalDetalleRegistroAyb = new bootstrap.Modal(detalle);
   if (visual) modalVisualSemanalAyb = new bootstrap.Modal(visual);
+  if (personal) modalGestionPersonalAyb = new bootstrap.Modal(personal);
+  if (codigos) modalCodigosTurnoAyb = new bootstrap.Modal(codigos);
 }
 
 function protegerModulo(sesion) {
@@ -334,7 +343,21 @@ function obtenerCatalogoTurnosAybPorFecha(fechaISO) {
   return festivo || dia === 0 || dia === 6 ? TURNOS_CATALOGO_8H_NETAS : TURNOS_CATALOGO_7H_NETAS;
 }
 
+function obtenerTurnoParticularAyb(codigo) {
+  const clave = texto(codigo).toUpperCase();
+  const item = turnosParticularesAyb.find((x) => texto(x.codigo).toUpperCase() === clave);
+  if (!item) return null;
+  return {
+    label: `${item.codigo} · ${item.descripcion || "Turno particular"} · ${String(item.hora_inicio || "").slice(0,5)}-${String(item.hora_fin || "").slice(0,5)}`,
+    inicio: String(item.hora_inicio || "").slice(0,5),
+    fin: String(item.hora_fin || "").slice(0,5),
+    particular: true
+  };
+}
+
 function obtenerTurnoCatalogoAyb(codigo, fechaISO) {
+  const particular = obtenerTurnoParticularAyb(codigo);
+  if (particular) return particular;
   const catalogo = obtenerCatalogoTurnosAybPorFecha(fechaISO || document.getElementById("fechaAyb")?.value || "");
   return catalogo[codigo] || TURNOS_CATALOGO_7H_NETAS[codigo] || TURNOS_CATALOGO_8H_NETAS[codigo] || null;
 }
@@ -342,21 +365,59 @@ function obtenerTurnoCatalogoAyb(codigo, fechaISO) {
 function renderOpcionesTurnos() {
   const fecha = document.getElementById("fechaAyb")?.value || semanaActual[0]?.fecha || "";
   const catalogo = obtenerCatalogoTurnosAybPorFecha(fecha);
-  const opciones = `<option value="">Seleccione</option>` + Object.entries(catalogo)
-    .map(([codigo, data]) => `<option value="${codigo}">${escaparHtml(data.label)}</option>`).join("");
+  const estandar = Object.entries(catalogo).map(([codigo, data]) => `<option value="${codigo}">${escaparHtml(data.label)}</option>`).join("");
+  const particulares = turnosParticularesAyb.length
+    ? `<optgroup label="Turnos particulares">${turnosParticularesAyb.map((item) => `<option value="${escaparHtml(item.codigo)}">${escaparHtml(item.codigo)} · ${escaparHtml(item.descripcion || "Turno particular")} · ${escaparHtml(String(item.hora_inicio || "").slice(0,5))}-${escaparHtml(String(item.hora_fin || "").slice(0,5))}</option>`).join("")}</optgroup>`
+    : "";
+  const opciones = `<option value="">Seleccione</option><optgroup label="Turnos estándar">${estandar}</optgroup>${particulares}`;
   const select1 = document.getElementById("turnoAyb");
   const select2 = document.getElementById("turno2Ayb");
   const valor1 = select1?.value || "";
   const valor2 = select2?.value || "";
-  if (select1) {
-    select1.innerHTML = opciones;
-    if (valor1 && catalogo[valor1]) select1.value = valor1;
-  }
-  if (select2) {
-    select2.innerHTML = opciones;
-    if (valor2 && catalogo[valor2]) select2.value = valor2;
-  }
+  if (select1) { select1.innerHTML = opciones; if (valor1) select1.value = valor1; }
+  if (select2) { select2.innerHTML = opciones; if (valor2) select2.value = valor2; }
 }
+
+async function cargarCodigosParticularesAyb() {
+  const { data, error } = await supabase.from("ayb_codigos_turno").select("*").eq("activo", true).order("codigo");
+  if (error) { console.error("Error cargando turnos particulares A&B:", error); turnosParticularesAyb = []; return; }
+  turnosParticularesAyb = data || [];
+  renderOpcionesTurnos();
+}
+
+async function abrirGestionCodigosAyb() {
+  await cargarCodigosParticularesAyb();
+  renderTablaCodigosParticularesAyb();
+  modalCodigosTurnoAyb?.show();
+}
+
+function renderTablaCodigosParticularesAyb() {
+  const tbody = document.getElementById("tbodyCodigosTurnoAyb");
+  if (!tbody) return;
+  tbody.innerHTML = turnosParticularesAyb.length ? turnosParticularesAyb.map((x) => `<tr><td><strong>${escaparHtml(x.codigo)}</strong></td><td>${escaparHtml(x.descripcion || "")}</td><td>${escaparHtml(String(x.hora_inicio || "").slice(0,5))} - ${escaparHtml(String(x.hora_fin || "").slice(0,5))}</td><td><button class="btn btn-sm btn-outline-danger" type="button" onclick="window.desactivarCodigoTurnoAyb('${escaparAtributo(x.id)}')">Quitar</button></td></tr>`).join("") : `<tr><td colspan="4" class="text-center text-muted">No hay turnos particulares creados.</td></tr>`;
+}
+
+async function guardarCodigoTurnoParticularAyb() {
+  const codigo = texto(document.getElementById("codigoParticularAyb")?.value).toUpperCase();
+  const descripcion = texto(document.getElementById("descripcionParticularAyb")?.value);
+  const inicio = document.getElementById("inicioParticularAyb")?.value || null;
+  const fin = document.getElementById("finParticularAyb")?.value || null;
+  if (!codigo || !inicio || !fin) return alert("Código, hora de inicio y hora de fin son obligatorios.");
+  if (TURNOS_CATALOGO_7H_NETAS[codigo] || TURNOS_CATALOGO_8H_NETAS[codigo]) return alert("Ese código pertenece al catálogo estándar. Usa otro código para el turno particular.");
+  const { error } = await supabase.from("ayb_codigos_turno").upsert({ codigo, descripcion, hora_inicio: inicio, hora_fin: fin, activo: true, updated_at: new Date().toISOString() }, { onConflict: "codigo" });
+  if (error) return alert(`No se pudo guardar el turno particular: ${error.message}`);
+  ["codigoParticularAyb","descripcionParticularAyb","inicioParticularAyb","finParticularAyb"].forEach(id => { const el=document.getElementById(id); if(el) el.value=""; });
+  await cargarCodigosParticularesAyb();
+  renderTablaCodigosParticularesAyb();
+}
+
+window.desactivarCodigoTurnoAyb = async function(id) {
+  if (!confirm("¿Quitar este turno particular del catálogo A&B?")) return;
+  const { error } = await supabase.from("ayb_codigos_turno").update({ activo:false, updated_at:new Date().toISOString() }).eq("id", id);
+  if (error) return alert(`No se pudo quitar: ${error.message}`);
+  await cargarCodigosParticularesAyb();
+  renderTablaCodigosParticularesAyb();
+};
 
 function configurarBotones() {
   sincronizarInputsPeriodoOperativoAyb();
@@ -376,6 +437,10 @@ function configurarBotones() {
     await aplicarPeriodoOperativoAyb(inicio, fin, true);
   });
   document.getElementById("btnNuevaAsignacion")?.addEventListener("click", () => abrirModalNuevaAsignacion());
+  document.getElementById("btnGestionPersonalAyb")?.addEventListener("click", abrirGestionPersonalAyb);
+  document.getElementById("btnGestionTurnosAyb")?.addEventListener("click", abrirGestionCodigosAyb);
+  document.getElementById("btnGuardarCodigoParticularAyb")?.addEventListener("click", guardarCodigoTurnoParticularAyb);
+  document.getElementById("buscarPersonalDisponibleAyb")?.addEventListener("input", renderGestionPersonalAyb);
   document.getElementById("btnVisualSemanalAyb")?.addEventListener("click", abrirVisualSemanalAyb);
   document.getElementById("btnPdfGeneral")?.addEventListener("click", generarPdfGeneralAyb);
   document.getElementById("btnPdfCalendarioAyb")?.addEventListener("click", generarPdfCalendarioSemanalAyb);
@@ -684,24 +749,59 @@ function construirCeldaVisualSemanalAyb(empleado, dia) {
 
 async function cargarEmpleadosParaBusqueda() {
   try {
-    /*
-      La consulta se limita por área/centro de costos. No se filtra por cargo,
-      porque cargos como AUXILIAR, LÍDER o SERVICIO existen en otras áreas.
-    */
-    let respuesta = await supabase.from("empleados").select("*")
-      .or("centro_costos.ilike.%ALIMENTOS%,centro_costos.ilike.%BEBIDAS%,centro_costos.ilike.%A&B%,centro_costos.ilike.%AYB%,centro_costos.ilike.%COCINA%,area.ilike.%ALIMENTOS%,area.ilike.%BEBIDAS%,area.ilike.%A&B%,area.ilike.%AYB%,area.ilike.%COCINA%");
-    if (respuesta.error) respuesta = await supabase.from("empleados").select("*");
-    if (respuesta.error) throw respuesta.error;
-    empleadosAyb = (respuesta.data || []).filter(esEmpleadoAybValido).map(normalizarEmpleado)
-      .filter((emp) => emp.cedula && emp.nombre).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+    const { data, error } = await supabase.from("vw_ayb_personal_disponible").select("*").eq("agregado_ayb", true).order("nombre");
+    if (error) throw error;
+    empleadosAyb = (data || []).map((emp) => normalizarEmpleado({
+      ...emp,
+      id: emp.empleado_id,
+      nombres: emp.nombres,
+      apellidos: emp.apellidos,
+      nombre_completo: emp.nombre,
+      area: emp.area || emp.centro_costos
+    })).filter((emp) => emp.cedula && emp.nombre).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));
   } catch (error) {
-    console.error("Error cargando empleados A&B:", error);
+    console.error("Error cargando personal A&B sincronizado:", error);
     empleadosAyb = [];
   }
   renderListaEmpleados();
   renderSelectEmpleadoPdf();
   renderSelectCargoFiltro();
 }
+
+async function abrirGestionPersonalAyb() {
+  const { data, error } = await supabase.from("vw_ayb_personal_disponible").select("*").order("nombre");
+  if (error) return alert(`No se pudo cargar el personal A&B: ${error.message}`);
+  personalDisponibleAyb = data || [];
+  renderGestionPersonalAyb();
+  modalGestionPersonalAyb?.show();
+}
+
+function renderGestionPersonalAyb() {
+  const tbody = document.getElementById("tbodyGestionPersonalAyb");
+  if (!tbody) return;
+  const q = normalizarTextoFiltroAyb(document.getElementById("buscarPersonalDisponibleAyb")?.value || "");
+  const lista = personalDisponibleAyb.filter((x) => !q || normalizarTextoFiltroAyb(`${x.nombre||""} ${x.cedula||""} ${x.cargo||""} ${x.centro_costos||""}`).includes(q));
+  tbody.innerHTML = lista.length ? lista.map((x) => `<tr><td><strong>${escaparHtml(x.nombre || "")}</strong><div class="small text-muted">${escaparHtml(x.cedula || "")}</div></td><td>${escaparHtml(x.cargo || "")}</td><td>${escaparHtml(x.centro_costos || "")}</td><td>${x.agregado_ayb ? '<span class="badge text-bg-success">En programación</span>' : '<span class="badge text-bg-secondary">Disponible</span>'}</td><td class="text-end">${x.agregado_ayb ? `<button class="btn btn-sm btn-outline-danger" onclick="window.quitarPersonalAyb('${escaparAtributo(x.cronograma_id)}')">Quitar</button>` : `<button class="btn btn-sm btn-success" onclick="window.agregarPersonalAyb('${escaparAtributo(x.empleado_id)}')">Agregar</button>`}</td></tr>`).join("") : `<tr><td colspan="5" class="text-center text-muted">No hay resultados.</td></tr>`;
+}
+
+window.agregarPersonalAyb = async function(empleadoId) {
+  const x = personalDisponibleAyb.find(p => String(p.empleado_id) === String(empleadoId));
+  if (!x) return;
+  const { error } = await supabase.from("ayb_cronograma_personal").insert({ empleado_id:x.empleado_id, cedula:x.cedula, nombre_visible:x.nombre, cargo:x.cargo||null, activo:true, orden:999, creado_por:sesionActual?.id||null });
+  if (error) return alert(`No se pudo agregar: ${error.message}`);
+  await abrirGestionPersonalAyb();
+  await cargarEmpleadosParaBusqueda();
+  await cargarProgramacionAyb();
+};
+
+window.quitarPersonalAyb = async function(cronogramaId) {
+  if (!confirm("¿Quitar a este empleado de la matriz A&B? Sus programaciones históricas no se eliminan.")) return;
+  const { error } = await supabase.from("ayb_cronograma_personal").update({ activo:false, actualizado_at:new Date().toISOString() }).eq("id", cronogramaId);
+  if (error) return alert(`No se pudo quitar: ${error.message}`);
+  await abrirGestionPersonalAyb();
+  await cargarEmpleadosParaBusqueda();
+  await cargarProgramacionAyb();
+};
 
 function normalizarEmpleado(emp) {
   const nombre = texto(emp.nombre_completo) || `${texto(emp.nombres)} ${texto(emp.apellidos)}`.trim();
@@ -1043,7 +1143,7 @@ function calcularMetricasRegistro(registro) {
       horas_diurnas: 0,
       horas_nocturnas: 0,
       horas_netas: 0,
-      jornada_esperada: JORNADA_SEMANAL_AYB_HORAS,
+      jornada_esperada: obtenerJornadaSemanalAybHoras(registro.fecha),
       horas_extra_estimadas: 0,
       extra_diurna: 0,
       extra_nocturna: 0,
@@ -1067,7 +1167,7 @@ function calcularMetricasRegistro(registro) {
     horas_diurnas: detalle.horas_diurnas,
     horas_nocturnas: detalle.horas_nocturnas,
     horas_netas: detalle.horas_netas,
-    jornada_esperada: JORNADA_SEMANAL_AYB_HORAS,
+    jornada_esperada: obtenerJornadaSemanalAybHoras(registro.fecha),
     horas_extra_estimadas: 0,
     extra_diurna: 0,
     extra_nocturna: 0,

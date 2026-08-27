@@ -2567,7 +2567,7 @@ async function cargarEmpleadosBase() {
     mediante perteneceEmpleadoBaseAybCocina().
   */
   const { data, error } = await supabase
-    .from("empleados")
+    .from("vw_personal_programacion_actual")
     .select("*");
 
   if (error) {
@@ -2583,7 +2583,14 @@ async function cargarEmpleadosBase() {
     return;
   }
 
-  empleadosCache = (data || []).filter(perteneceEmpleadoBaseAybCocina);
+  empleadosCache = (data || []).map((emp) => ({
+    ...emp,
+    id: emp.empleado_id || emp.id,
+    nombres: emp.nombres || "",
+    apellidos: emp.apellidos || "",
+    nombre: emp.nombre || "",
+    centro_costos: emp.centro_costos || ""
+  })).filter(perteneceEmpleadoBaseAybCocina);
 }
 
 function filtrarEmpleadosModal() {

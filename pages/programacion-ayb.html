@@ -37,6 +37,8 @@
           <button class="btn btn-outline-primary" id="btnSemanaActual" type="button">Semana actual</button>
           <button class="btn btn-outline-primary" id="btnSemanaSiguiente" type="button">Periodo siguiente</button>
           <button class="btn btn-primary" id="btnNuevaAsignacion" type="button">Nueva asignación</button>
+          <button class="btn btn-outline-success" id="btnGestionPersonalAyb" type="button">Agregar / quitar personal</button>
+          <button class="btn btn-outline-dark" id="btnGestionTurnosAyb" type="button">Turnos particulares</button>
           <button class="btn btn-outline-success" id="btnVisualSemanalAyb" type="button">Visual semanal</button>
           <button class="btn btn-outline-danger" id="btnPdfGeneral" type="button">PDF general</button>
           <button class="btn btn-outline-danger" id="btnPdfCalendarioAyb" type="button">PDF calendario</button>
@@ -61,7 +63,7 @@
               <button class="btn btn-primary w-100" id="btnCargarPeriodoOperativoAyb" type="button">Cargar periodo</button>
             </div>
             <div class="col-12 col-lg-4">
-              <div class="small text-muted">El conteo de 44 horas, festivos, horas extra, PDFs y visual semanal se calcula sobre este rango operativo.</div>
+              <div class="small text-muted">Regla A&B: martes a viernes 7 h netas (7,5 h brutas con 0,5 h de almuerzo); sábados, domingos y festivos 8 h netas (8,5 h brutas con 0,5 h de almuerzo). El conteo semanal vigente usa referencia de 42 h.</div>
             </div>
           </div>
         </div>
@@ -95,7 +97,7 @@
             <div class="card-body">
               <div class="kpi-label">Horas extra estimadas</div>
               <div class="kpi-value" id="kpiHorasExtraAyb">0.0</div>
-              <div class="small text-muted">Sobre 44 horas del periodo</div>
+              <div class="small text-muted">Sobre 42 horas del periodo</div>
             </div>
           </div>
         </div>
@@ -323,6 +325,24 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <div class="modal fade" id="modalGestionPersonalAyb" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
+      <div class="modal-header"><div><h5 class="modal-title">Agregar / quitar personal A&B</h5><div class="small text-muted">Personal oficial sincronizado desde BioTime/ZKTeco. Quitar de esta matriz no elimina al empleado ni su histórico.</div></div><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body"><input id="buscarPersonalDisponibleAyb" class="form-control mb-3" placeholder="Buscar por nombre, cédula, cargo o centro de costos"><div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>Empleado</th><th>Cargo</th><th>Centro costos</th><th>Estado</th><th class="text-end">Acción</th></tr></thead><tbody id="tbodyGestionPersonalAyb"></tbody></table></div></div>
+    </div></div>
+  </div>
+
+  <div class="modal fade" id="modalCodigosTurnoAyb" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+      <div class="modal-header"><div><h5 class="modal-title">Turnos particulares A&B</h5><div class="small text-muted">Crea horarios reutilizables adicionales a los turnos estándar.</div></div><button class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-2 align-items-end mb-3"><div class="col-md-2"><label class="form-label">Código</label><input id="codigoParticularAyb" class="form-control" placeholder="X1"></div><div class="col-md-4"><label class="form-label">Descripción</label><input id="descripcionParticularAyb" class="form-control" placeholder="Apoyo evento"></div><div class="col-md-2"><label class="form-label">Inicio</label><input id="inicioParticularAyb" type="time" class="form-control"></div><div class="col-md-2"><label class="form-label">Fin</label><input id="finParticularAyb" type="time" class="form-control"></div><div class="col-md-2"><button id="btnGuardarCodigoParticularAyb" type="button" class="btn btn-primary w-100">Guardar</button></div></div>
+        <div class="alert alert-light border small">Los códigos 1–11 permanecen reservados para los turnos estándar. Los particulares pueden utilizar códigos como X1, EV1, APOYO, etc.</div>
+        <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Código</th><th>Descripción</th><th>Horario</th><th>Acción</th></tr></thead><tbody id="tbodyCodigosTurnoAyb"></tbody></table></div>
+      </div>
+    </div></div>
   </div>
 
   <div class="modal fade" id="modalAsignacionAyb" tabindex="-1" aria-hidden="true">

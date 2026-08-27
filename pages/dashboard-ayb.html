@@ -10,6 +10,14 @@
   <link rel="stylesheet" href="../css/dashboard.css" />
   <link rel="stylesheet" href="../css/layout.css" />
 
+  <style>
+    body.ayb-vista-compacta .grafica-card,
+    body.ayb-vista-compacta .seccion-externos-chef,
+    body.ayb-vista-compacta .bloque-externos-chef,
+    body.ayb-vista-compacta .kpi-externos-chef { display:none !important; }
+    .ayb-organizacion-note{font-size:.82rem;color:#6c7b75;margin-top:.5rem}
+  </style>
+
 </head>
 
 <body>
@@ -36,6 +44,7 @@
               <div class="text-xl-end">
                 <div class="mini-badge-fecha mb-3" id="fechaDashboard">Cargando fecha...</div>
                 <div class="hero-actions">
+                  <button class="btn btn-outline-secondary" id="btnModoCompactoAyb">Vista compacta</button>
                   <button class="btn btn-outline-secondary" id="btnLimpiarFiltros">Limpiar filtros</button>
                   <button class="btn btn-outline-success" id="btnExportarExcel">Exportar Excel</button>
                   <button class="btn btn-outline-dark" id="btnExportarPDF">Exportar PDF</button>
@@ -47,6 +56,7 @@
         </section>
 
 
+        <div class="ayb-organizacion-note mb-2">Use <strong>Vista compacta</strong> para dejar visibles los indicadores y controles principales. Las gráficas y bloques secundarios pueden mostrarse cuando se necesite análisis detallado.</div>
         <div class="card shadow-sm border-0 mb-4 dashboard-bloque dashboard-panel dashboard-filters seccion-dashboard">
           <div class="card-header bg-white fw-bold">Filtros analíticos</div>
           <div class="card-body">
@@ -196,84 +206,40 @@
           </div>
         </div>
 
-        <div class="seccion-titulo">
-          <h5>Control de horas extra</h5>
-          <span class="subtexto-validacion">Aprobación, rechazo y exportación para nómina</span>
-        </div>
-
-        <div class="row g-3 mb-4 seccion-dashboard">
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="validacion-card p-3">
-              <div class="titulo">Pendientes</div>
-              <div class="valor" id="kpiExtrasPendientes">0</div>
-              <p class="kpi-subtexto">Registros con extra por validar</p>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="validacion-card p-3">
-              <div class="titulo">Aprobados</div>
-              <div class="valor" id="kpiExtrasAprobadas">0</div>
-              <p class="kpi-subtexto">Registros aprobados en el filtro</p>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="validacion-card p-3">
-              <div class="titulo">Rechazados</div>
-              <div class="valor" id="kpiExtrasRechazadas">0</div>
-              <p class="kpi-subtexto">Registros rechazados en el filtro</p>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="validacion-card p-3">
-              <div class="titulo">Horas extra aprobadas</div>
-              <div class="valor" id="kpiHorasExtraAprobadas">0.0</div>
-              <p class="kpi-subtexto">Diurna + nocturna</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
+        <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard" id="panelRevisionNominaReal">
           <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <span class="fw-bold">Validación de horas extra</span>
-            <span class="text-muted small">Solo se listan registros con horas extra estimadas</span>
-          </div>
-          <div class="card-body bloque-scroll">
-            <div class="scroll-superior-tabla" id="scrollSuperiorValidacionExtras" aria-label="Desplazamiento horizontal superior de validación">
-              <div></div>
+            <div>
+              <span class="fw-bold">Bandeja de revisión biométrica · PROSOF</span>
+              <div class="text-muted small">Programación + marcaciones reales + conceptos candidatos. Ninguna diferencia de marcación se convierte automáticamente en hora extra.</div>
             </div>
-            <div class="table-responsive" id="scrollTablaValidacionExtras">
-              <table class="table table-hover mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th>#</th>
-                    <th>Empleado</th>
-                    <th>Cédula</th>
-                    <th>Fecha</th>
-                    <th>Área</th>
-                    <th>Subárea</th>
-                    <th>Extra diurna</th>
-                    <th>Extra nocturna</th>
-                    <th>Total extra</th>
-                    <th>Estado</th>
-                    <th>Aprobado por</th>
-                    <th>Fecha aprobación</th>
-                    <th>Observación</th>
-                    <th class="columna-acciones">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="tbodyValidacionExtras">
-                  <tr>
-                    <td colspan="14" class="texto-vacio">Cargando validaciones...</td>
-                  </tr>
-                </tbody>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-outline-primary btn-sm" id="btnActualizarRevisionNomina">Actualizar bandeja</button>
+              <button class="btn btn-success btn-sm" id="btnGenerarProsof">Generar plantilla PROSOF</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-warning py-2 small">
+              <strong>Regla de exportación:</strong> PROSOF conserva inicialmente una fila por concepto aprobado y fecha. No se consolidan registros repetidos hasta validación expresa de Nómina.<br>
+              <strong>Lectura de horas:</strong> la bandeja muestra horas decimales y su equivalencia en horas/minutos (ej.: 8.40 h = 8 h 24 min). Las decisiones cerradas pueden corregirse con <strong>Editar</strong>; el motivo y los valores anterior/nuevo quedan en auditoría.
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-12 col-md-3"><input type="date" class="form-control form-control-sm" id="revisionFechaDesde"></div>
+              <div class="col-12 col-md-3"><input type="date" class="form-control form-control-sm" id="revisionFechaHasta"></div>
+              <div class="col-12 col-md-3">
+                <select class="form-select form-select-sm" id="revisionEstado">
+                  <option value="">Todos los estados</option><option value="pendiente">Pendientes</option><option value="observado">Observados</option><option value="aprobado">Aprobados</option><option value="rechazado">Rechazados</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-3"><input type="search" class="form-control form-control-sm" id="revisionBuscar" placeholder="Empleado, cédula o concepto"></div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle">
+                <thead class="table-light"><tr><th>Empleado</th><th>Fecha</th><th>Programado</th><th>Marcado</th><th>Ingreso</th><th>Salida</th><th>Concepto</th><th>Calculadas</th><th>Aprobadas</th><th>Estado</th><th>Acciones</th></tr></thead>
+                <tbody id="tbodyRevisionNominaReal"><tr><td colspan="11" class="text-muted text-center">Cargando bandeja...</td></tr></tbody>
               </table>
             </div>
           </div>
         </div>
-
 
         <div class="seccion-titulo seccion-externos-chef">
           <h5>Personal externo programado por Cocina Chef</h5>
@@ -1113,7 +1079,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="../js/layout.js"></script>
-  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260604-chef-integracion1"></script>
+  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260826-organizacion1"></script>
 
   <script>
     function usuarioPuedeVerSolicitudesBienestarDashboard(sesion) {
@@ -1173,6 +1139,13 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
+      const btnCompacto = document.getElementById("btnModoCompactoAyb");
+      if (btnCompacto) {
+        const aplicarTexto = () => btnCompacto.textContent = document.body.classList.contains("ayb-vista-compacta") ? "Ver análisis completo" : "Vista compacta";
+        document.body.classList.add("ayb-vista-compacta");
+        aplicarTexto();
+        btnCompacto.addEventListener("click", () => { document.body.classList.toggle("ayb-vista-compacta"); aplicarTexto(); });
+      }
       aplicarAccesoSolicitudesBienestarDashboard();
       setTimeout(aplicarAccesoSolicitudesBienestarDashboard, 300);
       setTimeout(aplicarAccesoSolicitudesBienestarDashboard, 900);
