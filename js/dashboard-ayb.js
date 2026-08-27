@@ -29,7 +29,8 @@ let chartAnios = null;
 let chartHorasTipo = null;
 let chartHorasExtraEmpleados = null;
 
-const HORA_INICIO_NOCTURNO = 21 * 60;
+// Ley 2466 de 2025: trabajo nocturno entre las 7:00 p. m. y las 6:00 a. m.
+const HORA_INICIO_NOCTURNO = 19 * 60;
 const HORA_FIN_NOCTURNO = 6 * 60;
 const DESCANSO_ESTANDAR_HORAS = 0.5;
 const STORAGE_PERIODO_OPERATIVO_AYB = "ccp_periodo_operativo_ayb";
@@ -212,6 +213,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   configurarBotonActualizar();
   configurarBotonExportarPDF();
   configurarBotonExportarExcel();
+  configurarDetalleInteractivoAyb();
   configurarRevisionNominaReal();
   configurarFiltros();
 
@@ -466,16 +468,18 @@ async function cargarDashboardReal(sesion) {
     const registrosHoy = registrosBase.filter((item) => String(item.fecha || "") === fechaHoy);
     const registrosSemana = registrosBase.filter((item) => fechasSemana.includes(String(item.fecha || "")));
 
-    const programadosHoy = registrosHoy.length;
-    const subareasHoy = new Set(registrosHoy.map((r) => String(r.subarea || "").trim()).filter(Boolean)).size;
+    const turnosHoy = registrosHoy.filter((r) => !esNovedad(r));
+    const turnosSemana = registrosSemana.filter((r) => !esNovedad(r));
+    const programadosHoy = turnosHoy.length;
+    const subareasHoy = new Set(turnosHoy.map((r) => String(r.subarea || "").trim()).filter(Boolean)).size;
     const novedadesHoy = registrosHoy.filter((r) => esNovedad(r)).length;
-    const asignacionesSemana = registrosSemana.length;
+    const asignacionesSemana = turnosSemana.length;
 
-    const semanaAyb = registrosSemana.filter((r) => esAyb(r)).length;
+    const semanaAyb = turnosSemana.filter((r) => esAyb(r)).length;
     const semanaAdmin = 0;
     const semanaOperaciones = 0;
     const empleadosSemana = new Set(
-      registrosSemana.map((r) => String(r.cedula || "").trim()).filter(Boolean)
+      turnosSemana.map((r) => String(r.cedula || "").trim()).filter(Boolean)
     ).size;
 
     setText("kpiProgramadosHoy", programadosHoy);
@@ -1135,7 +1139,7 @@ function actualizarBadgesAnaliticos(registros) {
     : "Periodo operativo activo: todo el historial";
 
   setText("badgeRangoActivo", rangoTexto);
-  setText("badgeRegistrosAnalizados", `Registros analizados: ${registros.length}`);
+  setText("badgeRegistrosAnalizados", `Turnos + novedades: ${registros.length}`);
   setText("badgeEmpleadosAnalizados", `Empleados: ${empleados}`);
   setText("badgeDiasAnalizados", `Días con registros: ${dias}`);
 }
@@ -1409,7 +1413,9 @@ function renderTopAsistencia(registros) {
   const tbody = document.getElementById("tbodyTopAsistencia");
   if (!tbody) return;
 
-  const top = Object.values(agruparEmpleados(registros))
+  // Este dashboard mide programación, no presencia biométrica. Por eso este
+  // ranking usa solamente turnos y se presenta como días programados.
+  const top = Object.values(agruparEmpleados(registros.filter((item) => !esNovedad(item))))
     .sort((a, b) => b.dias - a.dias || b.asignaciones - a.asignaciones)
     .slice(0, 10);
 
@@ -1883,6 +1889,9 @@ function filtrarSolicitudesBienestarPorPermisos(solicitudes, sesion) {
 
 function normalizarSolicitudBienestar(solicitud) {
   const fecha = obtenerFechaSolicitudBienestar(solicitud);
+  const fechaInicio = String(solicitud.fecha_inicio || fecha || "").slice(0, 10);
+  const fechaFin = String(solicitud.fecha_fin || solicitud.fecha_inicio || fecha || "").slice(0, 10);
+  const fechaRadicacion = String(solicitud.fecha_radicacion || solicitud.created_at || "").slice(0, 10);
   const estado = normalizarEstadoSolicitudBienestar(solicitud.estado || solicitud.estado_solicitud || solicitud.estado_bienestar);
   const tipo = String(solicitud.tipo_solicitud || solicitud.tipo || solicitud.categoria || solicitud.motivo || solicitud.codigo_tipo || solicitud.subtipo || "").trim();
   const texto = String(
@@ -1899,6 +1908,9 @@ function normalizarSolicitudBienestar(solicitud) {
   return {
     ...solicitud,
     _fecha_bienestar: fecha,
+    _fecha_inicio_bienestar: fechaInicio,
+    _fecha_fin_bienestar: fechaFin,
+    _fecha_radicacion_bienestar: fechaRadicacion,
     _estado_bienestar: estado,
     _tipo_bienestar: tipo || "Sin tipo",
     _es_incapacidad: texto.includes("incap"),
@@ -1937,7 +1949,9 @@ function obtenerAreaSolicitudBienestar(solicitud) {
 }
 
 function obtenerFechaSolicitudBienestar(solicitud) {
-  const valor = solicitud.fecha || solicitud.fecha_solicitud || solicitud.created_at || solicitud.fecha_inicio || solicitud.fecha_novedad;
+  // Para cruzar una novedad con la programación importa primero la fecha del
+  // evento. La fecha de creación/radicación se conserva aparte para auditoría.
+  const valor = solicitud.fecha_inicio || solicitud.fecha_novedad || solicitud.fecha || solicitud.fecha_solicitud || solicitud.fecha_radicacion || solicitud.created_at;
   if (!valor) return "";
   return String(valor).slice(0, 10);
 }
@@ -1984,12 +1998,14 @@ function evaluarFueraTiempoBienestar(solicitud, fechaSolicitud) {
 
 function obtenerSolicitudesBienestarFiltradas() {
   return solicitudesBienestarBase.filter((solicitud) => {
-    const fecha = solicitud._fecha_bienestar || "";
+    const inicio = solicitud._fecha_inicio_bienestar || solicitud._fecha_bienestar || "";
+    const fin = solicitud._fecha_fin_bienestar || inicio;
     const area = String(solicitud._area || "").toUpperCase();
     const empleado = `${solicitud._nombre || ""} ${solicitud._cedula || ""}`.toUpperCase();
 
-    if (filtrosActuales.fechaInicio && fecha && fecha < filtrosActuales.fechaInicio) return false;
-    if (filtrosActuales.fechaFin && fecha && fecha > filtrosActuales.fechaFin) return false;
+    // Se incluye cualquier solicitud cuyo intervalo se cruce con el filtro.
+    if (filtrosActuales.fechaInicio && fin && fin < filtrosActuales.fechaInicio) return false;
+    if (filtrosActuales.fechaFin && inicio && inicio > filtrosActuales.fechaFin) return false;
     if (filtrosActuales.area && !area.includes(String(filtrosActuales.area).toUpperCase())) return false;
     if (filtrosActuales.empleado && !empleado.includes(String(filtrosActuales.empleado).toUpperCase())) return false;
     return true;
@@ -2004,7 +2020,7 @@ function renderDashboardBienestar() {
   const pendientes = solicitudes.filter((s) => s._estado_bienestar === "pendiente" || s._estado_bienestar === "pendiente_documentos");
   const aprobadas = solicitudes.filter((s) => s._estado_bienestar === "aprobado");
   const rechazadas = solicitudes.filter((s) => s._estado_bienestar === "rechazado");
-  const incapacidadesMes = solicitudes.filter((s) => s._es_incapacidad && String(s._fecha_bienestar || "").startsWith(mesActual));
+  const incapacidadesMes = solicitudes.filter((s) => s._es_incapacidad && String(s._fecha_inicio_bienestar || s._fecha_bienestar || "").startsWith(mesActual));
   const pendientesDocs = solicitudes.filter((s) => s._requiere_documento);
   const fueraTiempo = solicitudes.filter((s) => s._fuera_tiempo);
 
@@ -2346,12 +2362,12 @@ function renderGraficaAreas(registros) {
         label: "Asignaciones",
         data: ranking.map(([, value]) => value),
         backgroundColor: [
-          "rgba(13,110,253,0.75)",
-          "rgba(25,135,84,0.75)",
-          "rgba(255,193,7,0.75)",
-          "rgba(13,202,240,0.75)",
-          "rgba(108,117,125,0.75)",
-          "rgba(220,53,69,0.75)"
+          "rgba(23,75,56,0.88)",
+          "rgba(36,130,91,0.82)",
+          "rgba(83,151,119,0.78)",
+          "rgba(118,169,145,0.74)",
+          "rgba(147,179,164,0.72)",
+          "rgba(102,123,114,0.72)"
         ],
         borderRadius: 8,
         borderWidth: 1.5
@@ -2402,8 +2418,8 @@ function renderGraficaDias(registros) {
       datasets: [{
         label: "Carga laboral",
         data: diasSemana.map((dia) => conteo[dia]),
-        borderColor: "rgba(13,110,253,1)",
-        backgroundColor: "rgba(13,110,253,0.15)",
+        borderColor: "rgba(23,75,56,1)",
+        backgroundColor: "rgba(36,130,91,0.13)",
         fill: true,
         tension: 0.35,
         pointRadius: 4
@@ -2440,8 +2456,8 @@ function renderGraficaHorasTipo(registros) {
       datasets: [{
         data: [horasDiurnas, horasNocturnas],
         backgroundColor: [
-          "rgba(13,110,253,0.85)",
-          "rgba(111,66,193,0.85)"
+          "rgba(36,130,91,0.88)",
+          "rgba(23,75,56,0.92)"
         ],
         borderWidth: 2,
         borderColor: "#ffffff"
@@ -2488,8 +2504,8 @@ function renderGraficaHorasExtraEmpleados(registros) {
       datasets: [{
         label: "Horas extra",
         data: ranking.map((item) => redondearHoras(item.total)),
-        backgroundColor: "rgba(255,193,7,0.8)",
-        borderColor: "rgba(255,193,7,1)",
+        backgroundColor: "rgba(199,122,18,0.78)",
+        borderColor: "rgba(199,122,18,1)",
         borderWidth: 1.5,
         borderRadius: 8
       }]
@@ -2563,14 +2579,14 @@ function renderGraficaDistribucionAreas(registros) {
       datasets: [{
         data: ranking.map(([, value]) => value),
         backgroundColor: [
-          "rgba(13,110,253,0.85)",
-          "rgba(25,135,84,0.85)",
-          "rgba(255,193,7,0.85)",
-          "rgba(220,53,69,0.85)",
-          "rgba(13,202,240,0.85)",
-          "rgba(108,117,125,0.85)",
-          "rgba(111,66,193,0.85)",
-          "rgba(253,126,20,0.85)"
+          "rgba(23,75,56,0.90)",
+          "rgba(36,130,91,0.86)",
+          "rgba(72,145,110,0.82)",
+          "rgba(99,160,131,0.78)",
+          "rgba(124,174,151,0.76)",
+          "rgba(148,185,168,0.74)",
+          "rgba(103,126,116,0.72)",
+          "rgba(174,196,185,0.72)"
         ],
         borderWidth: 2,
         borderColor: "#ffffff"
@@ -2603,8 +2619,8 @@ function renderGraficaTendenciaFechas(registros) {
       datasets: [{
         label: "Asignaciones por fecha",
         data: ranking.map(([, total]) => total),
-        borderColor: "rgba(111,66,193,1)",
-        backgroundColor: "rgba(111,66,193,0.12)",
+        borderColor: "rgba(23,75,56,1)",
+        backgroundColor: "rgba(36,130,91,0.12)",
         fill: true,
         tension: 0.25,
         pointRadius: 3
@@ -2652,8 +2668,8 @@ function renderGraficaMeses(registros) {
       datasets: [{
         label: "Registros por mes",
         data: ordenado.map(([, total]) => total),
-        backgroundColor: "rgba(13,202,240,0.75)",
-        borderColor: "rgba(13,202,240,1)",
+        backgroundColor: "rgba(36,130,91,0.78)",
+        borderColor: "rgba(23,75,56,1)",
         borderWidth: 1.5,
         borderRadius: 8
       }]
@@ -2696,8 +2712,8 @@ function renderGraficaAnios(registros) {
       datasets: [{
         label: "Registros por año",
         data: ordenado.map(([, total]) => total),
-        backgroundColor: "rgba(255,193,7,0.75)",
-        borderColor: "rgba(255,193,7,1)",
+        backgroundColor: "rgba(83,151,119,0.78)",
+        borderColor: "rgba(23,75,56,1)",
         borderWidth: 1.5,
         borderRadius: 8
       }]
@@ -2855,13 +2871,13 @@ function renderResumenOperativo(registrosHoy) {
       };
     }
 
-    resumen[area].programados += 1;
-
     if (esNovedad(item)) {
       resumen[area].novedades += 1;
+    } else {
+      resumen[area].programados += 1;
     }
 
-    if (item.subarea) {
+    if (!esNovedad(item) && item.subarea) {
       resumen[area].subareas.add(item.subarea);
     }
   });
@@ -3203,9 +3219,156 @@ function configurarBotonActualizar() {
   });
 }
 
+let detalleAybActual = null;
+
+function configurarDetalleInteractivoAyb() {
+  const drawer = document.getElementById("aybDetailDrawer");
+  const backdrop = document.getElementById("aybDetailBackdrop");
+  const cerrar = document.getElementById("aybDetailClose");
+  const buscador = document.getElementById("aybDetailSearch");
+  if (!drawer || !backdrop) return;
+
+  const activar = (elemento) => abrirDetalleIndicadorAyb(elemento.dataset.aybDetail);
+  document.querySelectorAll("[data-ayb-detail]").forEach((elemento) => {
+    elemento.addEventListener("click", () => activar(elemento));
+    elemento.addEventListener("keydown", (evento) => {
+      if (evento.key === "Enter" || evento.key === " ") {
+        evento.preventDefault();
+        activar(elemento);
+      }
+    });
+  });
+
+  cerrar?.addEventListener("click", cerrarDetalleIndicadorAyb);
+  backdrop.addEventListener("click", cerrarDetalleIndicadorAyb);
+  document.addEventListener("keydown", (evento) => {
+    if (evento.key === "Escape" && drawer.classList.contains("open")) cerrarDetalleIndicadorAyb();
+  });
+  buscador?.addEventListener("input", () => pintarDetalleIndicadorAyb(buscador.value));
+}
+
+function cerrarDetalleIndicadorAyb() {
+  document.getElementById("aybDetailDrawer")?.classList.remove("open");
+  document.getElementById("aybDetailBackdrop")?.classList.remove("open");
+  document.getElementById("aybDetailDrawer")?.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("ayb-detail-open");
+}
+
+function abrirDetalleIndicadorAyb(tipo) {
+  detalleAybActual = construirDetalleIndicadorAyb(tipo);
+  const drawer = document.getElementById("aybDetailDrawer");
+  const backdrop = document.getElementById("aybDetailBackdrop");
+  const buscador = document.getElementById("aybDetailSearch");
+  if (!drawer || !backdrop || !detalleAybActual) return;
+
+  setText("aybDetailTitle", detalleAybActual.titulo);
+  setText("aybDetailSubtitle", detalleAybActual.subtitulo);
+  if (buscador) buscador.value = "";
+  pintarDetalleIndicadorAyb("");
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  drawer.setAttribute("aria-hidden", "false");
+  document.body.classList.add("ayb-detail-open");
+  window.setTimeout(() => buscador?.focus(), 180);
+}
+
+function construirDetalleIndicadorAyb(tipo) {
+  const registros = obtenerRegistrosFiltrados();
+  const hoy = formatearFechaISO(new Date());
+  const turnos = registros.filter((item) => !esNovedad(item));
+  const turnosHoy = turnos.filter((item) => String(item.fecha || "") === hoy);
+  const novedadesHoy = registros.filter((item) => esNovedad(item) && String(item.fecha || "") === hoy);
+
+  const filaRegistro = (item) => ({
+    Fecha: formatearFechaCorta(item.fecha) || item.fecha || "—",
+    Empleado: obtenerNombreEmpleado(item) || "Sin nombre",
+    Cédula: item.cedula || "—",
+    Área: obtenerAreaAmigable(item) || "—",
+    Punto: item.subarea || "—",
+    Turno: esNovedad(item) ? obtenerLabelNovedad(item) : (item.turno || item.codigo_turno || "—"),
+    Horario: esNovedad(item) ? "No aplica" : `${String(item.hora_inicio || "—").slice(0,5)} – ${String(item.hora_fin || "—").slice(0,5)}`,
+    "Horas netas": esNovedad(item) ? "—" : formatearNumero(Number(item.horas_netas || 0)),
+    "Extra candidata": esNovedad(item) ? "—" : formatearNumero(Number(item.horas_extra_estimadas || 0))
+  });
+
+  if (tipo === "turnos-hoy") return {
+    titulo: "Turnos programados hoy",
+    subtitulo: "Personas y horarios que forman el indicador; no incluye novedades.",
+    filas: turnosHoy.map(filaRegistro), columnas: ["Empleado", "Cédula", "Área", "Punto", "Turno", "Horario", "Horas netas"]
+  };
+
+  if (tipo === "novedades-hoy") return {
+    titulo: "Novedades aplicadas hoy",
+    subtitulo: "Incapacidades, vacaciones, descansos, permisos y demás novedades registradas en programación.",
+    filas: novedadesHoy.map(filaRegistro), columnas: ["Empleado", "Cédula", "Área", "Turno", "Fecha"]
+  };
+
+  if (tipo === "subareas-hoy") {
+    const grupos = new Map();
+    turnosHoy.forEach((item) => {
+      const punto = String(item.subarea || "Sin punto").trim();
+      if (!grupos.has(punto)) grupos.set(punto, { Punto: punto, Turnos: 0, Personas: new Set(), "Horas netas": 0 });
+      const grupo = grupos.get(punto);
+      grupo.Turnos += 1;
+      grupo.Personas.add(String(item.cedula || obtenerNombreEmpleado(item)));
+      grupo["Horas netas"] += Number(item.horas_netas || 0);
+    });
+    const filas = [...grupos.values()].map((grupo) => ({
+      Punto: grupo.Punto, Turnos: grupo.Turnos, Personas: grupo.Personas.size,
+      "Horas netas": formatearNumero(grupo["Horas netas"])
+    })).sort((a, b) => b.Turnos - a.Turnos);
+    return { titulo: "Subáreas activas hoy", subtitulo: "Carga programada por punto de operación.", filas, columnas: ["Punto", "Personas", "Turnos", "Horas netas"] };
+  }
+
+  if (tipo === "personas-periodo") {
+    const grupos = new Map();
+    registros.forEach((item) => {
+      const clave = String(item.cedula || obtenerNombreEmpleado(item));
+      if (!grupos.has(clave)) grupos.set(clave, { Empleado: obtenerNombreEmpleado(item), Cédula: item.cedula || "—", Área: obtenerAreaAmigable(item), Fechas: new Set(), Turnos: 0, Novedades: 0, Horas: 0 });
+      const grupo = grupos.get(clave); grupo.Fechas.add(String(item.fecha || ""));
+      if (esNovedad(item)) grupo.Novedades += 1; else { grupo.Turnos += 1; grupo.Horas += Number(item.horas_netas || 0); }
+    });
+    const filas = [...grupos.values()].map((grupo) => ({ Empleado: grupo.Empleado, Cédula: grupo.Cédula, Área: grupo.Área, "Días registrados": grupo.Fechas.size, Turnos: grupo.Turnos, Novedades: grupo.Novedades, "Horas netas": formatearNumero(grupo.Horas) })).sort((a,b) => b["Días registrados"] - a["Días registrados"]);
+    return { titulo: "Personas con registro", subtitulo: "Cada persona se muestra una sola vez con su programación y novedades del período.", filas, columnas: ["Empleado", "Cédula", "Área", "Días registrados", "Turnos", "Novedades", "Horas netas"] };
+  }
+
+  if (tipo === "horas-netas") return {
+    titulo: "Composición de horas netas",
+    subtitulo: "Detalle de turnos que suma las horas netas del período filtrado.",
+    filas: turnos.map(filaRegistro).sort((a,b) => String(b.Fecha).localeCompare(String(a.Fecha))),
+    columnas: ["Fecha", "Empleado", "Área", "Punto", "Horario", "Horas netas"]
+  };
+
+  const extras = turnos.filter((item) => Number(item.horas_extra_estimadas || 0) > 0);
+  return {
+    titulo: "Horas candidatas a extra",
+    subtitulo: "Son diferencias calculadas para revisión; no equivalen a horas aprobadas.",
+    filas: extras.map(filaRegistro).sort((a,b) => Number(b["Extra candidata"] || 0) - Number(a["Extra candidata"] || 0)),
+    columnas: ["Fecha", "Empleado", "Cédula", "Área", "Punto", "Horario", "Horas netas", "Extra candidata"]
+  };
+}
+
+function pintarDetalleIndicadorAyb(busqueda = "") {
+  const cuerpo = document.getElementById("aybDetailBody");
+  if (!cuerpo || !detalleAybActual) return;
+  const texto = normalizarTextoAlcanceAyb(busqueda);
+  const filas = detalleAybActual.filas.filter((fila) => !texto || normalizarTextoAlcanceAyb(Object.values(fila).join(" ")).includes(texto));
+  setText("aybDetailCount", `${filas.length} ${filas.length === 1 ? "registro" : "registros"}`);
+  if (!filas.length) {
+    cuerpo.innerHTML = '<div class="ayb-detail-empty"><strong>Sin información para mostrar</strong><div class="mt-1">No hay registros que coincidan con el período, los filtros y la búsqueda actual.</div></div>';
+    return;
+  }
+  const columnas = detalleAybActual.columnas;
+  cuerpo.innerHTML = `<div class="table-responsive"><table class="table table-sm table-hover align-middle"><thead><tr>${columnas.map((columna) => `<th>${escaparHtml(columna)}</th>`).join("")}</tr></thead><tbody>${filas.map((fila) => `<tr>${columnas.map((columna) => `<td>${escaparHtml(fila[columna] ?? "—")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+
 function configurarBotonExportarPDF() {
   const btnExportarPDF = document.getElementById("btnExportarPDF");
   if (!btnExportarPDF) return;
+
+  // Este texto permite confirmar visualmente que el navegador cargó esta versión.
+  btnExportarPDF.textContent = "Descargar vista PDF";
+  btnExportarPDF.dataset.exportVersion = "ayb-descargas-v2";
 
   btnExportarPDF.addEventListener("click", async () => {
     await exportarDashboardAPDF();
@@ -3216,55 +3379,185 @@ function configurarBotonExportarExcel() {
   const btnExportarExcel = document.getElementById("btnExportarExcel");
   if (!btnExportarExcel) return;
 
+  // Este texto permite confirmar visualmente que el navegador cargó esta versión.
+  btnExportarExcel.textContent = "Descargar período Excel";
+  btnExportarExcel.dataset.exportVersion = "ayb-descargas-v2";
+
   btnExportarExcel.addEventListener("click", () => {
-    exportarExcelAprobados();
+    exportarDashboardExcel();
   });
 }
 
-function exportarExcelAprobados() {
+function valorExcelSeguro(valor) {
+  if (valor === null || valor === undefined) return "";
+  if (typeof valor === "number" || typeof valor === "boolean") return valor;
+  const texto = String(valor);
+  return /^[=+\-@]/.test(texto) ? `'${texto}` : texto;
+}
+
+function descargarArchivoLocal(contenido, nombreArchivo, tipoMime) {
+  const blob = contenido instanceof Blob
+    ? contenido
+    : new Blob([contenido], { type: tipoMime || "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = nombreArchivo;
+  enlace.style.display = "none";
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+function exportarProgramacionComoCSV(registros, nombreBase) {
+  const columnas = [
+    "Fecha", "Empleado", "Cédula", "Área", "Subárea / punto",
+    "Tipo de registro", "Turno", "Inicio", "Fin", "Novedad",
+    "Horas netas", "Horas nocturnas", "Extra candidata", "Estado extra"
+  ];
+
+  const escapar = (valor) => {
+    const texto = String(valor ?? "").replace(/"/g, '""');
+    return `"${texto}"`;
+  };
+
+  const filas = registros.map((item) => [
+    item.fecha,
+    obtenerNombreEmpleado(item),
+    item.cedula,
+    obtenerAreaAmigable(item),
+    item.subarea,
+    esNovedad(item) ? "Novedad" : "Turno",
+    item.turno,
+    item.hora_inicio,
+    item.hora_fin,
+    esNovedad(item) ? obtenerLabelNovedad(item) : "",
+    esNovedad(item) ? "" : Number(item.horas_netas || 0),
+    esNovedad(item) ? "" : Number(item.horas_nocturnas || 0),
+    esNovedad(item) ? "" : Number(item.horas_extra_estimadas || 0),
+    esNovedad(item) ? "" : normalizarEstadoExtra(item.estado_extra)
+  ]);
+
+  const csv = `\uFEFF${[columnas, ...filas].map((fila) => fila.map(escapar).join(";")).join("\r\n")}`;
+  descargarArchivoLocal(csv, `${nombreBase}.csv`, "text/csv;charset=utf-8;");
+}
+
+function exportarDashboardExcel() {
+  const btn = document.getElementById("btnExportarExcel");
+  const textoOriginal = btn?.textContent || "Descargar período Excel";
   try {
     const registrosFiltrados = obtenerRegistrosFiltrados();
+    const novedadesFiltradas = registrosFiltrados.filter(esNovedad);
+    const solicitudesFiltradas = typeof obtenerSolicitudesBienestarFiltradas === "function"
+      ? obtenerSolicitudesBienestarFiltradas()
+      : [];
     const aprobados = obtenerRegistrosConExtras(registrosFiltrados)
       .filter((item) =>
         normalizarEstadoExtra(item.estado_extra) === "aprobado" &&
         String(item.tipo_personal || "").trim().toLowerCase() !== "externo"
       );
 
-    if (!aprobados.length) {
-      alert("No hay registros aprobados para exportar con los filtros actuales.");
+    if (!registrosFiltrados.length && !solicitudesFiltradas.length) {
+      alert("No hay información para exportar con los filtros actuales.");
       return;
     }
 
-    const data = aprobados.map((item) => ({
-      Nombre: obtenerNombreEmpleado(item),
-      Cédula: item.cedula || "",
-      Fecha: item.fecha || "",
-      Área: obtenerAreaAmigable(item),
-      "Subárea": String(item.subarea || "").trim(),
-      "Horas diurnas": Number(item.horas_diurnas || 0),
-      "Horas nocturnas": Number(item.horas_nocturnas || 0),
-      "Extra diurna": Number(item.extra_diurna || 0),
-      "Extra nocturna": Number(item.extra_nocturna || 0),
-      "Extra diurna festiva": Number(item.extra_diurna_festiva || 0),
-      "Extra nocturna festiva": Number(item.extra_nocturna_festiva || 0),
-      "Total extra": Number(item.horas_extra_estimadas || 0),
-      Estado: normalizarEstadoExtra(item.estado_extra),
-      "Aprobado por": item.aprobado_por || "",
-      "Fecha aprobación": formatearFechaHora(item.fecha_aprobacion) || "",
-      "Observación": item.observacion_aprobacion || ""
-    }));
-
-    const worksheet = window.XLSX.utils.json_to_sheet(data);
-    const workbook = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(workbook, worksheet, "Horas extra aprobadas");
+    if (btn) { btn.disabled = true; btn.textContent = "Generando Excel..."; }
 
     const fecha = new Date();
-    const nombreArchivo = `horas_extra_aprobadas_${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}.xlsx`;
+    const nombreBase = `dashboard_ayb_${filtrosActuales.fechaInicio || "inicio"}_${filtrosActuales.fechaFin || formatearFechaISO(fecha)}`;
 
-    window.XLSX.writeFile(workbook, nombreArchivo);
+    // Si el CDN de SheetJS no responde, se descarga un CSV compatible con
+    // Excel. Así el botón nunca queda inutilizado por una librería externa.
+    if (!window.XLSX) {
+      exportarProgramacionComoCSV(registrosFiltrados, nombreBase);
+      alert("Se descargó un CSV compatible con Excel porque el componente XLSX no estaba disponible.");
+      return;
+    }
+
+    const workbook = window.XLSX.utils.book_new();
+    const programacion = registrosFiltrados.map((item) => ({
+      Fecha: valorExcelSeguro(item.fecha),
+      Empleado: valorExcelSeguro(obtenerNombreEmpleado(item)),
+      Cédula: valorExcelSeguro(item.cedula),
+      Área: valorExcelSeguro(obtenerAreaAmigable(item)),
+      "Subárea / punto": valorExcelSeguro(item.subarea),
+      "Tipo de registro": esNovedad(item) ? "Novedad" : "Turno",
+      Turno: valorExcelSeguro(item.turno),
+      Inicio: valorExcelSeguro(item.hora_inicio),
+      Fin: valorExcelSeguro(item.hora_fin),
+      Novedad: esNovedad(item) ? valorExcelSeguro(obtenerLabelNovedad(item)) : "",
+      "Horas netas": esNovedad(item) ? "" : Number(item.horas_netas || 0),
+      "Horas nocturnas": esNovedad(item) ? "" : Number(item.horas_nocturnas || 0),
+      "Extra candidata": esNovedad(item) ? "" : Number(item.horas_extra_estimadas || 0),
+      "Estado extra": esNovedad(item) ? "" : normalizarEstadoExtra(item.estado_extra)
+    }));
+    window.XLSX.utils.book_append_sheet(
+      workbook,
+      window.XLSX.utils.json_to_sheet(programacion),
+      "Programación del período"
+    );
+
+    if (novedadesFiltradas.length) {
+      const dataNovedades = novedadesFiltradas.map((item) => ({
+        Fecha: valorExcelSeguro(item.fecha),
+        Empleado: valorExcelSeguro(obtenerNombreEmpleado(item)),
+        Cédula: valorExcelSeguro(item.cedula),
+        Área: valorExcelSeguro(obtenerAreaAmigable(item)),
+        Novedad: valorExcelSeguro(obtenerLabelNovedad(item)),
+        Código: valorExcelSeguro(item.novedad_codigo),
+        Descripción: valorExcelSeguro(item.novedad_descripcion || item.observacion)
+      }));
+      window.XLSX.utils.book_append_sheet(
+        workbook,
+        window.XLSX.utils.json_to_sheet(dataNovedades),
+        "Novedades aplicadas"
+      );
+    }
+
+    if (solicitudesFiltradas.length) {
+      const dataBienestar = solicitudesFiltradas.map((item) => ({
+        Empleado: valorExcelSeguro(item._nombre || item.nombre_empleado),
+        Cédula: valorExcelSeguro(item._cedula || item.cedula),
+        Área: valorExcelSeguro(item._area || item.area),
+        Solicitud: valorExcelSeguro(item._tipo_bienestar || item.tipo_solicitud),
+        "Fecha inicio": valorExcelSeguro(item._fecha_inicio_bienestar || item.fecha_inicio),
+        "Fecha fin": valorExcelSeguro(item._fecha_fin_bienestar || item.fecha_fin),
+        "Fecha radicación": valorExcelSeguro(item._fecha_radicacion_bienestar || item.fecha_radicacion),
+        Estado: valorExcelSeguro(item._estado_bienestar || item.estado),
+        "Aplicada en programación": item.aplicada_programacion === true ? "Sí" : "No"
+      }));
+      window.XLSX.utils.book_append_sheet(
+        workbook,
+        window.XLSX.utils.json_to_sheet(dataBienestar),
+        "Solicitudes Bienestar"
+      );
+    }
+
+    if (aprobados.length) {
+      const dataAprobados = aprobados.map((item) => ({
+        Empleado: valorExcelSeguro(obtenerNombreEmpleado(item)),
+        Cédula: valorExcelSeguro(item.cedula),
+        Fecha: valorExcelSeguro(item.fecha),
+        "Horas aprobadas": Number(item.horas_extra_estimadas || 0),
+        "Aprobado por": valorExcelSeguro(item.aprobado_por),
+        "Fecha aprobación": valorExcelSeguro(formatearFechaHora(item.fecha_aprobacion)),
+        Observación: valorExcelSeguro(item.observacion_aprobacion)
+      }));
+      window.XLSX.utils.book_append_sheet(
+        workbook,
+        window.XLSX.utils.json_to_sheet(dataAprobados),
+        "Extras aprobadas"
+      );
+    }
+
+    window.XLSX.writeFile(workbook, `${nombreBase}.xlsx`);
   } catch (error) {
     console.error("Error exportando Excel:", error);
-    alert("Ocurrió un error al exportar el Excel.");
+    alert(`Ocurrió un error al exportar el Excel: ${error.message || error}`);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = textoOriginal; }
   }
 }
 
@@ -3284,12 +3577,22 @@ async function exportarDashboardAPDF() {
       btn.textContent = "Generando PDF...";
     }
 
+    document.body.classList.add("ayb-exportando");
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
     const canvas = await window.html2canvas(contenedor, {
-      scale: 2,
+      scale: Math.min(2, window.devicePixelRatio || 1.5),
       useCORS: true,
       backgroundColor: "#ffffff",
-      scrollY: -window.scrollY
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: Math.max(contenedor.scrollWidth, 1200),
+      logging: false
     });
+
+    if (!canvas.width || !canvas.height) {
+      throw new Error("La vista visible no produjo una imagen exportable.");
+    }
 
     const imgData = canvas.toDataURL("image/png");
     const { jsPDF } = window.jspdf;
@@ -3325,9 +3628,10 @@ async function exportarDashboardAPDF() {
     console.error("Error exportando PDF:", error);
     alert("Ocurrió un error al generar el PDF.");
   } finally {
+    document.body.classList.remove("ayb-exportando");
     if (btn) {
       btn.disabled = false;
-      btn.textContent = textoOriginal || "Exportar PDF";
+      btn.textContent = textoOriginal || "Descargar vista PDF";
     }
   }
 }

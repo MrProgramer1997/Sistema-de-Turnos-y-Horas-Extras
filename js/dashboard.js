@@ -4,6 +4,12 @@ let sesionActiva = null;
 let registrosBase = [];
 let solicitudesBienestarBase = [];
 let directorioEmpleadosBase = [];
+let directorioEmpleadosCompleto = [];
+let registrosExternosChefBase = [];
+let registrosRevisionChefBase = [];
+let registrosDuplicadosBase = [];
+let festivosDashboard = [];
+let revisionNominaRealBase = [];
 let filtrosActuales = {
   fechaInicio: "",
   fechaFin: "",
@@ -23,9 +29,116 @@ let chartAnios = null;
 let chartHorasTipo = null;
 let chartHorasExtraEmpleados = null;
 
+// Ley 2466 de 2025: trabajo nocturno entre las 7:00 p. m. y las 6:00 a. m.
 const HORA_INICIO_NOCTURNO = 19 * 60;
 const HORA_FIN_NOCTURNO = 6 * 60;
 const DESCANSO_ESTANDAR_HORAS = 0.5;
+const STORAGE_PERIODO_OPERATIVO_AYB = "ccp_periodo_operativo_ayb";
+const JORNADA_SEMANAL_AYB_HORAS = 44;
+const JORNADA_SEMANAL_AYB_HORAS_REDUCIDA = 42;
+const FECHA_CAMBIO_REDUCCION_JORNADA_AYB = "2026-07-15";
+const JORNADA_SEMANAL_AYB_MINUTOS = JORNADA_SEMANAL_AYB_HORAS * 60;
+
+const DASHBOARD_ALCANCE_AYB = true;
+const PALABRAS_CLAVE_AYB_DASHBOARD = [
+  "ALIMENTOS",
+  "BEBIDAS",
+  "ALIMENTOS Y BEBIDAS",
+  "ALIMENTOS & BEBIDAS",
+  "A&B",
+  "AYB",
+  "COCINA"
+];
+
+function obtenerJornadaSemanalAybHoras(fechaReferenciaISO = "") {
+  return String(fechaReferenciaISO || "") >= FECHA_CAMBIO_REDUCCION_JORNADA_AYB
+    ? JORNADA_SEMANAL_AYB_HORAS_REDUCIDA
+    : JORNADA_SEMANAL_AYB_HORAS;
+}
+
+function obtenerJornadaSemanalAybMinutos(fechaReferenciaISO = "") {
+  return obtenerJornadaSemanalAybHoras(fechaReferenciaISO) * 60;
+}
+
+function normalizarTextoAlcanceAyb(valor) {
+  return String(valor || "")
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function textoContieneAybDashboard(valor) {
+  const texto = normalizarTextoAlcanceAyb(valor);
+  if (!texto) return false;
+  return PALABRAS_CLAVE_AYB_DASHBOARD.some((clave) =>
+    texto.includes(normalizarTextoAlcanceAyb(clave))
+  );
+}
+
+function esEmpleadoAybDashboard(empleado) {
+  if (!empleado) return false;
+
+  /*
+    Regla institucional: el empleado pertenece al panel oficial solo cuando
+    su área o centro de costos oficial corresponde a A&B/Cocina.
+    El cargo, subárea o punto de servicio no habilitan inclusión.
+  */
+  const textoOrigen = [
+    empleado.raw?.area,
+    empleado.raw?.centro_costos,
+    empleado.raw?.centro_costo,
+    empleado.raw?.nombre_area,
+    empleado.raw?.nombre_centro_costo,
+    empleado.raw?.departamento,
+    empleado.raw?.dependencia,
+    empleado.area
+  ].join(" ");
+
+  return textoContieneAybDashboard(textoOrigen);
+}
+
+function obtenerEmpleadoOficialAybPorCedula(cedula) {
+  const documento = normalizarDocumentoEmpleado(cedula);
+  if (!documento) return null;
+
+  return directorioEmpleadosBase.find(
+    (empleado) => normalizarDocumentoEmpleado(empleado.cedula) === documento
+  ) || null;
+}
+
+function obtenerEmpleadoOficialAybPorId(idEmpleado) {
+  const id = String(idEmpleado || "").trim();
+  if (!id) return null;
+
+  return directorioEmpleadosBase.find(
+    (empleado) => String(empleado.raw?.id || "").trim() === id
+  ) || null;
+}
+
+function esRegistroAybDashboard(registro) {
+  if (!registro) return false;
+  const cedula = registro.cedula || registro.documento || registro.numero_documento || "";
+  return Boolean(obtenerEmpleadoOficialAybPorCedula(cedula));
+}
+
+function esSolicitudAybDashboard(solicitud) {
+  if (!solicitud) return false;
+  const cedula = normalizarDocumentoEmpleado(
+    solicitud._cedula || solicitud.cedula || solicitud.documento ||
+    solicitud.numero_documento || solicitud.identificacion || ""
+  );
+
+  return Boolean(obtenerEmpleadoOficialAybPorCedula(cedula));
+}
+
+function aplicarAlcanceAybRegistros(registros) {
+  return (registros || []).filter(esRegistroAybDashboard);
+}
+
+function aplicarAlcanceAybSolicitudes(solicitudes) {
+  return (solicitudes || []).filter(esSolicitudAybDashboard);
+}
 
 function obtenerRolSeguroDashboard(sesion) {
   return String(sesion?.rol || sesion?.tipo_usuario || sesion?.perfil || "")
@@ -56,12 +169,8 @@ function usuarioPuedeAccederDashboard(sesion) {
     "admin",
     "administrador",
     "gerencia",
-    "bienestar",
-    "direccion_financiera",
-    "direccion_administrativa",
     "ayb",
-    "ayb_admin",
-    "servicios_generales"
+    "ayb_admin"
   ];
 
   return (
@@ -70,7 +179,7 @@ function usuarioPuedeAccederDashboard(sesion) {
     cedula === "1088029438" ||
     nombre.includes("jhonnier") ||
     rolesDashboard.includes(rol) ||
-    modulos.includes("dashboard")
+    modulos.includes("dashboard") || modulos.includes("dashboard-ayb")
   );
 }
 
@@ -104,9 +213,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   configurarBotonActualizar();
   configurarBotonExportarPDF();
   configurarBotonExportarExcel();
+  configurarRevisionNominaReal();
   configurarFiltros();
 
   await cargarDashboardReal(sesion);
+  await cargarRevisionNominaReal();
 });
 
 function cargarDatosUsuario(sesion) {
@@ -122,6 +233,183 @@ function cargarFechaDashboard() {
   setText("fechaDashboard", texto);
 }
 
+async function cargarFestivosDashboardSeguro() {
+  try {
+    const { data, error } = await supabase
+      .from("festivos")
+      .select("fecha,nombre,tipo,activo")
+      .eq("activo", true);
+
+    if (error) {
+      console.warn("No se pudieron cargar festivos en Dashboard A&B:", error.message || error);
+      festivosDashboard = [];
+      return;
+    }
+
+    festivosDashboard = data || [];
+  } catch (error) {
+    console.warn("Error consultando festivos en Dashboard A&B:", error);
+    festivosDashboard = [];
+  }
+}
+
+async function cargarFuenteCocinaChefDashboard() {
+  try {
+    const [respuestaTurnos, respuestaPersonal, respuestaCodigos] = await Promise.all([
+      supabase.from("cocina_programacion_turnos").select("*").order("fecha", { ascending: true }),
+      supabase.from("cocina_cronograma_personal").select("*"),
+      supabase.from("cocina_codigos_turno").select("*")
+    ]);
+
+    if (respuestaTurnos.error || respuestaPersonal.error || respuestaCodigos.error) {
+      console.warn(
+        "No se pudo cargar completamente la fuente Cocina Chef:",
+        respuestaTurnos.error || respuestaPersonal.error || respuestaCodigos.error
+      );
+      return { oficiales: [], externos: [], revision: [] };
+    }
+
+    const personalPorId = new Map(
+      (respuestaPersonal.data || []).map((persona) => [String(persona.id), persona])
+    );
+    const codigosPorCodigo = new Map(
+      (respuestaCodigos.data || []).map((codigo) => [String(codigo.codigo), codigo])
+    );
+
+    const oficiales = [];
+    const externos = [];
+    const revision = [];
+
+    (respuestaTurnos.data || []).forEach((turno) => {
+      const persona = personalPorId.get(String(turno.cronograma_personal_id));
+      if (!persona) {
+        revision.push({
+          tipo_revision: "Sin persona relacionada",
+          fecha: turno.fecha,
+          nombre: "Registro Cocina Chef sin colaborador",
+          detalle: `Turno ${turno.codigo_turno || "-"}`
+        });
+        return;
+      }
+
+      const empleadoOficial =
+        obtenerEmpleadoOficialAybPorId(persona.empleado_id) ||
+        obtenerEmpleadoOficialAybPorCedula(persona.documento);
+
+      const registro = transformarRegistroCocinaChefDashboard(
+        turno,
+        persona,
+        empleadoOficial,
+        codigosPorCodigo
+      );
+
+      if (empleadoOficial) {
+        oficiales.push(registro);
+        return;
+      }
+
+      const tipoPersonal = String(persona.tipo_personal || "").trim().toLowerCase();
+      if (tipoPersonal === "externo" || Boolean(persona.externo_id)) {
+        externos.push(registro);
+        return;
+      }
+
+      revision.push({
+        tipo_revision: "Vinculación sin confirmar",
+        fecha: turno.fecha,
+        nombre: persona.nombre_visible || "Sin nombre",
+        detalle: `${persona.tipo_personal || "Sin tipo"} · ${turno.area_cocina || persona.area_cocina || "Sin área"}`
+      });
+    });
+
+    return { oficiales, externos, revision };
+  } catch (error) {
+    console.warn("Error cargando integración de Cocina Chef:", error);
+    return { oficiales: [], externos: [], revision: [] };
+  }
+}
+
+function transformarRegistroCocinaChefDashboard(turno, persona, empleadoOficial, codigosPorCodigo) {
+  const codigo1 = codigosPorCodigo.get(String(turno.codigo_turno || ""));
+  const codigo2 = codigosPorCodigo.get(String(turno.codigo_turno_2 || ""));
+  const esOficial = Boolean(empleadoOficial);
+
+  return {
+    id: `chef_${turno.id}`,
+    id_origen: turno.id,
+    origen_datos: "cocina_chef",
+    origen_lectura: esOficial ? "Cocina Chef - empleado Club" : "Cocina Chef - externo",
+    cronograma_personal_id: turno.cronograma_personal_id,
+    empleado_id: persona.empleado_id || null,
+    externo_id: persona.externo_id || null,
+    tipo_personal: persona.tipo_personal || "",
+    cedula: empleadoOficial?.cedula || persona.documento || "",
+    nombre: empleadoOficial?.nombre || persona.nombre_visible || "Sin nombre",
+    cargo: persona.cargo || (esOficial ? "" : "Externo"),
+    area: esOficial ? "ALIMENTOS Y BEBIDAS" : "PERSONAL EXTERNO COCINA CHEF",
+    centro_costos: esOficial ? "ALIMENTOS Y BEBIDAS" : "PERSONAL EXTERNO COCINA CHEF",
+    subarea: turno.area_cocina || persona.area_cocina || "Cocina Chef",
+    fecha: turno.fecha,
+    tipo_registro: "turno",
+    turno: turno.codigo_turno || "",
+    hora_inicio: codigo1?.hora_inicio ? String(codigo1.hora_inicio).substring(0, 5) : null,
+    hora_fin: codigo1?.hora_fin ? String(codigo1.hora_fin).substring(0, 5) : null,
+    subarea_2: turno.area_cocina_2 || null,
+    turno_2: turno.codigo_turno_2 || null,
+    hora_inicio_2: codigo2?.hora_inicio ? String(codigo2.hora_inicio).substring(0, 5) : null,
+    hora_fin_2: codigo2?.hora_fin ? String(codigo2.hora_fin).substring(0, 5) : null,
+    observacion: turno.observacion || "",
+    observacion_2: turno.observacion_2 || "",
+    evento: turno.evento || "",
+    evento_2: turno.evento_2 || "",
+    estado_extra: turno.estado_extra || "pendiente",
+    aprobado_por: turno.aprobado_por || "",
+    fecha_aprobacion: turno.fecha_aprobacion || null,
+    observacion_aprobacion: turno.observacion_aprobacion || (
+      esOficial
+        ? "Pendiente de validación."
+        : "Personal externo; lectura operativa independiente."
+    )
+  };
+}
+
+function consolidarRegistrosOficialesDashboard(registrosProgramacion, registrosChef) {
+  const llavesChef = new Set(
+    registrosChef.map((registro) =>
+      `${normalizarDocumentoEmpleado(registro.cedula)}__${String(registro.fecha || "")}`
+    )
+  );
+
+  const registrosConsolidados = [];
+  const duplicados = [];
+
+  registrosProgramacion.forEach((registro) => {
+    const llave = `${normalizarDocumentoEmpleado(registro.cedula)}__${String(registro.fecha || "")}`;
+
+    if (llavesChef.has(llave)) {
+      duplicados.push({
+        cedula: registro.cedula || "",
+        nombre: obtenerNombreEmpleado(registro),
+        fecha: registro.fecha || "",
+        registro_ayb: registro,
+        motivo: "Existe programación en Programación A&B y Cocina Chef para el mismo colaborador y fecha. Se contabiliza Cocina Chef."
+      });
+      return;
+    }
+
+    registrosConsolidados.push(registro);
+  });
+
+  registrosConsolidados.push(...registrosChef);
+
+  return {
+    registros: registrosConsolidados.sort((a, b) =>
+      String(a.fecha || "").localeCompare(String(b.fecha || ""))
+    ),
+    duplicados
+  };
+}
+
 async function cargarDashboardReal(sesion) {
   try {
     const hoy = new Date();
@@ -129,6 +417,11 @@ async function cargarDashboardReal(sesion) {
     const inicioSemana = obtenerInicioSemanaOperativa(new Date());
     const semana = construirSemana(inicioSemana);
     const fechasSemana = semana.map((d) => d.fecha);
+
+    directorioEmpleadosCompleto = await cargarDirectorioEmpleadosSeguro();
+    directorioEmpleadosBase = directorioEmpleadosCompleto.filter(esEmpleadoAybDashboard);
+
+    await cargarFestivosDashboardSeguro();
 
     const { data, error } = await supabase
       .from("programacion_turnos")
@@ -142,10 +435,30 @@ async function cargarDashboardReal(sesion) {
       return;
     }
 
-    registrosBase = filtrarRegistrosPorPermisos(data || [], sesion).map(enriquecerRegistroDashboard);
-    directorioEmpleadosBase = await cargarDirectorioEmpleadosSeguro();
+    const registrosPermitidos = filtrarRegistrosPorPermisos(data || [], sesion);
+    const registrosProgramacionAyb = aplicarAlcanceAybRegistros(registrosPermitidos)
+      .map((registro) => enriquecerRegistroDashboard({
+        ...registro,
+        origen_datos: "programacion_ayb",
+        origen_lectura: "Programación A&B"
+      }));
+
+    const fuenteChef = await cargarFuenteCocinaChefDashboard();
+    const registrosChefOficiales = fuenteChef.oficiales.map(enriquecerRegistroDashboard);
+
+    registrosExternosChefBase = fuenteChef.externos.map(enriquecerRegistroDashboard);
+    registrosRevisionChefBase = fuenteChef.revision;
+
+    const consolidado = consolidarRegistrosOficialesDashboard(
+      registrosProgramacionAyb,
+      registrosChefOficiales
+    );
+
+    registrosBase = aplicarCalculoSemanal44Dashboard(consolidado.registros);
+    registrosDuplicadosBase = consolidado.duplicados;
+
     const solicitudesBienestar = await cargarSolicitudesBienestarSeguras(sesion);
-    solicitudesBienestarBase = solicitudesBienestar;
+    solicitudesBienestarBase = aplicarAlcanceAybSolicitudes(solicitudesBienestar);
 
     inicializarFiltrosRango();
     poblarOpcionesFiltros(registrosBase);
@@ -154,16 +467,18 @@ async function cargarDashboardReal(sesion) {
     const registrosHoy = registrosBase.filter((item) => String(item.fecha || "") === fechaHoy);
     const registrosSemana = registrosBase.filter((item) => fechasSemana.includes(String(item.fecha || "")));
 
-    const programadosHoy = registrosHoy.length;
-    const subareasHoy = new Set(registrosHoy.map((r) => String(r.subarea || "").trim()).filter(Boolean)).size;
+    const turnosHoy = registrosHoy.filter((r) => !esNovedad(r));
+    const turnosSemana = registrosSemana.filter((r) => !esNovedad(r));
+    const programadosHoy = turnosHoy.length;
+    const subareasHoy = new Set(turnosHoy.map((r) => String(r.subarea || "").trim()).filter(Boolean)).size;
     const novedadesHoy = registrosHoy.filter((r) => esNovedad(r)).length;
-    const asignacionesSemana = registrosSemana.length;
+    const asignacionesSemana = turnosSemana.length;
 
-    const semanaAyb = registrosSemana.filter((r) => esAyb(r)).length;
-    const semanaAdmin = registrosSemana.filter((r) => esAdministrativo(r)).length;
-    const semanaOperaciones = registrosSemana.filter((r) => esOperaciones(r)).length;
+    const semanaAyb = turnosSemana.filter((r) => esAyb(r)).length;
+    const semanaAdmin = 0;
+    const semanaOperaciones = 0;
     const empleadosSemana = new Set(
-      registrosSemana.map((r) => String(r.cedula || "").trim()).filter(Boolean)
+      turnosSemana.map((r) => String(r.cedula || "").trim()).filter(Boolean)
     ).size;
 
     setText("kpiProgramadosHoy", programadosHoy);
@@ -195,12 +510,7 @@ function enriquecerRegistroDashboard(registro) {
       aprobado_por: registro.aprobado_por || "",
       fecha_aprobacion: registro.fecha_aprobacion || null,
       observacion_aprobacion: registro.observacion_aprobacion || "",
-      horas_diurnas: Number(registro.horas_diurnas || 0),
-      horas_nocturnas: Number(registro.horas_nocturnas || 0),
-      horas_netas: Number(registro.horas_netas || 0),
-      extra_diurna: Number(registro.extra_diurna || 0),
-      extra_nocturna: Number(registro.extra_nocturna || 0),
-      horas_extra_estimadas: Number(registro.horas_extra_estimadas || 0)
+      ...normalizarMetricasGuardadasDashboard(registro)
     };
   }
 
@@ -219,12 +529,7 @@ function enriquecerRegistroDashboard(registro) {
       aprobado_por: registro.aprobado_por || "",
       fecha_aprobacion: registro.fecha_aprobacion || null,
       observacion_aprobacion: registro.observacion_aprobacion || "",
-      horas_diurnas: Number(registro.horas_diurnas || 0),
-      horas_nocturnas: Number(registro.horas_nocturnas || 0),
-      horas_netas: Number(registro.horas_netas || 0),
-      extra_diurna: Number(registro.extra_diurna || 0),
-      extra_nocturna: Number(registro.extra_nocturna || 0),
-      horas_extra_estimadas: Number(registro.horas_extra_estimadas || 0)
+      ...normalizarMetricasGuardadasDashboard(registro)
     };
   }
 
@@ -240,6 +545,28 @@ function enriquecerRegistroDashboard(registro) {
   };
 }
 
+
+function normalizarMetricasGuardadasDashboard(registro) {
+  const jornadaInfo = obtenerJornadaEsperadaPorFecha(registro.fecha);
+  const esFestivo = jornadaInfo.esFestivo === true || String(registro.tipo_jornada || jornadaInfo.tipo || "").toLowerCase().includes("festivo");
+  const extraDiurnaOriginal = Number(registro.extra_diurna || 0);
+  const extraNocturnaOriginal = Number(registro.extra_nocturna || 0);
+
+  return {
+    horas_diurnas: Number(registro.horas_diurnas || 0),
+    horas_nocturnas: Number(registro.horas_nocturnas || 0),
+    horas_netas: Number(registro.horas_netas || 0),
+    extra_diurna: esFestivo ? 0 : extraDiurnaOriginal,
+    extra_nocturna: esFestivo ? 0 : extraNocturnaOriginal,
+    extra_diurna_festiva: Number(registro.extra_diurna_festiva || (esFestivo ? extraDiurnaOriginal : 0)),
+    extra_nocturna_festiva: Number(registro.extra_nocturna_festiva || (esFestivo ? extraNocturnaOriginal : 0)),
+    horas_extra_estimadas: Number(registro.horas_extra_estimadas || 0),
+    tipo_jornada: registro.tipo_jornada || jornadaInfo.tipo,
+    es_festivo: esFestivo,
+    nombre_festivo: jornadaInfo.nombreFestivo || ""
+  };
+}
+
 function normalizarEstadoExtra(valor) {
   const estado = String(valor || "").trim().toLowerCase();
   if (estado === "aprobado" || estado === "rechazado" || estado === "pendiente") {
@@ -249,100 +576,215 @@ function normalizarEstadoExtra(valor) {
 }
 
 function calcularMetricasRegistroDashboard(registro) {
-  const b1 = calcularHorasTurnoProtegiendoNocturnas(registro.hora_inicio, registro.hora_fin);
-  const b2 = calcularHorasTurnoProtegiendoNocturnas(registro.hora_inicio_2, registro.hora_fin_2);
-
-  const horasDiurnas = redondearHoras(b1.diurnas + b2.diurnas);
-  const horasNocturnas = redondearHoras(b1.nocturnas + b2.nocturnas);
-  const horasNetas = redondearHoras(horasDiurnas + horasNocturnas);
+  const detalle = calcularDetalleHorasRegistroDashboard(registro);
   const jornadaInfo = obtenerJornadaEsperadaPorFecha(registro.fecha);
-  const jornada = jornadaInfo.horas;
-
-  const horasExtraEstimadas = redondearHoras(Math.max(0, horasNetas - jornada));
-
-  let extraDiurna = 0;
-  let extraNocturna = 0;
-
-  if (horasExtraEstimadas > 0) {
-    const ordinariasDiurnas = Math.min(horasDiurnas, jornada);
-    extraDiurna = redondearHoras(Math.max(0, horasDiurnas - ordinariasDiurnas));
-    extraNocturna = redondearHoras(Math.max(0, horasExtraEstimadas - extraDiurna));
-  }
 
   return {
-    horas_diurnas: horasDiurnas,
-    horas_nocturnas: horasNocturnas,
-    horas_netas: horasNetas,
-    extra_diurna: extraDiurna,
-    extra_nocturna: extraNocturna,
-    horas_extra_estimadas: horasExtraEstimadas
+    horas_diurnas: detalle.horas_diurnas,
+    horas_nocturnas: detalle.horas_nocturnas,
+    horas_netas: detalle.horas_netas,
+    horas_totales: detalle.horas_totales,
+    descuento_almuerzo: detalle.descuento_almuerzo,
+    extra_diurna: 0,
+    extra_nocturna: 0,
+    extra_diurna_festiva: 0,
+    extra_nocturna_festiva: 0,
+    horas_extra_estimadas: 0,
+    jornada_esperada: JORNADA_SEMANAL_AYB_HORAS,
+    tipo_jornada: jornadaInfo.tipo,
+    es_festivo: Boolean(jornadaInfo.esFestivo),
+    nombre_festivo: jornadaInfo.nombreFestivo || "",
+    _segmentos_netos_ayb: detalle.segmentos_netos
   };
 }
 
-function calcularHorasTurnoProtegiendoNocturnas(inicio, fin) {
-  if (!inicio || !fin) {
-    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
-  }
-
-  const inicioMin = horaTextoAMinutos(inicio);
-  let finMin = horaTextoAMinutos(fin);
-
-  if (inicioMin === null || finMin === null) {
-    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
-  }
-
-  if (finMin < inicioMin) {
-    finMin += 24 * 60;
-  }
-
-  let minutosDiurnos = 0;
-  let minutosNocturnos = 0;
-
-  for (let m = inicioMin; m < finMin; m++) {
-    const minutoDelDia = m % (24 * 60);
-    if (esMinutoNocturno(minutoDelDia)) {
-      minutosNocturnos += 1;
-    } else {
-      minutosDiurnos += 1;
-    }
-  }
-
-  const minutosTotales = minutosDiurnos + minutosNocturnos;
-  if (minutosTotales === 0) {
-    return { total: 0, diurnas: 0, nocturnas: 0, netas: 0 };
-  }
-
-  let descuentoMinutos = DESCANSO_ESTANDAR_HORAS * 60;
-
-  if (minutosDiurnos >= descuentoMinutos) {
-    minutosDiurnos -= descuentoMinutos;
-  } else {
-    const restante = descuentoMinutos - minutosDiurnos;
-    minutosDiurnos = 0;
-    minutosNocturnos = Math.max(0, minutosNocturnos - restante);
-  }
+function calcularDetalleHorasRegistroDashboard(registro) {
+  const segmentosB1 = construirSegmentosMinutoDashboard(registro.hora_inicio, registro.hora_fin, "bloque_1");
+  const segmentosB2 = construirSegmentosMinutoDashboard(registro.hora_inicio_2, registro.hora_fin_2, "bloque_2");
+  const segmentosBrutos = [...segmentosB1, ...segmentosB2];
+  const minutosBrutos = segmentosBrutos.length;
+  const descuentoMinutos = minutosBrutos > 0 ? Math.min(DESCANSO_ESTANDAR_HORAS * 60, minutosBrutos) : 0;
+  const segmentosNetos = aplicarDescuentoAlmuerzoUnaVezDashboard(segmentosBrutos, descuentoMinutos);
+  const minutosDiurnos = segmentosNetos.filter((s) => s.tipo === "diurna").length;
+  const minutosNocturnos = segmentosNetos.filter((s) => s.tipo === "nocturna").length;
 
   return {
-    total: redondearHoras(minutosTotales / 60),
-    diurnas: redondearHoras(minutosDiurnos / 60),
-    nocturnas: redondearHoras(minutosNocturnos / 60),
-    netas: redondearHoras((minutosDiurnos + minutosNocturnos) / 60)
+    horas_totales: redondearHoras(minutosBrutos / 60),
+    descuento_almuerzo: redondearHoras(descuentoMinutos / 60),
+    horas_diurnas: redondearHoras(minutosDiurnos / 60),
+    horas_nocturnas: redondearHoras(minutosNocturnos / 60),
+    horas_netas: redondearHoras((minutosDiurnos + minutosNocturnos) / 60),
+    segmentos_netos: segmentosNetos
   };
+}
+
+function construirSegmentosMinutoDashboard(inicio, fin, bloque) {
+  if (!inicio || !fin) return [];
+  const inicioMin = horaTextoAMinutos(inicio);
+  let finMin = horaTextoAMinutos(fin);
+  if (inicioMin === null || finMin === null) return [];
+  if (finMin < inicioMin) finMin += 24 * 60;
+
+  const segmentos = [];
+  for (let m = inicioMin; m < finMin; m++) {
+    const minuto = m % (24 * 60);
+    segmentos.push({
+      bloque,
+      tipo: esMinutoNocturno(minuto) ? "nocturna" : "diurna"
+    });
+  }
+  return segmentos;
+}
+
+function aplicarDescuentoAlmuerzoUnaVezDashboard(segmentos, descuentoMinutos) {
+  if (!segmentos.length || descuentoMinutos <= 0) return segmentos.slice();
+  const remover = new Set();
+  let pendiente = descuentoMinutos;
+
+  for (let i = 0; i < segmentos.length && pendiente > 0; i++) {
+    if (segmentos[i].tipo === "diurna") {
+      remover.add(i);
+      pendiente--;
+    }
+  }
+  for (let i = 0; i < segmentos.length && pendiente > 0; i++) {
+    if (!remover.has(i)) {
+      remover.add(i);
+      pendiente--;
+    }
+  }
+  return segmentos.filter((_, index) => !remover.has(index));
+}
+
+function aplicarCalculoSemanal44Dashboard(registros) {
+  const grupos = new Map();
+  registros.forEach((registro) => {
+    if (esNovedad(registro)) return;
+    const cedula = String(registro.cedula || "").trim();
+    const semana = obtenerClaveSemanaOperativaDashboard(registro.fecha);
+    if (!cedula || !semana) return;
+    const clave = `${cedula}__${semana}`;
+    if (!grupos.has(clave)) grupos.set(clave, []);
+    grupos.get(clave).push(registro);
+  });
+
+  grupos.forEach((items) => {
+    const fechaReferenciaGrupo = items[0]?.fecha || periodoOperativoDashboardAyb?.inicio || "";
+    const limitePeriodoHoras = obtenerJornadaSemanalAybHoras(fechaReferenciaGrupo);
+    const minutosAcumuladosDia = new Map();
+    items.sort(compararRegistrosPorFechaHoraDashboard);
+
+    items.forEach((registro) => {
+      const segmentos = Array.isArray(registro._segmentos_netos_ayb) ? registro._segmentos_netos_ayb : [];
+      const fechaRegistro = String(registro.fecha || "");
+      const jornadaDiaInfo = obtenerJornadaEsperadaPorFecha(fechaRegistro);
+      const limiteDiaMinutos = Math.max(0, Number(jornadaDiaInfo.horas || 0) * 60);
+      let minutosDia = minutosAcumuladosDia.get(fechaRegistro) || 0;
+      let extraDiurnaMin = 0;
+      let extraNocturnaMin = 0;
+
+      // Las horas nocturnas/festivas trabajadas son recargos.
+      // Solo son horas extra si superan la jornada neta esperada del día.
+      // No se suma un segundo cálculo por periodo para evitar doble conteo.
+      segmentos.forEach((segmento) => {
+        const excedeJornadaDia = minutosDia >= limiteDiaMinutos;
+
+        if (excedeJornadaDia) {
+          if (segmento.tipo === "nocturna") extraNocturnaMin++;
+          else extraDiurnaMin++;
+        }
+
+        minutosDia++;
+      });
+
+      minutosAcumuladosDia.set(fechaRegistro, minutosDia);
+
+      const esFestivo = Boolean(registro.es_festivo || obtenerFestivoDashboard(registro.fecha));
+      const extraDiurnaHoras = redondearHoras(extraDiurnaMin / 60);
+      const extraNocturnaHoras = redondearHoras(extraNocturnaMin / 60);
+
+      registro.extra_diurna = esFestivo ? 0 : extraDiurnaHoras;
+      registro.extra_nocturna = esFestivo ? 0 : extraNocturnaHoras;
+      registro.extra_diurna_festiva = esFestivo ? extraDiurnaHoras : 0;
+      registro.extra_nocturna_festiva = esFestivo ? extraNocturnaHoras : 0;
+      registro.horas_extra_estimadas = redondearHoras(extraDiurnaHoras + extraNocturnaHoras);
+      registro.jornada_esperada = jornadaDiaInfo.horas;
+      registro.jornada_periodo = limitePeriodoHoras;
+      registro.tipo_jornada = esFestivo
+        ? `Festivo - ${registro.nombre_festivo || obtenerFestivoDashboard(registro.fecha)?.nombre || "Festivo"}`
+        : `${jornadaDiaInfo.tipo} · Referencia periodo ${limitePeriodoHoras} horas`;
+      delete registro._segmentos_netos_ayb;
+    });
+  });
+
+  return registros.map((registro) => {
+    if (registro._segmentos_netos_ayb) delete registro._segmentos_netos_ayb;
+    return registro;
+  });
+}
+
+function compararRegistrosPorFechaHoraDashboard(a, b) {
+  const fa = String(a.fecha || "");
+  const fb = String(b.fecha || "");
+  if (fa !== fb) return fa.localeCompare(fb);
+  const ha = horaTextoAMinutos(a.hora_inicio) ?? 0;
+  const hb = horaTextoAMinutos(b.hora_inicio) ?? 0;
+  if (ha !== hb) return ha - hb;
+  return String(a.created_at || a.id || "").localeCompare(String(b.created_at || b.id || ""));
+}
+
+function obtenerClaveSemanaOperativaDashboard(fechaISO) {
+  if (!fechaISO) return "";
+
+  // Corrección crítica: Dashboard A&B debe calcular 44 horas sobre el rango filtrado
+  // o periodo operativo cargado, no sobre semanas calendario lunes-domingo.
+  const inicioFiltro = filtrosActuales?.fechaInicio || document.getElementById("filtroFechaInicio")?.value || "";
+  const finFiltro = filtrosActuales?.fechaFin || document.getElementById("filtroFechaFin")?.value || "";
+  if (inicioFiltro && finFiltro && fechaISO >= inicioFiltro && fechaISO <= finFiltro) {
+    return `${inicioFiltro}__${finFiltro}`;
+  }
+
+  const fecha = new Date(`${fechaISO}T00:00:00`);
+  if (Number.isNaN(fecha.getTime())) return "";
+  const inicio = obtenerInicioSemanaOperativa(fecha);
+  return formatearFechaISO(inicio);
+}
+
+function calcularHorasTurnoProtegiendoNocturnas(inicio, fin) {
+  const detalle = calcularDetalleHorasRegistroDashboard({ hora_inicio: inicio, hora_fin: fin });
+  return {
+    total: detalle.horas_totales,
+    diurnas: detalle.horas_diurnas,
+    nocturnas: detalle.horas_nocturnas,
+    netas: detalle.horas_netas
+  };
+}
+
+function obtenerFestivoDashboard(fechaISO) {
+  return festivosDashboard.find((item) => String(item.fecha) === String(fechaISO));
 }
 
 function obtenerJornadaEsperadaPorFecha(fechaISO) {
   if (!fechaISO) {
-    return { horas: 7.5, tipo: "Martes a viernes / día hábil" };
+    return { horas: 7, tipo: "Día hábil / 7h netas", esFestivo: false };
+  }
+
+  const festivo = festivosDashboard.find(
+    (item) => String(item.fecha) === String(fechaISO)
+  );
+
+  if (festivo) {
+    return { horas: 8, tipo: `Festivo - ${festivo.nombre || "Festivo"}`, esFestivo: true, nombreFestivo: festivo.nombre || "Festivo" };
   }
 
   const fecha = new Date(`${fechaISO}T00:00:00`);
   const dia = fecha.getDay();
 
   if (dia === 6 || dia === 0) {
-    return { horas: 8.5, tipo: "Sábado/Domingo" };
+    return { horas: 8, tipo: "Sábado/Domingo / 8h netas", esFestivo: false };
   }
 
-  return { horas: 7.5, tipo: "Martes a viernes / día hábil" };
+  return { horas: 7, tipo: "Día hábil / 7h netas", esFestivo: false };
 }
 
 function horaTextoAMinutos(horaTexto) {
@@ -396,11 +838,16 @@ function inicializarFiltrosRango() {
   if (!filtroFechaInicio || !filtroFechaFin) return;
 
   if (!filtrosActuales.fechaInicio || !filtrosActuales.fechaFin) {
-    const hoy = new Date();
-    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-
-    filtroFechaInicio.value = formatearFechaISO(inicioMes);
-    filtroFechaFin.value = formatearFechaISO(hoy);
+    const periodoAyb = leerPeriodoOperativoDashboardAyb();
+    if (periodoAyb) {
+      filtroFechaInicio.value = periodoAyb.inicio;
+      filtroFechaFin.value = periodoAyb.fin;
+    } else {
+      const hoy = new Date();
+      const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+      filtroFechaInicio.value = formatearFechaISO(inicioMes);
+      filtroFechaFin.value = formatearFechaISO(hoy);
+    }
 
     filtrosActuales.fechaInicio = filtroFechaInicio.value;
     filtrosActuales.fechaFin = filtroFechaFin.value;
@@ -411,6 +858,18 @@ function inicializarFiltrosRango() {
 
   if (filtroEstadoExtra) {
     filtroEstadoExtra.value = filtrosActuales.estadoExtra || "";
+  }
+}
+
+function leerPeriodoOperativoDashboardAyb() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_PERIODO_OPERATIVO_AYB) || "null");
+    if (!raw?.inicio || !raw?.fin) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw.inicio) || !/^\d{4}-\d{2}-\d{2}$/.test(raw.fin)) return null;
+    if (raw.fin < raw.inicio) return null;
+    return { inicio: raw.inicio, fin: raw.fin };
+  } catch {
+    return null;
   }
 }
 
@@ -475,6 +934,7 @@ function actualizarBadgeFiltroUsuario() {
 }
 
 function limpiarFiltros() {
+  const periodoAyb = leerPeriodoOperativoDashboardAyb();
   const hoy = new Date();
   const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
 
@@ -485,8 +945,8 @@ function limpiarFiltros() {
   const filtroEmpleado = document.getElementById("filtroEmpleado");
   const filtroEstadoExtra = document.getElementById("filtroEstadoExtra");
 
-  if (filtroFechaInicio) filtroFechaInicio.value = formatearFechaISO(inicioMes);
-  if (filtroFechaFin) filtroFechaFin.value = formatearFechaISO(hoy);
+  if (filtroFechaInicio) filtroFechaInicio.value = periodoAyb?.inicio || formatearFechaISO(inicioMes);
+  if (filtroFechaFin) filtroFechaFin.value = periodoAyb?.fin || formatearFechaISO(hoy);
   if (filtroArea) filtroArea.value = "";
   if (filtroSubarea) filtroSubarea.value = "";
   if (filtroEmpleado) filtroEmpleado.value = "";
@@ -525,6 +985,8 @@ function aplicarFiltrosAnaliticos() {
   renderTablaValidacionExtras(registrosFiltrados);
   renderDashboardBienestar();
   renderTablaMenorCarga(registrosFiltrados);
+  renderPanelExternosChef();
+  renderControlIntegracionChef();
 
   renderGraficaAreas(registrosFiltrados);
   renderGraficaDias(registrosFiltrados);
@@ -535,6 +997,112 @@ function aplicarFiltrosAnaliticos() {
   renderGraficaTendenciaFechas(registrosFiltrados);
   renderGraficaMeses(registrosBase);
   renderGraficaAnios(registrosBase);
+}
+
+function obtenerRegistrosExternosChefFiltrados() {
+  return registrosExternosChefBase.filter((item) => {
+    const fecha = String(item.fecha || "");
+    const subarea = String(item.subarea || "").trim();
+    const empleado = obtenerNombreEmpleado(item);
+
+    if (filtrosActuales.fechaInicio && fecha < filtrosActuales.fechaInicio) return false;
+    if (filtrosActuales.fechaFin && fecha > filtrosActuales.fechaFin) return false;
+    if (filtrosActuales.subarea && subarea !== filtrosActuales.subarea) return false;
+    if (filtrosActuales.empleado && empleado !== filtrosActuales.empleado) return false;
+
+    return true;
+  });
+}
+
+function renderPanelExternosChef() {
+  const registros = obtenerRegistrosExternosChefFiltrados();
+  const empleados = new Set(
+    registros.map((item) => String(item.externo_id || item.cedula || obtenerNombreEmpleado(item))).filter(Boolean)
+  ).size;
+  const soloTurnos = registros.filter((item) => !esNovedad(item));
+
+  const diurnas = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_diurnas || 0), 0));
+  const nocturnas = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_nocturnas || 0), 0));
+  const netas = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_netas || 0), 0));
+  const extraDiurna = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.extra_diurna || 0), 0));
+  const extraNocturna = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.extra_nocturna || 0), 0));
+  const extraTotal = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_extra_estimadas || 0), 0));
+
+  setText("kpiExternosPersonas", empleados);
+  setText("kpiExternosTurnos", registros.length);
+  setText("kpiExternosHorasDiurnas", formatearNumero(diurnas));
+  setText("kpiExternosHorasNocturnas", formatearNumero(nocturnas));
+  setText("kpiExternosHorasNetas", formatearNumero(netas));
+  setText("kpiExternosExtraDiurna", formatearNumero(extraDiurna));
+  setText("kpiExternosExtraNocturna", formatearNumero(extraNocturna));
+  setText("kpiExternosExtraTotal", formatearNumero(extraTotal));
+
+  const tbody = document.getElementById("tbodyExternosChef");
+  if (!tbody) return;
+
+  if (!registros.length) {
+    tbody.innerHTML = `<tr><td colspan="12" class="texto-vacio">No hay personal externo programado en Cocina Chef para el filtro actual.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = registros
+    .sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || "")))
+    .map((item, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${escaparHtml(obtenerNombreEmpleado(item))}</td>
+        <td>${escaparHtml(item.cedula || "-")}</td>
+        <td>${escaparHtml(formatearFechaCorta(item.fecha))}${item.es_festivo ? `<div class="badge-festivo-dashboard">FESTIVO${item.nombre_festivo ? ` · ${escaparHtml(item.nombre_festivo)}` : ""}</div>` : ""}</td>
+        <td>${escaparHtml(item.subarea || "-")}</td>
+        <td>${escaparHtml(item.turno || "-")}${item.turno_2 ? ` / ${escaparHtml(item.turno_2)}` : ""}</td>
+        <td>${formatearNumero(item.horas_diurnas || 0)}</td>
+        <td>${formatearNumero(item.horas_nocturnas || 0)}</td>
+        <td>${formatearNumero(item.horas_netas || 0)}</td>
+        <td>${formatearNumero(item.extra_diurna || 0)}</td>
+        <td>${formatearNumero(item.extra_nocturna || 0)}</td>
+        <td>${formatearNumero(item.extra_diurna_festiva || 0)}</td>
+        <td>${formatearNumero(item.extra_nocturna_festiva || 0)}</td>
+        <td>${formatearNumero(item.horas_extra_estimadas || 0)}</td>
+      </tr>
+    `).join("");
+}
+
+function renderControlIntegracionChef() {
+  setText("kpiDuplicidadesChef", registrosDuplicadosBase.length);
+  setText("kpiRevisionChef", registrosRevisionChefBase.length);
+
+  const tbodyDuplicados = document.getElementById("tbodyDuplicidadesChef");
+  if (tbodyDuplicados) {
+    if (!registrosDuplicadosBase.length) {
+      tbodyDuplicados.innerHTML = `<tr><td colspan="5" class="texto-vacio">No se detectaron duplicidades entre Programación A&B y Cocina Chef.</td></tr>`;
+    } else {
+      tbodyDuplicados.innerHTML = registrosDuplicadosBase.map((item, index) => `
+        <tr class="fila-alerta">
+          <td>${index + 1}</td>
+          <td>${escaparHtml(item.nombre)}</td>
+          <td>${escaparHtml(item.cedula)}</td>
+          <td>${escaparHtml(formatearFechaCorta(item.fecha))}${item.es_festivo ? `<div class="badge-festivo-dashboard">FESTIVO${item.nombre_festivo ? ` · ${escaparHtml(item.nombre_festivo)}` : ""}</div>` : ""}</td>
+          <td>${escaparHtml(item.motivo)}</td>
+        </tr>
+      `).join("");
+    }
+  }
+
+  const tbodyRevision = document.getElementById("tbodyRevisionChef");
+  if (tbodyRevision) {
+    if (!registrosRevisionChefBase.length) {
+      tbodyRevision.innerHTML = `<tr><td colspan="4" class="texto-vacio">No hay registros pendientes de clasificación.</td></tr>`;
+    } else {
+      tbodyRevision.innerHTML = registrosRevisionChefBase.map((item, index) => `
+        <tr class="fila-alerta">
+          <td>${index + 1}</td>
+          <td>${escaparHtml(item.nombre)}</td>
+          <td>${escaparHtml(formatearFechaCorta(item.fecha))}${item.es_festivo ? `<div class="badge-festivo-dashboard">FESTIVO${item.nombre_festivo ? ` · ${escaparHtml(item.nombre_festivo)}` : ""}</div>` : ""}</td>
+          <td>${escaparHtml(item.tipo_revision)} · ${escaparHtml(item.detalle)}</td>
+        </tr>
+      `).join("");
+    }
+  }
 }
 
 function obtenerRegistrosFiltrados() {
@@ -566,11 +1134,11 @@ function actualizarBadgesAnaliticos(registros) {
   ).size;
 
   const rangoTexto = filtrosActuales.fechaInicio || filtrosActuales.fechaFin
-    ? `Rango activo: ${filtrosActuales.fechaInicio || "inicio"} a ${filtrosActuales.fechaFin || "hoy"}`
-    : "Rango activo: todo el historial";
+    ? `Periodo operativo activo: ${filtrosActuales.fechaInicio || "inicio"} a ${filtrosActuales.fechaFin || "hoy"}`
+    : "Periodo operativo activo: todo el historial";
 
   setText("badgeRangoActivo", rangoTexto);
-  setText("badgeRegistrosAnalizados", `Registros analizados: ${registros.length}`);
+  setText("badgeRegistrosAnalizados", `Turnos + novedades: ${registros.length}`);
   setText("badgeEmpleadosAnalizados", `Empleados: ${empleados}`);
   setText("badgeDiasAnalizados", `Días con registros: ${dias}`);
 }
@@ -844,7 +1412,9 @@ function renderTopAsistencia(registros) {
   const tbody = document.getElementById("tbodyTopAsistencia");
   if (!tbody) return;
 
-  const top = Object.values(agruparEmpleados(registros))
+  // Este dashboard mide programación, no presencia biométrica. Por eso este
+  // ranking usa solamente turnos y se presenta como días programados.
+  const top = Object.values(agruparEmpleados(registros.filter((item) => !esNovedad(item))))
     .sort((a, b) => b.dias - a.dias || b.asignaciones - a.asignaciones)
     .slice(0, 10);
 
@@ -981,7 +1551,7 @@ function renderTablaAusentesHoy(registros) {
         <td>${escaparHtml(obtenerNombreEmpleado(item))}</td>
         <td>${escaparHtml(obtenerAreaAmigable(item))}</td>
         <td>${crearBadgeNovedad(tipo, label)}</td>
-        <td>${escaparHtml(formatearFechaCorta(item.fecha))}</td>
+        <td>${escaparHtml(formatearFechaCorta(item.fecha))}${item.es_festivo ? `<div class="badge-festivo-dashboard">FESTIVO${item.nombre_festivo ? ` · ${escaparHtml(item.nombre_festivo)}` : ""}</div>` : ""}</td>
       </tr>
     `;
   }).join("");
@@ -1024,7 +1594,7 @@ function renderTablaValidacionExtras(registros) {
     });
 
   if (!extras.length) {
-    tbody.innerHTML = `<tr><td colspan="14" class="texto-vacio">No hay registros con horas extra en el filtro actual.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="16" class="texto-vacio">No hay registros con horas extra o festivos por validar en el filtro actual.</td></tr>`;
     return;
   }
 
@@ -1033,15 +1603,17 @@ function renderTablaValidacionExtras(registros) {
     const estado = normalizarEstadoExtra(item.estado_extra);
 
     return `
-      <tr class="${estado === "pendiente" ? "fila-alerta" : ""}">
+      <tr class="${estado === "pendiente" ? "fila-alerta" : ""} ${item.es_festivo ? "fila-festivo-validacion" : ""}">
         <td>${index + 1}</td>
         <td>${escaparHtml(obtenerNombreEmpleado(item))}</td>
         <td>${escaparHtml(item.cedula || "")}</td>
-        <td>${escaparHtml(formatearFechaCorta(item.fecha))}</td>
+        <td>${escaparHtml(formatearFechaCorta(item.fecha))}${item.es_festivo ? `<div class="badge-festivo-dashboard">FESTIVO${item.nombre_festivo ? ` · ${escaparHtml(item.nombre_festivo)}` : ""}</div>` : ""}</td>
         <td>${escaparHtml(obtenerAreaAmigable(item))}</td>
         <td>${escaparHtml(String(item.subarea || "").trim() || "-")}</td>
         <td>${formatearNumero(item.extra_diurna || 0)}</td>
         <td>${formatearNumero(item.extra_nocturna || 0)}</td>
+        <td>${formatearNumero(item.extra_diurna_festiva || 0)}</td>
+        <td>${formatearNumero(item.extra_nocturna_festiva || 0)}</td>
         <td>${formatearNumero(item.horas_extra_estimadas || 0)}</td>
         <td>${crearBadgeEstadoExtra(estado)}</td>
         <td>${escaparHtml(item.aprobado_por || "-")}</td>
@@ -1063,13 +1635,51 @@ function renderTablaValidacionExtras(registros) {
                 Rechazar
               </button>
             </div>
-          ` : `<span class="text-muted small">Sin acción</span>`}
+          ` : `<span class="text-muted small">${String(item.tipo_personal || "").trim().toLowerCase() === "externo" ? "Externo · solo lectura" : "Sin permiso"}</span>`}
         </td>
       </tr>
     `;
   }).join("");
 
   enlazarEventosValidacion();
+  configurarScrollSuperiorValidacionExtras();
+}
+
+
+function configurarScrollSuperiorValidacionExtras() {
+  const scrollSuperior = document.getElementById("scrollSuperiorValidacionExtras");
+  const scrollTabla = document.getElementById("scrollTablaValidacionExtras");
+  const tabla = scrollTabla?.querySelector("table");
+  const relleno = scrollSuperior?.firstElementChild;
+  if (!scrollSuperior || !scrollTabla || !tabla || !relleno) return;
+
+  const actualizarAncho = () => {
+    relleno.style.width = `${tabla.scrollWidth}px`;
+    if (scrollSuperior.scrollLeft !== scrollTabla.scrollLeft) {
+      scrollSuperior.scrollLeft = scrollTabla.scrollLeft;
+    }
+  };
+
+  actualizarAncho();
+  requestAnimationFrame(actualizarAncho);
+
+  if (!scrollSuperior.dataset.sincronizado) {
+    let sincronizando = false;
+    scrollSuperior.addEventListener("scroll", () => {
+      if (sincronizando) return;
+      sincronizando = true;
+      scrollTabla.scrollLeft = scrollSuperior.scrollLeft;
+      sincronizando = false;
+    });
+    scrollTabla.addEventListener("scroll", () => {
+      if (sincronizando) return;
+      sincronizando = true;
+      scrollSuperior.scrollLeft = scrollTabla.scrollLeft;
+      sincronizando = false;
+    });
+    window.addEventListener("resize", actualizarAncho);
+    scrollSuperior.dataset.sincronizado = "1";
+  }
 }
 
 function enlazarEventosValidacion() {
@@ -1110,14 +1720,23 @@ async function actualizarEstadoExtraRegistro(id, estado, observacion) {
       observacion_aprobacion: String(observacion || "").trim() || null
     };
 
+    const vieneDeCocinaChef = String(registroLocal.origen_datos || "") === "cocina_chef";
+    const tablaDestino = vieneDeCocinaChef ? "cocina_programacion_turnos" : "programacion_turnos";
+    const idDestino = vieneDeCocinaChef ? registroLocal.id_origen : registroLocal.id;
+
+    if (!idDestino) {
+      alert("No se encontró el identificador de origen del registro.");
+      return;
+    }
+
     const { error } = await supabase
-      .from("programacion_turnos")
+      .from(tablaDestino)
       .update(payload)
-      .eq("id", id);
+      .eq("id", idDestino);
 
     if (error) {
-      console.error("Error actualizando estado_extra:", error);
-      alert("No fue posible actualizar el estado de validación.");
+      console.error(`Error actualizando estado_extra en ${tablaDestino}:`, error);
+      alert("No fue posible actualizar el estado de validación. Valida que el SQL de aprobación ya se haya ejecutado en Supabase.");
       return;
     }
 
@@ -1241,9 +1860,15 @@ async function cargarSolicitudesBienestarSeguras(sesion) {
 
 function filtrarSolicitudesBienestarPorPermisos(solicitudes, sesion) {
   if (!sesion) return [];
-  if (sesion.puede_ver_todo === true) return solicitudes;
 
   const rol = obtenerRolSeguroDashboard(sesion);
+
+  // En Dashboard A&B se permite cargar la base y luego aplicar el alcance A&B obligatorio.
+  // Esto evita depender de que cada usuario A&B tenga areas_permitidas perfectamente configuradas.
+  if (rol === "ayb" || rol === "ayb_admin") return solicitudes;
+
+  if (sesion.puede_ver_todo === true) return solicitudes;
+
   if (usuarioPuedeAccederDashboard(sesion) && ["admin", "administrador", "gerencia", "bienestar"].includes(rol)) {
     return solicitudes;
   }
@@ -1263,6 +1888,9 @@ function filtrarSolicitudesBienestarPorPermisos(solicitudes, sesion) {
 
 function normalizarSolicitudBienestar(solicitud) {
   const fecha = obtenerFechaSolicitudBienestar(solicitud);
+  const fechaInicio = String(solicitud.fecha_inicio || fecha || "").slice(0, 10);
+  const fechaFin = String(solicitud.fecha_fin || solicitud.fecha_inicio || fecha || "").slice(0, 10);
+  const fechaRadicacion = String(solicitud.fecha_radicacion || solicitud.created_at || "").slice(0, 10);
   const estado = normalizarEstadoSolicitudBienestar(solicitud.estado || solicitud.estado_solicitud || solicitud.estado_bienestar);
   const tipo = String(solicitud.tipo_solicitud || solicitud.tipo || solicitud.categoria || solicitud.motivo || solicitud.codigo_tipo || solicitud.subtipo || "").trim();
   const texto = String(
@@ -1279,6 +1907,9 @@ function normalizarSolicitudBienestar(solicitud) {
   return {
     ...solicitud,
     _fecha_bienestar: fecha,
+    _fecha_inicio_bienestar: fechaInicio,
+    _fecha_fin_bienestar: fechaFin,
+    _fecha_radicacion_bienestar: fechaRadicacion,
     _estado_bienestar: estado,
     _tipo_bienestar: tipo || "Sin tipo",
     _es_incapacidad: texto.includes("incap"),
@@ -1317,7 +1948,9 @@ function obtenerAreaSolicitudBienestar(solicitud) {
 }
 
 function obtenerFechaSolicitudBienestar(solicitud) {
-  const valor = solicitud.fecha || solicitud.fecha_solicitud || solicitud.created_at || solicitud.fecha_inicio || solicitud.fecha_novedad;
+  // Para cruzar una novedad con la programación importa primero la fecha del
+  // evento. La fecha de creación/radicación se conserva aparte para auditoría.
+  const valor = solicitud.fecha_inicio || solicitud.fecha_novedad || solicitud.fecha || solicitud.fecha_solicitud || solicitud.fecha_radicacion || solicitud.created_at;
   if (!valor) return "";
   return String(valor).slice(0, 10);
 }
@@ -1364,12 +1997,14 @@ function evaluarFueraTiempoBienestar(solicitud, fechaSolicitud) {
 
 function obtenerSolicitudesBienestarFiltradas() {
   return solicitudesBienestarBase.filter((solicitud) => {
-    const fecha = solicitud._fecha_bienestar || "";
+    const inicio = solicitud._fecha_inicio_bienestar || solicitud._fecha_bienestar || "";
+    const fin = solicitud._fecha_fin_bienestar || inicio;
     const area = String(solicitud._area || "").toUpperCase();
     const empleado = `${solicitud._nombre || ""} ${solicitud._cedula || ""}`.toUpperCase();
 
-    if (filtrosActuales.fechaInicio && fecha && fecha < filtrosActuales.fechaInicio) return false;
-    if (filtrosActuales.fechaFin && fecha && fecha > filtrosActuales.fechaFin) return false;
+    // Se incluye cualquier solicitud cuyo intervalo se cruce con el filtro.
+    if (filtrosActuales.fechaInicio && fin && fin < filtrosActuales.fechaInicio) return false;
+    if (filtrosActuales.fechaFin && inicio && inicio > filtrosActuales.fechaFin) return false;
     if (filtrosActuales.area && !area.includes(String(filtrosActuales.area).toUpperCase())) return false;
     if (filtrosActuales.empleado && !empleado.includes(String(filtrosActuales.empleado).toUpperCase())) return false;
     return true;
@@ -1384,7 +2019,7 @@ function renderDashboardBienestar() {
   const pendientes = solicitudes.filter((s) => s._estado_bienestar === "pendiente" || s._estado_bienestar === "pendiente_documentos");
   const aprobadas = solicitudes.filter((s) => s._estado_bienestar === "aprobado");
   const rechazadas = solicitudes.filter((s) => s._estado_bienestar === "rechazado");
-  const incapacidadesMes = solicitudes.filter((s) => s._es_incapacidad && String(s._fecha_bienestar || "").startsWith(mesActual));
+  const incapacidadesMes = solicitudes.filter((s) => s._es_incapacidad && String(s._fecha_inicio_bienestar || s._fecha_bienestar || "").startsWith(mesActual));
   const pendientesDocs = solicitudes.filter((s) => s._requiere_documento);
   const fueraTiempo = solicitudes.filter((s) => s._fuera_tiempo);
 
@@ -1463,11 +2098,29 @@ function renderRankingNovedadesBienestar(solicitudes) {
 }
 
 function obtenerRegistrosConExtras(registros) {
-  return registros.filter((item) => Number(item.horas_extra_estimadas || 0) > 0);
+  return registros.filter((item) => {
+    if (esNovedad(item)) return false;
+    const esFestivo = item.es_festivo === true || String(item.tipo_jornada || "").toLowerCase().includes("festivo");
+    const extras = Number(item.horas_extra_estimadas || 0) > 0
+      || Number(item.extra_diurna || 0) > 0
+      || Number(item.extra_nocturna || 0) > 0
+      || Number(item.extra_diurna_festiva || 0) > 0
+      || Number(item.extra_nocturna_festiva || 0) > 0;
+    return esFestivo || extras;
+  });
 }
 
 function usuarioPuedeValidarRegistro(sesion, registro) {
-  if (!sesion) return false;
+  if (!sesion || !registro) return false;
+
+  // Los externos nunca ingresan al flujo oficial de aprobación de nómina.
+  if (
+    String(registro.origen_datos || "") === "cocina_chef" &&
+    String(registro.tipo_personal || "").trim().toLowerCase() === "externo"
+  ) {
+    return false;
+  }
+
   if (sesion.puede_ver_todo === true) return true;
 
   const rol = String(sesion.rol || "").trim().toLowerCase();
@@ -1708,12 +2361,12 @@ function renderGraficaAreas(registros) {
         label: "Asignaciones",
         data: ranking.map(([, value]) => value),
         backgroundColor: [
-          "rgba(13,110,253,0.75)",
-          "rgba(25,135,84,0.75)",
-          "rgba(255,193,7,0.75)",
-          "rgba(13,202,240,0.75)",
-          "rgba(108,117,125,0.75)",
-          "rgba(220,53,69,0.75)"
+          "rgba(23,75,56,0.88)",
+          "rgba(36,130,91,0.82)",
+          "rgba(83,151,119,0.78)",
+          "rgba(118,169,145,0.74)",
+          "rgba(147,179,164,0.72)",
+          "rgba(102,123,114,0.72)"
         ],
         borderRadius: 8,
         borderWidth: 1.5
@@ -1764,8 +2417,8 @@ function renderGraficaDias(registros) {
       datasets: [{
         label: "Carga laboral",
         data: diasSemana.map((dia) => conteo[dia]),
-        borderColor: "rgba(13,110,253,1)",
-        backgroundColor: "rgba(13,110,253,0.15)",
+        borderColor: "rgba(23,75,56,1)",
+        backgroundColor: "rgba(36,130,91,0.13)",
         fill: true,
         tension: 0.35,
         pointRadius: 4
@@ -1802,8 +2455,8 @@ function renderGraficaHorasTipo(registros) {
       datasets: [{
         data: [horasDiurnas, horasNocturnas],
         backgroundColor: [
-          "rgba(13,110,253,0.85)",
-          "rgba(111,66,193,0.85)"
+          "rgba(36,130,91,0.88)",
+          "rgba(23,75,56,0.92)"
         ],
         borderWidth: 2,
         borderColor: "#ffffff"
@@ -1850,8 +2503,8 @@ function renderGraficaHorasExtraEmpleados(registros) {
       datasets: [{
         label: "Horas extra",
         data: ranking.map((item) => redondearHoras(item.total)),
-        backgroundColor: "rgba(255,193,7,0.8)",
-        borderColor: "rgba(255,193,7,1)",
+        backgroundColor: "rgba(199,122,18,0.78)",
+        borderColor: "rgba(199,122,18,1)",
         borderWidth: 1.5,
         borderRadius: 8
       }]
@@ -1925,14 +2578,14 @@ function renderGraficaDistribucionAreas(registros) {
       datasets: [{
         data: ranking.map(([, value]) => value),
         backgroundColor: [
-          "rgba(13,110,253,0.85)",
-          "rgba(25,135,84,0.85)",
-          "rgba(255,193,7,0.85)",
-          "rgba(220,53,69,0.85)",
-          "rgba(13,202,240,0.85)",
-          "rgba(108,117,125,0.85)",
-          "rgba(111,66,193,0.85)",
-          "rgba(253,126,20,0.85)"
+          "rgba(23,75,56,0.90)",
+          "rgba(36,130,91,0.86)",
+          "rgba(72,145,110,0.82)",
+          "rgba(99,160,131,0.78)",
+          "rgba(124,174,151,0.76)",
+          "rgba(148,185,168,0.74)",
+          "rgba(103,126,116,0.72)",
+          "rgba(174,196,185,0.72)"
         ],
         borderWidth: 2,
         borderColor: "#ffffff"
@@ -1965,8 +2618,8 @@ function renderGraficaTendenciaFechas(registros) {
       datasets: [{
         label: "Asignaciones por fecha",
         data: ranking.map(([, total]) => total),
-        borderColor: "rgba(111,66,193,1)",
-        backgroundColor: "rgba(111,66,193,0.12)",
+        borderColor: "rgba(23,75,56,1)",
+        backgroundColor: "rgba(36,130,91,0.12)",
         fill: true,
         tension: 0.25,
         pointRadius: 3
@@ -2014,8 +2667,8 @@ function renderGraficaMeses(registros) {
       datasets: [{
         label: "Registros por mes",
         data: ordenado.map(([, total]) => total),
-        backgroundColor: "rgba(13,202,240,0.75)",
-        borderColor: "rgba(13,202,240,1)",
+        backgroundColor: "rgba(36,130,91,0.78)",
+        borderColor: "rgba(23,75,56,1)",
         borderWidth: 1.5,
         borderRadius: 8
       }]
@@ -2058,8 +2711,8 @@ function renderGraficaAnios(registros) {
       datasets: [{
         label: "Registros por año",
         data: ordenado.map(([, total]) => total),
-        backgroundColor: "rgba(255,193,7,0.75)",
-        borderColor: "rgba(255,193,7,1)",
+        backgroundColor: "rgba(83,151,119,0.78)",
+        borderColor: "rgba(23,75,56,1)",
         borderWidth: 1.5,
         borderRadius: 8
       }]
@@ -2217,13 +2870,13 @@ function renderResumenOperativo(registrosHoy) {
       };
     }
 
-    resumen[area].programados += 1;
-
     if (esNovedad(item)) {
       resumen[area].novedades += 1;
+    } else {
+      resumen[area].programados += 1;
     }
 
-    if (item.subarea) {
+    if (!esNovedad(item) && item.subarea) {
       resumen[area].subareas.add(item.subarea);
     }
   });
@@ -2250,6 +2903,8 @@ function renderVaciosAnaliticos() {
   renderTablaValidacionExtras([]);
   renderDashboardBienestarVacio();
   renderTablaMenorCarga([]);
+  renderPanelExternosChef();
+  renderControlIntegracionChef();
   renderKPIsGeneralesAnaliticos([]);
   renderKPIsAnaliticos([]);
   renderKPIsHoras([]);
@@ -2344,45 +2999,19 @@ function obtenerEmpleadoBasePorCedula(cedula) {
 }
 
 function obtenerUniversoEmpleadosAyb() {
-  const mapa = {};
-
-  registrosBase
-    .filter((item) => String(item.cedula || "").trim())
-    .filter((item) => esAyb(item) || obtenerAreaAmigable(item).toUpperCase().includes("ALIMENTOS"))
-    .forEach((item) => {
-      const cedula = normalizarDocumentoEmpleado(item.cedula || "");
-      if (!cedula || mapa[cedula]) return;
-
-      const empleado = {
-        cedula,
-        nombre: obtenerNombreEmpleado(item),
-        area: obtenerAreaAmigable(item)
-      };
-
-      const textoEmpleado = String(empleado.nombre + " " + empleado.cedula).toUpperCase();
-      if (filtrosActuales.empleado && !textoEmpleado.includes(String(filtrosActuales.empleado).toUpperCase())) return;
-
-      mapa[cedula] = empleado;
-    });
-
-  directorioEmpleadosBase
+  return directorioEmpleadosBase
     .filter((item) => item.cedula)
     .filter((item) => {
-      const area = String(item.area || "").toUpperCase();
-      return area.includes("ALIMENTOS") || area.includes("BEBIDAS") || area.includes("A&B");
+      const textoEmpleado = `${item.nombre || ""} ${item.cedula || ""}`.toUpperCase();
+      return !filtrosActuales.empleado ||
+        textoEmpleado.includes(String(filtrosActuales.empleado).toUpperCase());
     })
-    .forEach((item) => {
-      if (mapa[item.cedula]) return;
-      const textoEmpleado = String(item.nombre + " " + item.cedula).toUpperCase();
-      if (filtrosActuales.empleado && !textoEmpleado.includes(String(filtrosActuales.empleado).toUpperCase())) return;
-      mapa[item.cedula] = {
-        cedula: item.cedula,
-        nombre: item.nombre || "Sin nombre",
-        area: item.area || "Alimentos y Bebidas"
-      };
-    });
-
-  return Object.values(mapa).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    .map((item) => ({
+      cedula: item.cedula,
+      nombre: item.nombre || "Sin nombre",
+      area: item.area || "Alimentos y Bebidas"
+    }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
 }
 
 function obtenerNombreEmpleado(item) {
@@ -2553,8 +3182,10 @@ function calcularMaximoConsecutivo(fechasOrdenadas) {
 }
 
 function esAyb(item) {
-  const texto = String((item.centro_costos || "") + " " + (item.area || "") + " " + (item.subarea || "") + " " + (item.cargo || "")).toUpperCase();
-  return texto.includes("ALIMENTOS") || texto.includes("BEBIDAS") || texto.includes("A&B") || texto.includes("AYB");
+  if (!item) return false;
+  return String(item.area || "").toUpperCase().includes("ALIMENTOS") ||
+    String(item.centro_costos || "").toUpperCase().includes("ALIMENTOS") ||
+    String(item.origen_datos || "") === "cocina_chef";
 }
 
 function esOperaciones(item) {
@@ -2591,6 +3222,10 @@ function configurarBotonExportarPDF() {
   const btnExportarPDF = document.getElementById("btnExportarPDF");
   if (!btnExportarPDF) return;
 
+  // Este texto permite confirmar visualmente que el navegador cargó esta versión.
+  btnExportarPDF.textContent = "Descargar vista PDF";
+  btnExportarPDF.dataset.exportVersion = "ayb-descargas-v2";
+
   btnExportarPDF.addEventListener("click", async () => {
     await exportarDashboardAPDF();
   });
@@ -2600,50 +3235,185 @@ function configurarBotonExportarExcel() {
   const btnExportarExcel = document.getElementById("btnExportarExcel");
   if (!btnExportarExcel) return;
 
+  // Este texto permite confirmar visualmente que el navegador cargó esta versión.
+  btnExportarExcel.textContent = "Descargar período Excel";
+  btnExportarExcel.dataset.exportVersion = "ayb-descargas-v2";
+
   btnExportarExcel.addEventListener("click", () => {
-    exportarExcelAprobados();
+    exportarDashboardExcel();
   });
 }
 
-function exportarExcelAprobados() {
+function valorExcelSeguro(valor) {
+  if (valor === null || valor === undefined) return "";
+  if (typeof valor === "number" || typeof valor === "boolean") return valor;
+  const texto = String(valor);
+  return /^[=+\-@]/.test(texto) ? `'${texto}` : texto;
+}
+
+function descargarArchivoLocal(contenido, nombreArchivo, tipoMime) {
+  const blob = contenido instanceof Blob
+    ? contenido
+    : new Blob([contenido], { type: tipoMime || "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = nombreArchivo;
+  enlace.style.display = "none";
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+function exportarProgramacionComoCSV(registros, nombreBase) {
+  const columnas = [
+    "Fecha", "Empleado", "Cédula", "Área", "Subárea / punto",
+    "Tipo de registro", "Turno", "Inicio", "Fin", "Novedad",
+    "Horas netas", "Horas nocturnas", "Extra candidata", "Estado extra"
+  ];
+
+  const escapar = (valor) => {
+    const texto = String(valor ?? "").replace(/"/g, '""');
+    return `"${texto}"`;
+  };
+
+  const filas = registros.map((item) => [
+    item.fecha,
+    obtenerNombreEmpleado(item),
+    item.cedula,
+    obtenerAreaAmigable(item),
+    item.subarea,
+    esNovedad(item) ? "Novedad" : "Turno",
+    item.turno,
+    item.hora_inicio,
+    item.hora_fin,
+    esNovedad(item) ? obtenerLabelNovedad(item) : "",
+    esNovedad(item) ? "" : Number(item.horas_netas || 0),
+    esNovedad(item) ? "" : Number(item.horas_nocturnas || 0),
+    esNovedad(item) ? "" : Number(item.horas_extra_estimadas || 0),
+    esNovedad(item) ? "" : normalizarEstadoExtra(item.estado_extra)
+  ]);
+
+  const csv = `\uFEFF${[columnas, ...filas].map((fila) => fila.map(escapar).join(";")).join("\r\n")}`;
+  descargarArchivoLocal(csv, `${nombreBase}.csv`, "text/csv;charset=utf-8;");
+}
+
+function exportarDashboardExcel() {
+  const btn = document.getElementById("btnExportarExcel");
+  const textoOriginal = btn?.textContent || "Descargar período Excel";
   try {
     const registrosFiltrados = obtenerRegistrosFiltrados();
+    const novedadesFiltradas = registrosFiltrados.filter(esNovedad);
+    const solicitudesFiltradas = typeof obtenerSolicitudesBienestarFiltradas === "function"
+      ? obtenerSolicitudesBienestarFiltradas()
+      : [];
     const aprobados = obtenerRegistrosConExtras(registrosFiltrados)
-      .filter((item) => normalizarEstadoExtra(item.estado_extra) === "aprobado");
+      .filter((item) =>
+        normalizarEstadoExtra(item.estado_extra) === "aprobado" &&
+        String(item.tipo_personal || "").trim().toLowerCase() !== "externo"
+      );
 
-    if (!aprobados.length) {
-      alert("No hay registros aprobados para exportar con los filtros actuales.");
+    if (!registrosFiltrados.length && !solicitudesFiltradas.length) {
+      alert("No hay información para exportar con los filtros actuales.");
       return;
     }
 
-    const data = aprobados.map((item) => ({
-      Nombre: obtenerNombreEmpleado(item),
-      Cédula: item.cedula || "",
-      Fecha: item.fecha || "",
-      Área: obtenerAreaAmigable(item),
-      "Subárea": String(item.subarea || "").trim(),
-      "Horas diurnas": Number(item.horas_diurnas || 0),
-      "Horas nocturnas": Number(item.horas_nocturnas || 0),
-      "Extra diurna": Number(item.extra_diurna || 0),
-      "Extra nocturna": Number(item.extra_nocturna || 0),
-      "Total extra": Number(item.horas_extra_estimadas || 0),
-      Estado: normalizarEstadoExtra(item.estado_extra),
-      "Aprobado por": item.aprobado_por || "",
-      "Fecha aprobación": formatearFechaHora(item.fecha_aprobacion) || "",
-      "Observación": item.observacion_aprobacion || ""
-    }));
-
-    const worksheet = window.XLSX.utils.json_to_sheet(data);
-    const workbook = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(workbook, worksheet, "Horas extra aprobadas");
+    if (btn) { btn.disabled = true; btn.textContent = "Generando Excel..."; }
 
     const fecha = new Date();
-    const nombreArchivo = `horas_extra_aprobadas_${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}.xlsx`;
+    const nombreBase = `dashboard_ayb_${filtrosActuales.fechaInicio || "inicio"}_${filtrosActuales.fechaFin || formatearFechaISO(fecha)}`;
 
-    window.XLSX.writeFile(workbook, nombreArchivo);
+    // Si el CDN de SheetJS no responde, se descarga un CSV compatible con
+    // Excel. Así el botón nunca queda inutilizado por una librería externa.
+    if (!window.XLSX) {
+      exportarProgramacionComoCSV(registrosFiltrados, nombreBase);
+      alert("Se descargó un CSV compatible con Excel porque el componente XLSX no estaba disponible.");
+      return;
+    }
+
+    const workbook = window.XLSX.utils.book_new();
+    const programacion = registrosFiltrados.map((item) => ({
+      Fecha: valorExcelSeguro(item.fecha),
+      Empleado: valorExcelSeguro(obtenerNombreEmpleado(item)),
+      Cédula: valorExcelSeguro(item.cedula),
+      Área: valorExcelSeguro(obtenerAreaAmigable(item)),
+      "Subárea / punto": valorExcelSeguro(item.subarea),
+      "Tipo de registro": esNovedad(item) ? "Novedad" : "Turno",
+      Turno: valorExcelSeguro(item.turno),
+      Inicio: valorExcelSeguro(item.hora_inicio),
+      Fin: valorExcelSeguro(item.hora_fin),
+      Novedad: esNovedad(item) ? valorExcelSeguro(obtenerLabelNovedad(item)) : "",
+      "Horas netas": esNovedad(item) ? "" : Number(item.horas_netas || 0),
+      "Horas nocturnas": esNovedad(item) ? "" : Number(item.horas_nocturnas || 0),
+      "Extra candidata": esNovedad(item) ? "" : Number(item.horas_extra_estimadas || 0),
+      "Estado extra": esNovedad(item) ? "" : normalizarEstadoExtra(item.estado_extra)
+    }));
+    window.XLSX.utils.book_append_sheet(
+      workbook,
+      window.XLSX.utils.json_to_sheet(programacion),
+      "Programación del período"
+    );
+
+    if (novedadesFiltradas.length) {
+      const dataNovedades = novedadesFiltradas.map((item) => ({
+        Fecha: valorExcelSeguro(item.fecha),
+        Empleado: valorExcelSeguro(obtenerNombreEmpleado(item)),
+        Cédula: valorExcelSeguro(item.cedula),
+        Área: valorExcelSeguro(obtenerAreaAmigable(item)),
+        Novedad: valorExcelSeguro(obtenerLabelNovedad(item)),
+        Código: valorExcelSeguro(item.novedad_codigo),
+        Descripción: valorExcelSeguro(item.novedad_descripcion || item.observacion)
+      }));
+      window.XLSX.utils.book_append_sheet(
+        workbook,
+        window.XLSX.utils.json_to_sheet(dataNovedades),
+        "Novedades aplicadas"
+      );
+    }
+
+    if (solicitudesFiltradas.length) {
+      const dataBienestar = solicitudesFiltradas.map((item) => ({
+        Empleado: valorExcelSeguro(item._nombre || item.nombre_empleado),
+        Cédula: valorExcelSeguro(item._cedula || item.cedula),
+        Área: valorExcelSeguro(item._area || item.area),
+        Solicitud: valorExcelSeguro(item._tipo_bienestar || item.tipo_solicitud),
+        "Fecha inicio": valorExcelSeguro(item._fecha_inicio_bienestar || item.fecha_inicio),
+        "Fecha fin": valorExcelSeguro(item._fecha_fin_bienestar || item.fecha_fin),
+        "Fecha radicación": valorExcelSeguro(item._fecha_radicacion_bienestar || item.fecha_radicacion),
+        Estado: valorExcelSeguro(item._estado_bienestar || item.estado),
+        "Aplicada en programación": item.aplicada_programacion === true ? "Sí" : "No"
+      }));
+      window.XLSX.utils.book_append_sheet(
+        workbook,
+        window.XLSX.utils.json_to_sheet(dataBienestar),
+        "Solicitudes Bienestar"
+      );
+    }
+
+    if (aprobados.length) {
+      const dataAprobados = aprobados.map((item) => ({
+        Empleado: valorExcelSeguro(obtenerNombreEmpleado(item)),
+        Cédula: valorExcelSeguro(item.cedula),
+        Fecha: valorExcelSeguro(item.fecha),
+        "Horas aprobadas": Number(item.horas_extra_estimadas || 0),
+        "Aprobado por": valorExcelSeguro(item.aprobado_por),
+        "Fecha aprobación": valorExcelSeguro(formatearFechaHora(item.fecha_aprobacion)),
+        Observación: valorExcelSeguro(item.observacion_aprobacion)
+      }));
+      window.XLSX.utils.book_append_sheet(
+        workbook,
+        window.XLSX.utils.json_to_sheet(dataAprobados),
+        "Extras aprobadas"
+      );
+    }
+
+    window.XLSX.writeFile(workbook, `${nombreBase}.xlsx`);
   } catch (error) {
     console.error("Error exportando Excel:", error);
-    alert("Ocurrió un error al exportar el Excel.");
+    alert(`Ocurrió un error al exportar el Excel: ${error.message || error}`);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = textoOriginal; }
   }
 }
 
@@ -2663,12 +3433,22 @@ async function exportarDashboardAPDF() {
       btn.textContent = "Generando PDF...";
     }
 
+    document.body.classList.add("ayb-exportando");
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
     const canvas = await window.html2canvas(contenedor, {
-      scale: 2,
+      scale: Math.min(2, window.devicePixelRatio || 1.5),
       useCORS: true,
       backgroundColor: "#ffffff",
-      scrollY: -window.scrollY
+      scrollX: 0,
+      scrollY: 0,
+      windowWidth: Math.max(contenedor.scrollWidth, 1200),
+      logging: false
     });
+
+    if (!canvas.width || !canvas.height) {
+      throw new Error("La vista visible no produjo una imagen exportable.");
+    }
 
     const imgData = canvas.toDataURL("image/png");
     const { jsPDF } = window.jspdf;
@@ -2704,9 +3484,10 @@ async function exportarDashboardAPDF() {
     console.error("Error exportando PDF:", error);
     alert("Ocurrió un error al generar el PDF.");
   } finally {
+    document.body.classList.remove("ayb-exportando");
     if (btn) {
       btn.disabled = false;
-      btn.textContent = textoOriginal || "Exportar PDF";
+      btn.textContent = textoOriginal || "Descargar vista PDF";
     }
   }
 }
@@ -2796,9 +3577,9 @@ function obtenerClaveModulo(href) {
 function obtenerInicioSemanaOperativa(fechaBase) {
   const fecha = new Date(fechaBase);
   const dia = fecha.getDay();
-  const diasDesdeMartes = (dia + 5) % 7;
+  const diasDesdeLunes = (dia + 6) % 7;
   fecha.setHours(0, 0, 0, 0);
-  fecha.setDate(fecha.getDate() - diasDesdeMartes);
+  fecha.setDate(fecha.getDate() - diasDesdeLunes);
   return fecha;
 }
 
@@ -2887,4 +3668,182 @@ function escaparHtml(valor) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+// ============================================================
+// REVISION BIOMETRICA / PROSOF - CAPA NUEVA E INDEPENDIENTE
+// ============================================================
+function usuarioRevisionActual() {
+  return String(sesionActiva?.usuario || "").trim();
+}
+
+function fechaISORevision(d) {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`;
+}
+
+function inicializarFechasRevision() {
+  const desde=document.getElementById("revisionFechaDesde");
+  const hasta=document.getElementById("revisionFechaHasta");
+  if (!desde || !hasta || desde.value || hasta.value) return;
+  const h=new Date(); const d=new Date(h); d.setDate(h.getDate()-14);
+  desde.value=fechaISORevision(d); hasta.value=fechaISORevision(h);
+}
+
+function configurarRevisionNominaReal() {
+  inicializarFechasRevision();
+  ["revisionFechaDesde","revisionFechaHasta","revisionEstado","revisionBuscar"].forEach(id=>{
+    document.getElementById(id)?.addEventListener(id==="revisionBuscar"?"input":"change", renderRevisionNominaReal);
+  });
+  document.getElementById("btnActualizarRevisionNomina")?.addEventListener("click", cargarRevisionNominaReal);
+  document.getElementById("btnGenerarProsof")?.addEventListener("click", generarPlantillaProsof);
+}
+
+async function cargarRevisionNominaReal() {
+  const tbody=document.getElementById("tbodyRevisionNominaReal");
+  if (!tbody) return;
+  tbody.innerHTML='<tr><td colspan="11" class="text-muted text-center">Actualizando información real...</td></tr>';
+  try {
+    const desde=document.getElementById("revisionFechaDesde")?.value;
+    const hasta=document.getElementById("revisionFechaHasta")?.value;
+    if (desde && hasta) {
+      const { error: prepError } = await supabase.rpc("preparar_conceptos_revision", {p_fecha_desde:desde,p_fecha_hasta:hasta,p_grupo_codigo:"ALIMENTOS_BEBIDAS",p_proceso_codigo:null});
+      if (prepError) console.warn("No se pudo materializar candidatos:",prepError.message);
+    }
+    let q=supabase.from("vw_turnos_bandeja_revision").select("*").eq("grupo_codigo","ALIMENTOS_BEBIDAS").order("fecha",{ascending:false});
+    if (desde) q=q.gte("fecha",desde); if (hasta) q=q.lte("fecha",hasta);
+    const {data,error}=await q;
+    if (error) throw error;
+    revisionNominaRealBase=Array.isArray(data)?data:[];
+    renderRevisionNominaReal();
+  } catch(e) {
+    console.error("Bandeja revisión:",e);
+    tbody.innerHTML=`<tr><td colspan="11" class="text-danger text-center">No fue posible cargar la bandeja: ${escaparHtml(e.message||String(e))}</td></tr>`;
+  }
+}
+
+function registrosRevisionFiltrados() {
+  const estado=String(document.getElementById("revisionEstado")?.value||"").toLowerCase();
+  const buscar=String(document.getElementById("revisionBuscar")?.value||"").trim().toLowerCase();
+  return revisionNominaRealBase.filter(x=>{
+    if (estado && String(x.estado_revision||"").toLowerCase()!==estado) return false;
+    if (buscar && !`${x.empleado||""} ${x.cedula||""} ${x.concepto_codigo||""} ${x.concepto_nombre||""}`.toLowerCase().includes(buscar)) return false;
+    return true;
+  });
+}
+
+function formatearHorasRevision(valor) {
+  const decimal = Number(valor || 0);
+  if (!Number.isFinite(decimal)) return "0.00 h (0 h 00 min)";
+  let horas = Math.floor(decimal);
+  let minutos = Math.round((decimal - horas) * 60);
+  if (minutos === 60) { horas += 1; minutos = 0; }
+  return `${decimal.toFixed(2)} h (${horas} h ${String(minutos).padStart(2,"0")} min)`;
+}
+
+function minutosHoraRevision(valor) {
+  const texto = String(valor || "").trim();
+  const m = texto.match(/(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function horaTimestampRevision(valor) {
+  if (!valor) return "-";
+  const texto = String(valor);
+  const m = texto.match(/(?:T|\s)(\d{2}):(\d{2})/);
+  return m ? `${m[1]}:${m[2]}` : (texto.match(/^(\d{1,2}:\d{2})/)?.[1] || "-");
+}
+
+function diferenciaHorarioRevision(programada, real, tipo) {
+  const p = minutosHoraRevision(programada);
+  const r = minutosHoraRevision(real);
+  if (p == null || r == null) return '<span class="small text-muted">Sin comparación</span>';
+  let diff = r - p;
+  if (diff > 720) diff -= 1440;
+  if (diff < -720) diff += 1440;
+  const minutos = Math.abs(diff);
+  if (minutos === 0) return '<span class="badge bg-success-subtle text-success">A tiempo</span>';
+  if (tipo === "entrada") {
+    return diff > 0
+      ? `<span class="badge bg-warning-subtle text-warning-emphasis">Llegó ${minutos} min tarde</span>`
+      : `<span class="badge bg-info-subtle text-info-emphasis">Llegó ${minutos} min antes</span>`;
+  }
+  return diff > 0
+    ? `<span class="badge bg-warning-subtle text-warning-emphasis">Salió ${minutos} min tarde</span>`
+    : `<span class="badge bg-danger-subtle text-danger-emphasis">Salió ${minutos} min temprano</span>`;
+}
+
+function bloqueHorarioRevision(programada, realTimestamp, tipo) {
+  const real = horaTimestampRevision(realTimestamp);
+  const prog = String(programada || "").slice(0,5) || "-";
+  return `<div><strong>Prog.</strong> ${escaparHtml(prog)}</div><div><strong>Real</strong> ${escaparHtml(real)}</div><div class="mt-1">${diferenciaHorarioRevision(prog, real, tipo)}</div>`;
+}
+
+function renderRevisionNominaReal() {
+  const tbody=document.getElementById("tbodyRevisionNominaReal"); if(!tbody)return;
+  const rows=registrosRevisionFiltrados();
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="11" class="text-muted text-center">No hay conceptos para los filtros seleccionados.</td></tr>';return;}
+  tbody.innerHTML=rows.map(x=>{
+    const estado=String(x.estado_revision||"pendiente");
+    const cerrado=["aprobado","rechazado"].includes(estado);
+    return `<tr>
+      <td><strong>${escaparHtml(x.empleado||"")}</strong><div class="small text-muted">${escaparHtml(x.codigo_erp||"Sin código ERP")} · ${escaparHtml(x.cedula||"")}</div></td>
+      <td>${escaparHtml(formatearFechaCorta(x.fecha)||x.fecha||"")}</td>
+      <td>${formatearHorasRevision(x.horas_programadas_netas||0)}<div class="small text-muted">${escaparHtml(x.turno||"")} · ${escaparHtml((x.hora_inicio||"-").slice(0,5))}–${escaparHtml((x.hora_fin||"-").slice(0,5))}</div></td>
+      <td>${formatearHorasRevision(x.horas_reales||0)}<div class="small text-muted">${x.total_marcaciones||0} marcación(es)</div></td>
+      <td>${bloqueHorarioRevision(x.hora_inicio,x.primera_marcacion,"entrada")}</td>
+      <td>${bloqueHorarioRevision(x.hora_fin,x.ultima_marcacion,"salida")}</td>
+      <td><strong>${escaparHtml(x.concepto_codigo||"")}</strong><div class="small">${escaparHtml(x.concepto_nombre||"")}</div></td>
+      <td>${formatearHorasRevision(x.horas_calculadas ?? x.horas_candidatas ?? 0)}</td>
+      <td>${x.horas_aprobadas==null?"-":formatearHorasRevision(x.horas_aprobadas)}</td>
+      <td>${crearBadgeEstadoExtra(estado)}</td>
+      <td>${cerrado ? `<div class="d-flex flex-column align-items-start gap-1"><span class="small text-muted">Cerrado</span><button class="btn btn-outline-primary btn-sm" onclick="window.editarRevisionNomina('${x.revision_id}',${Number(x.horas_aprobadas||0)})">Editar</button></div>` : !x.permite_revision ? `<span class="small text-muted">Solo seguimiento</span>` : `<div class="d-flex flex-wrap gap-1"><button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','aprobar')">Aprobar</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','ajustar')">Ajustar</button><button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','rechazar')">Rechazar</button></div>`}</td>
+    </tr>`;
+  }).join("");
+}
+
+window.resolverRevisionNomina=async function(id,accion){
+  const usuario=usuarioRevisionActual(); if(!usuario){alert("No se pudo identificar el usuario de la sesión.");return;}
+  let horas=null,obs=null;
+  if(accion==="ajustar"){
+    const raw=prompt("Horas que se aprobarán:"); if(raw===null)return; horas=Number(String(raw).replace(",","."));
+    if(!Number.isFinite(horas)||horas<=0){alert("Ingresa una cantidad de horas válida.");return;}
+    obs=prompt("Justificación obligatoria del ajuste:"); if(!obs?.trim())return alert("El ajuste requiere justificación.");
+  } else if(["rechazar","observar"].includes(accion)){
+    obs=prompt(accion==="rechazar"?"Motivo obligatorio del rechazo:":"Observación obligatoria:"); if(!obs?.trim())return alert("Debes registrar una observación.");
+  } else if(!confirm("¿Confirmas la aprobación de las horas calculadas?")) return;
+  const {error}=await supabase.rpc("resolver_concepto_revision",{p_revision_id:id,p_accion:accion,p_usuario:usuario,p_horas_aprobadas:horas,p_observacion:obs});
+  if(error){console.error(error);alert("No fue posible guardar la decisión: "+error.message);return;}
+  await cargarRevisionNominaReal();
+};
+
+window.editarRevisionNomina=async function(id,horasActuales){
+  const usuario=usuarioRevisionActual();
+  if(!usuario){alert("No se pudo identificar el usuario de la sesión.");return;}
+  const actual=Number(horasActuales||0);
+  const raw=prompt(`Horas aprobadas corregidas (actual: ${formatearHorasRevision(actual)}):`,actual.toFixed(2));
+  if(raw===null)return;
+  const horas=Number(String(raw).replace(",","."));
+  if(!Number.isFinite(horas)||horas<0){alert("Ingresa una cantidad de horas válida.");return;}
+  const obs=prompt("Motivo obligatorio de la corrección. Este cambio quedará registrado en auditoría:");
+  if(!obs?.trim()){alert("Debes registrar el motivo de la corrección.");return;}
+  if(!confirm(`¿Confirmas cambiar las horas aprobadas a ${formatearHorasRevision(horas)}?`))return;
+  const {error}=await supabase.rpc("editar_concepto_revision",{p_revision_id:id,p_usuario:usuario,p_horas_aprobadas:horas,p_observacion:obs.trim()});
+  if(error){console.error(error);alert("No fue posible corregir la decisión: "+error.message);return;}
+  await cargarRevisionNominaReal();
+};
+
+async function generarPlantillaProsof(){
+  try{
+    const desde=document.getElementById("revisionFechaDesde")?.value; const hasta=document.getElementById("revisionFechaHasta")?.value;
+    let q=supabase.from("vw_prosof_exportacion_por_area").select('*').eq("grupo_codigo","ALIMENTOS_BEBIDAS").order("Fecha",{ascending:true});
+    if(desde)q=q.gte("Fecha",desde); if(hasta)q=q.lte("Fecha",hasta);
+    const {data,error}=await q; if(error)throw error;
+    if(!data?.length)return alert("No hay conceptos aprobados y elegibles para PROSOF en el período seleccionado.");
+    const filas=data.map(x=>({Empleado:x.Empleado||"",Concepto:x.Concepto||"",Fecha:x.Fecha||"",Dias:x.Dias??"",FechaInici:x.FechaInici??"",Horas:Number(x.Horas||0),Valor:x.Valor??"",LiquidarEnPrima:x.LiquidarEnPrima||"N","Centro de costos":x["Centro de costos"]??""}));
+    const ws=window.XLSX.utils.json_to_sheet(filas,{header:["Empleado","Concepto","Fecha","Dias","FechaInici","Horas","Valor","LiquidarEnPrima","Centro de costos"]});
+    const wb=window.XLSX.utils.book_new(); window.XLSX.utils.book_append_sheet(wb,ws,"PROSOF");
+    window.XLSX.writeFile(wb,`PROSOF_AYB_${desde||"inicio"}_${hasta||"fin"}.xlsx`);
+  }catch(e){console.error("PROSOF:",e);alert("No fue posible generar la plantilla PROSOF: "+(e.message||e));}
 }

@@ -16,6 +16,120 @@
     body.ayb-vista-compacta .bloque-externos-chef,
     body.ayb-vista-compacta .kpi-externos-chef { display:none !important; }
     .ayb-organizacion-note{font-size:.82rem;color:#6c7b75;margin-top:.5rem}
+    .ayb-panel-nav{position:sticky;top:8px;z-index:20;background:#eef3f0;border:1px solid #dce7e1;border-radius:14px;padding:5px;display:flex;gap:4px;flex-wrap:wrap;box-shadow:0 5px 16px rgba(25,62,49,.07)}
+    .ayb-panel-nav .btn{border:0;border-radius:10px;color:#315247;font-size:.79rem;font-weight:800;padding:.48rem .78rem;background:transparent}
+    .ayb-panel-nav .btn.active{background:#174b38;color:#fff;box-shadow:0 4px 10px rgba(23,75,56,.18)}
+    [data-ayb-panel][hidden]{display:none!important}
+    .ayb-kpis-origen{display:none!important}
+    .ayb-panel-summary{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:.65rem;margin-bottom:1rem}
+    .ayb-panel-summary .ayb-summary-item{background:#fff;border:1px solid #e1e9e5;border-radius:13px;padding:.72rem .8rem;min-height:82px;border-left:4px solid #24825b}
+    .ayb-panel-summary small{display:block;color:#687971;font-size:.68rem;font-weight:800;line-height:1.15;text-transform:uppercase}
+    .ayb-panel-summary strong{display:block;color:#173f32;font-size:1.35rem;line-height:1.15;margin:.3rem 0}
+    .ayb-panel-summary span{display:block;color:#87938e;font-size:.66rem;line-height:1.2}
+    body.ayb-redisenado .dashboard-hero{padding:1.35rem 1.55rem}
+    body.ayb-redisenado .dashboard-hero h1{font-size:1.8rem}
+    body.ayb-redisenado .dashboard-panel .card-body{padding:.85rem}
+    body.ayb-redisenado .filtro-card{padding:.65rem!important;background:#f8faf9;border-radius:10px}
+    body.ayb-redisenado .filtro-card label{font-size:.72rem;margin-bottom:.25rem}
+    body.ayb-redisenado .indicador-card .card-body,
+    body.ayb-redisenado .analitica-card,
+    body.ayb-redisenado .resumen-extra-card,
+    body.ayb-redisenado .novedad-card,
+    body.ayb-redisenado .alerta-card,
+    body.ayb-redisenado .externo-card{padding:.75rem!important;min-height:92px;border-radius:13px}
+    body.ayb-redisenado .indicador-card h3,
+    body.ayb-redisenado .analitica-card .valor,
+    body.ayb-redisenado .resumen-extra-card .valor,
+    body.ayb-redisenado .novedad-card .valor,
+    body.ayb-redisenado .externo-card .valor{font-size:1.45rem!important;line-height:1.15;margin:.25rem 0}
+    body.ayb-redisenado .kpi-subtexto,
+    body.ayb-redisenado .indicador-card p,
+    body.ayb-redisenado .resumen-extra-card .small{font-size:.68rem;line-height:1.2;margin-bottom:0}
+    body.ayb-redisenado .seccion-titulo{margin-top:1rem;margin-bottom:.65rem}
+    body.ayb-redisenado .seccion-titulo h5{font-size:1rem;margin-bottom:.1rem}
+    body.ayb-redisenado .dashboard-bloque{border-radius:14px!important;margin-bottom:1rem!important}
+    body.ayb-redisenado .dashboard-bloque .card-header{padding:.72rem .9rem;font-size:.85rem}
+    body.ayb-redisenado .dashboard-bloque .card-body{padding:.8rem}
+    body.ayb-redisenado table{font-size:.78rem}
+    body.ayb-redisenado .grafica-card canvas{max-height:245px}
+    body.ayb-redisenado .indicador-card,
+    body.ayb-redisenado .indicador-1,
+    body.ayb-redisenado .indicador-2,
+    body.ayb-redisenado .indicador-3,
+    body.ayb-redisenado .indicador-4,
+    body.ayb-redisenado .analitica-card,
+    body.ayb-redisenado .resumen-extra-card,
+    body.ayb-redisenado .novedad-card,
+    body.ayb-redisenado .externo-card,
+    body.ayb-redisenado .preview-card{
+      background:#fff!important;color:#1d382f!important;border:1px solid #dfe8e3!important;border-left:4px solid #24825b!important;box-shadow:0 5px 15px rgba(31,65,53,.055)!important
+    }
+    body.ayb-redisenado .indicador-card:before,
+    body.ayb-redisenado .indicador-card:after,
+    body.ayb-redisenado .analitica-card:before,
+    body.ayb-redisenado .analitica-card:after,
+    body.ayb-redisenado .resumen-extra-card:before,
+    body.ayb-redisenado .resumen-extra-card:after,
+    body.ayb-redisenado .novedad-card:before,
+    body.ayb-redisenado .novedad-card:after{display:none!important}
+    body.ayb-redisenado .alerta-card{background:#fff!important;color:#1d382f!important;border:1px solid #eadfcb!important;border-left:4px solid #c77a12!important;box-shadow:0 5px 15px rgba(31,65,53,.055)!important;border-radius:13px}
+    body.ayb-redisenado .alerta-card:before,
+    body.ayb-redisenado .alerta-card:after{display:none!important}
+    body.ayb-redisenado .indicador-card small,
+    body.ayb-redisenado .indicador-card h3,
+    body.ayb-redisenado .indicador-card p,
+    body.ayb-redisenado .analitica-card .titulo,
+    body.ayb-redisenado .analitica-card .valor,
+    body.ayb-redisenado .analitica-card .kpi-subtexto,
+    body.ayb-redisenado .resumen-extra-card .titulo,
+    body.ayb-redisenado .resumen-extra-card .valor,
+    body.ayb-redisenado .novedad-card .titulo,
+    body.ayb-redisenado .novedad-card .valor,
+    body.ayb-redisenado .alerta-card .titulo,
+    body.ayb-redisenado .alerta-card .valor,
+    body.ayb-redisenado .externo-card .titulo,
+    body.ayb-redisenado .externo-card .valor,
+    body.ayb-redisenado .preview-card .titulo,
+    body.ayb-redisenado .preview-card .valor{color:#1d382f!important;text-shadow:none!important}
+    body.ayb-redisenado .kpi-subtexto,
+    body.ayb-redisenado .indicador-card p{color:#718078!important}
+    body.ayb-redisenado .seccion-titulo{border-left:4px solid #24825b;padding-left:.75rem}
+    body.ayb-redisenado .table thead th{background:#174b38!important;color:#fff!important;border-color:#174b38!important}
+    body.ayb-redisenado .badge-soft{background:#e8f1ec!important;color:#285743!important;border:1px solid #d4e4db!important}
+    body.ayb-exportando .hero-actions,
+    body.ayb-exportando .ayb-panel-nav,
+    body.ayb-exportando .dashboard-filters,
+    body.ayb-exportando .ayb-organizacion-note{display:none!important}
+    body.ayb-redisenado .dashboard-hero{background:#174b38!important;border-radius:0 0 24px 24px!important;box-shadow:0 10px 28px rgba(23,75,56,.16)!important}
+    body.ayb-redisenado .dashboard-hero:before,
+    body.ayb-redisenado .dashboard-hero:after{display:none!important}
+    body.ayb-redisenado .hero-meta{gap:.4rem!important;margin-top:.8rem!important}
+    body.ayb-redisenado .hero-pill{background:rgba(255,255,255,.11)!important;border-color:rgba(255,255,255,.22)!important}
+    body.ayb-redisenado .hero-actions{display:flex;justify-content:flex-end;gap:.4rem;flex-wrap:wrap}
+    body.ayb-redisenado .hero-actions .btn{padding:.46rem .7rem!important;font-size:.76rem!important;border-radius:9px!important}
+    body.ayb-redisenado .dashboard-filters{margin-bottom:.8rem!important}
+    body.ayb-redisenado .dashboard-filters .card-header{display:none}
+    body.ayb-redisenado .dashboard-filters .row{--bs-gutter-x:.55rem;--bs-gutter-y:.55rem}
+    .ayb-summary-item[data-ayb-detail]{cursor:pointer;position:relative;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;padding-right:2rem}
+    .ayb-summary-item[data-ayb-detail]:after{content:"Ver →";position:absolute;right:.7rem;bottom:.55rem;font-size:.62rem;font-weight:900;color:#24825b}
+    .ayb-summary-item[data-ayb-detail]:hover,.ayb-summary-item[data-ayb-detail]:focus{transform:translateY(-2px);box-shadow:0 9px 20px rgba(23,75,56,.12);border-color:#8fbaa6;outline:0}
+    .ayb-detail-backdrop{position:fixed;inset:0;background:rgba(9,28,21,.45);z-index:1050;opacity:0;pointer-events:none;transition:opacity .2s ease}
+    .ayb-detail-backdrop.open{opacity:1;pointer-events:auto}
+    .ayb-detail-drawer{position:fixed;z-index:1060;right:0;top:0;width:min(760px,94vw);height:100vh;background:#f4f7f5;box-shadow:-18px 0 45px rgba(12,40,30,.22);transform:translateX(102%);transition:transform .24s ease;display:flex;flex-direction:column}
+    .ayb-detail-drawer.open{transform:translateX(0)}
+    .ayb-detail-head{background:#174b38;color:#fff;padding:1rem 1.15rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+    .ayb-detail-head h3{font-size:1.05rem;margin:0 0 .2rem}.ayb-detail-head p{font-size:.76rem;margin:0;color:#d5e6dd}
+    .ayb-detail-close{border:0;background:rgba(255,255,255,.13);color:#fff;border-radius:9px;width:36px;height:36px;font-size:1.25rem}
+    .ayb-detail-tools{padding:.75rem 1rem;background:#fff;border-bottom:1px solid #dfe8e3;display:flex;align-items:center;gap:.65rem}
+    .ayb-detail-tools input{max-width:330px}.ayb-detail-count{font-size:.72rem;font-weight:800;color:#4c685d;margin-left:auto}
+    .ayb-detail-body{padding:1rem;overflow:auto;flex:1}.ayb-detail-body .table{font-size:.75rem;background:#fff;margin:0}.ayb-detail-body .table thead{position:sticky;top:-1rem;z-index:2}
+    .ayb-detail-empty{background:#fff;border:1px dashed #b9ccc2;border-radius:14px;padding:2rem;text-align:center;color:#63756d}
+    body.ayb-detail-open{overflow:hidden}
+    .ayb-summary-help{display:flex;align-items:center;justify-content:space-between;gap:1rem;background:#e9f2ed;border:1px solid #d6e5dd;border-radius:11px;padding:.55rem .8rem;margin:-.25rem 0 .8rem;color:#365a4b;font-size:.72rem}
+    .ayb-summary-help strong{color:#174b38}.ayb-resumen-original-titulo{display:none!important}
+    @media(min-width:1200px){body.ayb-redisenado .seccion-dashboard.row>.col-xl-3{width:16.666667%}}
+    @media(max-width:1199px){.ayb-panel-summary{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:767px){.ayb-panel-summary{grid-template-columns:repeat(2,1fr)}.ayb-panel-nav{position:static}.ayb-panel-nav .btn{flex:1 1 45%}}
   </style>
 
 </head>
@@ -46,8 +160,8 @@
                 <div class="hero-actions">
                   <button class="btn btn-outline-secondary" id="btnModoCompactoAyb">Vista compacta</button>
                   <button class="btn btn-outline-secondary" id="btnLimpiarFiltros">Limpiar filtros</button>
-                  <button class="btn btn-outline-success" id="btnExportarExcel">Exportar Excel</button>
-                  <button class="btn btn-outline-dark" id="btnExportarPDF">Exportar PDF</button>
+                  <button class="btn btn-outline-success" id="btnExportarExcel">Exportar período Excel</button>
+                  <button class="btn btn-outline-dark" id="btnExportarPDF">Exportar vista PDF</button>
                   <button class="btn btn-primary" id="btnActualizarTablero">Actualizar tablero</button>
                 </div>
               </div>
@@ -125,7 +239,29 @@
           </div>
         </div>
 
-        <div class="seccion-titulo">
+        <nav class="ayb-panel-nav mb-3" id="aybPanelNav" aria-label="Secciones del Dashboard A&amp;B">
+          <button type="button" class="btn active" data-ayb-target="resumen">Resumen</button>
+          <button type="button" class="btn" data-ayb-target="revision">Revisión biométrica</button>
+          <button type="button" class="btn" data-ayb-target="novedades">Novedades</button>
+          <button type="button" class="btn" data-ayb-target="analitica">Analítica y rankings</button>
+          <button type="button" class="btn" data-ayb-target="integracion">Integración Chef</button>
+        </nav>
+
+        <div class="ayb-panel-summary" id="aybResumenCompacto" data-ayb-panel="resumen">
+          <div class="ayb-summary-item" data-ayb-detail="turnos-hoy" tabindex="0" role="button"><small>Turnos programados hoy</small><strong data-kpi-copy="kpiProgramadosHoy">0</strong><span>No incluye novedades</span></div>
+          <div class="ayb-summary-item" data-ayb-detail="subareas-hoy" tabindex="0" role="button"><small>Subáreas activas</small><strong data-kpi-copy="kpiPresentes">0</strong><span>Puntos con programación</span></div>
+          <div class="ayb-summary-item" data-ayb-detail="novedades-hoy" tabindex="0" role="button"><small>Novedades aplicadas hoy</small><strong data-kpi-copy="kpiAusentes">0</strong><span>Registradas en programación</span></div>
+          <div class="ayb-summary-item" data-ayb-detail="personas-periodo" tabindex="0" role="button"><small>Personas con registro</small><strong data-kpi-copy="kpiEmpleadosActivos">0</strong><span>Turno o novedad en el filtro</span></div>
+          <div class="ayb-summary-item" data-ayb-detail="horas-netas" tabindex="0" role="button"><small>Horas netas</small><strong data-kpi-copy="kpiPreviewHorasNetas">0.0</strong><span>Programación filtrada</span></div>
+          <div class="ayb-summary-item" data-ayb-detail="extras-candidatas" tabindex="0" role="button"><small>Candidatas extra</small><strong data-kpi-copy="kpiPreviewHorasExtra">0.0</strong><span>Pendientes de validación</span></div>
+        </div>
+
+        <div class="ayb-summary-help" data-ayb-panel="resumen">
+          <span><strong>Revisión interactiva:</strong> selecciona cualquier indicador para consultar las personas y registros que forman el valor.</span>
+          <span>Los filtros también se aplican al detalle.</span>
+        </div>
+
+        <div class="seccion-titulo ayb-resumen-original-titulo">
           <h5>Resumen ejecutivo · Personal oficial del Club A&amp;B</h5>
           <span class="subtexto-validacion">Vista general del periodo y del día</span>
         </div>
@@ -134,9 +270,9 @@
           <div class="col-12 col-md-6 col-xl-3">
             <div class="card indicador-card indicador-1">
               <div class="card-body">
-                <small>Programados hoy</small>
+                <small>Turnos programados hoy</small>
                 <h3 id="kpiProgramadosHoy">0</h3>
-                <p class="mb-0">Registros del día</p>
+                <p class="mb-0">No incluye novedades</p>
               </div>
             </div>
           </div>
@@ -154,9 +290,9 @@
           <div class="col-12 col-md-6 col-xl-3">
             <div class="card indicador-card indicador-3">
               <div class="card-body">
-                <small>Novedades hoy</small>
+                <small>Novedades aplicadas hoy</small>
                 <h3 id="kpiAusentes">0</h3>
-                <p class="mb-0">Vacaciones, incapacidad y más</p>
+                <p class="mb-0">Registradas en programación</p>
               </div>
             </div>
           </div>
@@ -316,10 +452,10 @@
             <span class="badge badge-externo-chef">NO EMPLEADOS DEL CLUB</span>
           </div>
           <div class="card-body bloque-scroll">
-            <div class="scroll-superior-tabla" id="scrollSuperiorValidacionExtras" aria-label="Desplazamiento horizontal superior de validación">
+            <div class="scroll-superior-tabla" id="scrollSuperiorExternosChef" aria-label="Desplazamiento horizontal superior de externos Chef">
               <div></div>
             </div>
-            <div class="table-responsive" id="scrollTablaValidacionExtras">
+            <div class="table-responsive" id="scrollTablaExternosChef">
               <table class="table table-hover mb-0">
                 <thead>
                   <tr>
@@ -380,42 +516,42 @@
         </details>
 
         <div class="seccion-titulo">
-          <h5>Novedades e incapacidades A&amp;B</h5>
-          <span class="subtexto-validacion">Indicadores calculados solo con solicitudes y programación de Alimentos y Bebidas</span>
+          <h5>Novedades de programación y solicitudes de Bienestar A&amp;B</h5>
+          <span class="subtexto-validacion">Se muestran como fuentes separadas para evitar duplicidades: programación aplicada y solicitudes radicadas</span>
         </div>
 
         <div class="row g-3 mb-4 seccion-dashboard">
           <div class="col-12 col-md-6 col-xl-3">
             <div class="analitica-card p-3">
-              <div class="titulo">Solicitudes pendientes</div>
+              <div class="titulo">Bienestar · pendientes</div>
               <div class="valor" id="kpiBienestarPendientes">0</div>
               <p class="kpi-subtexto">Pendientes de gestión</p>
             </div>
           </div>
           <div class="col-12 col-md-6 col-xl-3">
             <div class="analitica-card p-3">
-              <div class="titulo">Incapacidades del mes</div>
+              <div class="titulo">Bienestar · incapacidades</div>
               <div class="valor" id="kpiBienestarIncapacidadesMes">0</div>
               <p class="kpi-subtexto">Según fecha de solicitud/novedad</p>
             </div>
           </div>
           <div class="col-12 col-md-6 col-xl-3">
             <div class="analitica-card p-3">
-              <div class="titulo">Aprobadas / rechazadas</div>
+              <div class="titulo">Bienestar · aprobadas/rechazadas</div>
               <div class="valor" id="kpiBienestarAprobadasRechazadas">0 / 0</div>
               <p class="kpi-subtexto">Resultado del periodo filtrado</p>
             </div>
           </div>
           <div class="col-12 col-md-6 col-xl-3">
             <div class="analitica-card p-3">
-              <div class="titulo">Pendientes por documentos</div>
+              <div class="titulo">Bienestar · faltan documentos</div>
               <div class="valor" id="kpiBienestarPendientesDocs">0</div>
               <p class="kpi-subtexto">Requieren soporte o adjunto</p>
             </div>
           </div>
           <div class="col-12 col-md-6 col-xl-3">
             <div class="analitica-card p-3">
-              <div class="titulo">Fuera de tiempo</div>
+              <div class="titulo">Bienestar · fuera de tiempo</div>
               <div class="valor" id="kpiBienestarFueraTiempo">0</div>
               <p class="kpi-subtexto">Solicitudes radicadas tarde</p>
             </div>
@@ -428,10 +564,10 @@
             <span class="text-muted small">Base: solicitudes_empleado filtradas únicamente por A&amp;B</span>
           </div>
           <div class="card-body bloque-scroll">
-            <div class="scroll-superior-tabla" id="scrollSuperiorValidacionExtras" aria-label="Desplazamiento horizontal superior de validación">
+            <div class="scroll-superior-tabla" id="scrollSuperiorRankingNovedades" aria-label="Desplazamiento horizontal superior del ranking de novedades">
               <div></div>
             </div>
-            <div class="table-responsive" id="scrollTablaValidacionExtras">
+            <div class="table-responsive" id="scrollTablaRankingNovedades">
               <table class="table table-hover mb-0">
                 <thead class="table-light">
                   <tr>
@@ -468,10 +604,10 @@
             <span class="text-muted small">No representa sanción automática; requiere revisión de novedades, vacaciones, incapacidades y programación</span>
           </div>
           <div class="card-body bloque-scroll">
-            <div class="scroll-superior-tabla" id="scrollSuperiorValidacionExtras" aria-label="Desplazamiento horizontal superior de validación">
+            <div class="scroll-superior-tabla" id="scrollSuperiorMenorCarga" aria-label="Desplazamiento horizontal superior del análisis de menor carga">
               <div></div>
             </div>
-            <div class="table-responsive" id="scrollTablaValidacionExtras">
+            <div class="table-responsive" id="scrollTablaMenorCarga">
               <table class="table table-hover mb-0">
                 <thead class="table-light">
                   <tr>
@@ -506,25 +642,25 @@
         <div class="row g-3 mb-4 seccion-dashboard">
           <div class="col-12 col-md-6 col-xl-3">
             <div class="analitica-card p-3">
-              <div class="titulo">Total del periodo</div>
+              <div class="titulo">Registros de programación</div>
               <div class="valor" id="kpiTotalPeriodo">0</div>
-              <p class="kpi-subtexto">Registros filtrados</p>
+              <p class="kpi-subtexto">Turnos + novedades del filtro</p>
             </div>
           </div>
 
           <div class="col-12 col-md-6 col-xl-3">
             <div class="analitica-card p-3">
-              <div class="titulo">Promedio diario</div>
+              <div class="titulo">Registros por día</div>
               <div class="valor" id="kpiPromedioDiario">0</div>
-              <p class="kpi-subtexto">Asignaciones por día con registros</p>
+              <p class="kpi-subtexto">Promedio de turnos y novedades</p>
             </div>
           </div>
 
           <div class="col-12 col-md-6 col-xl-3">
             <div class="analitica-card p-3">
-              <div class="titulo">Empleados activos</div>
+              <div class="titulo">Personas con registro</div>
               <div class="valor" id="kpiEmpleadosActivos">0</div>
-              <p class="kpi-subtexto">Colaboradores en el periodo</p>
+              <p class="kpi-subtexto">Con turno o novedad en el período</p>
             </div>
           </div>
 
@@ -600,7 +736,7 @@
             <div class="novedad-card p-3">
               <div class="titulo">Otras novedades</div>
               <div class="valor" id="kpiOtrasNovedades">0</div>
-              <p class="kpi-subtexto">Novedades distintas</p>
+              <p class="kpi-subtexto">Familia, elección, descanso u otras</p>
             </div>
           </div>
         </div>
@@ -814,7 +950,7 @@
         <div class="row g-3 mb-4 seccion-dashboard">
           <div class="col-12 col-xl-6">
             <div class="card shadow-sm border-0 h-100 dashboard-bloque">
-              <div class="card-header bg-white fw-bold">Empleados con novedades activas</div>
+              <div class="card-header bg-white fw-bold">Novedades aplicadas en la programación</div>
               <div class="card-body bloque-scroll">
                 <div class="table-responsive">
                   <table class="table table-hover mb-0">
@@ -840,7 +976,7 @@
 
           <div class="col-12 col-xl-6">
             <div class="card shadow-sm border-0 h-100 dashboard-bloque">
-              <div class="card-header bg-white fw-bold">Detalle de incapacidades y fechas</div>
+              <div class="card-header bg-white fw-bold">Incapacidades aplicadas y fechas</div>
               <div class="card-body bloque-scroll">
                 <div class="table-responsive">
                   <table class="table table-hover mb-0">
@@ -868,7 +1004,7 @@
         <div class="row g-3 mb-4 seccion-dashboard">
           <div class="col-12 col-xl-6">
             <div class="card shadow-sm border-0 h-100 dashboard-bloque">
-              <div class="card-header bg-white fw-bold">Ausentes hoy</div>
+              <div class="card-header bg-white fw-bold">Novedades aplicadas hoy</div>
               <div class="card-body bloque-scroll">
                 <div class="table-responsive">
                   <table class="table table-hover mb-0">
@@ -998,7 +1134,7 @@
 
           <div class="col-12 col-xl-6">
             <div class="card shadow-sm border-0 h-100 dashboard-bloque">
-              <div class="card-header bg-white fw-bold">Empleados con más días asistidos</div>
+              <div class="card-header bg-white fw-bold">Empleados con más días programados</div>
               <div class="card-body bloque-scroll">
                 <div class="table-responsive">
                   <table class="table table-hover tabla-ranking mb-0">
@@ -1007,7 +1143,7 @@
                         <th>#</th>
                         <th>Empleado</th>
                         <th>Área base</th>
-                        <th>Días asistidos</th>
+                        <th>Días programados</th>
                       </tr>
                     </thead>
                     <tbody id="tbodyTopAsistencia">
@@ -1074,12 +1210,124 @@
     </main>
   </div>
 
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      document.body.classList.add("ayb-redisenado");
+
+      const main = document.querySelector("main.main-content");
+      const nav = document.getElementById("aybPanelNav");
+      if (!main || !nav) return;
+
+      let grupo = "resumen";
+      let iniciarAgrupacion = false;
+
+      [...main.children].forEach((elemento) => {
+        if (elemento === nav) {
+          iniciarAgrupacion = true;
+          return;
+        }
+        if (!iniciarAgrupacion || elemento.id === "aybResumenCompacto") return;
+
+        const texto = String(elemento.textContent || "").trim().toLowerCase();
+
+        if (elemento.id === "panelRevisionNominaReal") grupo = "revision";
+        else if (
+          elemento.classList.contains("seccion-externos-chef") ||
+          elemento.classList.contains("kpi-externos-chef") ||
+          elemento.classList.contains("bloque-externos-chef") ||
+          elemento.id === "controlIntegracionChef"
+        ) grupo = "integracion";
+        else if (texto.startsWith("novedades e incapacidades")) grupo = "novedades";
+        else if (texto.startsWith("empleados con menor carga")) grupo = "analitica";
+        else if (texto.startsWith("indicadores analíticos")) grupo = "analitica";
+
+        elemento.dataset.aybPanel = grupo;
+      });
+
+      const filaResumenOriginal = document.getElementById("kpiProgramadosHoy")?.closest(".seccion-dashboard");
+      if (filaResumenOriginal) filaResumenOriginal.classList.add("ayb-kpis-origen");
+
+      const filaIntegracion = document.getElementById("kpiSemanaAyb")?.closest(".seccion-dashboard");
+      if (filaIntegracion) filaIntegracion.dataset.aybPanel = "integracion";
+
+      function hijoDirectoDelMain(elemento) {
+        let actual = elemento;
+        while (actual?.parentElement && actual.parentElement !== main) actual = actual.parentElement;
+        return actual?.parentElement === main ? actual : null;
+      }
+
+      // Estos indicadores y tablas nacen de novedades ya aplicadas en
+      // programacion_turnos. Deben verse junto al resumen de Novedades, no
+      // escondidos dentro de Analítica.
+      [
+        "kpiIncapacidades",
+        "kpiAusentesHoy",
+        "tbodyNovedadesActivas",
+        "tbodyIncapacidades",
+        "tbodyAusentesHoy",
+        "tbodyAlertasCriticas",
+        "tbodyNovedadesArea"
+      ].forEach((id) => {
+        const bloque = hijoDirectoDelMain(document.getElementById(id));
+        if (bloque) bloque.dataset.aybPanel = "novedades";
+      });
+
+      function sincronizarResumen() {
+        document.querySelectorAll("[data-kpi-copy]").forEach((destino) => {
+          const origen = document.getElementById(destino.dataset.kpiCopy);
+          destino.textContent = origen?.textContent?.trim() || "0";
+        });
+      }
+
+      const observador = new MutationObserver(sincronizarResumen);
+      document.querySelectorAll("[data-kpi-copy]").forEach((destino) => {
+        const origen = document.getElementById(destino.dataset.kpiCopy);
+        if (origen) observador.observe(origen, { childList: true, subtree: true, characterData: true });
+      });
+
+      function mostrarPanel(panel) {
+        document.querySelectorAll("[data-ayb-panel]").forEach((elemento) => {
+          elemento.hidden = elemento.dataset.aybPanel !== panel;
+        });
+        document.querySelectorAll("[data-ayb-target]").forEach((boton) => {
+          boton.classList.toggle("active", boton.dataset.aybTarget === panel);
+        });
+        document.querySelectorAll("canvas").forEach((canvas) => {
+          const grafica = window.Chart?.getChart?.(canvas);
+          if (grafica) grafica.resize();
+        });
+        window.scrollTo({ top: Math.max(0, nav.offsetTop - 12), behavior: "smooth" });
+      }
+
+      nav.addEventListener("click", (evento) => {
+        const boton = evento.target.closest("[data-ayb-target]");
+        if (boton) mostrarPanel(boton.dataset.aybTarget);
+      });
+
+      sincronizarResumen();
+      mostrarPanel("resumen");
+    });
+  </script>
+
+  <div class="ayb-detail-backdrop" id="aybDetailBackdrop" aria-hidden="true"></div>
+  <aside class="ayb-detail-drawer" id="aybDetailDrawer" aria-hidden="true" aria-labelledby="aybDetailTitle">
+    <div class="ayb-detail-head">
+      <div><h3 id="aybDetailTitle">Detalle del indicador</h3><p id="aybDetailSubtitle">Información que compone el valor seleccionado</p></div>
+      <button type="button" class="ayb-detail-close" id="aybDetailClose" aria-label="Cerrar detalle">×</button>
+    </div>
+    <div class="ayb-detail-tools">
+      <input type="search" class="form-control form-control-sm" id="aybDetailSearch" placeholder="Buscar empleado, cédula, área o fecha" />
+      <span class="ayb-detail-count" id="aybDetailCount">0 registros</span>
+    </div>
+    <div class="ayb-detail-body" id="aybDetailBody"></div>
+  </aside>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="../js/layout.js"></script>
-  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260826-organizacion1"></script>
+  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260827-interactivo5"></script>
 
   <script>
     function usuarioPuedeVerSolicitudesBienestarDashboard(sesion) {
