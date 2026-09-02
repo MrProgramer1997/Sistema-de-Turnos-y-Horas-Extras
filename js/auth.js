@@ -211,6 +211,24 @@ window.loginAdmin = async function () {
       }
 
       const permisos = obtenerPermisosPorRol(rolAuth);
+      const areasAuth = Array.isArray(metadata.areas_permitidas) ? metadata.areas_permitidas : [];
+      const esAyb = areasAuth.some((area) => {
+        const valor = normalizarTexto(area);
+        return valor.includes("alimentos") || valor.includes("ayb") || valor.includes("a&b");
+      });
+
+      // Los aprobadores de A&B deben poder entrar al panel donde revisan y
+      // deciden las horas. Los aprobadores de otras áreas continúan en Nómina.
+      if (rolAuth === "aprobador" && esAyb && !permisos.modulos_permitidos.includes("dashboard-ayb")) {
+        permisos.modulos_permitidos.push("dashboard-ayb");
+      }
+      if (rolAuth === "aprobador" && esAyb && !permisos.modulos_permitidos.includes("programacion-ayb")) {
+        permisos.modulos_permitidos.push("programacion-ayb");
+      }
+      const esChef = normalizarTexto(empleado.cargo).includes("chef");
+      if (rolAuth === "aprobador" && esChef && !permisos.modulos_permitidos.includes("cocina-chef")) {
+        permisos.modulos_permitidos.push("cocina-chef");
+      }
       const rolCompatible = rolAuth === "administrador" ? "admin" : rolAuth;
 
       const sesion = {
@@ -245,8 +263,6 @@ window.loginAdmin = async function () {
         mostrarMensaje("success", `Ingreso correcto como ${rolAuth}. Redirigiendo...`);
       }
 
-      const areasAuth=Array.isArray(metadata.areas_permitidas)?metadata.areas_permitidas:[];
-      const esAyb=areasAuth.some(a=>normalizarTexto(a).includes("alimentos")||normalizarTexto(a).includes("ayb"));
       window.location.href = rolAuth === "aprobador" ? (esAyb?"dashboard-ayb.html":"horas-extras.html") : rolAuth === "auditor" ? "horas-extras.html" : "dashboard.html";
       return true;
     }

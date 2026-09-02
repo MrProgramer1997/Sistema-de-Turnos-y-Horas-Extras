@@ -168,6 +168,12 @@ function usuarioPuedeAccederDashboard(sesion) {
     .toLowerCase();
   const rol = obtenerRolSeguroDashboard(sesion);
   const modulos = obtenerModulosPermitidosDashboard(sesion);
+  const areasPermitidas = Array.isArray(sesion.areas_permitidas)
+    ? sesion.areas_permitidas.map(normalizarTextoAlcanceAyb)
+    : [];
+  const esAprobadorAyb = rol === "aprobador" && areasPermitidas.some((area) =>
+    area.includes("ALIMENTOS") || area.includes("AYB") || area.includes("A&B")
+  );
 
   const rolesDashboard = [
     "admin",
@@ -182,6 +188,7 @@ function usuarioPuedeAccederDashboard(sesion) {
     String(sesion.puede_ver_todo).toLowerCase() === "true" ||
     cedula === "1088029438" ||
     nombre.includes("jhonnier") ||
+    esAprobadorAyb ||
     rolesDashboard.includes(rol) ||
     modulos.includes("dashboard") || modulos.includes("dashboard-ayb")
   );

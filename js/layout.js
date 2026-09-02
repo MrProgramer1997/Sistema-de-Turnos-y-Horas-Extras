@@ -246,7 +246,7 @@ function usuarioPuedeVerModuloSidebar(sesion, modulo, rolesPermitidos = []) {
       Admin y Gerencia sí pueden verlo para auditoría/seguimiento.
     */
     if (["bienestar", "direccion_financiera", "servicios_generales"].includes(rol)) return false;
-    return usuarioEsAdminSidebar(sesion) || ["gerencia", "ayb"].includes(rol);
+    return usuarioEsAdminSidebar(sesion) || ["gerencia", "ayb"].includes(rol) || modulos.includes("dashboard-ayb");
   }
 
   if (modulo === "horas-extras") {
