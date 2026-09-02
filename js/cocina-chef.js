@@ -9,38 +9,38 @@ import { supabase } from "../supabase/supabaseClient.js";
 const HORA_INICIO_NOCTURNO_CHEF = 21 * 60; // 9:00 p.m.
 const HORA_FIN_NOCTURNO_CHEF = 6 * 60; // 6:00 a.m.
 const DESCANSO_ESTANDAR_HORAS_CHEF = 0.5;
-const JORNADA_SEMANAL_CHEF_HORAS = 44;
+const JORNADA_SEMANAL_CHEF_HORAS_HISTORICA = 44;
 const JORNADA_SEMANAL_CHEF_HORAS_REDUCIDA = 42;
 const FECHA_CAMBIO_REDUCCION_JORNADA_CHEF = "2026-07-15";
 const STORAGE_PERIODO_OPERATIVO_CHEF = "ccp_periodo_operativo_chef";
 const MAX_DIAS_PERIODO_OPERATIVO_CHEF = 14;
 
-const TURNOS_CHEF_7H_NETAS = {
-  "1": { descripcion: "5:30am - 1:00pm · 7h netas", hora_inicio: "05:30", hora_fin: "13:00" },
-  "2": { descripcion: "6:00am - 1:30pm · 7h netas", hora_inicio: "06:00", hora_fin: "13:30" },
-  "3": { descripcion: "7:00am - 2:30pm · 7h netas", hora_inicio: "07:00", hora_fin: "14:30" },
-  "4": { descripcion: "8:00am - 3:30pm · 7h netas", hora_inicio: "08:00", hora_fin: "15:30" },
-  "5": { descripcion: "9:00am - 4:30pm · 7h netas", hora_inicio: "09:00", hora_fin: "16:30" },
-  "6": { descripcion: "10:00am - 5:30pm · 7h netas", hora_inicio: "10:00", hora_fin: "17:30" },
-  "7": { descripcion: "11:00am - 6:30pm · 7h netas", hora_inicio: "11:00", hora_fin: "18:30" },
-  "8": { descripcion: "12:00pm - 7:30pm · 7h netas", hora_inicio: "12:00", hora_fin: "19:30" },
-  "9": { descripcion: "1:00pm - 8:30pm · 7h netas", hora_inicio: "13:00", hora_fin: "20:30" },
-  "10": { descripcion: "2:00pm - 9:30pm · 7h netas", hora_inicio: "14:00", hora_fin: "21:30" },
-  "11": { descripcion: "3:00pm - 10:30pm · 7h netas", hora_inicio: "15:00", hora_fin: "22:30" }
+const TURNOS_CHEF_6_5H_NETAS = {
+  "1": { descripcion: "5:30am - 12:30pm · 6,5h netas", hora_inicio: "05:30", hora_fin: "12:30" },
+  "2": { descripcion: "6:00am - 1:00pm · 6,5h netas", hora_inicio: "06:00", hora_fin: "13:00" },
+  "3": { descripcion: "7:00am - 2:00pm · 6,5h netas", hora_inicio: "07:00", hora_fin: "14:00" },
+  "4": { descripcion: "8:00am - 3:00pm · 6,5h netas", hora_inicio: "08:00", hora_fin: "15:00" },
+  "5": { descripcion: "9:00am - 4:00pm · 6,5h netas", hora_inicio: "09:00", hora_fin: "16:00" },
+  "6": { descripcion: "10:00am - 5:00pm · 6,5h netas", hora_inicio: "10:00", hora_fin: "17:00" },
+  "7": { descripcion: "11:00am - 6:00pm · 6,5h netas", hora_inicio: "11:00", hora_fin: "18:00" },
+  "8": { descripcion: "12:00pm - 7:00pm · 6,5h netas", hora_inicio: "12:00", hora_fin: "19:00" },
+  "9": { descripcion: "1:00pm - 8:00pm · 6,5h netas", hora_inicio: "13:00", hora_fin: "20:00" },
+  "10": { descripcion: "2:00pm - 9:00pm · 6,5h netas", hora_inicio: "14:00", hora_fin: "21:00" },
+  "11": { descripcion: "3:00pm - 10:00pm · 6,5h netas", hora_inicio: "15:00", hora_fin: "22:00" }
 };
 
-const TURNOS_CHEF_8H_NETAS = {
-  "1": { descripcion: "5:30am - 2:00pm · 8h netas", hora_inicio: "05:30", hora_fin: "14:00" },
-  "2": { descripcion: "6:00am - 2:30pm · 8h netas", hora_inicio: "06:00", hora_fin: "14:30" },
-  "3": { descripcion: "7:00am - 3:30pm · 8h netas", hora_inicio: "07:00", hora_fin: "15:30" },
-  "4": { descripcion: "8:00am - 4:30pm · 8h netas", hora_inicio: "08:00", hora_fin: "16:30" },
-  "5": { descripcion: "9:00am - 5:30pm · 8h netas", hora_inicio: "09:00", hora_fin: "17:30" },
-  "6": { descripcion: "10:00am - 6:30pm · 8h netas", hora_inicio: "10:00", hora_fin: "18:30" },
-  "7": { descripcion: "11:00am - 7:30pm · 8h netas", hora_inicio: "11:00", hora_fin: "19:30" },
-  "8": { descripcion: "12:00pm - 8:30pm · 8h netas", hora_inicio: "12:00", hora_fin: "20:30" },
-  "9": { descripcion: "1:00pm - 9:30pm · 8h netas", hora_inicio: "13:00", hora_fin: "21:30" },
-  "10": { descripcion: "2:00pm - 10:30pm · 8h netas", hora_inicio: "14:00", hora_fin: "22:30" },
-  "11": { descripcion: "3:00pm - 11:30pm · 8h netas", hora_inicio: "15:00", hora_fin: "23:30" }
+const TURNOS_CHEF_7_5H_NETAS = {
+  "1": { descripcion: "5:30am - 1:30pm · 7,5h netas", hora_inicio: "05:30", hora_fin: "13:30" },
+  "2": { descripcion: "6:00am - 2:00pm · 7,5h netas", hora_inicio: "06:00", hora_fin: "14:00" },
+  "3": { descripcion: "7:00am - 3:00pm · 7,5h netas", hora_inicio: "07:00", hora_fin: "15:00" },
+  "4": { descripcion: "8:00am - 4:00pm · 7,5h netas", hora_inicio: "08:00", hora_fin: "16:00" },
+  "5": { descripcion: "9:00am - 5:00pm · 7,5h netas", hora_inicio: "09:00", hora_fin: "17:00" },
+  "6": { descripcion: "10:00am - 6:00pm · 7,5h netas", hora_inicio: "10:00", hora_fin: "18:00" },
+  "7": { descripcion: "11:00am - 7:00pm · 7,5h netas", hora_inicio: "11:00", hora_fin: "19:00" },
+  "8": { descripcion: "12:00pm - 8:00pm · 7,5h netas", hora_inicio: "12:00", hora_fin: "20:00" },
+  "9": { descripcion: "1:00pm - 9:00pm · 7,5h netas", hora_inicio: "13:00", hora_fin: "21:00" },
+  "10": { descripcion: "2:00pm - 10:00pm · 7,5h netas", hora_inicio: "14:00", hora_fin: "22:00" },
+  "11": { descripcion: "3:00pm - 11:00pm · 7,5h netas", hora_inicio: "15:00", hora_fin: "23:00" }
 };
 
 let fechaBase = new Date();
@@ -56,6 +56,7 @@ let turnoCopiadoChef = null;
 let festivosSemanaChef = [];
 let modalVisualProgramacionChef = null;
 let filtrosVisualChef = { busqueda: "", area: "", estado: "todos" };
+let codigoEditandoOriginal = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   try {
@@ -1484,21 +1485,21 @@ function obtenerFestivoChef(fechaISO) {
 function obtenerJornadaEsperadaChef(fechaISO) {
   const festivo = obtenerFestivoChef(fechaISO);
   if (festivo) {
-    return { horas: 8, tipo: `Festivo - ${festivo.nombre || "Festivo"}`, esFestivo: true };
+    return { horas: 7.5, tipo: `Festivo - ${festivo.nombre || "Festivo"} / 7,5h netas`, esFestivo: true };
   }
 
   const dia = new Date(`${fechaISO}T00:00:00`).getDay();
   if (dia === 0 || dia === 6) {
-    return { horas: 8, tipo: "Sábado/Domingo / 8h netas", esFestivo: false };
+    return { horas: 7.5, tipo: "Sábado/Domingo / 7,5h netas", esFestivo: false };
   }
 
-  return { horas: 7, tipo: "Martes a viernes / 7h netas", esFestivo: false };
+  return { horas: 6.5, tipo: "Martes a viernes / 6,5h netas", esFestivo: false };
 }
 
 function obtenerJornadaSemanalChefHoras(fechaISO) {
   return String(fechaISO || "") >= FECHA_CAMBIO_REDUCCION_JORNADA_CHEF
     ? JORNADA_SEMANAL_CHEF_HORAS_REDUCIDA
-    : JORNADA_SEMANAL_CHEF_HORAS;
+    : JORNADA_SEMANAL_CHEF_HORAS_HISTORICA;
 }
 
 function aplicarCalculoPeriodoChef(registros) {
@@ -1515,8 +1516,11 @@ function aplicarCalculoPeriodoChef(registros) {
 
   grupos.forEach((items) => {
     const minutosAcumuladosDia = new Map();
+    let minutosAcumuladosPeriodo = 0;
 
     items.sort((a, b) => compararRegistrosPorFechaHoraChef(a.registro, b.registro));
+    const fechaReferenciaPeriodo = String(items[0]?.registro?.fecha || "");
+    const limitePeriodoMinutos = obtenerJornadaSemanalChefHoras(fechaReferenciaPeriodo) * 60;
 
     items.forEach(({ registro }) => {
       const segmentos = Array.isArray(registro._segmentos_netos_chef) ? registro._segmentos_netos_chef : [];
@@ -1532,11 +1536,13 @@ function aplicarCalculoPeriodoChef(registros) {
       // cuando excede la jornada neta esperada del día dentro del periodo operativo visible.
       segmentos.forEach((segmento) => {
         const excedeJornadaDia = minutosDia >= limiteDiaMinutos;
-        if (excedeJornadaDia) {
+        const excedeJornadaPeriodo = minutosAcumuladosPeriodo >= limitePeriodoMinutos;
+        if (excedeJornadaDia || excedeJornadaPeriodo) {
           if (segmento.tipo === "nocturna") extraNocturnaMin++;
           else extraDiurnaMin++;
         }
         minutosDia++;
+        minutosAcumuladosPeriodo++;
       });
 
       minutosAcumuladosDia.set(fechaRegistro, minutosDia);
@@ -2221,11 +2227,11 @@ function actualizarVistaTurnoPartidoChef() {
 }
 
 function obtenerCatalogoTurnosChefPorFecha(fechaISO) {
-  if (!fechaISO) return TURNOS_CHEF_7H_NETAS;
+  if (!fechaISO) return TURNOS_CHEF_6_5H_NETAS;
   const festivo = festivosSemanaChef.some((festivo) => String(festivo.fecha) === String(fechaISO));
   const fecha = new Date(`${fechaISO}T00:00:00`);
   const dia = fecha.getDay();
-  return festivo || dia === 0 || dia === 6 ? TURNOS_CHEF_8H_NETAS : TURNOS_CHEF_7H_NETAS;
+  return festivo || dia === 0 || dia === 6 ? TURNOS_CHEF_7_5H_NETAS : TURNOS_CHEF_6_5H_NETAS;
 }
 
 function obtenerCodigoTurnoChef(codigo, fechaISO) {
@@ -2767,11 +2773,14 @@ async function abrirModalCodigos() {
 }
 
 function limpiarFormularioCodigo() {
+  codigoEditandoOriginal = null;
   document.getElementById("codigoNuevo").value = "";
+  document.getElementById("codigoNuevo").readOnly = false;
   document.getElementById("codigoDescripcion").value = "";
   document.getElementById("codigoInicio").value = "";
   document.getElementById("codigoFin").value = "";
   document.getElementById("codigoColor").value = "#0d6efd";
+  document.getElementById("guardarCodigo").textContent = "Guardar código";
 }
 
 async function guardarCodigo() {
@@ -2811,6 +2820,29 @@ async function guardarCodigo() {
   renderTabla();
 }
 
+function editarCodigoChef(codigoBuscado) {
+  const item=codigos.find(x=>String(x.codigo)===String(codigoBuscado));
+  if(!item)return;
+  codigoEditandoOriginal=item.codigo;
+  document.getElementById("codigoNuevo").value=item.codigo||"";
+  document.getElementById("codigoNuevo").readOnly=true;
+  document.getElementById("codigoDescripcion").value=item.descripcion||"";
+  document.getElementById("codigoInicio").value=String(item.hora_inicio||"").slice(0,5);
+  document.getElementById("codigoFin").value=String(item.hora_fin||"").slice(0,5);
+  document.getElementById("codigoColor").value=item.color||"#0d6efd";
+  document.getElementById("guardarCodigo").textContent="Guardar cambios";
+  document.getElementById("codigoNuevo").scrollIntoView({behavior:"smooth",block:"center"});
+}
+
+async function eliminarCodigoChef(codigoBuscado) {
+  if(!puedeAdministrarCocina())return alert("No tienes permisos para gestionar códigos.");
+  if(!confirm(`¿Desactivar el código ${codigoBuscado}?\n\nDejará de aparecer para nuevas programaciones, pero se conservará en el historial.`))return;
+  const {error}=await supabase.from("cocina_codigos_turno").update({activo:false}).eq("codigo",codigoBuscado);
+  if(error){console.error("Error desactivando código:",error);return alert("No se pudo eliminar el código.");}
+  if(codigoEditandoOriginal===codigoBuscado)limpiarFormularioCodigo();
+  await cargarCodigos();renderCodigos();renderTabla();
+}
+
 function renderCodigos() {
   const tbody = document.getElementById("listaCodigos");
   tbody.innerHTML = "";
@@ -2819,7 +2851,7 @@ function renderCodigos() {
     tbody.innerHTML = `
       <tr>
         <td colspan="4" class="text-center text-muted">
-          No hay códigos registrados.
+          No hay códigos activos registrados.
         </td>
       </tr>
     `;
@@ -2843,7 +2875,11 @@ function renderCodigos() {
       <td>${codigo.descripcion || ""}</td>
       <td>${horario}</td>
       <td>${codigo.activo ? "Activo" : "Inactivo"}</td>
+      <td><div class="d-flex gap-1"><button type="button" class="btn btn-outline-primary btn-sm btn-editar-codigo">Editar</button><button type="button" class="btn btn-outline-danger btn-sm btn-eliminar-codigo">Eliminar</button></div></td>
     `;
+
+    tr.querySelector(".btn-editar-codigo").onclick=()=>editarCodigoChef(codigo.codigo);
+    tr.querySelector(".btn-eliminar-codigo").onclick=()=>eliminarCodigoChef(codigo.codigo);
 
     tbody.appendChild(tr);
   });

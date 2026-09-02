@@ -76,7 +76,7 @@
           <button class="btn btn-primary w-100" id="btnCargarPeriodoOperativoChef" type="button">Cargar periodo</button>
         </div>
         <div class="col-12 col-lg-4">
-          <div class="small text-muted">El conteo de horas, festivos, extras, visualización y PDFs de Chef se calcula sobre este rango operativo.</div>
+          <div class="small text-muted">El conteo se realiza sobre este rango operativo con una referencia máxima de 42 horas netas: entre semana 7 h de permanencia y 6,5 h laboradas; sábados, domingos o festivos 8 h de permanencia y 7,5 h laboradas. Cada turno descuenta una sola vez 0,5 h de descanso.</div>
         </div>
       </div>
     </div>
@@ -405,6 +405,7 @@
         </div>
 
         <button class="btn btn-primary mb-3" id="guardarCodigo">Guardar código</button>
+        <button class="btn btn-outline-secondary mb-3" type="button" onclick="document.getElementById('codigoNuevo').readOnly=false;document.getElementById('codigoNuevo').value='';document.getElementById('codigoDescripcion').value='';document.getElementById('codigoInicio').value='';document.getElementById('codigoFin').value='';document.getElementById('guardarCodigo').textContent='Guardar código'">Cancelar edición</button>
 
         <div class="table-responsive">
           <table class="table table-sm">
@@ -414,6 +415,7 @@
                 <th>Descripción</th>
                 <th>Horario</th>
                 <th>Estado</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="listaCodigos"></tbody>
@@ -490,7 +492,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="../js/layout.js"></script>
-<script type="module" src="../js/cocina-chef.js"></script>
+<script type="module" src="../js/cocina-chef.js?v=chef-jornada-42-v2"></script>
 
 </body>
 </html>

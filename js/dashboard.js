@@ -3709,6 +3709,8 @@ async function cargarRevisionNominaReal() {
     if (desde && hasta) {
       const { error: prepError } = await supabase.rpc("preparar_conceptos_revision", {p_fecha_desde:desde,p_fecha_hasta:hasta,p_grupo_codigo:"ALIMENTOS_BEBIDAS",p_proceso_codigo:null});
       if (prepError) console.warn("No se pudo materializar candidatos:",prepError.message);
+      const { error: nocturnoError } = await supabase.rpc("sincronizar_recargos_nocturnos_programados", {p_fecha_desde:desde,p_fecha_hasta:hasta,p_grupo_codigo:"ALIMENTOS_BEBIDAS",p_proceso_codigo:null});
+      if (nocturnoError) console.warn("No se pudo sincronizar el cálculo nocturno central:",nocturnoError.message);
     }
     let q=supabase.from("vw_turnos_bandeja_revision").select("*").eq("grupo_codigo","ALIMENTOS_BEBIDAS").order("fecha",{ascending:false});
     if (desde) q=q.gte("fecha",desde); if (hasta) q=q.lte("fecha",hasta);
@@ -3787,6 +3789,7 @@ function renderRevisionNominaReal() {
   tbody.innerHTML=rows.map(x=>{
     const estado=String(x.estado_revision||"pendiente");
     const cerrado=["aprobado","rechazado"].includes(estado);
+    const horasCalculadas=Number(x.horas_calculadas ?? x.horas_candidatas ?? 0);
     return `<tr>
       <td><strong>${escaparHtml(x.empleado||"")}</strong><div class="small text-muted">${escaparHtml(x.codigo_erp||"Sin código ERP")} · ${escaparHtml(x.cedula||"")}</div></td>
       <td>${escaparHtml(formatearFechaCorta(x.fecha)||x.fecha||"")}</td>
@@ -3798,21 +3801,29 @@ function renderRevisionNominaReal() {
       <td>${formatearHorasRevision(x.horas_calculadas ?? x.horas_candidatas ?? 0)}</td>
       <td>${x.horas_aprobadas==null?"-":formatearHorasRevision(x.horas_aprobadas)}</td>
       <td>${crearBadgeEstadoExtra(estado)}</td>
-      <td>${cerrado ? `<div class="d-flex flex-column align-items-start gap-1"><span class="small text-muted">Cerrado</span><button class="btn btn-outline-primary btn-sm" onclick="window.editarRevisionNomina('${x.revision_id}',${Number(x.horas_aprobadas||0)})">Editar</button></div>` : !x.permite_revision ? `<span class="small text-muted">Solo seguimiento</span>` : `<div class="d-flex flex-wrap gap-1"><button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','aprobar')">Aprobar</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','ajustar')">Ajustar</button><button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','rechazar')">Rechazar</button></div>`}</td>
+      <td>${cerrado ? `<div class="d-flex flex-column align-items-start gap-1"><span class="small text-muted">Cerrado</span><button class="btn btn-outline-primary btn-sm" onclick="window.editarRevisionNomina('${x.revision_id}',${Number(x.horas_aprobadas||0)})">Editar</button></div>` : !x.permite_revision ? `<span class="small text-muted">Solo seguimiento</span>` : `<div class="d-flex flex-wrap gap-1"><button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','aprobar')">Aprobar ${horasCalculadas.toFixed(2)} h</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','ajustar')">Ajustar</button><button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','rechazar')">Rechazar</button></div>`}</td>
     </tr>`;
   }).join("");
 }
 
 window.resolverRevisionNomina=async function(id,accion){
   const usuario=usuarioRevisionActual(); if(!usuario){alert("No se pudo identificar el usuario de la sesión.");return;}
+  const registro=revisionNominaRealBase.find(x=>String(x.revision_id||"")===String(id));
+  if(!registro){alert("No fue posible localizar el concepto seleccionado. Actualiza la bandeja e inténtalo nuevamente.");return;}
+  const calculadas=Number(registro.horas_calculadas ?? registro.horas_candidatas ?? 0);
+  const concepto=`${registro.concepto_codigo||"Concepto"} · ${registro.concepto_nombre||""}`;
   let horas=null,obs=null;
   if(accion==="ajustar"){
-    const raw=prompt("Horas que se aprobarán:"); if(raw===null)return; horas=Number(String(raw).replace(",","."));
+    const raw=prompt(`Horas que se aprobarán\n\n${concepto}\nCalculadas: ${formatearHorasRevision(calculadas)}`,calculadas.toFixed(2)); if(raw===null)return; horas=Number(String(raw).replace(",","."));
     if(!Number.isFinite(horas)||horas<=0){alert("Ingresa una cantidad de horas válida.");return;}
     obs=prompt("Justificación obligatoria del ajuste:"); if(!obs?.trim())return alert("El ajuste requiere justificación.");
   } else if(["rechazar","observar"].includes(accion)){
     obs=prompt(accion==="rechazar"?"Motivo obligatorio del rechazo:":"Observación obligatoria:"); if(!obs?.trim())return alert("Debes registrar una observación.");
-  } else if(!confirm("¿Confirmas la aprobación de las horas calculadas?")) return;
+  } else {
+    horas=calculadas;
+    const turno=`${String(registro.hora_inicio||"-").slice(0,5)}–${String(registro.hora_fin||"-").slice(0,5)}`;
+    if(!confirm(`APROBACIÓN DE HORAS\n\nHoras: ${formatearHorasRevision(calculadas)}\nConcepto: ${concepto}\nTurno programado: ${turno}\n\n¿Confirmas esta aprobación?`)) return;
+  }
   const {error}=await supabase.rpc("resolver_concepto_revision",{p_revision_id:id,p_accion:accion,p_usuario:usuario,p_horas_aprobadas:horas,p_observacion:obs});
   if(error){console.error(error);alert("No fue posible guardar la decisión: "+error.message);return;}
   await cargarRevisionNominaReal();

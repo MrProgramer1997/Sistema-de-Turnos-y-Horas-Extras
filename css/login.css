@@ -617,3 +617,27 @@ body {
     font-size: 0.94rem;
   }
 }
+
+/* Selector de usuarios administrativos - Supabase Auth */
+#adminLogin .input-wrapper select {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 44px 0 48px;
+  border: 0;
+  outline: 0;
+  color: #f8fafc;
+  background: transparent;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+#adminLogin .input-wrapper select:invalid,
+#adminLogin .input-wrapper select option[value=""] {
+  color: #cbd5e1;
+}
+
+#adminLogin .input-wrapper select option {
+  color: #0f172a;
+  background: #ffffff;
+}

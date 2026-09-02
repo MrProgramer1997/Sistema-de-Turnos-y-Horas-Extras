@@ -192,6 +192,7 @@ function obtenerClaveModuloSidebar(href) {
     Si se valida primero "dashboard", dashboard-ayb queda mal clasificado.
   */
   if (valor.includes("dashboard-ayb")) return "dashboard-ayb";
+  if (valor.includes("horas-extras")) return "horas-extras";
   if (valor.includes("asistencia")) return "asistencia";
   if (valor.includes("dashboard")) return "dashboard";
   if (valor.includes("usuarios-admin")) return "usuarios-admin";
@@ -246,6 +247,10 @@ function usuarioPuedeVerModuloSidebar(sesion, modulo, rolesPermitidos = []) {
     */
     if (["bienestar", "direccion_financiera", "servicios_generales"].includes(rol)) return false;
     return usuarioEsAdminSidebar(sesion) || ["gerencia", "ayb"].includes(rol);
+  }
+
+  if (modulo === "horas-extras") {
+    return usuarioEsAdminSidebar(sesion) || ["gerencia", "nomina", "ayb", "servicios_generales", "direccion_financiera"].includes(rol) || modulos.includes("horas-extras");
   }
 
   if (modulo === "asistencia") {

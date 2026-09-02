@@ -5,7 +5,8 @@
   <meta charset="UTF-8" />
   <title>Login - Club Campestre Turnos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="../css/login.css" />
+  <link rel="stylesheet" href="../css/login.css?v=selector-auth-v3" />
+  <link rel="icon" href="../assets/img/club campestre logo negro.png" />
 
   <style>
     /* Ajuste UX Login - Empleados + loader seguro */
@@ -221,12 +222,38 @@
         </div>
 
         <!-- FORMULARIO ADMIN -->
-        <div id="adminLogin" class="form-panel">
+        <form id="adminLogin" class="form-panel" onsubmit="loginAdminConUI(); return false;">
           <div class="input-group">
-            <label for="usuario">Usuario</label>
+            <label for="usuario">Seleccione su usuario</label>
             <div class="input-wrapper">
               <span class="input-icon">👤</span>
-              <input type="text" id="usuario" placeholder="Ingrese su usuario" />
+              <select id="usuario" aria-label="Seleccione su usuario" required>
+                <option value="">Seleccione...</option>
+                <option value="jhonnier@turnos.club" data-usuario-legacy="jhonnier">JHONNIER VILLADA</option>
+                <option value="aperez@turnos.club" data-usuario-legacy="aperez">ADRIANA PÉREZ</option>
+                <option value="atorres@turnos.club" data-usuario-legacy="atorres">ANGIE TORRES</option>
+                <option value="aagudelo@turnos.club">ANGELICA AGUDELO</option>
+                <option value="agonzalez@turnos.club">ANGEE GONZALEZ DURAN</option>
+                <option value="ddiaz@turnos.club">DIANA DIAZ</option>
+                <option value="gdelacruz@turnos.club">GERARDO DE LA CRUZ</option>
+                <option value="gagudelo@turnos.club">GONZALO AGUDELO</option>
+                <option value="iperez@turnos.club">IVAN LEONARDO PEREZ</option>
+                <option value="jdgarcia@turnos.club">JUAN DAVID GARCIA</option>
+                <option value="jdrestrepo@turnos.club">JUAN DAVID RESTREPO</option>
+                <option value="jfrico@turnos.club">JUAN FELIPE RICO</option>
+                <option value="jtriana@turnos.club">JUAN TRIANA</option>
+                <option value="jguzman@turnos.club">JULIANA GUZMAN</option>
+                <option value="pfernandez@turnos.club">PATRICIA FERNANDEZ</option>
+                <option value="rgarcia@turnos.club">REINEL</option>
+                <option value="vbustos@turnos.club">VANESSA BUSTOS</option>
+                <option value="yvalencia@turnos.club">YORDY VALENCIA</option>
+                <option value="ypena@turnos.club">YOHAN PEÑA</option>
+                <option value="igarcia@turnos.club">IGNACIO GARCIA</option>
+                <option value="kfranco@turnos.club">KEVIN FRANCO</option>
+                <option value="ngutierrez@turnos.club">NATALIA GUTIERREZ</option>
+                <option value="ggaviria@turnos.club">GERALDIN GAVIRIA</option>
+                <option value="" disabled>BODEGA · DESHABILITADO</option>
+              </select>
             </div>
             <small class="field-error" id="errorUsuario"></small>
           </div>
@@ -248,10 +275,10 @@
             <span>Recordar usuario en este equipo</span>
           </label>
 
-          <button type="button" class="btn-primary" onclick="loginAdminConUI()">
+          <button type="submit" class="btn-primary">
             Ingresar al panel
           </button>
-        </div>
+        </form>
 
         <!-- FORMULARIO EMPLEADO -->
         <div id="empleadoLogin" class="form-panel" style="display: none;">
@@ -555,7 +582,7 @@
     });
   </script>
 
-  <script type="module" src="../js/auth.js?v=login-fix-seguro-20260603"></script>
+  <script type="module" src="../js/auth.js?v=selector-auth-v3"></script>
 </body>
 
 </html>

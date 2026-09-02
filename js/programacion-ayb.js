@@ -18,17 +18,17 @@ const SUBAREAS_AYB = {
 };
 
 const TURNOS_CATALOGO_7H_NETAS = {
-  "1": { label: "1 · 5:30am - 1:00pm · 7h netas", inicio: "05:30", fin: "13:00" },
-  "2": { label: "2 · 6:00am - 1:30pm · 7h netas", inicio: "06:00", fin: "13:30" },
-  "3": { label: "3 · 7:00am - 2:30pm · 7h netas", inicio: "07:00", fin: "14:30" },
-  "4": { label: "4 · 8:00am - 3:30pm · 7h netas", inicio: "08:00", fin: "15:30" },
-  "5": { label: "5 · 9:00am - 4:30pm · 7h netas", inicio: "09:00", fin: "16:30" },
-  "6": { label: "6 · 10:00am - 5:30pm · 7h netas", inicio: "10:00", fin: "17:30" },
-  "7": { label: "7 · 11:00am - 6:30pm · 7h netas", inicio: "11:00", fin: "18:30" },
-  "8": { label: "8 · 12:00pm - 7:30pm · 7h netas", inicio: "12:00", fin: "19:30" },
-  "9": { label: "9 · 1:00pm - 8:30pm · 7h netas", inicio: "13:00", fin: "20:30" },
-  "10": { label: "10 · 2:00pm - 9:30pm · 7h netas", inicio: "14:00", fin: "21:30" },
-  "11": { label: "11 · 3:00pm - 10:30pm · 7h netas", inicio: "15:00", fin: "22:30" }
+  "1": { label: "1 · 5:30am - 12:30pm · 6,5h netas", inicio: "05:30", fin: "12:30" },
+  "2": { label: "2 · 6:00am - 1:00pm · 6,5h netas", inicio: "06:00", fin: "13:00" },
+  "3": { label: "3 · 7:00am - 2:00pm · 6,5h netas", inicio: "07:00", fin: "14:00" },
+  "4": { label: "4 · 8:00am - 3:00pm · 6,5h netas", inicio: "08:00", fin: "15:00" },
+  "5": { label: "5 · 9:00am - 4:00pm · 6,5h netas", inicio: "09:00", fin: "16:00" },
+  "6": { label: "6 · 10:00am - 5:00pm · 6,5h netas", inicio: "10:00", fin: "17:00" },
+  "7": { label: "7 · 11:00am - 6:00pm · 6,5h netas", inicio: "11:00", fin: "18:00" },
+  "8": { label: "8 · 12:00pm - 7:00pm · 6,5h netas", inicio: "12:00", fin: "19:00" },
+  "9": { label: "9 · 1:00pm - 8:00pm · 6,5h netas", inicio: "13:00", fin: "20:00" },
+  "10": { label: "10 · 2:00pm - 9:00pm · 6,5h netas", inicio: "14:00", fin: "21:00" },
+  "11": { label: "11 · 3:00pm - 10:00pm · 6,5h netas", inicio: "15:00", fin: "22:00" }
 };
 
 const TURNOS_CATALOGO_8H_NETAS = {
@@ -61,7 +61,7 @@ const NOVEDADES_LABELS = {
   NNJ: "Novedad no justificada"
 };
 
-const HORA_INICIO_NOCTURNO = 21 * 60;
+const HORA_INICIO_NOCTURNO = 19 * 60;
 const HORA_FIN_NOCTURNO = 6 * 60;
 const DESCANSO_ESTANDAR_HORAS = 0.5;
 const JORNADA_SEMANAL_AYB_HORAS = 44;
@@ -336,7 +336,7 @@ function obtenerCatalogoTurnosAybPorFecha(fechaISO) {
   const festivo = obtenerFestivoAyb(fechaISO);
   const fecha = new Date(`${fechaISO}T00:00:00`);
   const dia = fecha.getDay();
-  // Martes a viernes: turnos de 7 horas netas (7.5 brutas menos 0.5 almuerzo).
+  // Martes a viernes: turnos de 6.5 horas netas (7 brutas menos 0.5 almuerzo).
   // Sábado, domingo, lunes festivo y cualquier festivo: turnos de 8 horas netas
   // (8.5 brutas menos 0.5 almuerzo). El lunes no festivo conserva catálogo corto
   // para no forzar horarios especiales no definidos por operación.
@@ -1256,6 +1256,7 @@ function aplicarCalculoSemanal44Ayb(registros) {
     const fechaReferenciaGrupo = items[0]?.registro?.fecha || semanaActual[0]?.fecha || "";
     const limitePeriodoHoras = obtenerJornadaSemanalAybHoras(fechaReferenciaGrupo);
     const minutosAcumuladosDia = new Map();
+    let minutosAcumuladosPeriodo = 0;
 
     items.sort((a, b) => compararRegistrosPorFechaHoraAyb(a.registro, b.registro));
 
@@ -1271,17 +1272,20 @@ function aplicarCalculoSemanal44Ayb(registros) {
       // Regla crítica de nómina A&B:
       // - Las horas nocturnas/festivas trabajadas son recargos, pero NO son horas extra por sí solas.
       // - Una hora solo se marca como extra cuando supera la jornada neta esperada del día:
-      //   martes a viernes = 7.00 h netas; sábados, domingos y festivos = 8.00 h netas.
-      // - El acumulado del periodo se muestra como referencia, pero no se suma otra vez para evitar doble cobro.
+      //   martes a viernes = 6.50 h netas; sábados, domingos y festivos = 8.00 h netas.
+      // - El periodo operativo tiene un límite de 42 h netas. Cada minuto se clasifica
+      //   una sola vez aunque exceda simultáneamente el límite diario y el semanal.
       segmentos.forEach((segmento) => {
         const excedeJornadaDia = minutosDia >= limiteDiaMinutos;
+        const excedeJornadaPeriodo = minutosAcumuladosPeriodo >= limitePeriodoHoras * 60;
 
-        if (excedeJornadaDia) {
+        if (excedeJornadaDia || excedeJornadaPeriodo) {
           if (segmento.tipo === "nocturna") extraNocturnaMin++;
           else extraDiurnaMin++;
         }
 
         minutosDia++;
+        minutosAcumuladosPeriodo++;
       });
 
       minutosAcumuladosDia.set(fechaRegistro, minutosDia);
@@ -1323,7 +1327,7 @@ function compararRegistrosPorFechaHoraAyb(a, b) {
 function obtenerClaveSemanaOperativaAyb(fechaISO) {
   if (!fechaISO) return "";
 
-  // Corrección crítica: las 44 horas se calculan sobre el periodo operativo visible,
+  // Las 42 horas se calculan sobre el periodo operativo visible,
   // no sobre la semana calendario lunes-domingo. Esto evita partir rangos como
   // 08/06 a 15/06 en dos grupos y perder extras del último día.
   const inicioPeriodo = semanaActual[0]?.fecha || "";
@@ -1359,7 +1363,7 @@ function obtenerJornadaEsperadaPorFecha(fechaISO) {
   const dia = new Date(`${fechaISO}T00:00:00`).getDay();
   return dia === 0 || dia === 6
     ? { horas: 8, tipo: "Fin de semana / 8h netas" }
-    : { horas: 7, tipo: "Martes a viernes / 7h netas" };
+    : { horas: 6.5, tipo: "Martes a viernes / 6,5h netas" };
 }
 
 function redondearHoras(valor) { return Math.round((Number(valor || 0) + Number.EPSILON) * 100) / 100; }

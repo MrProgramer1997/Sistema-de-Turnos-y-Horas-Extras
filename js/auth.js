@@ -51,7 +51,8 @@ function obtenerPermisosPorRol(rol) {
         "mis-turnos-ayb",
         "mis-turnos-administrativo",
         "empleados",
-        "usuarios-admin"
+        "usuarios-admin",
+        "horas-extras"
       ]
     },
 
@@ -93,7 +94,8 @@ function obtenerPermisosPorRol(rol) {
         "solicitudes-bienestar",
         "programacion-ayb",
         "cocina-chef",
-        "mis-turnos-ayb"
+        "mis-turnos-ayb",
+        "horas-extras"
       ]
     },
 
@@ -134,6 +136,20 @@ function obtenerPermisosPorRol(rol) {
     }
   };
 
+  // Equivalencias de la autenticación nueva con los permisos ya confirmados.
+  mapa.administrador = mapa.admin;
+  mapa.nomina = mapa.admin;
+  mapa.aprobador = {
+    puede_ver_todo: false,
+    areas_permitidas: [],
+    modulos_permitidos: ["horas-extras"]
+  };
+  mapa.auditor = {
+    puede_ver_todo: true,
+    areas_permitidas: ["*"],
+    modulos_permitidos: ["dashboard", "dashboard-ayb", "horas-extras"]
+  };
+
   return mapa[r] || {
     puede_ver_todo: false,
     areas_permitidas: [],
@@ -142,10 +158,13 @@ function obtenerPermisosPorRol(rol) {
 }
 
 window.loginAdmin = async function () {
-  const usuario = document.getElementById("usuario")?.value.trim() || "";
+  const selectorUsuario = document.getElementById("usuario");
+  const correoAuth = selectorUsuario?.value.trim().toLowerCase() || "";
+  const opcionSeleccionada = selectorUsuario?.selectedOptions?.[0];
+  const usuario = opcionSeleccionada?.dataset?.usuarioLegacy || correoAuth.split("@")[0];
   const password = document.getElementById("password")?.value.trim() || "";
 
-  if (!usuario || !password) {
+  if (!correoAuth || !password) {
     if (typeof ocultarLoader === "function") ocultarLoader();
     if (typeof mostrarMensaje === "function") {
       mostrarMensaje("error", "Complete usuario y contraseña.");
@@ -154,6 +173,86 @@ window.loginAdmin = async function () {
   }
 
   try {
+    // Primer intento: autenticación segura con Supabase Auth.
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: correoAuth,
+      password
+    });
+
+    if (!authError && authData?.user) {
+      const authUser = authData.user;
+      const metadata = authUser.app_metadata || {};
+      const empleadoId = metadata.empleado_id || null;
+      const rolAuth = normalizarTexto(metadata.rol);
+
+      if (!empleadoId || !["administrador", "nomina", "aprobador", "auditor"].includes(rolAuth)) {
+        await supabase.auth.signOut({ scope: "local" });
+        if (typeof ocultarLoader === "function") ocultarLoader();
+        if (typeof mostrarMensaje === "function") {
+          mostrarMensaje("error", "La cuenta está autenticada, pero no tiene un perfil autorizado.");
+        }
+        return false;
+      }
+
+      const { data: empleado, error: errorEmpleadoAuth } = await supabase
+        .from("empleados")
+        .select("*")
+        .eq("id", empleadoId)
+        .maybeSingle();
+
+      if (errorEmpleadoAuth || !empleado) {
+        console.error("Error consultando empleado Auth:", errorEmpleadoAuth);
+        await supabase.auth.signOut({ scope: "local" });
+        if (typeof ocultarLoader === "function") ocultarLoader();
+        if (typeof mostrarMensaje === "function") {
+          mostrarMensaje("error", "La cuenta no tiene un empleado válido vinculado.");
+        }
+        return false;
+      }
+
+      const permisos = obtenerPermisosPorRol(rolAuth);
+      const rolCompatible = rolAuth === "administrador" ? "admin" : rolAuth;
+
+      const sesion = {
+        id: authUser.id,
+        auth_user_id: authUser.id,
+        usuario_admin_id: null,
+        empleado_id: empleado.id,
+        codigo: empleado.codigo || "",
+        cedula: String(empleado.cedula || ""),
+        usuario,
+        nombre_completo: `${empleado.nombres || ""} ${empleado.apellidos || ""}`.trim(),
+        nombres: empleado.nombres || "",
+        apellidos: empleado.apellidos || "",
+        cargo: empleado.cargo || "",
+        centro_costos: empleado.centro_costos || "",
+        area: empleado.area || "",
+        correo: correoAuth,
+        telefono: empleado.telefono || "",
+        rol: rolCompatible,
+        rol_auth: rolAuth,
+        puede_ver_todo: permisos.puede_ver_todo,
+        areas_permitidas: Array.isArray(metadata.areas_permitidas)
+          ? metadata.areas_permitidas
+          : permisos.areas_permitidas,
+        modulos_permitidos: permisos.modulos_permitidos,
+        tipo_ingreso: "admin_auth"
+      };
+
+      localStorage.setItem("ccp_sesion", JSON.stringify(sesion));
+
+      if (typeof mostrarMensaje === "function") {
+        mostrarMensaje("success", `Ingreso correcto como ${rolAuth}. Redirigiendo...`);
+      }
+
+      const areasAuth=Array.isArray(metadata.areas_permitidas)?metadata.areas_permitidas:[];
+      const esAyb=areasAuth.some(a=>normalizarTexto(a).includes("alimentos")||normalizarTexto(a).includes("ayb"));
+      window.location.href = rolAuth === "aprobador" ? (esAyb?"dashboard-ayb.html":"horas-extras.html") : rolAuth === "auditor" ? "horas-extras.html" : "dashboard.html";
+      return true;
+    }
+
+    // Respaldo temporal: conserva el acceso anterior mientras se crean y prueban
+    // las cuentas nuevas. Se retirará después de validar la migración.
     const { data: usuarioAdmin, error: errorUsuario } = await supabase
       .from("usuarios_admin")
       .select("*")
@@ -176,7 +275,7 @@ window.loginAdmin = async function () {
     if (!usuarioAdmin) {
       if (typeof ocultarLoader === "function") ocultarLoader();
       if (typeof mostrarMensaje === "function") {
-        mostrarMensaje("error", "Credenciales incorrectas o usuario no autorizado.");
+        mostrarMensaje("error", "La contraseña no coincide con la cuenta nueva ni con el acceso anterior. Escríbala sin comillas ni espacios adicionales.");
       }
 
       return false;

@@ -134,7 +134,7 @@
 
 </head>
 
-<body>
+<body class="ayb-redisenado ayb-vista-compacta">
   <div id="sidebar-container"></div>
 
   <div class="container-fluid" id="dashboardExportable">
@@ -235,6 +235,10 @@
               <span class="badge-soft" id="badgeEmpleadosAnalizados">Empleados: 0</span>
               <span class="badge-soft" id="badgeDiasAnalizados">Días con registros: 0</span>
               <span class="badge-soft" id="badgeFiltroUsuario">Filtro usuario: automático</span>
+            </div>
+            <div class="alert alert-warning py-2 px-3 mt-3 mb-0 small" role="note">
+              <strong>Corte confiable de métricas: 27/08/2026.</strong>
+              Los registros de programación y marcaciones del 23 al 26 de agosto permanecen disponibles en la revisión y en la descarga Excel, pero no alimentan KPI, rankings ni gráficas debido al incidente de base de datos del 26/08/2026.
             </div>
           </div>
         </div>
@@ -1327,7 +1331,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="../js/layout.js"></script>
-  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260827-interactivo5"></script>
+  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260902-revision-rapida-v1"></script>
 
   <script>
     function usuarioPuedeVerSolicitudesBienestarDashboard(sesion) {
