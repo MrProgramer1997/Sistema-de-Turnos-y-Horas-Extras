@@ -200,6 +200,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  const { data: authSessionData, error: authSessionError } = await supabase.auth.getSession();
+  if (authSessionError || !authSessionData?.session?.access_token || sesion.tipo_ingreso !== "admin_auth") {
+    localStorage.removeItem("ccp_sesion");
+    await supabase.auth.signOut({ scope: "local" });
+    alert("La sesión anterior no es una sesión segura de Supabase Auth. Ingrese nuevamente con la contraseña nueva del Excel.");
+    window.location.href = "login.html";
+    return;
+  }
+
   if (!usuarioPuedeAccederDashboard(sesion)) {
     alert("No tienes permisos para acceder al Dashboard.");
     redirigirEmpleadoASusTurnos();

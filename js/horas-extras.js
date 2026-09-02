@@ -19,6 +19,14 @@ document.addEventListener("DOMContentLoaded",iniciar);
 async function iniciar(){
   sesion=JSON.parse(localStorage.getItem("ccp_sesion")||"null");
   if(!sesion){location.href="login.html";return}
+  const authActual=await supabase.auth.getSession();
+  if(authActual.error||!authActual.data?.session?.access_token||sesion.tipo_ingreso!=="admin_auth"){
+    localStorage.removeItem("ccp_sesion");
+    await supabase.auth.signOut({scope:"local"});
+    alert("Debe ingresar con la contraseña nueva para crear una sesión segura de Supabase Auth.");
+    location.href="login.html";
+    return;
+  }
   const rol=texto(sesion.rol).toLowerCase(),modulos=Array.isArray(sesion.modulos_permitidos)?sesion.modulos_permitidos:[];
   const permitido=sesion.puede_ver_todo===true||["admin","administrador","gerencia","nomina","auditor","aprobador","ayb","servicios_generales","direccion_financiera"].includes(rol)||modulos.includes("horas-extras");
   if(!permitido){alert("No tienes autorización para ingresar al módulo de horas extras.");location.href="login.html";return}

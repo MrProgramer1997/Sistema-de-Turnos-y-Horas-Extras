@@ -251,6 +251,20 @@ window.loginAdmin = async function () {
       return true;
     }
 
+    // Todos los usuarios del selector ya fueron migrados a Supabase Auth.
+    // No permitir que una contraseña antigua cree una sesión local sin JWT,
+    // porque esa sesión abre la interfaz pero no puede consultar datos con RLS.
+    if (correoAuth.endsWith("@turnos.club")) {
+      console.warn("Inicio de sesión Auth rechazado:", authError?.message || "Credenciales inválidas");
+      localStorage.removeItem("ccp_sesion");
+      await supabase.auth.signOut({ scope: "local" });
+      if (typeof ocultarLoader === "function") ocultarLoader();
+      if (typeof mostrarMensaje === "function") {
+        mostrarMensaje("error", "Contraseña incorrecta. Use la contraseña nueva asignada en el Excel de usuarios.");
+      }
+      return false;
+    }
+
     // Respaldo temporal: conserva el acceso anterior mientras se crean y prueban
     // las cuentas nuevas. Se retirará después de validar la migración.
     const { data: usuarioAdmin, error: errorUsuario } = await supabase
