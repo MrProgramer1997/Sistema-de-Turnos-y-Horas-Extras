@@ -8,10 +8,14 @@ let modalEditar = null;
 
 const ROLES = {
   admin: "Administrador",
+  administrador: "Administrador",
   gerencia: "Gerencia",
+  nomina: "Nómina",
+  aprobador: "Aprobador por área",
+  auditor: "Auditoría",
   bienestar: "Bienestar Institucional",
   direccion_financiera: "Dirección Administrativa y Financiera",
-  ayb: "Alimentos y Bebidas",
+  ayb: "Administrador/a de AyB",
   servicios_generales: "Servicios Generales"
 };
 
@@ -23,7 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  if (String(sesionActiva.rol || "").toLowerCase() !== "admin") {
+  if (!["admin", "administrador"].includes(String(sesionActiva.rol || sesionActiva.rol_auth || "").toLowerCase())) {
     alert("No tienes permisos para administrar usuarios.");
     window.location.href = "dashboard.html";
     return;
@@ -55,6 +59,8 @@ function enlazarEventos() {
   document.getElementById("inputFiltroUsuarios")?.addEventListener("input", renderUsuariosAdmin);
   document.getElementById("btnGenerarPasswordEdit")?.addEventListener("click", generarPasswordEdicion);
   document.getElementById("btnGuardarEdicionUsuario")?.addEventListener("click", guardarEdicionUsuario);
+  document.getElementById("btnImportarUsuarios")?.addEventListener("click", () => document.getElementById("inputImportarUsuarios")?.click());
+  document.getElementById("inputImportarUsuarios")?.addEventListener("change", importarUsuariosExcel);
 
   document.getElementById("inputCedulaBuscar")?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
@@ -62,6 +68,109 @@ function enlazarEventos() {
       buscarEmpleado();
     }
   });
+}
+
+async function invocarGestion(payload) {
+  const { data: sesion, error: sesionError } = await supabase.auth.getSession();
+  if (sesionError || !sesion?.session) throw new Error("La sesión de Supabase Auth venció. Cierre sesión e ingrese nuevamente.");
+  const { data, error } = await supabase.functions.invoke("gestionar-usuarios-auth", { body: payload });
+  if (error) throw new Error(error.message || "No fue posible administrar el usuario.");
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+function permisosPorRol(rol, area) {
+  const r = texto(rol).toLowerCase();
+  if (["admin", "administrador", "gerencia", "nomina", "auditor"].includes(r)) {
+    return { areas: ["*"], modulos: ["dashboard", "dashboard-ayb", "horas-extras", "programacion-ayb", "cocina-chef", "programacion-administrativo", "programacion-operaciones", "mis-turnos-ayb", "mis-turnos-administrativo", "empleados", ...(r === "admin" || r === "administrador" ? ["usuarios-admin"] : [])] };
+  }
+  const areas = texto(area).split("/").map((x) => x.trim()).filter(Boolean);
+  return { areas, modulos: ["dashboard", "dashboard-ayb", "horas-extras", "programacion-ayb", "cocina-chef"] };
+}
+
+function rolAuth(rol) {
+  const r = texto(rol).toLowerCase();
+  return r === "admin" ? "administrador" : (["gerencia", "nomina", "aprobador", "auditor", "administrador"].includes(r) ? r : "aprobador");
+}
+
+async function importarUsuariosExcel(event) {
+  const archivo = event.target.files?.[0];
+  event.target.value = "";
+  if (!archivo) return;
+  if (!window.XLSX) return mostrarAlerta("danger", "No se cargó el componente para leer Excel.");
+
+  try {
+    const libro = XLSX.read(await archivo.arrayBuffer(), { type: "array" });
+    const hoja = libro.Sheets.Credenciales || libro.Sheets[libro.SheetNames[0]];
+    const filas = XLSX.utils.sheet_to_json(hoja, { range: 3, defval: "" });
+    const validas = filas.filter((f) => texto(f["Correo interno Auth"]) && texto(f["Contraseña temporal"]));
+    if (!validas.length) throw new Error("El archivo no contiene la hoja Credenciales con las columnas esperadas.");
+
+    const confirmar = window.confirm(`Se sincronizarán ${validas.length} filas con Supabase Auth. Las cuentas existentes conservarán su identidad y recibirán la contraseña indicada en el Excel. ¿Continuar?`);
+    if (!confirmar) return;
+
+    const { data: sesionActual } = await supabase.auth.getSession();
+    const correoAdministradorActual = String(sesionActual?.session?.user?.email || "").toLowerCase();
+
+    const { data: empleados, error } = await supabase.from("empleados").select("*").limit(2000);
+    if (error) throw error;
+    const indiceNombre = new Map((empleados || []).map((e) => [normalizarBusqueda(nombreEmpleado(e)), e]));
+    const indiceCedula = new Map((empleados || []).map((e) => [String(e.cedula || ""), e]));
+    const resultados = [];
+
+    for (let i = 0; i < validas.length; i += 1) {
+      const fila = validas[i];
+      const correo = texto(fila["Correo interno Auth"]).toLowerCase();
+      if (correo === correoAdministradorActual) {
+        resultados.push({ correo, estado: "omitido", detalle: "Cuenta administradora actual protegida" });
+        continue;
+      }
+      if (correo === "bodega@turnos.club") {
+        resultados.push({ correo, estado: "omitido", detalle: "Bodega deshabilitado" });
+        continue;
+      }
+
+      const nombre = texto(fila["Empleado vinculado"] || fila["Nombre para seleccionar"]);
+      let empleado = indiceNombre.get(normalizarBusqueda(nombre));
+      if (correo === "yvalencia@turnos.club") empleado = indiceCedula.get("1088314157") || empleado;
+      if (!empleado) {
+        resultados.push({ correo, estado: "error", detalle: "Empleado no encontrado" });
+        continue;
+      }
+
+      let area = texto(fila["Área autorizada"]);
+      if (correo === "jfrico@turnos.club") area = "CAMPO";
+      if (correo === "yvalencia@turnos.club") area = "DEPORTES / GOLF";
+      const rol = rolAuth(fila["Rol propuesto"]);
+      const perfilAcceso = texto(fila["Rol propuesto"]).toLowerCase();
+      const permisos = permisosPorRol(rol, area);
+      try {
+        const r = await invocarGestion({
+          accion: "guardar",
+          empleado_id: empleado.id,
+          correo,
+          password: texto(fila["Contraseña temporal"]),
+          rol,
+          perfil_acceso: perfilAcceso,
+          nombre_completo: nombreEmpleado(empleado),
+          areas_permitidas: permisos.areas,
+          modulos_permitidos: permisos.modulos
+        });
+        resultados.push({ correo, estado: r.resultado, detalle: "Correcto" });
+      } catch (errorFila) {
+        resultados.push({ correo, estado: "error", detalle: errorFila.message });
+      }
+      mostrarAlerta("info", `Procesando ${i + 1} de ${validas.length}: ${escaparHtml(correo)}`);
+    }
+
+    const errores = resultados.filter((r) => r.estado === "error");
+    const correctos = resultados.filter((r) => ["creado", "actualizado"].includes(r.estado));
+    mostrarAlerta(errores.length ? "warning" : "success", `Sincronización finalizada: <strong>${correctos.length} correctos</strong>, ${errores.length} con error y ${resultados.length - correctos.length - errores.length} omitidos.${errores.length ? `<br>${errores.map((e) => `${escaparHtml(e.correo)}: ${escaparHtml(e.detalle)}`).join("<br>")}` : ""}`);
+    await cargarUsuariosAdmin();
+  } catch (error) {
+    console.error(error);
+    mostrarAlerta("danger", `No fue posible importar el Excel: ${escaparHtml(error.message || String(error))}`);
+  }
 }
 
 function mostrarAlerta(tipo, mensaje) {
@@ -304,20 +413,6 @@ function ocultarResultadosEmpleados() {
 async function seleccionarEmpleado(empleado) {
   ocultarResultadosEmpleados();
 
-  const cedulaEmpleado = String(empleado.cedula || "");
-
-  const { data: existente, error: errorExistente } = await supabase
-    .from("usuarios_admin")
-    .select("id,usuario,rol,activo")
-    .eq("cedula", cedulaEmpleado)
-    .maybeSingle();
-
-  if (errorExistente) {
-    console.error("Error validando usuario existente:", errorExistente);
-    mostrarAlerta("danger", `Error validando usuario existente: ${escaparHtml(errorExistente.message || "sin detalle")}`);
-    return;
-  }
-
   empleadoSeleccionado = empleado;
   mostrarEmpleadoEncontrado(empleado);
 
@@ -330,15 +425,7 @@ async function seleccionarEmpleado(empleado) {
     generarPasswordCreacion();
   }
 
-  if (existente) {
-    mostrarAlerta(
-      "warning",
-      `Empleado seleccionado, pero ya tiene usuario administrativo: <strong>${escaparHtml(existente.usuario)}</strong> (${escaparHtml(ROLES[existente.rol] || existente.rol)}). No se puede crear otro.`
-    );
-    return;
-  }
-
-  mostrarAlerta("success", "Empleado seleccionado. Puede crear el usuario administrativo.");
+  mostrarAlerta("success", "Empleado seleccionado. Si ya tiene cuenta Auth, se actualizará sin duplicarla.");
 }
 
 function mostrarEmpleadoEncontrado(empleado) {
@@ -382,48 +469,22 @@ async function crearUsuarioAdmin(event) {
   }
 
   try {
-    const cedulaEmpleado = String(empleadoSeleccionado.cedula || "");
-
-    const { data: duplicados, error: errorDuplicados } = await supabase
-      .from("usuarios_admin")
-      .select("id,usuario,cedula")
-      .or(`usuario.eq.${usuario},cedula.eq.${cedulaEmpleado}`);
-
-    if (errorDuplicados) {
-      console.error("Error validando duplicados:", errorDuplicados);
-      mostrarAlerta("danger", `Error validando duplicados: ${escaparHtml(errorDuplicados.message || "sin detalle")}`);
-      return;
-    }
-
-    if (Array.isArray(duplicados) && duplicados.length) {
-      mostrarAlerta("warning", "Ya existe un usuario administrativo con ese usuario o cédula.");
-      return;
-    }
-
-    const payload = {
+    const permisos = permisosPorRol(rol, empleadoSeleccionado.centro_costos || empleadoSeleccionado.area);
+    const resultado = await invocarGestion({
+      accion: "guardar",
       empleado_id: empleadoSeleccionado.id,
-      cedula: cedulaEmpleado,
-      usuario,
-      password_hash: password,
-      rol,
-      activo: true,
-      password_temporal: true,
-      updated_at: new Date().toISOString()
-    };
-
-    const { error } = await supabase
-      .from("usuarios_admin")
-      .insert([payload]);
-
-    if (error) {
-      console.error("Error insertando usuario:", error);
-      mostrarAlerta("danger", `No fue posible crear el usuario: ${escaparHtml(error.message || "sin detalle")}`);
-      return;
-    }
+      correo: `${usuario}@turnos.club`,
+      password,
+      rol: rolAuth(rol),
+      perfil_acceso: rol,
+      nombre_completo: nombreEmpleado(empleadoSeleccionado),
+      areas_permitidas: permisos.areas,
+      modulos_permitidos: permisos.modulos
+    });
 
     mostrarAlerta(
       "success",
-      `Usuario creado correctamente. Usuario: <strong>${escaparHtml(usuario)}</strong> · Contraseña temporal: <strong>${escaparHtml(password)}</strong>`
+      `Usuario ${escaparHtml(resultado.resultado)} correctamente en Supabase Auth. Usuario: <strong>${escaparHtml(usuario)}</strong> · Contraseña: <strong>${escaparHtml(password)}</strong>`
     );
 
     limpiarFormularioCreacion();
@@ -458,36 +519,10 @@ function limpiarFormularioCreacion(limpiarAlertaActiva = true) {
 
 async function cargarUsuariosAdmin() {
   try {
-    const { data: usuarios, error } = await supabase
-      .from("usuarios_admin")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error cargando usuarios_admin:", error);
-      mostrarAlerta("danger", `Error cargando usuarios administrativos: ${escaparHtml(error.message || "sin detalle")}`);
-      return;
-    }
-
-    usuariosAdmin = Array.isArray(usuarios) ? usuarios : [];
+    const resultado = await invocarGestion({ accion: "listar" });
+    usuariosAdmin = Array.isArray(resultado.usuarios) ? resultado.usuarios : [];
     empleadosIndex = {};
-
-    const ids = [...new Set(usuariosAdmin.map((u) => u.empleado_id).filter(Boolean))];
-
-    if (ids.length) {
-      const { data: empleados, error: errorEmpleados } = await supabase
-        .from("empleados")
-        .select("*")
-        .in("id", ids);
-
-      if (errorEmpleados) {
-        console.warn("No se pudo cargar empleados vinculados:", errorEmpleados);
-      } else {
-        (empleados || []).forEach((empleado) => {
-          empleadosIndex[empleado.id] = empleado;
-        });
-      }
-    }
+    usuariosAdmin.forEach((u) => { if (u.empleado) empleadosIndex[u.empleado_id] = u.empleado; });
 
     actualizarKPIs();
     renderUsuariosAdmin();
@@ -498,7 +533,7 @@ async function cargarUsuariosAdmin() {
 }
 
 function actualizarKPIs() {
-  const activos = usuariosAdmin.filter((u) => u.activo === true).length;
+  const activos = usuariosAdmin.filter((u) => u.activo === true && !u.bloqueado).length;
   const inactivos = usuariosAdmin.filter((u) => u.activo !== true).length;
   const roles = new Set(usuariosAdmin.map((u) => u.rol).filter(Boolean)).size;
 
@@ -521,9 +556,9 @@ function renderUsuariosAdmin() {
   const lista = usuariosAdmin.filter((usuario) => {
     const empleado = empleadosIndex[usuario.empleado_id] || {};
     const busqueda = normalizarBusqueda([
-      usuario.usuario,
+      usuario.correo,
       usuario.cedula,
-      usuario.rol,
+      usuario.perfil_acceso || usuario.rol,
       nombreEmpleado(empleado),
       empleado.cargo,
       empleado.centro_costos
@@ -545,12 +580,13 @@ function renderUsuariosAdmin() {
 
   tbody.innerHTML = lista.map((usuario) => {
     const empleado = empleadosIndex[usuario.empleado_id] || {};
-    const estado = usuario.activo === true
+    const estado = usuario.activo === true && !usuario.bloqueado
       ? `<span class="badge-activo">Activo</span>`
       : `<span class="badge-inactivo">Inactivo</span>`;
 
-    const textoAccionEstado = usuario.activo === true ? "Deshabilitar" : "Rehabilitar";
-    const claseAccionEstado = usuario.activo === true ? "btn-outline-danger" : "btn-outline-success";
+    const estaActivo = usuario.activo === true && !usuario.bloqueado;
+    const textoAccionEstado = estaActivo ? "Deshabilitar" : "Rehabilitar";
+    const claseAccionEstado = estaActivo ? "btn-outline-danger" : "btn-outline-success";
 
     return `
       <tr>
@@ -558,16 +594,17 @@ function renderUsuariosAdmin() {
           <div class="fw-bold">${escaparHtml(nombreEmpleado(empleado))}</div>
           <div class="small text-muted">${escaparHtml(usuario.cedula || "-")} · ${escaparHtml(empleado.cargo || "-")}</div>
         </td>
-        <td>${escaparHtml(usuario.usuario || "-")}</td>
-        <td><span class="badge-rol">${escaparHtml(ROLES[usuario.rol] || usuario.rol || "-")}</span></td>
+        <td>${escaparHtml(usuario.correo || "-")}</td>
+        <td><span class="badge-rol">${escaparHtml(ROLES[usuario.perfil_acceso] || usuario.perfil_acceso || ROLES[usuario.rol] || usuario.rol || "-")}</span></td>
         <td>${estado}</td>
         <td>${escaparHtml(formatearFechaHora(usuario.ultimo_login) || "Sin registro")}</td>
         <td>
           <div class="acciones-tabla">
-            <button class="btn btn-sm btn-outline-primary" data-editar="${usuario.id}">Editar</button>
-            <button class="btn btn-sm ${claseAccionEstado}" data-estado="${usuario.id}">
+            <button class="btn btn-sm btn-outline-primary" data-editar="${usuario.user_id}">Editar</button>
+            <button class="btn btn-sm ${claseAccionEstado}" data-estado="${usuario.user_id}">
               ${textoAccionEstado}
             </button>
+            <button class="btn btn-sm btn-danger" data-eliminar="${usuario.user_id}">Eliminar</button>
           </div>
         </td>
       </tr>
@@ -581,15 +618,18 @@ function renderUsuariosAdmin() {
   tbody.querySelectorAll("[data-estado]").forEach((btn) => {
     btn.addEventListener("click", () => alternarEstadoUsuario(btn.dataset.estado));
   });
+  tbody.querySelectorAll("[data-eliminar]").forEach((btn) => {
+    btn.addEventListener("click", () => eliminarUsuarioAuth(btn.dataset.eliminar));
+  });
 }
 
 function abrirModalEdicion(id) {
-  const usuario = usuariosAdmin.find((u) => String(u.id) === String(id));
+  const usuario = usuariosAdmin.find((u) => String(u.user_id) === String(id));
   if (!usuario) return;
 
-  document.getElementById("editUsuarioId").value = usuario.id;
-  document.getElementById("editUsuario").value = usuario.usuario || "";
-  document.getElementById("editRol").value = usuario.rol || "";
+  document.getElementById("editUsuarioId").value = usuario.user_id;
+  document.getElementById("editUsuario").value = usuario.correo || "";
+  document.getElementById("editRol").value = usuario.perfil_acceso || usuario.rol || "";
   document.getElementById("editPassword").value = "";
 
   if (modalEditar) modalEditar.show();
@@ -607,27 +647,44 @@ async function guardarEdicionUsuario() {
     return;
   }
 
-  const payload = {
-    rol,
-    updated_at: new Date().toISOString()
-  };
-
-  if (password) {
-    payload.password_hash = password;
-    payload.password_temporal = true;
+  if (password && password.length < 6) {
+    mostrarAlerta("warning", "La nueva contraseña debe tener mínimo 6 caracteres.");
+    return;
   }
 
   try {
-    const { error } = await supabase
-      .from("usuarios_admin")
-      .update(payload)
-      .eq("id", id);
+    const usuarioActual = usuariosAdmin.find((u) => String(u.user_id) === id);
+    if (!usuarioActual) throw new Error("No se encontró la cuenta Auth.");
 
-    if (error) {
-      console.error("Error actualizando usuario:", error);
-      mostrarAlerta("danger", `No fue posible actualizar el usuario: ${escaparHtml(error.message || "sin detalle")}`);
-      return;
+    const { data: sesionActual } = await supabase.auth.getSession();
+    const esCuentaActual = sesionActual?.session?.user?.id === id;
+    if (password && esCuentaActual) {
+      const continuar = window.confirm("Está cambiando la contraseña de su propia cuenta. Supabase cerrará esta sesión y deberá ingresar con la nueva contraseña. ¿Desea continuar?");
+      if (!continuar) return;
     }
+
+    const botonGuardar = document.getElementById("btnGuardarEdicionUsuario");
+    if (botonGuardar) {
+      botonGuardar.disabled = true;
+      botonGuardar.textContent = "Guardando...";
+    }
+    const empleado = usuarioActual.empleado || empleadosIndex[usuarioActual.empleado_id] || {};
+    const perfilAnterior = texto(usuarioActual.perfil_acceso || usuarioActual.rol).toLowerCase();
+    const permisosNuevos = perfilAnterior === rol
+      ? { areas: usuarioActual.areas_permitidas || [], modulos: usuarioActual.modulos_permitidos || [] }
+      : permisosPorRol(rol, empleado.centro_costos || empleado.area);
+    await invocarGestion({
+      accion: "guardar",
+      user_id: id,
+      empleado_id: usuarioActual.empleado_id,
+      correo: usuarioActual.correo,
+      password,
+      rol: rolAuth(rol),
+      perfil_acceso: rol,
+      nombre_completo: nombreEmpleado(empleado),
+      areas_permitidas: permisosNuevos.areas,
+      modulos_permitidos: permisosNuevos.modulos
+    });
 
     if (modalEditar) modalEditar.hide();
 
@@ -636,37 +693,51 @@ async function guardarEdicionUsuario() {
       : "";
 
     mostrarAlerta("success", `Usuario actualizado correctamente.${mensajePassword}`);
+    if (esCuentaActual && password) {
+      await supabase.auth.signOut({ scope: "local" });
+      localStorage.removeItem("ccp_sesion");
+      window.location.href = "login.html?password_actualizada=1";
+      return;
+    }
     await cargarUsuariosAdmin();
   } catch (error) {
     console.error("Error general actualizando usuario:", error);
     mostrarAlerta("danger", `Error general actualizando usuario: ${escaparHtml(error.message || String(error))}`);
+  } finally {
+    const botonGuardar = document.getElementById("btnGuardarEdicionUsuario");
+    if (botonGuardar) {
+      botonGuardar.disabled = false;
+      botonGuardar.textContent = "Guardar cambios";
+    }
+  }
+}
+
+async function eliminarUsuarioAuth(id) {
+  const usuario = usuariosAdmin.find((u) => String(u.user_id) === String(id));
+  if (!usuario) return;
+  const confirmar = window.confirm(`¿Eliminar definitivamente el acceso ${usuario.correo}?\n\nSe eliminará la cuenta de autenticación y su perfil. El empleado y su historial laboral se conservarán.`);
+  if (!confirmar) return;
+  try {
+    await invocarGestion({ accion: "eliminar", user_id: id });
+    mostrarAlerta("success", `Acceso ${escaparHtml(usuario.correo)} eliminado correctamente.`);
+    await cargarUsuariosAdmin();
+  } catch (error) {
+    mostrarAlerta("danger", `No fue posible eliminar el acceso: ${escaparHtml(error.message || String(error))}`);
   }
 }
 
 async function alternarEstadoUsuario(id) {
-  const usuario = usuariosAdmin.find((u) => String(u.id) === String(id));
+  const usuario = usuariosAdmin.find((u) => String(u.user_id) === String(id));
   if (!usuario) return;
 
-  const nuevoEstado = usuario.activo !== true;
+  const nuevoEstado = !(usuario.activo === true && !usuario.bloqueado);
   const accion = nuevoEstado ? "rehabilitar" : "deshabilitar";
 
-  const confirmar = window.confirm(`¿Seguro que desea ${accion} el usuario ${usuario.usuario}?`);
+  const confirmar = window.confirm(`¿Seguro que desea ${accion} el usuario ${usuario.correo}?`);
   if (!confirmar) return;
 
   try {
-    const { error } = await supabase
-      .from("usuarios_admin")
-      .update({
-        activo: nuevoEstado,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", id);
-
-    if (error) {
-      console.error("Error actualizando estado:", error);
-      mostrarAlerta("danger", `No fue posible actualizar el estado del usuario: ${escaparHtml(error.message || "sin detalle")}`);
-      return;
-    }
+    await invocarGestion({ accion: "estado", user_id: id, activo: nuevoEstado });
 
     mostrarAlerta("success", `Usuario ${nuevoEstado ? "rehabilitado" : "deshabilitado"} correctamente.`);
     await cargarUsuariosAdmin();

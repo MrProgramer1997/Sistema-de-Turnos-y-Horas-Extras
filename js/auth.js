@@ -149,6 +149,11 @@ function obtenerPermisosPorRol(rol) {
     areas_permitidas: ["*"],
     modulos_permitidos: ["dashboard", "dashboard-ayb", "horas-extras"]
   };
+  mapa.gerencia = {
+    puede_ver_todo: true,
+    areas_permitidas: ["*"],
+    modulos_permitidos: ["dashboard", "dashboard-ayb", "horas-extras", "programacion-ayb", "cocina-chef", "programacion-administrativo", "programacion-operaciones", "mis-turnos-ayb", "mis-turnos-administrativo", "empleados"]
+  };
 
   return mapa[r] || {
     puede_ver_todo: false,
@@ -184,8 +189,9 @@ window.loginAdmin = async function () {
       const metadata = authUser.app_metadata || {};
       const empleadoId = metadata.empleado_id || null;
       const rolAuth = normalizarTexto(metadata.rol);
+      const perfilAcceso = normalizarTexto(metadata.perfil_acceso || (rolAuth === "administrador" ? "admin" : rolAuth));
 
-      if (!empleadoId || !["administrador", "nomina", "aprobador", "auditor"].includes(rolAuth)) {
+      if (!empleadoId || !["administrador", "gerencia", "nomina", "aprobador", "auditor"].includes(rolAuth)) {
         await supabase.auth.signOut({ scope: "local" });
         if (typeof ocultarLoader === "function") ocultarLoader();
         if (typeof mostrarMensaje === "function") {
@@ -210,26 +216,8 @@ window.loginAdmin = async function () {
         return false;
       }
 
-      const permisos = obtenerPermisosPorRol(rolAuth);
-      const areasAuth = Array.isArray(metadata.areas_permitidas) ? metadata.areas_permitidas : [];
-      const esAyb = areasAuth.some((area) => {
-        const valor = normalizarTexto(area);
-        return valor.includes("alimentos") || valor.includes("ayb") || valor.includes("a&b");
-      });
-
-      // Los aprobadores de A&B deben poder entrar al panel donde revisan y
-      // deciden las horas. Los aprobadores de otras áreas continúan en Nómina.
-      if (rolAuth === "aprobador" && esAyb && !permisos.modulos_permitidos.includes("dashboard-ayb")) {
-        permisos.modulos_permitidos.push("dashboard-ayb");
-      }
-      if (rolAuth === "aprobador" && esAyb && !permisos.modulos_permitidos.includes("programacion-ayb")) {
-        permisos.modulos_permitidos.push("programacion-ayb");
-      }
-      const esChef = normalizarTexto(empleado.cargo).includes("chef");
-      if (rolAuth === "aprobador" && esChef && !permisos.modulos_permitidos.includes("cocina-chef")) {
-        permisos.modulos_permitidos.push("cocina-chef");
-      }
-      const rolCompatible = rolAuth === "administrador" ? "admin" : rolAuth;
+      const permisos = obtenerPermisosPorRol(perfilAcceso);
+      const rolCompatible = perfilAcceso;
 
       const sesion = {
         id: authUser.id,
@@ -253,7 +241,9 @@ window.loginAdmin = async function () {
         areas_permitidas: Array.isArray(metadata.areas_permitidas)
           ? metadata.areas_permitidas
           : permisos.areas_permitidas,
-        modulos_permitidos: permisos.modulos_permitidos,
+        modulos_permitidos: Array.isArray(metadata.modulos_permitidos) && metadata.modulos_permitidos.length
+          ? metadata.modulos_permitidos
+          : permisos.modulos_permitidos,
         tipo_ingreso: "admin_auth"
       };
 
@@ -263,22 +253,13 @@ window.loginAdmin = async function () {
         mostrarMensaje("success", `Ingreso correcto como ${rolAuth}. Redirigiendo...`);
       }
 
-      window.location.href = rolAuth === "aprobador" ? (esAyb?"dashboard-ayb.html":"horas-extras.html") : rolAuth === "auditor" ? "horas-extras.html" : "dashboard.html";
+      const areasAuth=Array.isArray(metadata.areas_permitidas)?metadata.areas_permitidas:[];
+      const esAyb=areasAuth.some(a=>normalizarTexto(a).includes("alimentos")||normalizarTexto(a).includes("ayb"));
+      window.location.href = ["ayb", "ayb_admin"].includes(perfilAcceso)
+        ? "dashboard-ayb.html"
+        : rolAuth === "aprobador" ? (esAyb ? "dashboard-ayb.html" : "horas-extras.html")
+        : rolAuth === "auditor" ? "horas-extras.html" : "dashboard.html";
       return true;
-    }
-
-    // Todos los usuarios del selector ya fueron migrados a Supabase Auth.
-    // No permitir que una contraseña antigua cree una sesión local sin JWT,
-    // porque esa sesión abre la interfaz pero no puede consultar datos con RLS.
-    if (correoAuth.endsWith("@turnos.club")) {
-      console.warn("Inicio de sesión Auth rechazado:", authError?.message || "Credenciales inválidas");
-      localStorage.removeItem("ccp_sesion");
-      await supabase.auth.signOut({ scope: "local" });
-      if (typeof ocultarLoader === "function") ocultarLoader();
-      if (typeof mostrarMensaje === "function") {
-        mostrarMensaje("error", "Contraseña incorrecta. Use la contraseña nueva asignada en el Excel de usuarios.");
-      }
-      return false;
     }
 
     // Respaldo temporal: conserva el acceso anterior mientras se crean y prueban

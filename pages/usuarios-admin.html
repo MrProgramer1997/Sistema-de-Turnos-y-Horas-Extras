@@ -163,6 +163,8 @@
         </div>
 
         <div class="d-flex gap-2 flex-wrap">
+          <input type="file" id="inputImportarUsuarios" accept=".xlsx,.xls" class="d-none">
+          <button class="btn btn-success" id="btnImportarUsuarios">Importar Excel de usuarios</button>
           <button class="btn btn-outline-primary" id="btnRecargarUsuarios">Recargar</button>
         </div>
       </div>
@@ -260,9 +262,12 @@
                     <option value="">Seleccione rol</option>
                     <option value="admin">Administrador</option>
                     <option value="gerencia">Gerencia</option>
+                    <option value="nomina">Nómina</option>
+                    <option value="aprobador">Aprobador por área</option>
+                    <option value="auditor">Auditoría</option>
                     <option value="bienestar">Bienestar Institucional</option>
                     <option value="direccion_financiera">Dirección Administrativa y Financiera</option>
-                    <option value="ayb">Alimentos y Bebidas</option>
+                    <option value="ayb">Administrador/a de AyB</option>
                     <option value="servicios_generales">Servicios Generales</option>
                   </select>
                 </div>
@@ -344,9 +349,12 @@
             <select class="form-select" id="editRol">
               <option value="admin">Administrador</option>
               <option value="gerencia">Gerencia</option>
+              <option value="nomina">Nómina</option>
+              <option value="aprobador">Aprobador por área</option>
+              <option value="auditor">Auditoría</option>
               <option value="bienestar">Bienestar Institucional</option>
               <option value="direccion_financiera">Dirección Administrativa y Financiera</option>
-              <option value="ayb">Alimentos y Bebidas</option>
+              <option value="ayb">Administrador/a de AyB</option>
               <option value="servicios_generales">Servicios Generales</option>
             </select>
           </div>
@@ -354,10 +362,10 @@
           <div class="mb-3">
             <label class="form-label">Nueva contraseña temporal</label>
             <div class="input-group">
-              <input type="text" class="form-control" id="editPassword" readonly>
+              <input type="text" class="form-control" id="editPassword" minlength="6" autocomplete="new-password" placeholder="Escriba o genere la nueva contraseña">
               <button class="btn btn-outline-secondary" type="button" id="btnGenerarPasswordEdit">Generar</button>
             </div>
-            <small class="text-muted">Solo se cambiará si genera una nueva contraseña.</small>
+            <small class="text-muted">Déjela vacía para conservar la contraseña actual. Mínimo 6 caracteres.</small>
           </div>
         </div>
 
@@ -371,6 +379,7 @@
 
   <script src="../js/layout.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script type="module" src="../js/usuarios-admin.js?v=30"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script type="module" src="../js/usuarios-admin.js?v=auth-web-v3"></script>
 </body>
 </html>
