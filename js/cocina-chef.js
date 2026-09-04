@@ -29,18 +29,18 @@ const TURNOS_CHEF_6_5H_NETAS = {
   "11": { descripcion: "3:00pm - 10:00pm · 6,5h netas", hora_inicio: "15:00", hora_fin: "22:00" }
 };
 
-const TURNOS_CHEF_7_5H_NETAS = {
-  "1": { descripcion: "5:30am - 1:30pm · 7,5h netas", hora_inicio: "05:30", hora_fin: "13:30" },
-  "2": { descripcion: "6:00am - 2:00pm · 7,5h netas", hora_inicio: "06:00", hora_fin: "14:00" },
-  "3": { descripcion: "7:00am - 3:00pm · 7,5h netas", hora_inicio: "07:00", hora_fin: "15:00" },
-  "4": { descripcion: "8:00am - 4:00pm · 7,5h netas", hora_inicio: "08:00", hora_fin: "16:00" },
-  "5": { descripcion: "9:00am - 5:00pm · 7,5h netas", hora_inicio: "09:00", hora_fin: "17:00" },
-  "6": { descripcion: "10:00am - 6:00pm · 7,5h netas", hora_inicio: "10:00", hora_fin: "18:00" },
-  "7": { descripcion: "11:00am - 7:00pm · 7,5h netas", hora_inicio: "11:00", hora_fin: "19:00" },
-  "8": { descripcion: "12:00pm - 8:00pm · 7,5h netas", hora_inicio: "12:00", hora_fin: "20:00" },
-  "9": { descripcion: "1:00pm - 9:00pm · 7,5h netas", hora_inicio: "13:00", hora_fin: "21:00" },
-  "10": { descripcion: "2:00pm - 10:00pm · 7,5h netas", hora_inicio: "14:00", hora_fin: "22:00" },
-  "11": { descripcion: "3:00pm - 11:00pm · 7,5h netas", hora_inicio: "15:00", hora_fin: "23:00" }
+const TURNOS_CHEF_8H_NETAS = {
+  "1": { descripcion: "5:30am - 2:00pm · 8h netas", hora_inicio: "05:30", hora_fin: "14:00" },
+  "2": { descripcion: "6:00am - 2:30pm · 8h netas", hora_inicio: "06:00", hora_fin: "14:30" },
+  "3": { descripcion: "7:00am - 3:30pm · 8h netas", hora_inicio: "07:00", hora_fin: "15:30" },
+  "4": { descripcion: "8:00am - 4:30pm · 8h netas", hora_inicio: "08:00", hora_fin: "16:30" },
+  "5": { descripcion: "9:00am - 5:30pm · 8h netas", hora_inicio: "09:00", hora_fin: "17:30" },
+  "6": { descripcion: "10:00am - 6:30pm · 8h netas", hora_inicio: "10:00", hora_fin: "18:30" },
+  "7": { descripcion: "11:00am - 7:30pm · 8h netas", hora_inicio: "11:00", hora_fin: "19:30" },
+  "8": { descripcion: "12:00pm - 8:30pm · 8h netas", hora_inicio: "12:00", hora_fin: "20:30" },
+  "9": { descripcion: "1:00pm - 9:30pm · 8h netas", hora_inicio: "13:00", hora_fin: "21:30" },
+  "10": { descripcion: "2:00pm - 10:30pm · 8h netas", hora_inicio: "14:00", hora_fin: "22:30" },
+  "11": { descripcion: "3:00pm - 11:30pm · 8h netas", hora_inicio: "15:00", hora_fin: "23:30" }
 };
 
 let fechaBase = new Date();
@@ -1485,12 +1485,12 @@ function obtenerFestivoChef(fechaISO) {
 function obtenerJornadaEsperadaChef(fechaISO) {
   const festivo = obtenerFestivoChef(fechaISO);
   if (festivo) {
-    return { horas: 7.5, tipo: `Festivo - ${festivo.nombre || "Festivo"} / 7,5h netas`, esFestivo: true };
+    return { horas: 8, tipo: `Festivo - ${festivo.nombre || "Festivo"} / 8h netas`, esFestivo: true };
   }
 
   const dia = new Date(`${fechaISO}T00:00:00`).getDay();
   if (dia === 0 || dia === 6) {
-    return { horas: 7.5, tipo: "Sábado/Domingo / 7,5h netas", esFestivo: false };
+    return { horas: 8, tipo: "Sábado/Domingo / 8h netas", esFestivo: false };
   }
 
   return { horas: 6.5, tipo: "Martes a viernes / 6,5h netas", esFestivo: false };
@@ -2231,7 +2231,7 @@ function obtenerCatalogoTurnosChefPorFecha(fechaISO) {
   const festivo = festivosSemanaChef.some((festivo) => String(festivo.fecha) === String(fechaISO));
   const fecha = new Date(`${fechaISO}T00:00:00`);
   const dia = fecha.getDay();
-  return festivo || dia === 0 || dia === 6 ? TURNOS_CHEF_7_5H_NETAS : TURNOS_CHEF_6_5H_NETAS;
+  return festivo || dia === 0 || dia === 6 ? TURNOS_CHEF_8H_NETAS : TURNOS_CHEF_6_5H_NETAS;
 }
 
 function obtenerCodigoTurnoChef(codigo, fechaISO) {

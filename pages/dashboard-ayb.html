@@ -355,9 +355,12 @@
             <div class="d-flex gap-2 flex-wrap">
               <button class="btn btn-outline-primary btn-sm" id="btnActualizarRevisionNomina">Actualizar bandeja</button>
               <button class="btn btn-success btn-sm" id="btnGenerarProsof">Generar plantilla PROSOF</button>
+              <button class="btn btn-success btn-sm" id="btnConfirmarNominaWhatsapp">💬 Confirmar a Nómina</button>
             </div>
           </div>
           <div class="card-body">
+            <div class="alert alert-info py-2 small d-none" id="alertaCorteNomina" role="alert"></div>
+            <div class="small text-muted mb-2" id="estadoConfirmacionNomina"></div>
             <div class="alert alert-warning py-2 small">
               <strong>Regla de exportación:</strong> PROSOF conserva inicialmente una fila por concepto aprobado y fecha. No se consolidan registros repetidos hasta validación expresa de Nómina.<br>
               <strong>Lectura de horas:</strong> la bandeja muestra horas decimales y su equivalencia en horas/minutos (ej.: 8.40 h = 8 h 24 min). Las decisiones cerradas pueden corregirse con <strong>Editar</strong>; el motivo y los valores anterior/nuevo quedan en auditoría.
@@ -1330,8 +1333,8 @@
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="../js/layout.js?v=permisos-ayb-v6"></script>
-  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260902-permisos-v5"></script>
+  <script src="../js/layout.js"></script>
+  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260904-prosof-v2"></script>
 
   <script>
     function usuarioPuedeVerSolicitudesBienestarDashboard(sesion) {

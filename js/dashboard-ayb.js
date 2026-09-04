@@ -168,12 +168,6 @@ function usuarioPuedeAccederDashboard(sesion) {
     .toLowerCase();
   const rol = obtenerRolSeguroDashboard(sesion);
   const modulos = obtenerModulosPermitidosDashboard(sesion);
-  const areasPermitidas = Array.isArray(sesion.areas_permitidas)
-    ? sesion.areas_permitidas.map(normalizarTextoAlcanceAyb)
-    : [];
-  const esAprobadorAyb = rol === "aprobador" && areasPermitidas.some((area) =>
-    area.includes("ALIMENTOS") || area.includes("AYB") || area.includes("A&B")
-  );
 
   const rolesDashboard = [
     "admin",
@@ -188,7 +182,6 @@ function usuarioPuedeAccederDashboard(sesion) {
     String(sesion.puede_ver_todo).toLowerCase() === "true" ||
     cedula === "1088029438" ||
     nombre.includes("jhonnier") ||
-    esAprobadorAyb ||
     rolesDashboard.includes(rol) ||
     modulos.includes("dashboard") || modulos.includes("dashboard-ayb")
   );
@@ -203,15 +196,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const sesion = JSON.parse(localStorage.getItem("ccp_sesion") || "null");
 
   if (!sesion) {
-    window.location.href = "login.html";
-    return;
-  }
-
-  const { data: authSessionData, error: authSessionError } = await supabase.auth.getSession();
-  if (authSessionError || !authSessionData?.session?.access_token || sesion.tipo_ingreso !== "admin_auth") {
-    localStorage.removeItem("ccp_sesion");
-    await supabase.auth.signOut({ scope: "local" });
-    alert("La sesión anterior no es una sesión segura de Supabase Auth. Ingrese nuevamente con la contraseña nueva del Excel.");
     window.location.href = "login.html";
     return;
   }
@@ -235,6 +219,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   configurarBotonExportarExcel();
   configurarDetalleInteractivoAyb();
   configurarRevisionNominaReal();
+  configurarCierreNominaAyb();
   configurarFiltros();
 
   await cargarDashboardReal(sesion);
@@ -3496,27 +3481,50 @@ function resumirMarcacionesPorDia(marcaciones) {
 
 function detalleMarcacionesProgramacion(item, mapaMarcaciones) {
   const eventos = mapaMarcaciones.get(claveMarcacionesExcel(item.cedula, item.fecha)) || [];
+  const primera = eventos[0] || null;
   const entradaPorteria = eventos.find(esMarcacionPorteria) || null;
   const llegadaPunto = eventos.find((evento) => !esMarcacionPorteria(evento)) || null;
   const ultima = eventos[eventos.length - 1] || null;
-  const horaPunto = horaMarcacionExcel(llegadaPunto);
+  const marcacionEntrada = llegadaPunto || entradaPorteria || primera;
+  const horaPunto = horaMarcacionExcel(marcacionEntrada);
   const inicioProgramado = String(item.hora_inicio || "").slice(0, 5);
+  const finProgramado = String(item.hora_fin_2 || item.hora_fin || "").slice(0, 5);
   const minutosProgramados = horaTextoAMinutos(inicioProgramado);
   const minutosPunto = horaTextoAMinutos(horaPunto);
-  let diferencia = "";
+  const minutosFinProgramado = horaTextoAMinutos(finProgramado);
+  const minutosUltima = horaTextoAMinutos(horaMarcacionExcel(ultima));
+  let diferencia = "", diferenciaSalida = "";
   if (minutosProgramados != null && minutosPunto != null) {
     diferencia = minutosPunto - minutosProgramados;
     if (diferencia > 720) diferencia -= 1440;
     if (diferencia < -720) diferencia += 1440;
   }
+  if (minutosFinProgramado != null && minutosUltima != null) {
+    diferenciaSalida = minutosUltima - minutosFinProgramado;
+    if (diferenciaSalida > 720) diferenciaSalida -= 1440;
+    if (diferenciaSalida < -720) diferenciaSalida += 1440;
+  }
   return {
     eventos,
+    primera,
     entradaPorteria,
     llegadaPunto,
+    marcacionEntrada,
     ultima,
     horaPunto,
-    diferencia
+    diferencia,
+    diferenciaSalida,
+    marcacionesTexto:eventos.map(horaMarcacionExcel).filter(Boolean).join(" · ")
   };
+}
+
+function descripcionDiferenciaExcel(minutos, tipo) {
+  if (minutos === "" || minutos === null || minutos === undefined) return "Sin comparación";
+  const valor=Number(minutos);
+  if (!Number.isFinite(valor)) return "Sin comparación";
+  if (valor===0) return "A tiempo";
+  if (tipo==="entrada") return valor>0 ? `Llegó ${valor} min tarde` : `Llegó ${Math.abs(valor)} min antes`;
+  return valor>0 ? `Salió ${valor} min después` : `Salió ${Math.abs(valor)} min antes`;
 }
 
 function configurarHojaExcel(hoja, anchos) {
@@ -3528,9 +3536,10 @@ function configurarHojaExcel(hoja, anchos) {
 function exportarProgramacionComoCSV(registros, nombreBase, mapaMarcaciones = new Map()) {
   const columnas = [
     "Fecha", "Empleado", "Cédula", "Área", "Subárea / punto",
-    "Tipo de registro", "Turno", "Inicio", "Fin", "Novedad",
-    "Entrada portería", "Llegada al punto de trabajo", "Punto biométrico",
-    "Minutos llegada vs turno", "Última marcación", "Total marcaciones",
+    "Tipo de registro", "Turno completo", "Inicio", "Fin", "Inicio bloque 2", "Fin bloque 2", "Novedad",
+    "Entrada portería", "Primera marcación operativa", "Punto biométrico",
+    "Minutos llegada vs turno", "Estado de llegada", "Última marcación",
+    "Minutos salida vs turno", "Estado de salida", "Todas las marcaciones", "Total marcaciones",
     "Horas netas", "Horas nocturnas", "Extra candidata", "Estado extra"
   ];
 
@@ -3548,15 +3557,21 @@ function exportarProgramacionComoCSV(registros, nombreBase, mapaMarcaciones = ne
     obtenerAreaAmigable(item),
     item.subarea,
     esNovedad(item) ? "Novedad" : "Turno",
-    item.turno,
+    [item.turno,item.turno_2].filter(Boolean).join(" + "),
     item.hora_inicio,
     item.hora_fin,
+    item.hora_inicio_2,
+    item.hora_fin_2,
     esNovedad(item) ? obtenerLabelNovedad(item) : "",
     horaMarcacionExcel(detalle.entradaPorteria),
     detalle.horaPunto,
-    detalle.llegadaPunto?.area_biometrico || detalle.llegadaPunto?.terminal_alias || "",
+    detalle.marcacionEntrada?.area_biometrico || detalle.marcacionEntrada?.terminal_alias || "",
     detalle.diferencia,
+    descripcionDiferenciaExcel(detalle.diferencia,"entrada"),
     horaMarcacionExcel(detalle.ultima),
+    detalle.diferenciaSalida,
+    descripcionDiferenciaExcel(detalle.diferenciaSalida,"salida"),
+    detalle.marcacionesTexto,
     detalle.eventos.length,
     esNovedad(item) ? "" : Number(item.horas_netas || 0),
     esNovedad(item) ? "" : Number(item.horas_nocturnas || 0),
@@ -3618,16 +3633,22 @@ async function exportarDashboardExcel() {
       Área: valorExcelSeguro(obtenerAreaAmigable(item)),
       "Subárea / punto": valorExcelSeguro(item.subarea),
       "Tipo de registro": esNovedad(item) ? "Novedad" : "Turno",
-      Turno: valorExcelSeguro(item.turno),
+      "Turno completo": valorExcelSeguro([item.turno,item.turno_2].filter(Boolean).join(" + ")),
       Inicio: valorExcelSeguro(item.hora_inicio),
       Fin: valorExcelSeguro(item.hora_fin),
+      "Inicio bloque 2": valorExcelSeguro(item.hora_inicio_2),
+      "Fin bloque 2": valorExcelSeguro(item.hora_fin_2),
       Novedad: esNovedad(item) ? valorExcelSeguro(obtenerLabelNovedad(item)) : "",
       "Entrada por portería": valorExcelSeguro(horaMarcacionExcel(detalle.entradaPorteria)),
-      "Llegada al punto de trabajo": valorExcelSeguro(detalle.horaPunto),
-      "Punto biométrico de llegada": valorExcelSeguro(detalle.llegadaPunto?.area_biometrico || detalle.llegadaPunto?.terminal_alias),
-      "Terminal de llegada": valorExcelSeguro(detalle.llegadaPunto?.terminal_alias),
+      "Primera marcación operativa": valorExcelSeguro(detalle.horaPunto),
+      "Punto biométrico de llegada": valorExcelSeguro(detalle.marcacionEntrada?.area_biometrico || detalle.marcacionEntrada?.terminal_alias),
+      "Terminal de llegada": valorExcelSeguro(detalle.marcacionEntrada?.terminal_alias),
       "Minutos llegada vs inicio programado": detalle.diferencia,
+      "Estado de llegada": descripcionDiferenciaExcel(detalle.diferencia,"entrada"),
       "Última marcación": valorExcelSeguro(horaMarcacionExcel(detalle.ultima)),
+      "Minutos salida vs fin programado": detalle.diferenciaSalida,
+      "Estado de salida": descripcionDiferenciaExcel(detalle.diferenciaSalida,"salida"),
+      "Todas las marcaciones del día": valorExcelSeguro(detalle.marcacionesTexto),
       "Total marcaciones": detalle.eventos.length,
       "Horas netas": esNovedad(item) ? "" : Number(item.horas_netas || 0),
       "Horas nocturnas": esNovedad(item) ? "" : Number(item.horas_nocturnas || 0),
@@ -3637,7 +3658,7 @@ async function exportarDashboardExcel() {
     });
     const hojaProgramacion = configurarHojaExcel(
       window.XLSX.utils.json_to_sheet(programacion),
-      [12, 32, 16, 24, 22, 16, 10, 10, 10, 22, 18, 24, 24, 22, 18, 16, 16, 16, 16, 16, 14]
+      [12, 32, 16, 24, 22, 16, 16, 10, 10, 12, 12, 22, 18, 22, 24, 22, 16, 22, 18, 16, 22, 42, 16, 16, 16, 16, 14]
     );
     window.XLSX.utils.book_append_sheet(
       workbook,
@@ -4020,6 +4041,79 @@ function configurarRevisionNominaReal() {
   document.getElementById("btnGenerarProsof")?.addEventListener("click", generarPlantillaProsof);
 }
 
+function configurarCierreNominaAyb(){
+  actualizarAlertaCorteNomina();
+  document.getElementById("btnConfirmarNominaWhatsapp")?.addEventListener("click",confirmarReporteListoNomina);
+}
+
+function actualizarAlertaCorteNomina(){
+  const alerta=document.getElementById("alertaCorteNomina");
+  if(!alerta)return;
+  const hoy=new Date(),dia=hoy.getDate();
+  if(dia<16){alerta.classList.add("d-none");return;}
+  const mes=hoy.toLocaleDateString("es-CO",{month:"long",year:"numeric"});
+  alerta.classList.remove("d-none");
+  alerta.classList.remove("alert-info");
+  alerta.classList.toggle("alert-warning",dia<=23);
+  alerta.classList.toggle("alert-secondary",dia>23);
+  alerta.innerHTML=dia<=23
+    ? `<strong>Corte de Nómina ${escaparHtml(mes)}:</strong> confirma las horas extras a más tardar el día 23. Puedes continuar realizando ajustes después de esa fecha.`
+    : `<strong>Corte de Nómina ${escaparHtml(mes)}:</strong> la fecha recomendada de confirmación fue el día 23. El módulo permanece habilitado para aprobar, ajustar o corregir el reporte.`;
+}
+
+function resumenCierreNominaAyb(){
+  const filas=registrosRevisionFiltrados();
+  const contar=(estado)=>filas.filter(x=>String(x.estado_revision||"").toLowerCase()===estado).length;
+  return {total:filas.length,aprobados:contar("aprobado"),pendientes:contar("pendiente"),observados:contar("observado"),rechazados:contar("rechazado")};
+}
+
+async function registrarNotificacionReporteNomina(mensaje){
+  const {data:perfiles,error:errorPerfiles}=await supabase.from("nomina_perfiles")
+    .select("empleado_id").eq("rol","nomina").eq("activo",true);
+  if(errorPerfiles)throw new Error(`No se pudieron consultar los destinatarios de Nómina: ${errorPerfiles.message}`);
+  const ids=[...new Set((perfiles||[]).map(x=>x.empleado_id).filter(Boolean))];
+  if(!ids.length)throw new Error("No hay usuarios activos con rol Nómina configurados.");
+  const {data:empleados,error:errorEmpleados}=await supabase.from("empleados")
+    .select("id,cedula,nombres,apellidos").in("id",ids);
+  if(errorEmpleados)throw new Error(`No se pudieron identificar los destinatarios de Nómina: ${errorEmpleados.message}`);
+  const destinatarios=(empleados||[]).map(e=>({
+    cedula_destino:String(e.cedula||""),
+    nombre_destino:`${e.nombres||""} ${e.apellidos||""}`.trim()
+  })).filter(e=>e.cedula_destino);
+  if(!destinatarios.length)throw new Error("Los perfiles de Nómina no están vinculados con empleados válidos.");
+  const registros=destinatarios.map(destino=>({
+    ...destino,rol_destino:"nomina",tipo_notificacion:"reporte_horas_extras_listo",
+    titulo:"Reporte A&B listo para Nómina",mensaje,modulo:"dashboard_ayb",
+    referencia_id:null,estado_lectura:false,fecha_lectura:null,canal:"sistema",prioridad:"alta"
+  }));
+  const {error}=await supabase.from("notificaciones_sistema").insert(registros);
+  if(error)throw new Error(`No se pudo registrar la notificación interna: ${error.message}`);
+}
+
+async function confirmarReporteListoNomina(){
+  const btn=document.getElementById("btnConfirmarNominaWhatsapp");
+  const estado=document.getElementById("estadoConfirmacionNomina");
+  const ventana=window.open("about:blank","_blank");
+  const resumen=resumenCierreNominaAyb();
+  const desde=document.getElementById("revisionFechaDesde")?.value||"inicio";
+  const hasta=document.getElementById("revisionFechaHasta")?.value||"fin";
+  const responsable=sesionActiva?.nombre_completo||sesionActiva?.usuario||"Responsable A&B";
+  const mensaje=`Reporte de horas extras A&B listo para revisión de Nómina. Período: ${desde} a ${hasta}. Aprobados: ${resumen.aprobados}. Pendientes: ${resumen.pendientes}. Observados: ${resumen.observados}. Rechazados: ${resumen.rechazados}. Confirmado por: ${responsable}.`;
+  try{
+    if(btn){btn.disabled=true;btn.textContent="Confirmando...";}
+    await registrarNotificacionReporteNomina(mensaje);
+    if(estado)estado.textContent=`Confirmación interna enviada a Nómina · ${new Date().toLocaleString("es-CO")}`;
+    if(ventana)ventana.location.href=`https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+    else window.location.href=`https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+  }catch(error){
+    if(ventana)ventana.close();
+    console.error("Confirmación a Nómina:",error);
+    alert(error.message||String(error));
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="💬 Confirmar a Nómina";}
+  }
+}
+
 async function cargarRevisionNominaReal() {
   const tbody=document.getElementById("tbodyRevisionNominaReal");
   if (!tbody) return;
@@ -4058,40 +4152,57 @@ async function cargarRevisionNominaReal() {
 async function completarRevisionNominaAyb(revisiones,desde,hasta) {
   if (!revisiones.length) return [];
   const cedulas=[...new Set(revisiones.map(x=>String(x.cedula||"").trim()).filter(Boolean))];
-  const empleados=[]; const marcas=[];
-  const fin=new Date(`${hasta}T00:00:00`); fin.setDate(fin.getDate()+1);
-  const finExclusivo=fechaISORevision(fin);
+  const empleados=[]; const jornadas=[];
   for(let i=0;i<cedulas.length;i+=80){
     const lote=cedulas.slice(i,i+80);
-    const [re,rm]=await Promise.all([
+    const [re,rj]=await Promise.all([
       supabase.from("empleados").select("cedula,nombres,apellidos,cargo,centro_costos,area,codigo").in("cedula",lote),
-      supabase.from("biotime_marcaciones").select("emp_code,punch_time,is_attendance").in("emp_code",lote).gte("punch_time",`${desde}T00:00:00`).lt("punch_time",`${finExclusivo}T00:00:00`).order("punch_time")
+      supabase.from("vw_dashboard_ayb_real_diario")
+        .select("cedula,fecha,turno,turno_2,hora_inicio,hora_fin,hora_inicio_2,hora_fin_2,horas_programadas_netas,horas_reales_pareadas,total_marcaciones,primera_marcacion,ultima_marcacion,estado_comparacion")
+        .in("cedula",lote).gte("fecha",desde).lte("fecha",hasta)
     ]);
     if(re.error)console.warn("Empleados revisión:",re.error.message); else empleados.push(...(re.data||[]));
-    if(rm.error)console.warn("Marcaciones revisión:",rm.error.message); else marcas.push(...(rm.data||[]));
+    if(rj.error)console.warn("Jornadas revisión:",rj.error.message); else jornadas.push(...(rj.data||[]));
   }
   const porCedula=new Map(empleados.map(x=>[String(x.cedula||"").trim(),x]));
-  const porDia=new Map();
-  marcas.forEach(m=>{
-    if(m.is_attendance===false)return;
-    const k=`${String(m.emp_code||"").trim()}|${String(m.punch_time||"").slice(0,10)}`;
-    const lista=porDia.get(k)||[]; lista.push(m.punch_time); porDia.set(k,lista);
-  });
+  const porDia=new Map(jornadas.map(j=>[
+    `${String(j.cedula||"").trim()}|${String(j.fecha||"").slice(0,10)}`,j
+  ]));
+  const conceptosExtra=new Set(["P003","P004","P008","P009"]);
   return revisiones.map(r=>{
-    const d=r.detalle||{},e=porCedula.get(String(r.cedula||"").trim())||{};
-    const lista=porDia.get(`${String(r.cedula||"").trim()}|${String(r.fecha||"").slice(0,10)}`)||[];
+    const detalle=r.detalle||{},e=porCedula.get(String(r.cedula||"").trim())||{};
+    const j=porDia.get(`${String(r.cedula||"").trim()}|${String(r.fecha||"").slice(0,10)}`)||{};
+    const codigo=String(r.concepto_codigo||"").toUpperCase();
+    const estadoComparacion=String(j.estado_comparacion||"");
+    const minutosPosteriores=minutosPosterioresTurnoRevision(j);
+    const cerrado=["aprobado","rechazado"].includes(String(r.estado||"").toLowerCase());
+    const extraValida=!conceptosExtra.has(codigo) || minutosPosteriores>25;
     return {...r,
       empleado:`${e.nombres||""} ${e.apellidos||""}`.trim()||r.cedula,
       cargo:e.cargo||"", centro_costos:e.centro_costos||"", area:e.area||"",
-      turno:d.turno||"", turno_2:d.turno_2||"", hora_inicio:d.hora_inicio||"", hora_fin:d.hora_fin||"",
-      hora_inicio_2:d.hora_inicio_2||"", hora_fin_2:d.hora_fin_2||"",
-      horas_programadas_netas:d.horas_programadas_netas??d.horas_programadas,
-      horas_reales:d.horas_reales, horas_candidatas:r.horas_calculadas,
-      primera_marcacion:lista[0]||null, ultima_marcacion:lista.at(-1)||null, total_marcaciones:lista.length,
+      turno:j.turno||detalle.turno||"", turno_2:j.turno_2||detalle.turno_2||"",
+      hora_inicio:j.hora_inicio||detalle.hora_inicio||"", hora_fin:j.hora_fin||detalle.hora_fin||"",
+      hora_inicio_2:j.hora_inicio_2||detalle.hora_inicio_2||"", hora_fin_2:j.hora_fin_2||detalle.hora_fin_2||"",
+      horas_programadas_netas:j.horas_programadas_netas??detalle.horas_programadas_netas??detalle.horas_programadas,
+      horas_reales:j.horas_reales_pareadas??detalle.horas_reales, horas_candidatas:r.horas_calculadas,
+      primera_marcacion:j.primera_marcacion||null, ultima_marcacion:j.ultima_marcacion||null,
+      total_marcaciones:Number(j.total_marcaciones||0), estado_comparacion:estadoComparacion,
+      minutos_posteriores_turno:minutosPosteriores,
       revision_id:r.id, estado_revision:r.estado,
-      permite_revision:!["aprobado","rechazado"].includes(String(r.estado||"").toLowerCase())
+      ocultar_por_tolerancia:conceptosExtra.has(codigo)&&!extraValida&&!cerrado,
+      permite_revision:!cerrado && extraValida && estadoComparacion==="comparable"
     };
-  });
+  }).filter(r=>!r.ocultar_por_tolerancia);
+}
+
+function minutosPosterioresTurnoRevision(jornada) {
+  const fin=String(jornada?.hora_fin_2||jornada?.hora_fin||"").slice(0,5);
+  const real=horaTimestampRevision(jornada?.ultima_marcacion);
+  let p=minutosHoraRevision(fin),r=minutosHoraRevision(real);
+  if(p==null||r==null)return 0;
+  if(p<360) p+=1440;
+  if(r<360 && p>=1440) r+=1440;
+  return Math.max(r-p,0);
 }
 
 function registrosRevisionFiltrados() {
@@ -4170,6 +4281,19 @@ function bloqueHorarioRevision(programada, realTimestamp, tipo) {
   return `<div><strong>Prog.</strong> ${escaparHtml(prog)}</div><div><strong>Real</strong> ${escaparHtml(real)}</div><div class="mt-1">${diferenciaHorarioRevision(prog, real, tipo)}</div>`;
 }
 
+function estadoComparacionRevision(registro) {
+  const estado=String(registro?.estado_comparacion||"");
+  const textos={
+    marcaciones_incompletas:"Marcaciones incompletas",
+    programado_sin_marcaciones:"Sin marcaciones",
+    marcado_sin_programacion:"Sin programación",
+    programacion_a_revisar:"Programación por revisar",
+    pendiente_revision:"Comparación pendiente"
+  };
+  return estado&&estado!=="comparable"
+    ? `<div class="small text-warning-emphasis mt-1">${escaparHtml(textos[estado]||estado)}</div>`:"";
+}
+
 function renderRevisionNominaReal() {
   const tbody=document.getElementById("tbodyRevisionNominaReal"); if(!tbody)return;
   const rows=registrosRevisionFiltrados();
@@ -4183,7 +4307,7 @@ function renderRevisionNominaReal() {
       <td><strong>${escaparHtml(x.empleado||"")}</strong><div class="small text-muted">${escaparHtml(x.codigo_erp||"Sin código ERP")} · ${escaparHtml(x.cedula||"")}</div></td>
       <td>${escaparHtml(formatearFechaCorta(x.fecha)||x.fecha||"")}</td>
       <td>${formatearHorasRevision(x.horas_programadas_netas||0)}<div class="small text-muted">${escaparHtml(x.turno||"")} · ${escaparHtml((x.hora_inicio||"-").slice(0,5))}–${escaparHtml((x.hora_fin||"-").slice(0,5))}</div></td>
-      <td>${formatearHorasRevision(x.horas_reales||0)}<div class="small text-muted">${x.total_marcaciones||0} marcación(es)</div></td>
+      <td>${formatearHorasRevision(x.horas_reales||0)}<div class="small text-muted">${x.total_marcaciones||0} marcación(es)</div>${estadoComparacionRevision(x)}</td>
       <td>${bloqueHorarioRevision(x.hora_inicio,x.primera_marcacion,"entrada")}</td>
       <td>${bloqueHorarioRevision(x.hora_fin,x.ultima_marcacion,"salida")}</td>
       <td><strong>${escaparHtml(x.concepto_codigo||"")}</strong><div class="small">${escaparHtml(x.concepto_nombre||"")}</div></td>
@@ -4234,6 +4358,65 @@ window.editarRevisionNomina=async function(id,horasActuales){
   await cargarRevisionNominaReal();
 };
 
+function fechaRealProsof(valor){
+  const [anio,mes,dia]=String(valor||"").slice(0,10).split("-").map(Number);
+  return anio&&mes&&dia ? new Date(anio,mes-1,dia,12,0,0) : null;
+}
+
+async function cargarLibroPlantillaProsof(){
+  if(!window.XLSX)throw new Error("No se cargó el componente de Excel.");
+  const rutas=["../data/plantilla_prosof.xls","/data/plantilla_prosof.xls"];
+  for(const ruta of rutas){
+    try{
+      const respuesta=await fetch(ruta,{cache:"no-store"});
+      if(!respuesta.ok)continue;
+      const contenido=await respuesta.arrayBuffer();
+      const libro=window.XLSX.read(contenido,{type:"array",cellDates:true,cellStyles:true});
+      if(libro?.Sheets?.Hoja1&&libro?.Sheets?.conceptos)return libro;
+    }catch(error){
+      console.warn(`No se pudo cargar la plantilla PROSOF desde ${ruta}:`,error);
+    }
+  }
+
+  // Respaldo estructural: conserva hojas, encabezados y BIFF8 aunque el archivo
+  // oficial no haya sido copiado al despliegue de GitHub Pages.
+  const libro=window.XLSX.utils.book_new();
+  const encabezados=[["Empleado","Concepto","Fecha","Dias","FechaInici","Horas","Valor","LiquidarEnPrima","Centro de costos"]];
+  const conceptos=[["",""],["",""],["P003","EXTRA DIURNA"],["P004","EXTRA NOCTURNA"],["P005","RECARGO NOCTURNO"],["P006","DOMINICAL COMPENSADO"],["P007","FESTIVO"],["P008","EXTRA FESTIVA DIURNA"],["P009","EXTRA FESTIVA NOCTURNA"],["P100","RECARGO NOCTURNO DOMINICAL O FESTIVO"]];
+  window.XLSX.utils.book_append_sheet(libro,window.XLSX.utils.aoa_to_sheet(encabezados),"Hoja1");
+  window.XLSX.utils.book_append_sheet(libro,window.XLSX.utils.aoa_to_sheet(conceptos),"conceptos");
+  return libro;
+}
+
+function escribirFilasEnPlantillaProsof(libro,filas){
+  const hoja=libro.Sheets.Hoja1;
+  if(!hoja)throw new Error("La plantilla oficial no contiene la hoja Hoja1.");
+  const estilos=Array.from({length:9},(_,c)=>hoja[window.XLSX.utils.encode_cell({r:1,c})]?.s);
+  for(const clave of Object.keys(hoja)){
+    const celda=window.XLSX.utils.decode_cell(clave);
+    if(/^[A-Z]+\d+$/.test(clave)&&celda.r>=1)delete hoja[clave];
+  }
+  filas.forEach((fila,indice)=>{
+    const r=indice+1;
+    const valores=[
+      {c:0,v:String(fila.Empleado||""),t:"s"},
+      {c:1,v:String(fila.Concepto||""),t:"s"},
+      {c:2,v:fechaRealProsof(fila.Fecha),t:"d",z:"dd/mm/yyyy"},
+      {c:5,v:Number(fila.Horas||0),t:"n"},
+      {c:7,v:String(fila.LiquidarEnPrima||"N"),t:"s"}
+    ];
+    valores.forEach(({c,v,t,z})=>{
+      if(v===null)return;
+      const ref=window.XLSX.utils.encode_cell({r,c});
+      hoja[ref]={v,t};
+      if(z)hoja[ref].z=z;
+      if(estilos[c])hoja[ref].s={...estilos[c]};
+    });
+  });
+  hoja["!ref"]=`A1:I${Math.max(filas.length+1,1)}`;
+  return libro;
+}
+
 async function generarPlantillaProsof(){
   try{
     const desde=document.getElementById("revisionFechaDesde")?.value; const hasta=document.getElementById("revisionFechaHasta")?.value;
@@ -4241,9 +4424,8 @@ async function generarPlantillaProsof(){
     if(desde)q=q.gte("Fecha",desde); if(hasta)q=q.lte("Fecha",hasta);
     const {data,error}=await q; if(error)throw error;
     if(!data?.length)return alert("No hay conceptos aprobados y elegibles para PROSOF en el período seleccionado.");
-    const filas=data.map(x=>({Empleado:x.Empleado||"",Concepto:x.Concepto||"",Fecha:x.Fecha||"",Dias:x.Dias??"",FechaInici:x.FechaInici??"",Horas:Number(x.Horas||0),Valor:x.Valor??"",LiquidarEnPrima:x.LiquidarEnPrima||"N","Centro de costos":x["Centro de costos"]??""}));
-    const ws=window.XLSX.utils.json_to_sheet(filas,{header:["Empleado","Concepto","Fecha","Dias","FechaInici","Horas","Valor","LiquidarEnPrima","Centro de costos"]});
-    const wb=window.XLSX.utils.book_new(); window.XLSX.utils.book_append_sheet(wb,ws,"PROSOF");
-    window.XLSX.writeFile(wb,`PROSOF_AYB_${desde||"inicio"}_${hasta||"fin"}.xlsx`);
+    const filas=data.map(x=>({Empleado:String(x.Empleado||""),Concepto:x.Concepto||"",Fecha:x.Fecha||"",Horas:Number(x.Horas||0),LiquidarEnPrima:x.LiquidarEnPrima||"N"}));
+    const wb=escribirFilasEnPlantillaProsof(await cargarLibroPlantillaProsof(),filas);
+    window.XLSX.writeFile(wb,`PROSOF_AYB_${desde||"inicio"}_${hasta||"fin"}.xls`,{bookType:"biff8",cellStyles:true});
   }catch(e){console.error("PROSOF:",e);alert("No fue posible generar la plantilla PROSOF: "+(e.message||e));}
 }
