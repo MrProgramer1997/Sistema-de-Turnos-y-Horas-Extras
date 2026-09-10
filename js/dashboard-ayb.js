@@ -4103,8 +4103,8 @@ async function confirmarReporteListoNomina(){
     if(btn){btn.disabled=true;btn.textContent="Confirmando...";}
     await registrarNotificacionReporteNomina(mensaje);
     if(estado)estado.textContent=`Confirmación interna enviada a Nómina · ${new Date().toLocaleString("es-CO")}`;
-    if(ventana)ventana.location.href=`https://wa.me/?text=${encodeURIComponent(mensaje)}`;
-    else window.location.href=`https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+    if(ventana)ventana.location.href=`https://wa.me/573216155924?text=${encodeURIComponent(mensaje)}`;
+    else window.location.href=`https://wa.me/573216155924?text=${encodeURIComponent(mensaje)}`;
   }catch(error){
     if(ventana)ventana.close();
     console.error("Confirmación a Nómina:",error);
@@ -4190,7 +4190,11 @@ async function completarRevisionNominaAyb(revisiones,desde,hasta) {
       minutos_posteriores_turno:minutosPosteriores,
       revision_id:r.id, estado_revision:r.estado,
       ocultar_por_tolerancia:conceptosExtra.has(codigo)&&!extraValida&&!cerrado,
-      permite_revision:!cerrado && extraValida && estadoComparacion==="comparable"
+      // La comparación biométrica es información de apoyo para la decisión,
+      // pero no debe bloquear conceptos ya calculados (por ejemplo P005 y
+      // P006). La elegibilidad real depende del estado de la revisión y, para
+      // extras posteriores al turno, de superar la tolerancia de 25 minutos.
+      permite_revision:!cerrado && extraValida && Number(r.horas_calculadas||0)>0
     };
   }).filter(r=>!r.ocultar_por_tolerancia);
 }
