@@ -4153,25 +4153,22 @@ async function completarRevisionNominaAyb(revisiones,desde,hasta) {
   if (!revisiones.length) return [];
   const cedulas=[...new Set(revisiones.map(x=>String(x.cedula||"").trim()).filter(Boolean))];
   const empleados=[]; const jornadas=[];
-  for(let i=0;i<cedulas.length;i+=80){
-    const lote=cedulas.slice(i,i+80);
-    const [re,rj]=await Promise.all([
-      supabase.from("empleados").select("cedula,nombres,apellidos,cargo,centro_costos,area,codigo").in("cedula",lote),
-      supabase.from("vw_dashboard_ayb_real_diario")
-        .select("cedula,fecha,turno,turno_2,hora_inicio,hora_fin,hora_inicio_2,hora_fin_2,horas_programadas_netas,horas_reales_pareadas,total_marcaciones,primera_marcacion,ultima_marcacion,estado_comparacion")
-        .in("cedula",lote).gte("fecha",desde).lte("fecha",hasta)
-    ]);
+  for(let i=0;i<cedulas.length;i+=20){
+    const lote=cedulas.slice(i,i+20);
+    const re=await supabase.from("empleados")
+      .select("cedula,nombres,apellidos,cargo,centro_costos,area,codigo").in("cedula",lote);
     if(re.error)console.warn("Empleados revisión:",re.error.message); else empleados.push(...(re.data||[]));
-    if(rj.error)console.warn("Jornadas revisión:",rj.error.message); else jornadas.push(...(rj.data||[]));
+    jornadas.push(...await consultarJornadasRevisionAyb(lote,desde,hasta));
   }
-  const porCedula=new Map(empleados.map(x=>[String(x.cedula||"").trim(),x]));
+  const porCedula=new Map(empleados.map(x=>[normalizarDocumentoEmpleado(x.cedula),x]));
   const porDia=new Map(jornadas.map(j=>[
-    `${String(j.cedula||"").trim()}|${String(j.fecha||"").slice(0,10)}`,j
+    `${normalizarDocumentoEmpleado(j.cedula)}|${String(j.fecha||"").slice(0,10)}`,j
   ]));
   const conceptosExtra=new Set(["P003","P004","P008","P009"]);
   return revisiones.map(r=>{
-    const detalle=r.detalle||{},e=porCedula.get(String(r.cedula||"").trim())||{};
-    const j=porDia.get(`${String(r.cedula||"").trim()}|${String(r.fecha||"").slice(0,10)}`)||{};
+    const documento=normalizarDocumentoEmpleado(r.cedula);
+    const detalle=r.detalle||{},e=porCedula.get(documento)||{};
+    const j=porDia.get(`${documento}|${String(r.fecha||"").slice(0,10)}`)||{};
     const codigo=String(r.concepto_codigo||"").toUpperCase();
     const estadoComparacion=String(j.estado_comparacion||"");
     const minutosPosteriores=minutosPosterioresTurnoRevision(j);
@@ -4197,6 +4194,27 @@ async function completarRevisionNominaAyb(revisiones,desde,hasta) {
       permite_revision:!cerrado && extraValida && Number(r.horas_calculadas||0)>0
     };
   }).filter(r=>!r.ocultar_por_tolerancia);
+}
+
+async function consultarJornadasRevisionAyb(cedulas,desde,hasta) {
+  if(!cedulas.length)return [];
+  let consulta=supabase.from("vw_dashboard_ayb_real_diario")
+    .select("cedula,fecha,turno,turno_2,hora_inicio,hora_fin,hora_inicio_2,hora_fin_2,horas_programadas_netas,horas_reales_pareadas,total_marcaciones,primera_marcacion,ultima_marcacion,estado_comparacion")
+    .in("cedula",cedulas);
+  if(desde)consulta=consulta.gte("fecha",desde);
+  if(hasta)consulta=consulta.lte("fecha",hasta);
+  const resultado=await consulta;
+  if(!resultado.error)return resultado.data||[];
+  if(cedulas.length===1){
+    console.warn(`Jornada biométrica ${cedulas[0]}:`,resultado.error.message);
+    return [];
+  }
+  // La vista diaria es costosa. Si Supabase cancela un lote, se divide para
+  // recuperar todas las marcaciones en vez de dejar en cero a todo el grupo.
+  const mitad=Math.ceil(cedulas.length/2);
+  const izquierda=await consultarJornadasRevisionAyb(cedulas.slice(0,mitad),desde,hasta);
+  const derecha=await consultarJornadasRevisionAyb(cedulas.slice(mitad),desde,hasta);
+  return [...izquierda,...derecha];
 }
 
 function minutosPosterioresTurnoRevision(jornada) {
