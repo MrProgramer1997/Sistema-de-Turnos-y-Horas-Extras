@@ -37,9 +37,9 @@ function esPaginaLoginSidebar() {
 
 async function cargarHtmlSidebarSeguro() {
   const rutas = [
-    "../components/sidebar.html?v=roles-dashboard-ayb-20260603",
-    "./components/sidebar.html?v=roles-dashboard-ayb-20260603",
-    "/components/sidebar.html?v=roles-dashboard-ayb-20260603"
+    "../components/sidebar.html?v=portal-6-2-1",
+    "./components/sidebar.html?v=portal-6-2-1",
+    "/components/sidebar.html?v=portal-6-2-1"
   ];
 
   let ultimoError = null;
@@ -202,6 +202,7 @@ function obtenerClaveModuloSidebar(href) {
   if (valor.includes("programacion-ayb")) return "programacion-ayb";
   if (valor.includes("programacion-administrativo")) return "programacion-administrativo";
   if (valor.includes("programacion-operaciones")) return "programacion-operaciones";
+  if (valor.includes("mis-turnos.html")) return "mis-turnos";
   if (valor.includes("mis-turnos-ayb")) return "mis-turnos-ayb";
   if (valor.includes("mis-turnos-administrativo")) return "mis-turnos-administrativo";
   if (valor.includes("login")) return "login";
@@ -221,7 +222,7 @@ function usuarioPuedeVerModuloSidebar(sesion, modulo, rolesPermitidos = []) {
     Un empleado operativo no ve módulos administrativos en el menú.
   */
   if (rol === "empleado") {
-    return ["mis-turnos-ayb", "mis-turnos-administrativo", "login"].includes(modulo);
+    return ["mis-turnos", "mis-turnos-ayb", "mis-turnos-administrativo", "login"].includes(modulo);
   }
 
   /*
@@ -258,7 +259,7 @@ function usuarioPuedeVerModuloSidebar(sesion, modulo, rolesPermitidos = []) {
   }
 
   if (usuarioEsAdminSidebar(sesion)) return true;
-  if (modulo === "mis-turnos-ayb") return true;
+  if (modulo === "mis-turnos" || modulo === "mis-turnos-ayb") return true;
   if (modulos.includes(modulo)) return true;
   if (rolesPermitidos.includes(rol)) return true;
 
@@ -282,7 +283,7 @@ function aplicarPermisosSidebar() {
       .map((item) => normalizarTextoSidebar(item))
       .filter(Boolean);
 
-    if (rol === "empleado" && !["mis-turnos-ayb", "mis-turnos-administrativo", "login"].includes(modulo)) {
+    if (rol === "empleado" && !["mis-turnos", "mis-turnos-ayb", "mis-turnos-administrativo", "login"].includes(modulo)) {
       ocultarLinkSidebar(link);
       return;
     }
@@ -322,23 +323,22 @@ function activarLinkActivo() {
 function configurarLogout() {
   const btn = document.getElementById("btnLogout");
   if (!btn) return;
-
-  btn.addEventListener("click", (e) => {
-    e.preventDefault();
-
-    localStorage.removeItem("ccp_sesion");
-    localStorage.removeItem("usuarioActual");
-    localStorage.removeItem("empleadoActual");
-    localStorage.removeItem("sessionUser");
-    localStorage.removeItem("userData");
-    localStorage.removeItem("authUser");
-    localStorage.removeItem("usuarioLogueado");
-    localStorage.removeItem("empleadoSesion");
-
-    sessionStorage.clear();
-
-    window.location.href = "login.html";
-  });
+  btn.addEventListener("click", async (e) => {
+    e.preventDefault();e.stopImmediatePropagation();
+    if(btn.dataset.cerrando==='1')return;
+    btn.dataset.cerrando='1';btn.setAttribute('aria-disabled','true');
+    const label=btn.textContent;btn.textContent='Cerrando sesion...';
+    try {
+      const script=Array.from(document.scripts).find(s=>/\/js\/layout\.js(?:\?|$)/.test(s.src));
+      const base=script?.src||new URL('../js/layout.js',window.location.href).href;
+      const modulo=await import(new URL('./sesion-protegida.js?v=sesion-6-2-1',base).href);
+      await modulo.cerrarSesionSegura();
+      window.location.href='login.html';
+    }catch(error){
+      btn.dataset.cerrando='0';btn.removeAttribute('aria-disabled');btn.textContent=label;
+      alert(error.message||'No se pudo cerrar la sesion. Reintenta antes de cambiar de cuenta.');
+    }
+  },true);
 }
 
 function configurarToggleSidebarEscritorio() {

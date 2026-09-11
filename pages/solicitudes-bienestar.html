@@ -1,1081 +1,401 @@
 <!DOCTYPE html>
+
 <html lang="es">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Solicitudes Bienestar</title>
-
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="../css/layout.css" />
-
-  <style>
-    :root {
-      --bg: #f4f7fb;
-      --card: #ffffff;
-      --text: #0f172a;
-      --muted: #64748b;
-      --border: #e2e8f0;
-      --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
-      --radius: 18px;
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-    }
-
-    .page-wrap {
-      max-width: 1720px;
-      margin: 24px auto;
-      padding: 0 16px;
-    }
-
-    .card-soft {
-      border: 0;
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      background: var(--card);
-    }
-
-    .section-title {
-      font-size: 1rem;
-      font-weight: 800;
-      margin-bottom: 14px;
-      color: var(--text);
-    }
-
-    .small-muted {
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
-
-    .required::after {
-      content: " *";
-      color: #dc2626;
-    }
-
-    .toolbar {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .toolbar-left,
-    .toolbar-right {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .kpi-box {
-      border-radius: 16px;
-      padding: 18px;
-      border: 1px solid var(--border);
-      background: linear-gradient(135deg, #ffffff, #f8fbff);
-      height: 100%;
-    }
-
-    .kpi-number {
-      font-size: 1.7rem;
-      font-weight: 800;
-      line-height: 1.1;
-      margin-top: 8px;
-    }
-
-    .alert-inline {
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-size: 0.92rem;
-      border: 1px solid transparent;
-      margin-bottom: 10px;
-    }
-
-    .bg-soft-info {
-      background: #dbeafe;
-      color: #1d4ed8;
-      border-color: #bfdbfe;
-    }
-
-    .bg-soft-success {
-      background: #dcfce7;
-      color: #166534;
-      border-color: #86efac;
-    }
-
-    .bg-soft-warning {
-      background: #fef3c7;
-      color: #92400e;
-      border-color: #fcd34d;
-    }
-
-    .bg-soft-danger {
-      background: #fee2e2;
-      color: #991b1b;
-      border-color: #fca5a5;
-    }
-
-    .estado-badge {
-      display: inline-block;
-      border-radius: 999px;
-      padding: 6px 10px;
-      font-size: 12px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    .estado-pendiente {
-      background: #fff7cc;
-      color: #7a5d00;
-    }
-
-    .estado-pendiente-documentos {
-      background: #ffe7c2;
-      color: #8a4b00;
-    }
-
-    .estado-en-revision {
-      background: #dbeafe;
-      color: #1d4ed8;
-    }
-
-    .estado-aprobada {
-      background: #d1fae5;
-      color: #065f46;
-    }
-
-    .estado-rechazada {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    .estado-fuera-de-tiempo {
-      background: #fce7f3;
-      color: #9d174d;
-    }
-
-    .estado-aplicada-programacion {
-      background: #ede9fe;
-      color: #5b21b6;
-    }
-
-    .estado-cerrada {
-      background: #e5e7eb;
-      color: #374151;
-    }
-
-    .sticky-actions {
-      position: sticky;
-      bottom: 0;
-      background: #fff;
-      padding-top: 12px;
-      z-index: 2;
-    }
-
-    .doc-card {
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
-      background: #fff;
-    }
-
-    .doc-chip {
-      display: inline-flex;
-      align-items: center;
-      border-radius: 999px;
-      padding: 5px 10px;
-      font-size: 12px;
-      font-weight: 700;
-      background: #eef2ff;
-      color: #3730a3;
-      margin: 0 6px 6px 0;
-    }
-
-    .doc-file-row {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px;
-      background: #f8fafc;
-      margin-bottom: 10px;
-    }
-
-    .doc-file-name {
-      font-weight: 700;
-      color: var(--text);
-      word-break: break-word;
-    }
-
-    .table thead th {
-      white-space: nowrap;
-      font-size: 0.92rem;
-    }
-
-    .table tbody td {
-      vertical-align: middle;
-      font-size: 0.93rem;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    .search-wrap {
-      position: relative;
-    }
-
-    .autocomplete-list {
-      position: absolute;
-      width: 100%;
-      z-index: 50;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      margin-top: 6px;
-      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
-      max-height: 280px;
-      overflow-y: auto;
-    }
-
-    .autocomplete-item {
-      padding: 12px 14px;
-      border-bottom: 1px solid #f1f5f9;
-      cursor: pointer;
-    }
-
-    .autocomplete-item:last-child {
-      border-bottom: 0;
-    }
-
-    .autocomplete-item:hover {
-      background: #f8fafc;
-    }
-
-    .employee-pill {
-      border-radius: 14px;
-      border: 1px solid #bfdbfe;
-      background: #eff6ff;
-      padding: 12px 14px;
-    }
-
-    .employee-label {
-      font-size: 0.82rem;
-      color: var(--muted);
-      margin-bottom: 2px;
-    }
-
-    .employee-value {
-      font-weight: 700;
-      color: var(--text);
-    }
-
-    .confirm-box {
-      border-radius: 14px;
-      padding: 14px 16px;
-      border: 1px solid #86efac;
-      background: #ecfdf5;
-      color: #166534;
-      display: none;
-      margin-top: 14px;
-      font-weight: 700;
-    }
-
-    .table-actions {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .cell-docs {
-      max-width: 320px;
-      white-space: normal;
-    }
-
-    .summary-box {
-      border: 1px dashed #cbd5e1;
-      border-radius: 14px;
-      padding: 12px;
-      background: #f8fafc;
-    }
-
-    .btn-soft {
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      color: #1d4ed8;
-    }
-
-    .btn-soft:hover {
-      background: #dbeafe;
-      color: #1e40af;
-      border-color: #93c5fd;
-    }
-
-    .mini-kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .mini-kpi {
-      border: 1px solid var(--border);
-      background: #fff;
-      border-radius: 12px;
-      padding: 10px 12px;
-    }
-
-    .mini-kpi .label {
-      font-size: 0.82rem;
-      color: var(--muted);
-    }
-
-    .mini-kpi .value {
-      font-size: 1.1rem;
-      font-weight: 800;
-      margin-top: 4px;
-    }
-
-    .notificacion-item {
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
-      background: #fff;
-    }
-
-    .notificacion-no-leida {
-      border-left: 5px solid #dc2626;
-      background: #fffdf7;
-    }
-
-    .notificacion-leida {
-      opacity: 0.88;
-    }
-
-    .notificacion-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: start;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .notificacion-title {
-      font-weight: 800;
-      margin-bottom: 4px;
-    }
-
-    .notificacion-meta {
-      font-size: 0.84rem;
-      color: var(--muted);
-    }
-
-    .prioridad-badge {
-      display: inline-block;
-      border-radius: 999px;
-      padding: 4px 8px;
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: capitalize;
-    }
-
-    .prioridad-baja {
-      background: #e5e7eb;
-      color: #374151;
-    }
-
-    .prioridad-media {
-      background: #dbeafe;
-      color: #1d4ed8;
-    }
-
-    .prioridad-alta {
-      background: #fef3c7;
-      color: #92400e;
-    }
-
-    .prioridad-critica {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-
-
-    /* ===== Mejoras visuales Bienestar ===== */
-
-    .module-hero {
-      background: linear-gradient(135deg, #0f766e, #2563eb);
-      color: #ffffff;
-      border-radius: 22px;
-      padding: 22px 24px;
-      box-shadow: 0 18px 38px rgba(37, 99, 235, 0.20);
-    }
-
-    .module-hero h2,
-    .module-hero .small-muted {
-      color: #ffffff;
-    }
-
-    .module-hero .btn {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.45);
-      color: #ffffff;
-    }
-
-    .module-hero .btn:hover {
-      background: rgba(255, 255, 255, 0.22);
-      color: #ffffff;
-    }
-
-    .session-card {
-      border-left: 6px solid #0ea5e9;
-      background: linear-gradient(135deg, #ffffff, #eef6ff);
-    }
-
-    .kpi-row .kpi-box {
-      position: relative;
-      overflow: hidden;
-      border: 0;
-      color: #ffffff;
-      min-height: 116px;
-    }
-
-    .kpi-row .kpi-box::after {
-      content: "";
-      position: absolute;
-      right: -28px;
-      bottom: -32px;
-      width: 110px;
-      height: 110px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.16);
-    }
-
-    .kpi-row .col-md-3:nth-child(1) .kpi-box {
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    }
-
-    .kpi-row .col-md-3:nth-child(2) .kpi-box {
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-    }
-
-    .kpi-row .col-md-3:nth-child(3) .kpi-box {
-      background: linear-gradient(135deg, #16a34a, #15803d);
-    }
-
-    .kpi-row .col-md-3:nth-child(4) .kpi-box {
-      background: linear-gradient(135deg, #dc2626, #b91c1c);
-    }
-
-    .kpi-row .kpi-box .small-muted,
-    .kpi-row .kpi-number {
-      color: #ffffff;
-      position: relative;
-      z-index: 1;
-    }
-
-    .kpi-row .kpi-number {
-      font-size: 2.15rem;
-    }
-
-    .card-color-header {
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-
-    .card-color-header > .card-body {
-      padding-top: 18px;
-    }
-
-    .panel-title-line {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .panel-title-icon {
-      width: 34px;
-      height: 34px;
-      border-radius: 12px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 900;
-      color: #ffffff;
-      flex: 0 0 auto;
-    }
-
-    .panel-title-icon.blue {
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    }
-
-    .panel-title-icon.green {
-      background: linear-gradient(135deg, #16a34a, #15803d);
-    }
-
-    .panel-title-icon.purple {
-      background: linear-gradient(135deg, #7c3aed, #5b21b6);
-    }
-
-    .panel-title-text h5 {
-      margin-bottom: 0;
-      font-weight: 900;
-    }
-
-    #panelGestion {
-      border-top: 6px solid #16a34a;
-    }
-
-    #panelGestion .card-body {
-      background: linear-gradient(180deg, #ffffff, #f8fcfb);
-      border-radius: var(--radius);
-    }
-
-    .mini-kpi {
-      border: 0;
-      color: #ffffff;
-      min-height: 86px;
-      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
-    }
-
-    .mini-kpi .label,
-    .mini-kpi .value {
-      color: #ffffff;
-    }
-
-    .mini-kpi-grid .mini-kpi:nth-child(1) {
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-    }
-
-    .mini-kpi-grid .mini-kpi:nth-child(2) {
-      background: linear-gradient(135deg, #2563eb, #1d4ed8);
-    }
-
-    .mini-kpi-grid .mini-kpi:nth-child(3) {
-      background: linear-gradient(135deg, #16a34a, #15803d);
-    }
-
-    .mini-kpi-grid .mini-kpi:nth-child(4) {
-      background: linear-gradient(135deg, #dc2626, #b91c1c);
-    }
-
-    .table thead th {
-      background: #f1f5f9;
-      color: #0f172a;
-      border-bottom: 1px solid #dbe4f0;
-    }
-
-    .fila-estado-aprobada td,
-    .fila-estado-aplicada_programacion td,
-    .fila-estado-cerrada td {
-      background: #ecfdf5 !important;
-    }
-
-    .fila-estado-rechazada td {
-      background: #fef2f2 !important;
-    }
-
-    .fila-estado-pendiente td,
-    .fila-estado-pendiente_documentos td {
-      background: #fffbeb !important;
-    }
-
-    .fila-estado-en_revision_bienestar td {
-      background: #eff6ff !important;
-    }
-
-    .fila-estado-fuera_de_tiempo td {
-      background: #fdf2f8 !important;
-    }
-
-    .gestion-layout {
-      align-items: flex-start;
-    }
-
-    .historial-full {
-      margin-top: 24px;
-    }
-
-    @media (max-width: 1200px) {
-      .historial-full {
-        margin-top: 0;
-      }
-    }
-
-
-    @media (max-width: 992px) {
-      .mini-kpi-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-    }
-  </style>
-</head>
-
-<body>
-  <div id="sidebar-container"></div>
-
-  <main class="main-content">
-  <div class="page-wrap">
-    <div class="module-hero d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-      <div>
-        <h2 class="mb-1">Solicitudes Bienestar</h2>
-        <div class="small-muted">
-          Gestión de incapacidades, calamidades, permisos y beneficios del empleado
-        </div>
-      </div>
-
-      <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-outline-secondary" onclick="history.back()">Volver</button>
-        <button class="btn btn-outline-primary" id="btnRecargarTodo">Recargar</button>
-      </div>
-    </div>
-
-    <div class="card card-soft session-card mb-4">
-      <div class="card-body">
-        <div class="toolbar">
-          <div class="toolbar-left">
-            <div>
-              <div class="fw-semibold">Sesión actual</div>
-              <div id="infoSesion" class="small-muted">Cargando...</div>
-            </div>
-          </div>
-
-          <div class="toolbar-right">
-            <div class="small-muted">
-              Módulo central para Bienestar. Integrable con dashboard, programación y mis turnos.
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="contenedorAlertas" class="mb-3"></div>
-
-    <div class="row g-3 mb-4 kpi-row">
-      <div class="col-md-3">
-        <div class="kpi-box">
-          <div class="small-muted">Solicitudes del año</div>
-          <div class="kpi-number" id="kpiSolicitudesAnio">0</div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="kpi-box">
-          <div class="small-muted">Pendientes / revisión</div>
-          <div class="kpi-number" id="kpiPendientes">0</div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="kpi-box">
-          <div class="small-muted">Aprobadas</div>
-          <div class="kpi-number" id="kpiAprobadas">0</div>
-        </div>
-      </div>
-      <div class="col-md-3">
-        <div class="kpi-box">
-          <div class="small-muted">Incapacidades del año</div>
-          <div class="kpi-number" id="kpiIncapacidades">0</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="row g-4 gestion-layout">
-      <div class="col-xl-5">
-        <div class="card card-soft">
-          <div class="card-body">
-            <div class="panel-title-line">
-              <span class="panel-title-icon blue">+</span>
-              <div class="panel-title-text">
-                <h5>Nueva solicitud</h5>
-                <div class="small-muted">Radicación y soporte documental</div>
-              </div>
-            </div>
-
-            <div class="alert-inline bg-soft-info">
-              Todas las solicitudes requieren revisión y aprobación por Bienestar. El Día de la Familia no exige
-              documento por ahora. Las incapacidades deben radicarse máximo dentro de los <strong>15 días</strong> desde
-              la fecha inicial.
-            </div>
-
-            <div class="section-title mt-3">Búsqueda del empleado</div>
-
-            <div class="row g-3 mb-3">
-              <div class="col-md-8">
-                <label class="form-label required">Buscar por cédula, nombres o apellidos</label>
-                <div class="search-wrap">
-                  <input type="text" id="buscarEmpleado" class="form-control"
-                    placeholder="Ej: 1094, Gerardo, María, Juan David" autocomplete="off" />
-                  <div id="listaSugerencias" class="autocomplete-list hidden"></div>
-                </div>
-                <div class="small-muted mt-1" id="estadoCargaEmpleados">Cargando base de empleados...</div>
-              </div>
-              <div class="col-md-4 d-flex align-items-end gap-2">
-                <button class="btn btn-soft w-100" id="btnCargarSesion" type="button">Cargar mi sesión</button>
-              </div>
-            </div>
-
-            <div id="bloqueEmpleadoSeleccionado" class="employee-pill hidden mb-4">
-              <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
-                <div>
-                  <div class="fw-bold">Empleado seleccionado</div>
-                  <div class="small-muted">Información tomada directamente desde la tabla <strong>empleados</strong> de
-                    Supabase.</div>
-                </div>
-                <button class="btn btn-sm btn-outline-danger" id="btnLimpiarEmpleado" type="button">Quitar</button>
-              </div>
-
-              <div class="row g-3 mt-2">
-                <div class="col-md-4">
-                  <div class="employee-label">Cédula</div>
-                  <div class="employee-value" id="viewCedula">-</div>
-                </div>
-                <div class="col-md-4">
-                  <div class="employee-label">Código</div>
-                  <div class="employee-value" id="viewCodigo">-</div>
-                </div>
-                <div class="col-md-4">
-                  <div class="employee-label">Cargo</div>
-                  <div class="employee-value" id="viewCargo">-</div>
-                </div>
-                <div class="col-md-6">
-                  <div class="employee-label">Nombres</div>
-                  <div class="employee-value" id="viewNombres">-</div>
-                </div>
-                <div class="col-md-6">
-                  <div class="employee-label">Apellidos</div>
-                  <div class="employee-value" id="viewApellidos">-</div>
-                </div>
-                <div class="col-md-6">
-                  <div class="employee-label">Área</div>
-                  <div class="employee-value" id="viewArea">-</div>
-                </div>
-                <div class="col-md-6">
-                  <div class="employee-label">Centro de costos</div>
-                  <div class="employee-value" id="viewCentroCostos">-</div>
-                </div>
-              </div>
-            </div>
-
-            <form id="formSolicitud" novalidate>
-              <div class="section-title">Datos de la solicitud</div>
-
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label required">Tipo de solicitud</label>
-                  <select class="form-select" id="tipoSolicitud" required>
-                    <option value="">Seleccione...</option>
-                    <option value="incapacidad">Incapacidad</option>
-                    <option value="calamidad">Calamidad</option>
-                    <option value="permiso_no_remunerado">Permiso no remunerado</option>
-                    <option value="dia_familia">Día de la familia</option>
-                    <option value="dia_grado">Día de grado</option>
-                    <option value="cumpleanos">Cumpleaños</option>
-                    <option value="matrimonio">Matrimonio</option>
-                    <option value="luto">Luto</option>
-                    <option value="graduacion">Graduación</option>
-                  </select>
-                </div>
-
-                <div class="col-md-6 hidden" id="wrapSubtipo">
-                  <label class="form-label">Subtipo</label>
-                  <select class="form-select" id="subtipoSolicitud">
-                    <option value="">Seleccione...</option>
-                  </select>
-                </div>
-
-                <div class="col-md-4">
-                  <label class="form-label required">Fecha inicio</label>
-                  <input type="date" class="form-control" id="fechaInicio" required />
-                </div>
-
-                <div class="col-md-4">
-                  <label class="form-label required">Fecha fin</label>
-                  <input type="date" class="form-control" id="fechaFin" required />
-                </div>
-
-                <div class="col-md-4">
-                  <label class="form-label">Días solicitados</label>
-                  <input type="number" class="form-control" id="diasSolicitados" min="1" />
-                  <div class="small-muted mt-1">Se calcula automáticamente al elegir fechas, pero puedes ajustarlo si se
-                    requiere.</div>
-                </div>
-
-                <div class="col-md-4">
-                  <label class="form-label">Fecha radicación</label>
-                  <input type="date" class="form-control" id="fechaRadicacion" readonly />
-                </div>
-
-                <div class="col-md-4">
-                  <label class="form-label">Estado inicial</label>
-                  <input type="text" class="form-control" id="estadoInicial" readonly />
-                </div>
-
-                <div class="col-md-4">
-                  <label class="form-label">Código tipo</label>
-                  <input type="text" class="form-control" id="codigoTipo" readonly />
-                </div>
-
-                <div class="col-12">
-                  <label class="form-label">Observación del solicitante</label>
-                  <textarea class="form-control" id="observacionEmpleado" rows="3"
-                    placeholder="Describe la solicitud y cualquier contexto relevante"></textarea>
-                </div>
-
-                <div class="col-12">
-                  <div class="doc-card">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-                      <div class="fw-semibold">Documentación requerida</div>
-                      <div class="small-muted" id="resumenDocumentos">Sin definir</div>
-                    </div>
-
-                    <div id="listaDocumentosRequeridos" class="mb-2"></div>
-
-                    <label class="form-label">Adjuntar soportes</label>
-                    <input type="file" class="form-control" id="inputDocumentos" multiple />
-                    <div class="small-muted mt-2">
-                      En esta fase se guarda la metadata de los archivos seleccionados. La carga física a Storage se
-                      integra después.
-                    </div>
-
-                    <div class="mt-3">
-                      <div class="fw-semibold mb-2">Archivos seleccionados</div>
-                      <div id="listaDocumentosCargados" class="small-muted">No se han seleccionado archivos.</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="col-12">
-                  <div id="alertasValidacionSolicitud"></div>
-                </div>
-              </div>
-
-              <div class="sticky-actions mt-4 d-flex gap-2 flex-wrap">
-                <button type="submit" class="btn btn-primary" id="btnGuardarSolicitud">Radicar solicitud</button>
-                <button type="button" class="btn btn-outline-secondary" id="btnLimpiarSolicitud">Limpiar
-                  formulario</button>
-              </div>
-
-              <div class="confirm-box" id="confirmacionGuardado">
-                La solicitud fue radicada correctamente.
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-xl-7">
-        <div class="card card-soft" id="panelGestion">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-              <div class="panel-title-line mb-0">
-                <span class="panel-title-icon green">✓</span>
-                <div class="panel-title-text">
-                  <h5>Gestión Bienestar</h5>
-                  <div class="small-muted">Panel de revisión, aprobación y seguimiento</div>
-                </div>
-              </div>
-              <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-                <button class="btn btn-sm btn-outline-success" id="btnExportarSolicitudesExcel" type="button">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Solicitudes Bienestar | Club Campestre</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="../css/layout.css" rel="stylesheet"/>
+
+<link href="../css/bienestar.css?v=bw-20260910-6-1" rel="stylesheet"/></head>
+<body class="bienestar-page">
+<div id="sidebar-container"></div>
+<main class="main-content">
+<div class="page-wrap">
+<header class="bw-header">
+<div class="bw-heading"><p class="bw-eyebrow">CLUB CAMPESTRE PEREIRA <span aria-hidden="true">/</span> PERSONAS</p>
+<h1>Solicitudes Bienestar</h1><p>Revisa solicitudes, consulta soportes y responde al colaborador.</p></div>
+<div class="bw-header-actions"><button class="btn btn-outline-primary" id="btnRecargarTodo" type="button">Actualizar</button>
+<button class="btn btn-primary" data-bw-open="nueva" type="button">+ Radicar solicitud</button></div>
+</header>
+<div class="bw-session">
+<div class="bw-session-inner">
+<div class="toolbar">
+<div class="toolbar-left">
+<div>
+<div class="fw-semibold">Acceso a Bienestar</div>
+<div class="small-muted" id="infoSesion">Cargando...</div>
+</div>
+</div>
+
+</div>
+</div>
+</div>
+<div aria-atomic="true" aria-live="polite" class="mb-3" id="contenedorAlertas"></div><nav aria-label="Secciones de Bienestar" class="bw-tabs">
+<button aria-controls="bwBandeja" aria-expanded="true" class="bw-tab is-active" data-bw-open="bandeja" id="bwTabBandeja" type="button">Bandeja <span class="bw-tab-count" id="bwTabCount">—</span></button>
+<button aria-controls="bwNueva" aria-expanded="false" class="bw-tab" data-bw-open="nueva" id="bwTabNueva" type="button">Radicar solicitud</button>
+<button aria-controls="bwHistorial" aria-expanded="false" class="bw-tab" data-bw-open="historial" id="bwTabHistorial" type="button">Historial del empleado</button>
+</nav><div class="bw-toolbar-meta"><p id="bwViewDescription">Solicitudes del personal que puedes gestionar.</p><p id="bwLoadStatus" role="status">Consultando datos...</p></div>
+
+<section aria-labelledby="bwTabBandeja" class="bw-panel" id="bwBandeja"><div aria-label="Resumen del año actual" class="bw-stats">
+<div class="bw-stat">
+<div class="kpi-box">
+<div class="small-muted">Solicitudes del año</div>
+<div class="kpi-number" id="kpiSolicitudesAnio">0</div>
+</div>
+</div>
+<div class="bw-stat">
+<div class="kpi-box">
+<div class="small-muted">Por revisar en el año</div>
+<div class="kpi-number" id="kpiPendientes">0</div>
+</div>
+</div>
+<div class="bw-stat">
+<div class="kpi-box">
+<div class="small-muted">Aprobadas en el año</div>
+<div class="kpi-number" id="kpiAprobadas">0</div>
+</div>
+</div>
+<div class="bw-stat">
+<div class="kpi-box">
+<div class="small-muted">Incapacidades del año</div>
+<div class="kpi-number" id="kpiIncapacidades">0</div>
+</div>
+</div>
+</div><div class="card card-soft bw-management-card" id="panelGestion">
+<div class="card-body">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<div class="panel-title-line mb-0">
+<span class="panel-title-icon green">B</span>
+<div class="panel-title-text">
+<h5>Bandeja de solicitudes</h5>
+<div class="small-muted">Consulta, revisa los documentos y registra una respuesta.</div>
+</div>
+</div>
+<div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+<button class="btn btn-sm btn-outline-success" id="btnExportarSolicitudesExcel" type="button">
                   Descargar Excel
                 </button>
-                <span id="contadorGestion" class="small-muted">0 registros</span>
-              </div>
-            </div>
+<span class="small-muted" id="contadorGestion">0 registros</span>
+</div>
+</div>
+<div class="mini-kpi-grid" hidden="">
+<div class="mini-kpi">
+<div class="label">Pendientes</div>
+<div class="value" id="miniPendientes">0</div>
+</div>
+<div class="mini-kpi">
+<div class="label">En revisión</div>
+<div class="value" id="miniRevision">0</div>
+</div>
+<div class="mini-kpi">
+<div class="label">Aprobadas</div>
+<div class="value" id="miniAprobadas">0</div>
+</div>
+<div class="mini-kpi">
+<div class="label">Rechazadas</div>
+<div class="value" id="miniRechazadas">0</div>
+</div>
+</div>
+<div class="bw-view-controls"><div aria-label="Estado de las solicitudes" class="bw-quick"><button aria-pressed="true" class="is-active" data-bw-group="todas" type="button">Todas</button><button aria-pressed="false" data-bw-group="revision" type="button">Por revisar <span id="bwReviewCount">—</span></button><button aria-pressed="false" data-bw-group="documentos" type="button">Faltan documentos</button><button aria-pressed="false" data-bw-group="resueltas" type="button">Resueltas</button></div><button class="btn btn-link" id="bwClearFilters" type="button">Limpiar filtros</button></div><div class="bw-filters">
+<div class="bw-filter">
+<label class="form-label" for="filtroGestionBusqueda">Buscar</label>
+<input class="form-control" id="filtroGestionBusqueda" placeholder="Nombre, cédula, cargo o respuesta" type="text"/>
+</div>
+<div class="bw-filter">
+<label class="form-label" for="filtroGestionTipo">Tipo</label>
+<select class="form-select" id="filtroGestionTipo">
+<option value="">Todos</option>
+<option value="incapacidad">Incapacidad</option>
+<option value="calamidad">Calamidad</option>
+<option value="permiso_no_remunerado">Permiso no remunerado</option>
+<option value="dia_familia">Día de la familia</option>
+<option value="dia_grado">Día de grado</option>
+<option value="cumpleanos">Cumpleaños</option>
+<option value="matrimonio">Matrimonio</option>
+<option value="luto">Luto</option>
+<option value="graduacion">Graduación</option>
+</select>
+</div>
+<div class="bw-filter">
+<label class="form-label" for="filtroGestionEstado">Estado</label>
+<select class="form-select" id="filtroGestionEstado">
+<option value="">Todos</option>
+<option value="pendiente">Pendiente</option>
+<option value="pendiente_documentos">Pendiente documentos</option>
+<option value="en_revision_bienestar">En revisión</option>
+<option value="aprobada">Aprobada</option>
+<option value="rechazada">Rechazada</option>
+<option value="fuera_de_tiempo">Fuera de tiempo</option>
+<option value="aplicada_programacion">Aplicada a programación</option>
+<option value="cerrada">Cerrada</option>
+</select>
+</div>
+<div class="bw-filter">
+<label class="form-label" for="filtroGestionArea">Área</label>
+<select class="form-select" id="filtroGestionArea">
+<option value="">Todas</option>
+</select>
+</div>
+<div class="bw-filter"><label class="form-label" for="bwYear">Año de inicio</label><select class="form-select" id="bwYear"><option value="">Todos los años</option></select></div><div class="bw-filter"><label class="form-label" for="bwOrder">Ordenar</label><select class="form-select" id="bwOrder"><option value="recientes">Más recientes</option><option value="antiguas">Más antiguas</option><option value="inicio">Fecha de inicio</option><option value="nombre">Nombre del empleado</option></select></div></div>
+<div aria-label="Listado de solicitudes" class="table-responsive bw-management-table" role="region" tabindex="0">
+<table class="table align-middle bw-table"><caption class="visually-hidden">Solicitudes filtradas. Las acciones abren la revisión antes de guardar.</caption>
+<thead>
+<tr>
+<th>Empleado</th>
+<th>Tipo</th>
+<th>Fechas</th>
+<th>Días</th>
+<th>Estado</th>
+<th>Soportes</th>
+<th>Acciones</th>
+</tr>
+</thead>
+<tbody id="tablaGestionSolicitudes">
+<tr>
+<td class="text-center text-muted py-4" colspan="7">Cargando...</td>
+</tr>
+</tbody>
+</table>
+</div><div aria-label="Solicitudes" class="bw-mobile-list" id="bwMobileList"></div><div class="bw-pagination"><p aria-live="polite" id="bwPageInfo">Cargando solicitudes...</p><div><label class="visually-hidden" for="bwPageSize">Filas por página</label><select class="form-select" id="bwPageSize"><option value="12">12 por página</option><option value="25">25 por página</option><option value="50">50 por página</option></select><button class="btn btn-outline-primary" disabled="" id="bwPrevious" type="button">Anterior</button><button class="btn btn-outline-primary" disabled="" id="bwNext" type="button">Siguiente</button></div></div><p class="bw-export-note">Excel incluye todas las solicitudes que coinciden con los filtros, no solo la página visible.</p>
+</div>
+</div></section><section aria-labelledby="bwTabNueva" class="bw-panel" hidden="" id="bwNueva"><div class="card card-soft bw-form-card">
+<div class="card-body">
+<div class="panel-title-line">
+<span class="panel-title-icon blue">1</span>
+<div class="panel-title-text">
+<h5>Nueva solicitud</h5>
+<div class="small-muted">Selecciona al empleado, completa las fechas y adjunta los soportes.</div>
+</div>
+</div>
+<details class="bw-help"><summary>Requisitos de radicación</summary><p>Las solicitudes se revisan en Bienestar. El Día de la Familia no exige documento en la configuración actual. El sistema conserva la regla de radicación de incapacidades dentro de los 15 días desde su fecha inicial.</p></details>
+<div class="section-title mt-3">Búsqueda del empleado</div>
+<div class="row g-3 mb-3">
+<div class="col-md-8">
+<label class="form-label required" for="buscarEmpleado">Buscar por cédula, nombres o apellidos</label>
+<div class="search-wrap">
+<input aria-autocomplete="list" aria-controls="listaSugerencias" autocomplete="off" class="form-control" id="buscarEmpleado" placeholder="Escribe el nombre o la cédula" type="text"/>
+<div class="autocomplete-list hidden" id="listaSugerencias" role="listbox"></div>
+</div>
+<div class="small-muted mt-1" id="estadoCargaEmpleados">Cargando base de empleados...</div>
+</div>
+<div class="col-md-4 d-flex align-items-end gap-2">
+<button class="btn btn-soft w-100" id="btnCargarSesion" type="button">Usar mis datos</button>
+</div>
+</div>
+<div class="employee-pill hidden mb-4" id="bloqueEmpleadoSeleccionado">
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+<div>
+<div class="fw-bold">Empleado seleccionado</div>
+<div class="small-muted">Verifica que esta sea la persona correcta antes de enviar.</div>
+</div>
+<button class="btn btn-sm btn-outline-danger" id="btnLimpiarEmpleado" type="button">Quitar</button>
+</div>
+<div class="row g-3 mt-2">
+<div class="col-md-4">
+<div class="employee-label">Cédula</div>
+<div class="employee-value" id="viewCedula">-</div>
+</div>
+<div class="col-md-4">
+<div class="employee-label">Código</div>
+<div class="employee-value" id="viewCodigo">-</div>
+</div>
+<div class="col-md-4">
+<div class="employee-label">Cargo</div>
+<div class="employee-value" id="viewCargo">-</div>
+</div>
+<div class="col-md-6">
+<div class="employee-label">Nombres</div>
+<div class="employee-value" id="viewNombres">-</div>
+</div>
+<div class="col-md-6">
+<div class="employee-label">Apellidos</div>
+<div class="employee-value" id="viewApellidos">-</div>
+</div>
+<div class="col-md-6">
+<div class="employee-label">Área</div>
+<div class="employee-value" id="viewArea">-</div>
+</div>
+<div class="col-md-6">
+<div class="employee-label">Centro de costos</div>
+<div class="employee-value" id="viewCentroCostos">-</div>
+</div>
+</div>
+</div>
+<form id="formSolicitud" novalidate=""><div aria-label="Elegir un tipo frecuente" class="bw-type-shortcuts"><span>Acceso rápido</span><button data-bw-type="incapacidad" type="button">Incapacidad</button><button data-bw-type="permiso_no_remunerado" type="button">Permiso no remunerado</button><button data-bw-type="dia_familia" type="button">Día de la familia</button></div>
+<div class="section-title">Datos de la solicitud</div>
+<div class="row g-3">
+<div class="col-md-6">
+<label class="form-label required" for="tipoSolicitud">Tipo de solicitud</label>
+<select class="form-select" id="tipoSolicitud" required="">
+<option value="">Seleccione...</option>
+<option value="incapacidad">Incapacidad</option>
+<option value="calamidad">Calamidad</option>
+<option value="permiso_no_remunerado">Permiso no remunerado</option>
+<option value="dia_familia">Día de la familia</option>
+<option value="dia_grado">Día de grado</option>
+<option value="cumpleanos">Cumpleaños</option>
+<option value="matrimonio">Matrimonio</option>
+<option value="luto">Luto</option>
+<option value="graduacion">Graduación</option>
+</select>
+</div>
+<div class="col-md-6 hidden" id="wrapSubtipo">
+<label class="form-label" for="subtipoSolicitud">Subtipo</label>
+<select class="form-select" id="subtipoSolicitud">
+<option value="">Seleccione...</option>
+</select>
+</div>
+<div class="col-md-4">
+<label class="form-label required" for="fechaInicio">Fecha inicio</label>
+<input class="form-control" id="fechaInicio" required="" type="date"/>
+</div>
+<div class="col-md-4">
+<label class="form-label required" for="fechaFin">Fecha fin</label>
+<input class="form-control" id="fechaFin" required="" type="date"/>
+</div>
+<div class="col-md-4">
+<label class="form-label" for="diasSolicitados">Días solicitados</label>
+<input class="form-control" id="diasSolicitados" min="1" type="number"/>
+<div class="small-muted mt-1">Se calcula automáticamente al elegir fechas, pero puedes ajustarlo si se
+                    requiere.</div>
+</div>
+<div class="col-12"><details class="bw-help bw-auto-fields"><summary>Datos del radicado (automáticos)</summary><div class="row g-3 mt-1"><div class="col-md-4">
+<label class="form-label" for="fechaRadicacion">Fecha radicación</label>
+<input class="form-control" id="fechaRadicacion" readonly="" type="date"/>
+</div><div class="col-md-4">
+<label class="form-label" for="estadoInicial">Estado inicial</label>
+<input class="form-control" id="estadoInicial" readonly="" type="text"/>
+</div><div class="col-md-4">
+<label class="form-label" for="codigoTipo">Código tipo</label>
+<input class="form-control" id="codigoTipo" readonly="" type="text"/>
+</div></div></details></div>
 
-            <div class="mini-kpi-grid">
-              <div class="mini-kpi">
-                <div class="label">Pendientes</div>
-                <div class="value" id="miniPendientes">0</div>
-              </div>
-              <div class="mini-kpi">
-                <div class="label">En revisión</div>
-                <div class="value" id="miniRevision">0</div>
-              </div>
-              <div class="mini-kpi">
-                <div class="label">Aprobadas</div>
-                <div class="value" id="miniAprobadas">0</div>
-              </div>
-              <div class="mini-kpi">
-                <div class="label">Rechazadas</div>
-                <div class="value" id="miniRechazadas">0</div>
-              </div>
-            </div>
 
-            <div class="row g-3 mb-3">
-              <div class="col-md-3">
-                <label class="form-label">Buscar</label>
-                <input type="text" id="filtroGestionBusqueda" class="form-control"
-                  placeholder="Cédula, nombre, cargo" />
+<div class="col-12">
+<label class="form-label" for="observacionEmpleado">Observación del solicitante</label>
+<textarea class="form-control" id="observacionEmpleado" placeholder="Describe la solicitud y cualquier contexto relevante" rows="3"></textarea>
+</div>
+<div class="col-12">
+<div class="doc-card">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+<div class="fw-semibold">Documentación requerida</div>
+<div class="small-muted" id="resumenDocumentos">Sin definir</div>
+</div>
+<div class="mb-2" id="listaDocumentosRequeridos"></div>
+<label class="form-label" for="inputDocumentos">Adjuntar soportes</label>
+<input class="form-control" id="inputDocumentos" multiple="" type="file"/>
+<div class="small-muted mt-2">Revisa los archivos seleccionados antes de enviar. Los soportes se asocian a esta solicitud.</div>
+<div class="mt-3">
+<div class="fw-semibold mb-2">Archivos seleccionados</div>
+<div class="small-muted" id="listaDocumentosCargados">No se han seleccionado archivos.</div>
+</div>
+</div>
+</div>
+<div class="col-12">
+<div id="alertasValidacionSolicitud"></div>
+</div>
+</div>
+<div class="sticky-actions mt-4 d-flex gap-2 flex-wrap">
+<button class="btn btn-primary" id="btnGuardarSolicitud" type="submit">Radicar solicitud</button>
+<button class="btn btn-outline-secondary" id="btnLimpiarSolicitud" type="button">Limpiar
+                  formulario</button>
+<button class="btn btn-link" data-bw-open="bandeja" type="button">Volver a la bandeja</button></div>
+<div aria-live="polite" class="confirm-box" id="confirmacionGuardado" role="status">
+                La solicitud fue radicada correctamente.
               </div>
-
-              <div class="col-md-3">
-                <label class="form-label">Tipo</label>
-                <select id="filtroGestionTipo" class="form-select">
-                  <option value="">Todos</option>
-                  <option value="incapacidad">Incapacidad</option>
-                  <option value="calamidad">Calamidad</option>
-                  <option value="permiso_no_remunerado">Permiso no remunerado</option>
-                  <option value="dia_familia">Día de la familia</option>
-                  <option value="dia_grado">Día de grado</option>
-                  <option value="cumpleanos">Cumpleaños</option>
-                  <option value="matrimonio">Matrimonio</option>
-                  <option value="luto">Luto</option>
-                  <option value="graduacion">Graduación</option>
-                </select>
-              </div>
-
-              <div class="col-md-3">
-                <label class="form-label">Estado</label>
-                <select id="filtroGestionEstado" class="form-select">
-                  <option value="">Todos</option>
-                  <option value="pendiente">Pendiente</option>
-                  <option value="pendiente_documentos">Pendiente documentos</option>
-                  <option value="en_revision_bienestar">En revisión</option>
-                  <option value="aprobada">Aprobada</option>
-                  <option value="rechazada">Rechazada</option>
-                  <option value="fuera_de_tiempo">Fuera de tiempo</option>
-                  <option value="aplicada_programacion">Aplicada a programación</option>
-                  <option value="cerrada">Cerrada</option>
-                </select>
-              </div>
-
-              <div class="col-md-3">
-                <label class="form-label">Área</label>
-                <select id="filtroGestionArea" class="form-select">
-                  <option value="">Todas</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="table-responsive">
-              <table class="table table-hover align-middle">
-                <thead>
-                  <tr>
-                    <th>Empleado</th>
-                    <th>Tipo</th>
-                    <th>Rango</th>
-                    <th>Días</th>
-                    <th>Estado</th>
-                    <th>Documentación</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="tablaGestionSolicitudes">
-                  <tr>
-                    <td colspan="7" class="text-center text-muted py-4">Cargando...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-        <div class="card card-soft historial-full">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-              <div class="panel-title-line mb-0">
-                <span class="panel-title-icon purple">H</span>
-                <div class="panel-title-text">
-                  <h5>Historial del empleado seleccionado</h5>
-                  <div class="small-muted">Vista rápida del historial del colaborador elegido</div>
-                </div>
-              </div>
-              <span id="contadorMisSolicitudes" class="small-muted">0 registros</span>
-            </div>
-
-            <div class="table-responsive">
-              <table class="table table-hover align-middle">
-                <thead>
-                  <tr>
-                    <th>Radicación</th>
-                    <th>Tipo</th>
-                    <th>Rango</th>
-                    <th>Días</th>
-                    <th>Estado</th>
-                    <th>Docs</th>
-                  </tr>
-                </thead>
-                <tbody id="tablaMisSolicitudes">
-                  <tr>
-                    <td colspan="6" class="text-center text-muted py-4">Selecciona un empleado para visualizar su
+</form>
+</div>
+</div></section><section aria-labelledby="bwTabHistorial" class="bw-panel" hidden="" id="bwHistorial"><div class="card card-soft bw-history-card">
+<div class="card-body">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<div class="panel-title-line mb-0">
+<span class="panel-title-icon purple">H</span>
+<div class="panel-title-text">
+<h5>Historial del empleado</h5>
+<div class="small-muted">Solicitudes y respuestas de una sola persona.</div>
+</div>
+</div>
+<span class="small-muted" id="contadorMisSolicitudes">0 registros</span>
+</div>
+<div class="bw-history-search"><label class="form-label" for="bwHistorySearch">Buscar empleado</label><div class="search-wrap"><input aria-autocomplete="list" aria-controls="bwHistorySuggestions" autocomplete="off" class="form-control" id="bwHistorySearch" placeholder="Nombre, cédula o código"/><div class="autocomplete-list hidden" id="bwHistorySuggestions" role="listbox"></div></div><p class="bw-muted" id="bwHistoryIdentity">Selecciona un empleado para ver su historial.</p></div><div class="table-responsive bw-history-table">
+<table class="table table-hover align-middle">
+<thead>
+<tr>
+<th>Radicación</th>
+<th>Tipo</th>
+<th>Rango</th>
+<th>Días</th>
+<th>Estado</th>
+<th>Docs</th>
+</tr>
+</thead>
+<tbody id="tablaMisSolicitudes">
+<tr>
+<td class="text-center text-muted py-4" colspan="6">Selecciona un empleado para visualizar su
                       historial.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div></section>
 
-
-  </div>
-
-  <div class="modal fade" id="modalGestionSolicitud" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable" style="max-width: 1050px;">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Revisión de solicitud</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-
-        <div class="modal-body">
-          <div id="detalleSolicitudGestion"></div>
-
-          <div class="row g-3 mt-2">
-            <div class="col-md-4">
-              <label class="form-label">Nuevo estado</label>
-              <select id="gestionNuevoEstado" class="form-select">
-                <option value="pendiente">Pendiente</option>
-                <option value="pendiente_documentos">Pendiente documentos</option>
-                <option value="en_revision_bienestar">En revisión</option>
-                <option value="aprobada">Aprobada</option>
-                <option value="rechazada">Rechazada</option>
-                <option value="fuera_de_tiempo">Fuera de tiempo</option>
-                <option value="aplicada_programacion">Aplicada a programación</option>
-                <option value="cerrada">Cerrada</option>
-              </select>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">¿Aplicada a programación?</label>
-              <select id="gestionAplicadaProgramacion" class="form-select">
-                <option value="false">No</option>
-                <option value="true">Sí</option>
-              </select>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Aprobado por</label>
-              <input type="text" id="gestionAprobadoPor" class="form-control" readonly />
-            </div>
-
-            <div class="col-12">
-              <label class="form-label">Observación de revisión</label>
-              <textarea id="gestionObservacion" class="form-control" rows="4"
-                placeholder="Registra la observación de Bienestar"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-          <button class="btn btn-primary" id="btnGuardarRevision">Guardar revisión</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  </main>
-
-  <script src="../js/layout.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <script>
+</div>
+<div aria-hidden="true" aria-labelledby="bwReviewTitle" class="modal fade" id="modalGestionSolicitud" tabindex="-1">
+<div class="modal-dialog modal-lg modal-dialog-scrollable" style="max-width: 1050px;">
+<div class="modal-content">
+<div class="modal-header">
+<h5 class="modal-title" id="bwReviewTitle">Revisión de solicitud</h5>
+<button aria-label="Cerrar revisión" class="btn-close" data-bs-dismiss="modal" type="button"></button>
+</div>
+<div class="modal-body">
+<div id="detalleSolicitudGestion"></div>
+<div class="row g-3 mt-2">
+<div class="col-md-4">
+<label class="form-label" for="gestionNuevoEstado">Nuevo estado</label>
+<select class="form-select" id="gestionNuevoEstado">
+<option value="pendiente">Pendiente</option>
+<option value="pendiente_documentos">Pendiente documentos</option>
+<option value="en_revision_bienestar">En revisión</option>
+<option value="aprobada">Aprobada</option>
+<option value="rechazada">Rechazada</option>
+<option value="fuera_de_tiempo">Fuera de tiempo</option>
+<option value="aplicada_programacion">Aplicada a programación</option>
+<option value="cerrada">Cerrada</option>
+</select>
+</div>
+<div class="col-md-4">
+<label class="form-label" for="gestionAplicadaProgramacion">¿Aplicada a programación?</label>
+<select class="form-select" id="gestionAplicadaProgramacion">
+<option value="false">No</option>
+<option value="true">Sí</option>
+</select>
+</div>
+<div class="col-md-4">
+<label class="form-label" for="gestionAprobadoPor">Aprobado por</label>
+<input class="form-control" id="gestionAprobadoPor" readonly="" type="text"/>
+</div>
+<div class="col-12">
+<label class="form-label" for="gestionObservacion">Observación de revisión</label>
+<textarea class="form-control" id="gestionObservacion" placeholder="Escribe una respuesta clara para el colaborador" rows="4"></textarea>
+</div>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+<span class="bw-save-note">Los cambios se aplican al guardar.</span><button class="btn btn-primary" id="btnGuardarRevision">Guardar revisión</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+<script src="../js/layout.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/bienestar-portal.js?v=6-2-1"></script><script src="../js/bienestar-ux.js?v=bw-20260910-6-1"></script><script>
     const SUPABASE_URL = "https://kzxveqrgvuchcgwrjwjb.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6eHZlcXJndnVjaGNnd3Jqd2piIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzYzMjUsImV4cCI6MjA4OTAxMjMyNX0.DhYtYlQdUN_r7AD-glgUIG7y-_wrGWqYqyA3MZBzPuw";
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -2243,6 +1563,8 @@
     }
 
     async function crearNotificacionEmpleadoCambioEstado(solicitud, nuevoEstado, observacionRevision = "") {
+      // El portal genera el aviso y su historial en la misma transaccion del servidor.
+      if (solicitud?.origen_portal === true) return;
       if (!solicitud?.cedula) return;
 
       const tipoMap = {
@@ -2432,6 +1754,7 @@
     }
 
     function pintarHistorialEmpleado() {
+      if (window.BienestarUX) return window.BienestarUX.renderHistorial();
       const tabla = document.getElementById("tablaMisSolicitudes");
       const contador = document.getElementById("contadorMisSolicitudes");
       contador.textContent = `${historialEmpleado.length} registro(s)`;
@@ -2495,6 +1818,7 @@
       }
 
       solicitudesGestion = filtrarRegistrosPorPermisoAreaBienestar(Array.isArray(data) ? data : [], usuarioActual);
+      window.BienestarUX?.cargaCompleta();
       aplicarFiltrosGestion();
       actualizarMiniKPIsGestion();
     }
@@ -2521,7 +1845,7 @@
 
       if (busqueda) {
         lista = lista.filter(item => {
-          const bolsa = [item.cedula, item.nombre_empleado, item.cargo, item.area, item.tipo_solicitud, item.subtipo].join(" ").toLowerCase();
+          const bolsa = [item.cedula, item.nombre_empleado, item.cargo, item.area, item.tipo_solicitud, item.subtipo, item.observacion_revision].join(" ").toLowerCase();
           return bolsa.includes(busqueda);
         });
       }
@@ -2530,11 +1854,13 @@
       if (estado) lista = lista.filter(item => item.estado === estado);
       if (area) lista = lista.filter(item => item.area === area);
 
+      if (window.BienestarUX) lista = window.BienestarUX.refinarFiltros(lista);
       solicitudesGestionFiltradas = lista;
       pintarTablaGestion(lista);
     }
 
     function pintarTablaGestion(lista) {
+      if (window.BienestarUX) return window.BienestarUX.renderGestion(lista);
       const tabla = document.getElementById("tablaGestionSolicitudes");
       const contador = document.getElementById("contadorGestion");
       contador.textContent = `${lista.length} registro(s)`;
@@ -2932,7 +2258,9 @@
           ? docsCar.map(d => {
             const nombre = escaparHtml(d.name || d.nombre || "archivo");
             const tipoDoc = d.tipo_documento ? `<span class="doc-chip">${escaparHtml(d.tipo_documento)}</span>` : "";
-            const enlace = d.publicUrl ? `<a href="${d.publicUrl}" target="_blank" class="ms-2">Ver archivo</a>` : "";
+            const enlace = d.bucket === "mis-turnos-soportes" && d.path
+              ? `<button type="button" class="btn btn-sm btn-outline-primary ms-2" data-portal-file="${escaparHtml(d.path)}">Ver archivo privado</button>`
+              : d.publicUrl ? `<a href="${escaparHtml(d.publicUrl)}" target="_blank" rel="noopener noreferrer" class="ms-2">Ver archivo</a>` : "";
             return `<div class="mb-2"><span class="doc-chip">${nombre}</span>${tipoDoc}${enlace}</div>`;
           }).join("")
           : "No adjuntos"}
@@ -3148,8 +2476,27 @@
       // await cargarNotificacionesModulo();
     }
 
+    window.BienestarUX?.iniciar({
+      rows: () => solicitudesGestion,
+      history: () => historialEmpleado,
+      employees: () => empleadosCache,
+      employee: () => empleadoSeleccionado,
+      apply: () => aplicarFiltrosGestion(),
+      selectEmployee: (e) => seleccionarEmpleado(e),
+      review: (id) => window.abrirGestionSolicitud(id),
+      canManage: () => puedeGestionar(usuarioActual),
+      formatType: (t) => labelTipo(t),
+      formatSubtype: (t) => labelSubtipo(t),
+      formatState: (t) => labelEstadoPlano(t),
+      badge: (t) => pintarEstado(t),
+      formatDate: (d) => formatearFecha(d)
+    });
     init();
-  </script>
+  
+    window.BienestarPortal?.init(sb, {
+      refresh: () => cargarSolicitudesGestion(),
+      open: (id) => window.abrirGestionSolicitud(id)
+    });
+</script>
 </body>
-
 </html>

@@ -207,6 +207,31 @@ body {
   color: #475569;
 }
 
+
+.chef-chip-biotime {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.chef-chip-biotime-ok {
+  background: #B2FEE0;
+  color: #087a55;
+}
+
+.chef-chip-biotime-pendiente {
+  background: #FFE1A1;
+  color: #7a5600;
+}
+
+.chef-chip-biotime-error {
+  background: #FDECEC;
+  color: #C62828;
+}
+
 .chef-persona-resumen {
   display: flex;
   align-items: center;

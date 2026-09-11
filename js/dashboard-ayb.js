@@ -222,8 +222,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   configurarCierreNominaAyb();
   configurarFiltros();
 
-  await cargarDashboardReal(sesion);
-  await cargarRevisionNominaReal();
+  await Promise.all([cargarDashboardReal(sesion), cargarRevisionNominaReal({ recalcular: true })]);
 });
 
 function cargarDatosUsuario(sesion) {
@@ -259,10 +258,43 @@ async function cargarFestivosDashboardSeguro() {
   }
 }
 
+async function cargarTurnosCocinaChefPaginados() {
+  const tamanoPagina = 1000;
+  const maximoSeguridad = 20000;
+  const filas = [];
+  let desde = 0;
+
+  while (desde < maximoSeguridad) {
+    const hasta = desde + tamanoPagina - 1;
+    const { data, error } = await supabase
+      .from("cocina_programacion_turnos")
+      .select("*")
+      .order("fecha", { ascending: true })
+      .order("id", { ascending: true })
+      .range(desde, hasta);
+
+    if (error) return { data: null, error };
+
+    const lote = Array.isArray(data) ? data : [];
+    filas.push(...lote);
+
+    if (lote.length < tamanoPagina) {
+      return { data: filas, error: null };
+    }
+
+    desde += tamanoPagina;
+  }
+
+  return {
+    data: filas,
+    error: new Error(`Cocina Chef superó el límite de seguridad de ${maximoSeguridad} registros.`)
+  };
+}
+
 async function cargarFuenteCocinaChefDashboard() {
   try {
     const [respuestaTurnos, respuestaPersonal, respuestaCodigos] = await Promise.all([
-      supabase.from("cocina_programacion_turnos").select("*").order("fecha", { ascending: true }),
+      cargarTurnosCocinaChefPaginados(),
       supabase.from("cocina_cronograma_personal").select("*"),
       supabase.from("cocina_codigos_turno").select("*")
     ]);
@@ -274,6 +306,12 @@ async function cargarFuenteCocinaChefDashboard() {
       );
       return { oficiales: [], externos: [], revision: [] };
     }
+
+    console.info(
+      "Cocina Chef cargada en Dashboard A&B:",
+      `${(respuestaTurnos.data || []).length} turnos`,
+      `${(respuestaPersonal.data || []).length} personas`
+    );
 
     const personalPorId = new Map(
       (respuestaPersonal.data || []).map((persona) => [String(persona.id), persona])
@@ -298,9 +336,17 @@ async function cargarFuenteCocinaChefDashboard() {
         return;
       }
 
-      const empleadoOficial =
-        obtenerEmpleadoOficialAybPorId(persona.empleado_id) ||
-        obtenerEmpleadoOficialAybPorCedula(persona.documento);
+      const tipoPersonal = String(persona.tipo_personal || "").trim().toLowerCase();
+      const esExternoDeclarado = tipoPersonal === "externo" || Boolean(persona.externo_id);
+
+      // La clasificación definida por Chef manda sobre cualquier coincidencia
+      // accidental con la tabla empleados. Un externo puede existir también en
+      // empleados por sincronización BioTime y NO debe convertirse por eso en
+      // personal oficial ni sumarse a nómina.
+      const empleadoOficial = esExternoDeclarado
+        ? null
+        : (obtenerEmpleadoOficialAybPorId(persona.empleado_id) ||
+           obtenerEmpleadoOficialAybPorCedula(persona.documento));
 
       const registro = transformarRegistroCocinaChefDashboard(
         turno,
@@ -309,14 +355,13 @@ async function cargarFuenteCocinaChefDashboard() {
         codigosPorCodigo
       );
 
-      if (empleadoOficial) {
-        oficiales.push(registro);
+      if (esExternoDeclarado) {
+        externos.push(registro);
         return;
       }
 
-      const tipoPersonal = String(persona.tipo_personal || "").trim().toLowerCase();
-      if (tipoPersonal === "externo" || Boolean(persona.externo_id)) {
-        externos.push(registro);
+      if (empleadoOficial) {
+        oficiales.push(registro);
         return;
       }
 
@@ -358,10 +403,12 @@ function transformarRegistroCocinaChefDashboard(turno, persona, empleadoOficial,
     fecha: turno.fecha,
     tipo_registro: "turno",
     turno: turno.codigo_turno || "",
+    descripcion_turno: codigo1?.descripcion || "",
     hora_inicio: codigo1?.hora_inicio ? String(codigo1.hora_inicio).substring(0, 5) : null,
     hora_fin: codigo1?.hora_fin ? String(codigo1.hora_fin).substring(0, 5) : null,
     subarea_2: turno.area_cocina_2 || null,
     turno_2: turno.codigo_turno_2 || null,
+    descripcion_turno_2: codigo2?.descripcion || "",
     hora_inicio_2: codigo2?.hora_inicio ? String(codigo2.hora_inicio).substring(0, 5) : null,
     hora_fin_2: codigo2?.hora_fin ? String(codigo2.hora_fin).substring(0, 5) : null,
     observacion: turno.observacion || "",
@@ -1025,35 +1072,39 @@ function renderPanelExternosChef() {
   const empleados = new Set(
     registros.map((item) => String(item.externo_id || item.cedula || obtenerNombreEmpleado(item))).filter(Boolean)
   ).size;
-  const soloTurnos = registros.filter((item) => !esNovedad(item));
 
-  const diurnas = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_diurnas || 0), 0));
-  const nocturnas = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_nocturnas || 0), 0));
-  const netas = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_netas || 0), 0));
-  const extraDiurna = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.extra_diurna || 0), 0));
-  const extraNocturna = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.extra_nocturna || 0), 0));
-  const extraTotal = redondearHoras(soloTurnos.reduce((total, item) => total + Number(item.horas_extra_estimadas || 0), 0));
+  const jornadasConHorario = registros.filter((item) => Number(item.horas_netas || 0) > 0);
+  const horasNetas = redondearHoras(
+    jornadasConHorario.reduce((total, item) => total + Number(item.horas_netas || 0), 0)
+  );
+  const sinHorario = registros.length - jornadasConHorario.length;
 
   setText("kpiExternosPersonas", empleados);
-  setText("kpiExternosTurnos", registros.length);
-  setText("kpiExternosHorasDiurnas", formatearNumero(diurnas));
-  setText("kpiExternosHorasNocturnas", formatearNumero(nocturnas));
-  setText("kpiExternosHorasNetas", formatearNumero(netas));
-  setText("kpiExternosExtraDiurna", formatearNumero(extraDiurna));
-  setText("kpiExternosExtraNocturna", formatearNumero(extraNocturna));
-  setText("kpiExternosExtraTotal", formatearNumero(extraTotal));
+  setText("kpiExternosJornadas", jornadasConHorario.length);
+  setText("kpiExternosHorasNetas", formatearNumero(horasNetas));
+  setText("kpiExternosSinHorario", sinHorario);
 
   const tbody = document.getElementById("tbodyExternosChef");
   if (!tbody) return;
 
   if (!registros.length) {
-    tbody.innerHTML = `<tr><td colspan="12" class="texto-vacio">No hay personal externo programado en Cocina Chef para el filtro actual.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="texto-vacio">No hay personal externo programado en Cocina Chef para el filtro actual.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = registros
     .sort((a, b) => String(b.fecha || "").localeCompare(String(a.fecha || "")))
-    .map((item, index) => `
+    .map((item, index) => {
+      const horario1 = item.hora_inicio && item.hora_fin ? `${item.hora_inicio}-${item.hora_fin}` : "Sin horario";
+      const horario2 = item.hora_inicio_2 && item.hora_fin_2 ? ` / ${item.hora_inicio_2}-${item.hora_fin_2}` : "";
+      const descripcion = [
+        item.descripcion_turno,
+        item.descripcion_turno_2,
+        item.observacion,
+        item.observacion_2
+      ].filter(Boolean).join(" · ") || (Number(item.horas_netas || 0) > 0 ? "Jornada programada" : "Descanso / código sin horario");
+
+      return `
       <tr>
         <td>${index + 1}</td>
         <td>${escaparHtml(obtenerNombreEmpleado(item))}</td>
@@ -1061,16 +1112,11 @@ function renderPanelExternosChef() {
         <td>${escaparHtml(formatearFechaCorta(item.fecha))}${item.es_festivo ? `<div class="badge-festivo-dashboard">FESTIVO${item.nombre_festivo ? ` · ${escaparHtml(item.nombre_festivo)}` : ""}</div>` : ""}</td>
         <td>${escaparHtml(item.subarea || "-")}</td>
         <td>${escaparHtml(item.turno || "-")}${item.turno_2 ? ` / ${escaparHtml(item.turno_2)}` : ""}</td>
-        <td>${formatearNumero(item.horas_diurnas || 0)}</td>
-        <td>${formatearNumero(item.horas_nocturnas || 0)}</td>
+        <td>${escaparHtml(horario1 + horario2)}</td>
         <td>${formatearNumero(item.horas_netas || 0)}</td>
-        <td>${formatearNumero(item.extra_diurna || 0)}</td>
-        <td>${formatearNumero(item.extra_nocturna || 0)}</td>
-        <td>${formatearNumero(item.extra_diurna_festiva || 0)}</td>
-        <td>${formatearNumero(item.extra_nocturna_festiva || 0)}</td>
-        <td>${formatearNumero(item.horas_extra_estimadas || 0)}</td>
-      </tr>
-    `).join("");
+        <td>${escaparHtml(descripcion)}</td>
+      </tr>`;
+    }).join("");
 }
 
 function renderControlIntegracionChef() {
@@ -1578,25 +1624,95 @@ function renderTablaAlertasCriticas(registros) {
   const tbody = document.getElementById("tbodyAlertasCriticas");
   if (!tbody) return;
 
-  const alertas = agruparNovedadesPorEmpleado(registros)
-    .filter((item) => item.maxConsecutivos >= 3)
-    .sort((a, b) => b.maxConsecutivos - a.maxConsecutivos || a.nombre.localeCompare(b.nombre))
-    .slice(0, 20);
+  const anioReferencia = Number(String(filtrosActuales.fechaFin || formatearFechaISO(new Date())).slice(0, 4)) || new Date().getFullYear();
+  const alertasActuales = agruparNovedadesPorEmpleado(registros)
+    .filter((item) => item.maxConsecutivos >= 3);
 
-  if (!alertas.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="texto-vacio">No hay alertas críticas en el filtro actual.</td></tr>`;
+  const historico = construirHistoricoAnualNovedades(anioReferencia);
+  const filas = alertasActuales.map((item) => {
+    const h = historico.get(normalizarDocumentoEmpleado(item.cedula)) || {
+      totalDias: item.totalFechas || 0,
+      detalle: `${item.label}: ${item.totalFechas || 0} día(s)`,
+      ultima: item.fechasOrdenadas?.at(-1) || ""
+    };
+    return { ...item, historicoAnual: h };
+  }).sort((a, b) =>
+    (b.historicoAnual.totalDias || 0) - (a.historicoAnual.totalDias || 0) ||
+    b.maxConsecutivos - a.maxConsecutivos ||
+    a.nombre.localeCompare(b.nombre)
+  ).slice(0, 20);
+
+  if (!filas.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="texto-vacio">No hay alertas críticas en el filtro actual.</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = alertas.map((item, index) => `
+  let puestoAnual = 0;
+  let ultimoTotalAnual = null;
+
+  tbody.innerHTML = filas.map((item) => {
+    const totalAnual = Number(item.historicoAnual.totalDias || 0);
+    if (ultimoTotalAnual === null || totalAnual !== ultimoTotalAnual) {
+      puestoAnual += 1;
+      ultimoTotalAnual = totalAnual;
+    }
+
+    return `
     <tr class="${item.maxConsecutivos >= 5 ? "fila-critica" : "fila-alerta"}">
-      <td>${index + 1}</td>
+      <td><strong>${puestoAnual}</strong><div class="small text-muted">${anioReferencia}</div></td>
       <td>${escaparHtml(item.nombre)}</td>
       <td>${crearBadgeNovedad(item.tipo, item.label)}</td>
-      <td>${item.maxConsecutivos}</td>
+      <td>${item.maxConsecutivos} día(s)<div class="small text-muted">${escaparHtml(item.fechasTexto)}</div></td>
+      <td><strong>${item.historicoAnual.totalDias || 0}</strong></td>
+      <td><div class="ayb-historico-novedad">${item.historicoAnual.detalleHtml || escaparHtml(item.historicoAnual.detalle || "Sin histórico adicional")}</div></td>
       <td>${crearSemaforo(item.maxConsecutivos)}</td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
+}
+
+function construirHistoricoAnualNovedades(anio) {
+  const mapa = new Map();
+  const registrosAnio = registrosBase.filter((item) => {
+    if (!esNovedad(item)) return false;
+    const fecha = String(item.fecha || "");
+    return Number(fecha.slice(0, 4)) === Number(anio);
+  });
+
+  registrosAnio.forEach((item) => {
+    const cedula = normalizarDocumentoEmpleado(item.cedula || "");
+    if (!cedula) return;
+    const fecha = String(item.fecha || "").slice(0, 10);
+    const tipo = clasificarNovedad(item);
+    const label = obtenerLabelNovedad(item);
+    if (!mapa.has(cedula)) mapa.set(cedula, { fechas: new Set(), tipos: new Map(), ultima: "" });
+    const h = mapa.get(cedula);
+    if (fecha) {
+      h.fechas.add(fecha);
+      if (!h.tipos.has(tipo)) h.tipos.set(tipo, { label, fechas: new Set() });
+      h.tipos.get(tipo).fechas.add(fecha);
+      if (!h.ultima || fecha > h.ultima) h.ultima = fecha;
+    }
+  });
+
+  mapa.forEach((h, cedula) => {
+    const detalles = [...h.tipos.values()].map((t) => {
+      const fechas = [...t.fechas].sort();
+      const desde = fechas[0] || "";
+      const hasta = fechas.at(-1) || desde;
+      const periodo = desde && hasta ? `${formatearFechaCorta(desde)}–${formatearFechaCorta(hasta)}` : "";
+      return { label: t.label, dias: fechas.length, periodo };
+    }).sort((a, b) => b.dias - a.dias || a.label.localeCompare(b.label));
+
+    h.totalDias = h.fechas.size;
+    h.detalle = detalles.map((d) => `${d.label}: ${d.dias} día(s)${d.periodo ? ` · ${d.periodo}` : ""}`).join(" | ");
+    h.detalleHtml = detalles.map((d) => `<div><strong>${escaparHtml(d.label)}</strong> ${d.dias} día(s)${d.periodo ? ` · ${escaparHtml(d.periodo)}` : ""}</div>`).join("");
+    delete h.fechas;
+    delete h.tipos;
+    mapa.set(cedula, h);
+  });
+
+  return mapa;
 }
 
 function renderTablaValidacionExtras(registros) {
@@ -2049,6 +2165,7 @@ function renderDashboardBienestar() {
   setText("kpiBienestarPendientesDocs", pendientesDocs.length);
   setText("kpiBienestarFueraTiempo", fueraTiempo.length);
 
+  renderBandejaNovedadesPrioritarias(solicitudes);
   renderRankingNovedadesBienestar(solicitudes);
 }
 
@@ -2058,7 +2175,41 @@ function renderDashboardBienestarVacio() {
   setText("kpiBienestarAprobadasRechazadas", "0 / 0");
   setText("kpiBienestarPendientesDocs", 0);
   setText("kpiBienestarFueraTiempo", 0);
+  renderBandejaNovedadesPrioritarias([]);
   renderRankingNovedadesBienestar([]);
+}
+
+function renderBandejaNovedadesPrioritarias(solicitudes) {
+  const tbody=document.getElementById("tbodyNovedadesPrioritarias");
+  if(!tbody)return;
+  const casos=(solicitudes||[]).filter(s=>
+    ["pendiente","pendiente_documentos"].includes(s._estado_bienestar) || s._requiere_documento || s._fuera_tiempo
+  ).map(s=>{
+    const motivos=[];
+    let nivel=1;
+    if(s._fuera_tiempo){motivos.push("Radicación fuera de tiempo");nivel=3;}
+    if(s._requiere_documento){motivos.push("Falta soporte/documentación");nivel=3;}
+    if(s._estado_bienestar==="pendiente_documentos"){motivos.push("Pendiente de documentos");nivel=3;}
+    if(s._estado_bienestar==="pendiente"&&!motivos.length){motivos.push("Pendiente de gestión");nivel=2;}
+    return {s,nivel,motivos};
+  }).sort((a,b)=>b.nivel-a.nivel||String(b.s._fecha_bienestar||"").localeCompare(String(a.s._fecha_bienestar||""))).slice(0,30);
+
+  setText("badgeNovedadesPrioritarias",`${casos.length} por gestionar`);
+  if(!casos.length){tbody.innerHTML='<tr><td colspan="6" class="texto-vacio">No hay novedades pendientes de gestión en el filtro actual.</td></tr>';return;}
+  const etiqueta=n=>n===3?'<span class="ayb-priority-high">ALTA</span>':n===2?'<span class="ayb-priority-medium">MEDIA</span>':'<span class="ayb-priority-low">BAJA</span>';
+  tbody.innerHTML=casos.map(({s,nivel,motivos})=>{
+    const inicio=s._fecha_inicio_bienestar||s._fecha_bienestar||"";
+    const fin=s._fecha_fin_bienestar||inicio;
+    const periodo=inicio===fin?formatearFechaCorta(inicio):`${formatearFechaCorta(inicio)} – ${formatearFechaCorta(fin)}`;
+    return `<tr>
+      <td>${etiqueta(nivel)}</td>
+      <td><strong>${escaparHtml(s._nombre||"Sin nombre")}</strong><div class="small text-muted">${escaparHtml(s._cedula||"")}</div></td>
+      <td>${escaparHtml(s._tipo_bienestar||"Sin tipo")}</td>
+      <td>${escaparHtml(periodo||"-")}</td>
+      <td>${escaparHtml(String(s._estado_bienestar||"pendiente").replaceAll("_"," "))}</td>
+      <td>${escaparHtml(motivos.join(" · "))}</td>
+    </tr>`;
+  }).join("");
 }
 
 function renderRankingNovedadesBienestar(solicitudes) {
@@ -2205,6 +2356,8 @@ function renderTablaMenorCarga(registros) {
       incapacidades: 0,
       vacaciones: 0,
       permisos: 0,
+      descansos: 0,
+      fechasNovedad: [],
       horasNetas: 0,
       ultimaProgramacion: ""
     };
@@ -2228,6 +2381,8 @@ function renderTablaMenorCarga(registros) {
           if (tipoNovedad === "incapacidad") mapa[cedula].incapacidades += 1;
           if (tipoNovedad === "vacaciones") mapa[cedula].vacaciones += 1;
           if (tipoNovedad === "licencia" || tipoNovedad === "permiso") mapa[cedula].permisos += 1;
+          if (tipoNovedad === "descanso") mapa[cedula].descansos += 1;
+          mapa[cedula].fechasNovedad.push({ fecha, tipo: tipoNovedad, label: obtenerLabelNovedad(item) });
         } else {
           mapa[cedula].diasProgramados.add(fecha);
           mapa[cedula].ultimaProgramacion = !mapa[cedula].ultimaProgramacion || fecha > mapa[cedula].ultimaProgramacion
@@ -2244,11 +2399,13 @@ function renderTablaMenorCarga(registros) {
   const ranking = Object.values(mapa)
     .map((item) => {
       const solicitudes = solicitudesPorCedula[item.cedula] || obtenerResumenSolicitudesVacio();
+      const solicitudesEmpleado = (obtenerSolicitudesBienestarFiltradas() || []).filter((s) => String(s._cedula || "") === item.cedula);
       const dias = item.diasProgramados.size;
       const horas = redondearHoras(item.horasNetas);
       const promedio = dias > 0 ? redondearHoras(horas / dias) : 0;
-      const ausenciasValidas = item.incapacidades + item.vacaciones + item.permisos + solicitudes.incapacidades + solicitudes.vacaciones + solicitudes.permisosAprobados;
-      const diasSinProgramacion = Math.max(0, fechasPeriodo.length - item.diasConRegistro.size - ausenciasValidas);
+      const resumenJustificacion = construirResumenJustificacionMenorCarga(item, solicitudesEmpleado);
+      const ausenciasValidas = resumenJustificacion.diasJustificados;
+      const diasSinProgramacion = Math.max(0, fechasPeriodo.length - item.diasConRegistro.size);
 
       let estado = "Normal";
       let clase = "alerta-verde";
@@ -2285,7 +2442,8 @@ function renderTablaMenorCarga(registros) {
         diasSinProgramacion,
         estado,
         clase,
-        causa
+        causa,
+        motivoVigencia: resumenJustificacion.detalle || causa
       };
     })
     .sort((a, b) => {
@@ -2310,7 +2468,7 @@ function renderTablaMenorCarga(registros) {
       <td>${item.novedades} / ${item.ausenciasValidas}</td>
       <td>${escaparHtml(formatearFechaCorta(item.ultimaProgramacion) || "-")}</td>
       <td><span class="alerta-semaforo ${item.clase}">${escaparHtml(item.estado)}</span></td>
-      <td>${escaparHtml(item.causa)}</td>
+      <td><div class="ayb-causa-detalle"><strong>${escaparHtml(item.causa)}</strong>${item.motivoVigencia ? `<div>${item.motivoVigencia}</div>` : ""}</div></td>
     </tr>
   `).join("");
 }
@@ -2360,6 +2518,66 @@ function construirCausaMenorCarga(ausenciasValidas, diasSinProgramacion, base) {
   if (ausenciasValidas > 0) partes.push(`${ausenciasValidas} ausencia(s) válida(s)`);
   if (diasSinProgramacion > 0) partes.push(`${diasSinProgramacion} día(s) sin programación`);
   return partes.join(" | ");
+}
+
+
+function construirResumenJustificacionMenorCarga(item, solicitudes) {
+  const porTipo = new Map();
+  const diasJustificados = new Set();
+
+  (item.fechasNovedad || []).forEach((n) => {
+    const fecha = String(n.fecha || "").slice(0, 10);
+    if (!fecha) return;
+    const tipo = n.tipo || "otra";
+    if (!["incapacidad", "vacaciones", "licencia", "descanso"].includes(tipo)) return;
+    diasJustificados.add(fecha);
+    if (!porTipo.has(tipo)) porTipo.set(tipo, { label: n.label || obtenerTextoTipoNovedad(tipo), fechas: new Set() });
+    porTipo.get(tipo).fechas.add(fecha);
+  });
+
+  (solicitudes || []).forEach((s) => {
+    if (s._estado_bienestar !== "aprobado") return;
+    const texto = `${s._tipo_bienestar || ""} ${s.subtipo || ""} ${s.codigo_tipo || ""}`.toLowerCase();
+    let tipo = "otra";
+    if (s._es_incapacidad || texto.includes("incap")) tipo = "incapacidad";
+    else if (texto.includes("vacac")) tipo = "vacaciones";
+    else if (texto.includes("perm") || texto.includes("licen") || texto.includes("ausencia")) tipo = "licencia";
+    else if (texto.includes("descanso") || texto.includes("libre")) tipo = "descanso";
+    if (tipo === "otra") return;
+
+    const inicio = s._fecha_inicio_bienestar || s._fecha_bienestar || "";
+    const fin = s._fecha_fin_bienestar || inicio;
+    expandirRangoFechasDashboard(inicio, fin).forEach((fecha) => {
+      if (filtrosActuales.fechaInicio && fecha < filtrosActuales.fechaInicio) return;
+      if (filtrosActuales.fechaFin && fecha > filtrosActuales.fechaFin) return;
+      diasJustificados.add(fecha);
+      if (!porTipo.has(tipo)) porTipo.set(tipo, { label: s._tipo_bienestar || obtenerTextoTipoNovedad(tipo), fechas: new Set() });
+      porTipo.get(tipo).fechas.add(fecha);
+    });
+  });
+
+  const detallePartes = [...porTipo.values()].map((grupo) => {
+    const fechas = [...grupo.fechas].sort();
+    if (!fechas.length) return "";
+    const desde = fechas[0];
+    const hasta = fechas.at(-1);
+    return `<div><strong>${escaparHtml(grupo.label)}</strong> ${fechas.length} día(s) · ${escaparHtml(formatearFechaCorta(desde))}${hasta !== desde ? ` hasta ${escaparHtml(formatearFechaCorta(hasta))}` : ""}</div>`;
+  }).filter(Boolean);
+
+  return {
+    diasJustificados: diasJustificados.size,
+    detalle: detallePartes.join("")
+  };
+}
+
+function expandirRangoFechasDashboard(inicio, fin) {
+  const resultado = [];
+  if (!inicio) return resultado;
+  const d1 = new Date(`${String(inicio).slice(0,10)}T12:00:00`);
+  const d2 = new Date(`${String(fin || inicio).slice(0,10)}T12:00:00`);
+  if (Number.isNaN(d1.getTime()) || Number.isNaN(d2.getTime()) || d2 < d1) return resultado;
+  for (let d = new Date(d1); d <= d2; d.setDate(d.getDate() + 1)) resultado.push(formatearFechaISO(d));
+  return resultado;
 }
 
 
@@ -4034,10 +4252,31 @@ function inicializarFechasRevision() {
 
 function configurarRevisionNominaReal() {
   inicializarFechasRevision();
-  ["revisionFechaDesde","revisionFechaHasta","revisionEstado","revisionBuscar"].forEach(id=>{
+  ["revisionEstado","revisionPrioridad","revisionBuscar"].forEach(id=>{
     document.getElementById(id)?.addEventListener(id==="revisionBuscar"?"input":"change", renderRevisionNominaReal);
   });
-  document.getElementById("btnActualizarRevisionNomina")?.addEventListener("click", cargarRevisionNominaReal);
+  document.querySelectorAll("[data-revision-fast]").forEach(item=>{
+    const aplicar=()=>{
+      const valor=String(item.dataset.revisionFast||"");
+      const estado=document.getElementById("revisionEstado");
+      const prioridad=document.getElementById("revisionPrioridad");
+      if(valor==="pendiente"||valor==="observado"){
+        if(estado)estado.value=valor;
+        if(prioridad)prioridad.value="";
+      }else{
+        if(estado)estado.value="";
+        if(prioridad)prioridad.value=valor;
+      }
+      renderRevisionNominaReal();
+    };
+    item.addEventListener("click",aplicar);
+    item.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();aplicar();}});
+  });
+  ["revisionFechaDesde","revisionFechaHasta"].forEach(id=>{
+    document.getElementById(id)?.addEventListener("change",()=>cargarRevisionNominaReal());
+  });
+  document.getElementById("btnActualizarRevisionNomina")?.addEventListener("click",()=>cargarRevisionNominaReal());
+  document.getElementById("btnRecalcularRevisionNomina")?.addEventListener("click",recalcularRevisionNominaReal);
   document.getElementById("btnGenerarProsof")?.addEventListener("click", generarPlantillaProsof);
 }
 
@@ -4114,107 +4353,277 @@ async function confirmarReporteListoNomina(){
   }
 }
 
-async function cargarRevisionNominaReal() {
-  const tbody=document.getElementById("tbodyRevisionNominaReal");
-  if (!tbody) return;
-  tbody.innerHTML='<tr><td colspan="11" class="text-muted text-center">Actualizando información real...</td></tr>';
+// FASE 4.3: decisiones separadas de consultas/calculos. Cache solo en memoria.
+let revisionCargaVersion = 0;
+let revisionCargaEnCurso = false;
+let revisionCalculoEnCurso = false;
+let revisionContextoActual = null;
+const revisionDecisionesConfirmadas = new Map();
+const revisionGuardando = new Set();
+const revisionHistorialCache = new Map();
+const revisionHistorialAbierto = new Set();
+const revisionHistorialCargando = new Set();
+const COLUMNAS_REVISION_AYB = 'id,cedula,fecha,concepto_codigo,concepto_nombre,horas_calculadas,horas_aprobadas,origen_calculo,estado,elegible_erp,codigo_erp,aprobado_por,aprobado_at,observacion,detalle,created_at,updated_at,grupo_codigo,proceso_id,proceso_codigo,proceso_nombre';
+
+function mensajeRevisionAyb(texto, tipo = 'info', id = 'revisionEstadoCarga') {
+  const nodo = document.getElementById(id);
+  if (!nodo) return;
+  nodo.textContent = texto;
+  nodo.dataset.tipo = tipo;
+  nodo.hidden = !texto;
+}
+
+function actualizarBotonesCargaRevision() {
+  const actualizar = document.getElementById('btnActualizarRevisionNomina');
+  const calcular = document.getElementById('btnRecalcularRevisionNomina');
+  if (actualizar) {
+    actualizar.disabled = revisionCargaEnCurso;
+    actualizar.textContent = revisionCargaEnCurso ? 'Consultando...' : 'Actualizar bandeja';
+  }
+  if (calcular) {
+    calcular.disabled = revisionCalculoEnCurso || revisionCargaEnCurso || revisionGuardando.size > 0;
+    calcular.textContent = revisionCalculoEnCurso ? 'Calculando...' : 'Recalcular candidatos';
+  }
+}
+
+function rangoRevisionAyb() {
+  const desde = document.getElementById('revisionFechaDesde')?.value || '';
+  const hasta = document.getElementById('revisionFechaHasta')?.value || '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde) || !/^\d{4}-\d{2}-\d{2}$/.test(hasta) || desde > hasta) {
+    throw new Error('Selecciona un rango de fechas v\u00e1lido.');
+  }
+  return { desde, hasta };
+}
+
+// Solo para LECTURAS: una escritura no se reintenta ni se da por fallida por reloj.
+async function lecturaRevisionAcotada(consulta, milisegundos = 15000) {
+  const control = new AbortController();
+  let reloj;
+  const limite = new Promise((_, reject) => {
+    reloj = setTimeout(() => {
+      control.abort();
+      const e = new Error('La consulta excedi\u00f3 el tiempo de espera.');
+      e.code = 'REVISION_TIMEOUT';
+      reject(e);
+    }, milisegundos);
+  });
   try {
-    const desde=document.getElementById("revisionFechaDesde")?.value;
-    const hasta=document.getElementById("revisionFechaHasta")?.value;
-    let actualizacionSegundoPlano=null;
-    if (desde && hasta) {
-      actualizacionSegundoPlano=Promise.all([
-        supabase.rpc("preparar_conceptos_revision", {p_fecha_desde:desde,p_fecha_hasta:hasta,p_grupo_codigo:"ALIMENTOS_BEBIDAS",p_proceso_codigo:null}),
-        supabase.rpc("sincronizar_recargos_nocturnos_programados", {p_fecha_desde:desde,p_fecha_hasta:hasta,p_grupo_codigo:"ALIMENTOS_BEBIDAS",p_proceso_codigo:null})
-      ]);
+    const q = typeof consulta.abortSignal === 'function' ? consulta.abortSignal(control.signal) : consulta;
+    const resultado = await Promise.race([Promise.resolve(q), limite]);
+    if (resultado.error) throw resultado.error;
+    return resultado;
+  } finally { clearTimeout(reloj); }
+}
+
+async function leerRevisionesAyb(desde, hasta) {
+  const filas = [];
+  const pagina = 500;
+  // Orden estable: no perder filas al pasar el limite de respuesta de Supabase.
+  for (let offset = 0; ; offset += pagina) {
+    const { data } = await lecturaRevisionAcotada(supabase.from('turnos_conceptos_revision')
+      .select(COLUMNAS_REVISION_AYB).eq('grupo_codigo','ALIMENTOS_BEBIDAS')
+      .gte('fecha',desde).lte('fecha',hasta)
+      .order('fecha',{ascending:false}).order('id',{ascending:true})
+      .range(offset,offset+pagina-1));
+    const lote = data || [];
+    filas.push(...lote);
+    if (lote.length < pagina) return filas;
+  }
+}
+
+function revisionPersistidaMasReciente(fila) {
+  const guardada = revisionDecisionesConfirmadas.get(String(fila.id || fila.revision_id));
+  if (!guardada) return fila;
+  const remota = Date.parse(fila.updated_at || '') || 0;
+  const local = Date.parse(guardada.updated_at || '') || 0;
+  // Una respuesta iniciada antes de Guardar no puede borrar esa decision.
+  return remota <= local ? { ...fila, ...guardada } : fila;
+}
+
+function nuevoContextoRevision(desde, hasta, version) {
+  const empleados = new Map();
+  for (const item of directorioEmpleadosCompleto) {
+    const e = item.raw || item;
+    empleados.set(normalizarDocumentoEmpleado(e.cedula || item.cedula), e);
+  }
+  return { desde, hasta, version, empleados, porDia: new Map(), documentosListos: new Set(), fallidos: new Set() };
+}
+
+function enriquecerFilaRevisionAyb(original, contexto) {
+  const r = revisionPersistidaMasReciente(original);
+  const documento = normalizarDocumentoEmpleado(r.cedula);
+  const detalle = r.detalle || {};
+  const e = contexto.empleados.get(documento) || {};
+  const j = contexto.porDia.get(`${documento}|${String(r.fecha || '').slice(0,10)}`);
+  const verificando = !contexto.documentosListos.has(documento);
+  const fallo = contexto.fallidos.has(documento);
+  const fuente = j || detalle;
+  const codigo = String(r.concepto_codigo || '').toUpperCase();
+  const estado = String(r.estado || '').toLowerCase();
+  const cerrado = ['aprobado','rechazado'].includes(estado);
+  const esExtra = ['P003','P004','P008','P009'].includes(codigo);
+  const minutosPosteriores = minutosPosterioresTurnoRevision(fuente);
+  const extraValida = !esExtra || minutosPosteriores > 25;
+  // Sin vista disponible se conserva el detalle almacenado y se advierte,
+  // nunca se convierten errores de consulta en cero marcaciones.
+  const estadoComparacion = j?.estado_comparacion || (verificando || fallo ? 'comparacion_por_actualizar' : 'pendiente_revision');
+  return { ...r,
+    empleado: `${e.nombres || ''} ${e.apellidos || ''}`.trim() || r.empleado || r.cedula,
+    cargo: e.cargo || r.cargo || '', centro_costos: e.centro_costos || r.centro_costos || '', area: e.area || r.area || '',
+    turno: fuente.turno || '', turno_2: fuente.turno_2 || '',
+    hora_inicio: fuente.hora_inicio || '', hora_fin: fuente.hora_fin || '',
+    hora_inicio_2: fuente.hora_inicio_2 || '', hora_fin_2: fuente.hora_fin_2 || '',
+    horas_programadas_netas: j ? j.horas_programadas_netas : (detalle.horas_programadas_netas ?? detalle.horas_programadas),
+    horas_reales: j ? j.horas_reales_pareadas : detalle.horas_reales,
+    horas_candidatas: r.horas_calculadas,
+    primera_marcacion: fuente.primera_marcacion ?? null, ultima_marcacion: fuente.ultima_marcacion ?? null,
+    total_marcaciones: fuente.total_marcaciones == null ? null : Number(fuente.total_marcaciones),
+    estado_comparacion: estadoComparacion, minutos_posteriores_turno: minutosPosteriores,
+    revision_id: r.id, estado_revision: estado,
+    comparacion_guardada: !j, comparacion_error: fallo,
+    // Los observados permanecen consultables aun si posteriormente cambia el turno.
+    ocultar_por_tolerancia: esExtra && !extraValida && !cerrado && estado !== 'observado' && Boolean(j),
+    permite_revision: !cerrado && extraValida && Number(r.horas_calculadas || 0) > 0
+  };
+}
+
+function publicarRevisionAyb(revisiones, contexto) {
+  if (contexto.version !== revisionCargaVersion) return false;
+  revisionNominaRealBase = revisiones.map(r => enriquecerFilaRevisionAyb(r, contexto)).filter(r => !r.ocultar_por_tolerancia);
+  renderRevisionNominaReal();
+  return true;
+}
+
+async function cargarRevisionNominaReal(opciones = {}) {
+  const tbody = document.getElementById('tbodyRevisionNominaReal');
+  if (!tbody) return;
+  let rango;
+  try { rango = rangoRevisionAyb(); }
+  catch (e) { mensajeRevisionAyb(e.message, 'error'); return; }
+  const version = ++revisionCargaVersion;
+  const contexto = nuevoContextoRevision(rango.desde, rango.hasta, version);
+  revisionContextoActual = contexto;
+  revisionCargaEnCurso = true;
+  if (revisionNominaRealBase.length) renderRevisionNominaReal();
+  actualizarBotonesCargaRevision();
+  mensajeRevisionAyb('Consultando decisiones guardadas...');
+  try {
+    const revisiones = await leerRevisionesAyb(rango.desde, rango.hasta);
+    if (!publicarRevisionAyb(revisiones, contexto)) return;
+    mensajeRevisionAyb('Decisiones disponibles. Verificando programaci\u00f3n y marcaciones; puedes consultar las observaciones.');
+    await completarRevisionNominaAyb(revisiones, rango.desde, rango.hasta, contexto);
+    if (!publicarRevisionAyb(revisiones, contexto)) return;
+    mensajeRevisionAyb(contexto.fallidos.size
+      ? 'Bandeja disponible. Algunas comparaciones no pudieron actualizarse; se conserva el detalle guardado. Usa Actualizar bandeja para reintentar.'
+      : `Bandeja actualizada: ${revisionNominaRealBase.length} conceptos del per\u00edodo.`, contexto.fallidos.size ? 'warning' : 'success');
+  } catch (e) {
+    if (version !== revisionCargaVersion) return;
+    console.error('Bandeja revisi\u00f3n:', e);
+    mensajeRevisionAyb(`No se pudo completar la consulta: ${e.message || String(e)}. No se han eliminado datos.`, 'error');
+    if (!revisionNominaRealBase.length) tbody.innerHTML = '<tr><td colspan="11">No se pudo cargar la bandeja. Usa Actualizar bandeja.</td></tr>';
+  } finally {
+    if (version === revisionCargaVersion) {
+      revisionCargaEnCurso = false;
+      actualizarBotonesCargaRevision();
     }
-    let q=supabase.from("turnos_conceptos_revision").select("*").eq("grupo_codigo","ALIMENTOS_BEBIDAS").order("fecha",{ascending:false});
-    if (desde) q=q.gte("fecha",desde); if (hasta) q=q.lte("fecha",hasta);
-    const {data,error}=await q;
-    if (error) throw error;
-    revisionNominaRealBase=await completarRevisionNominaAyb(Array.isArray(data)?data:[],desde,hasta);
-    renderRevisionNominaReal();
-    actualizacionSegundoPlano?.then(async ([prep,nocturno])=>{
-      if(prep.error)console.warn("No se pudo materializar candidatos:",prep.error.message);
-      if(nocturno.error)console.warn("No se pudo sincronizar el cálculo nocturno central:",nocturno.error.message);
-      if(prep.error&&nocturno.error)return;
-      let fresca=supabase.from("turnos_conceptos_revision").select("*").eq("grupo_codigo","ALIMENTOS_BEBIDAS").order("fecha",{ascending:false});
-      if(desde)fresca=fresca.gte("fecha",desde);if(hasta)fresca=fresca.lte("fecha",hasta);
-      const resultado=await fresca;
-      if(!resultado.error){revisionNominaRealBase=await completarRevisionNominaAyb(resultado.data||[],desde,hasta);renderRevisionNominaReal();}
-    }).catch(error=>console.warn("Actualización de candidatos:",error));
-  } catch(e) {
-    console.error("Bandeja revisión:",e);
-    tbody.innerHTML=`<tr><td colspan="11" class="text-danger text-center">No fue posible cargar la bandeja: ${escaparHtml(e.message||String(e))}</td></tr>`;
   }
+  // Generacion inicial una sola vez, despues de mostrar las decisiones.
+  // Guardar/Editar nunca vuelve a ejecutar estos motores.
+  if (version === revisionCargaVersion && opciones.recalcular === true) await recalcularRevisionNominaReal();
 }
 
-async function completarRevisionNominaAyb(revisiones,desde,hasta) {
+async function completarRevisionNominaAyb(revisiones, desde, hasta, contexto = nuevoContextoRevision(desde, hasta, revisionCargaVersion)) {
   if (!revisiones.length) return [];
-  const cedulas=[...new Set(revisiones.map(x=>String(x.cedula||"").trim()).filter(Boolean))];
-  const empleados=[]; const jornadas=[];
-  for(let i=0;i<cedulas.length;i+=20){
-    const lote=cedulas.slice(i,i+20);
-    const re=await supabase.from("empleados")
-      .select("cedula,nombres,apellidos,cargo,centro_costos,area,codigo").in("cedula",lote);
-    if(re.error)console.warn("Empleados revisión:",re.error.message); else empleados.push(...(re.data||[]));
-    jornadas.push(...await consultarJornadasRevisionAyb(lote,desde,hasta));
+  const cedulas = [...new Set(revisiones.map(x => String(x.cedula || '').trim()).filter(Boolean))];
+  const faltan = cedulas.filter(c => !contexto.empleados.has(normalizarDocumentoEmpleado(c)));
+  for (let i=0; i<faltan.length; i+=100) {
+    try {
+      const { data } = await lecturaRevisionAcotada(supabase.from('empleados')
+        .select('cedula,nombres,apellidos,cargo,centro_costos,area,codigo').in('cedula',faltan.slice(i,i+100)));
+      for (const e of data || []) contexto.empleados.set(normalizarDocumentoEmpleado(e.cedula),e);
+    } catch (e) { console.warn('Directorio de revisi\u00f3n:',e.message); }
   }
-  const porCedula=new Map(empleados.map(x=>[normalizarDocumentoEmpleado(x.cedula),x]));
-  const porDia=new Map(jornadas.map(j=>[
-    `${normalizarDocumentoEmpleado(j.cedula)}|${String(j.fecha||"").slice(0,10)}`,j
-  ]));
-  const conceptosExtra=new Set(["P003","P004","P008","P009"]);
-  return revisiones.map(r=>{
-    const documento=normalizarDocumentoEmpleado(r.cedula);
-    const detalle=r.detalle||{},e=porCedula.get(documento)||{};
-    const j=porDia.get(`${documento}|${String(r.fecha||"").slice(0,10)}`)||{};
-    const codigo=String(r.concepto_codigo||"").toUpperCase();
-    const estadoComparacion=String(j.estado_comparacion||"");
-    const minutosPosteriores=minutosPosterioresTurnoRevision(j);
-    const cerrado=["aprobado","rechazado"].includes(String(r.estado||"").toLowerCase());
-    const extraValida=!conceptosExtra.has(codigo) || minutosPosteriores>25;
-    return {...r,
-      empleado:`${e.nombres||""} ${e.apellidos||""}`.trim()||r.cedula,
-      cargo:e.cargo||"", centro_costos:e.centro_costos||"", area:e.area||"",
-      turno:j.turno||detalle.turno||"", turno_2:j.turno_2||detalle.turno_2||"",
-      hora_inicio:j.hora_inicio||detalle.hora_inicio||"", hora_fin:j.hora_fin||detalle.hora_fin||"",
-      hora_inicio_2:j.hora_inicio_2||detalle.hora_inicio_2||"", hora_fin_2:j.hora_fin_2||detalle.hora_fin_2||"",
-      horas_programadas_netas:j.horas_programadas_netas??detalle.horas_programadas_netas??detalle.horas_programadas,
-      horas_reales:j.horas_reales_pareadas??detalle.horas_reales, horas_candidatas:r.horas_calculadas,
-      primera_marcacion:j.primera_marcacion||null, ultima_marcacion:j.ultima_marcacion||null,
-      total_marcaciones:Number(j.total_marcaciones||0), estado_comparacion:estadoComparacion,
-      minutos_posteriores_turno:minutosPosteriores,
-      revision_id:r.id, estado_revision:r.estado,
-      ocultar_por_tolerancia:conceptosExtra.has(codigo)&&!extraValida&&!cerrado,
-      // La comparación biométrica es información de apoyo para la decisión,
-      // pero no debe bloquear conceptos ya calculados (por ejemplo P005 y
-      // P006). La elegibilidad real depende del estado de la revisión y, para
-      // extras posteriores al turno, de superar la tolerancia de 25 minutos.
-      permite_revision:!cerrado && extraValida && Number(r.horas_calculadas||0)>0
-    };
-  }).filter(r=>!r.ocultar_por_tolerancia);
+  const lotes = [];
+  const nuevas = cedulas.filter(c => !contexto.documentosListos.has(normalizarDocumentoEmpleado(c)));
+  for (let i=0; i<nuevas.length; i+=20) lotes.push(nuevas.slice(i,i+20));
+  let indice = 0;
+  async function trabajador() {
+    while (indice < lotes.length && contexto.version === revisionCargaVersion) {
+      const lote = lotes[indice++];
+      const jornadas = await consultarJornadasRevisionAyb(lote,desde,hasta,contexto);
+      for (const j of jornadas) contexto.porDia.set(`${normalizarDocumentoEmpleado(j.cedula)}|${String(j.fecha || '').slice(0,10)}`,j);
+    }
+  }
+  // Concurrencia acotada: dos lotes, no una consulta por cada fila/concepto.
+  await Promise.all([trabajador(),trabajador()]);
+  return revisiones.map(r => enriquecerFilaRevisionAyb(r,contexto)).filter(r => !r.ocultar_por_tolerancia);
 }
 
-async function consultarJornadasRevisionAyb(cedulas,desde,hasta) {
-  if(!cedulas.length)return [];
-  let consulta=supabase.from("vw_dashboard_ayb_real_diario")
-    .select("cedula,fecha,turno,turno_2,hora_inicio,hora_fin,hora_inicio_2,hora_fin_2,horas_programadas_netas,horas_reales_pareadas,total_marcaciones,primera_marcacion,ultima_marcacion,estado_comparacion")
-    .in("cedula",cedulas);
-  if(desde)consulta=consulta.gte("fecha",desde);
-  if(hasta)consulta=consulta.lte("fecha",hasta);
-  const resultado=await consulta;
-  if(!resultado.error)return resultado.data||[];
-  if(cedulas.length===1){
-    console.warn(`Jornada biométrica ${cedulas[0]}:`,resultado.error.message);
+async function consultarJornadasRevisionAyb(cedulas, desde, hasta, contexto) {
+  if (!cedulas.length) return [];
+  try {
+    const filas = [];
+    for (let offset=0; ; offset+=500) {
+      let consulta = supabase.from('vw_dashboard_ayb_real_diario')
+        .select('cedula,fecha,turno,turno_2,hora_inicio,hora_fin,hora_inicio_2,hora_fin_2,horas_programadas_netas,horas_reales_pareadas,total_marcaciones,primera_marcacion,ultima_marcacion,estado_comparacion')
+        .in('cedula',cedulas).order('fecha',{ascending:false}).order('cedula',{ascending:true});
+      if (desde) consulta=consulta.gte('fecha',desde);
+      if (hasta) consulta=consulta.lte('fecha',hasta);
+      const { data } = await lecturaRevisionAcotada(consulta.range(offset,offset+499));
+      const lote = data || [];
+      filas.push(...lote);
+      if (lote.length < 500) break;
+    }
+    cedulas.forEach(c => contexto?.documentosListos.add(normalizarDocumentoEmpleado(c)));
+    return filas;
+  } catch (e) {
+    const timeout = e.code === '57014' || e.code === 'REVISION_TIMEOUT' || /timeout|tiempo de espera|aborted/i.test(e.message || '');
+    if (timeout && cedulas.length > 1) {
+      const mitad = Math.ceil(cedulas.length/2);
+      const izquierda = await consultarJornadasRevisionAyb(cedulas.slice(0,mitad),desde,hasta,contexto);
+      const derecha = await consultarJornadasRevisionAyb(cedulas.slice(mitad),desde,hasta,contexto);
+      return [...izquierda,...derecha];
+    }
+    cedulas.forEach(c => {
+      contexto?.documentosListos.add(normalizarDocumentoEmpleado(c));
+      contexto?.fallidos.add(normalizarDocumentoEmpleado(c));
+    });
+    console.warn('Comparaci\u00f3n no actualizada; se conserva el detalle:',e.message);
     return [];
   }
-  // La vista diaria es costosa. Si Supabase cancela un lote, se divide para
-  // recuperar todas las marcaciones en vez de dejar en cero a todo el grupo.
-  const mitad=Math.ceil(cedulas.length/2);
-  const izquierda=await consultarJornadasRevisionAyb(cedulas.slice(0,mitad),desde,hasta);
-  const derecha=await consultarJornadasRevisionAyb(cedulas.slice(mitad),desde,hasta);
-  return [...izquierda,...derecha];
+}
+
+async function recalcularRevisionNominaReal() {
+  if (revisionCalculoEnCurso || revisionCargaEnCurso || revisionGuardando.size) return;
+  let rango;
+  try { rango=rangoRevisionAyb(); } catch(e) { mensajeRevisionAyb(e.message,'error'); return; }
+  const dias=(Date.parse(rango.hasta)-Date.parse(rango.desde))/86400000;
+  if(dias>62) { mensajeRevisionAyb('Para recalcular usa un rango de hasta 62 d\u00edas. La consulta del hist\u00f3rico sigue disponible.','warning'); return; }
+  const version=revisionCargaVersion;
+  const contexto=revisionContextoActual;
+  revisionCalculoEnCurso=true;
+  actualizarBotonesCargaRevision();
+  mensajeRevisionAyb('Actualizando candidatos en segundo plano. Las decisiones y observaciones siguen disponibles.');
+  const avisos=[];
+  try {
+    const parametros={p_fecha_desde:rango.desde,p_fecha_hasta:rango.hasta,p_grupo_codigo:'ALIMENTOS_BEBIDAS',p_proceso_codigo:null};
+    // Secuenciales: ambos motores pueden tocar la misma fila. Evitar competencia por bloqueos.
+    for(const funcion of ['preparar_conceptos_revision','sincronizar_recargos_nocturnos_programados']) {
+      try {
+        const {error}=await supabase.rpc(funcion,parametros);
+        if(error) throw error;
+      } catch(e) { avisos.push(e.message || String(e)); }
+    }
+    if(version!==revisionCargaVersion || !contexto) return;
+    const revisiones=await leerRevisionesAyb(rango.desde,rango.hasta);
+    // Reutilizar cruces ya leidos; consultar solo cedulas nuevas.
+    await completarRevisionNominaAyb(revisiones,rango.desde,rango.hasta,contexto);
+    if(publicarRevisionAyb(revisiones,contexto)) mensajeRevisionAyb(avisos.length
+      ? 'No se complet\u00f3 todo el rec\u00e1lculo. Las decisiones guardadas se conservan. Detalle: '+avisos.join(' | ')
+      : 'Candidatos actualizados. Decisiones y observaciones conservadas.',avisos.length?'warning':'success');
+  } catch(e) {
+    if(version===revisionCargaVersion) mensajeRevisionAyb('No se complet\u00f3 el rec\u00e1lculo: '+(e.message||String(e)),'warning');
+  } finally { revisionCalculoEnCurso=false; actualizarBotonesCargaRevision(); }
 }
 
 function minutosPosterioresTurnoRevision(jornada) {
@@ -4227,13 +4636,50 @@ function minutosPosterioresTurnoRevision(jornada) {
   return Math.max(r-p,0);
 }
 
+function actualizarResumenRevisionNomina() {
+  const abiertas=revisionNominaRealBase.filter(x=>!["aprobado","rechazado"].includes(String(x.estado_revision||"").toLowerCase()));
+  const pendientes=revisionNominaRealBase.filter(x=>String(x.estado_revision||"").toLowerCase()==="pendiente").length;
+  const observados=revisionNominaRealBase.filter(x=>String(x.estado_revision||"").toLowerCase()==="observado").length;
+  const accionables=abiertas.filter(x=>x.permite_revision).length;
+  const incidencias=abiertas.filter(x=>String(x.estado_comparacion||"") && String(x.estado_comparacion||"")!=="comparable").length;
+  const horas=abiertas.reduce((acc,x)=>acc+Math.max(0,horasCalculadasRevision(x)),0);
+  setText("kpiRevisionPendientes",pendientes);
+  setText("kpiRevisionObservados",observados);
+  setText("kpiRevisionAccionables",accionables);
+  setText("kpiRevisionIncidencias",incidencias);
+  setText("kpiRevisionHorasCandidatas",`${horas.toFixed(2)} h`);
+}
+
 function registrosRevisionFiltrados() {
   const estado=String(document.getElementById("revisionEstado")?.value||"").toLowerCase();
+  const prioridad=String(document.getElementById("revisionPrioridad")?.value||"").toLowerCase();
   const buscar=String(document.getElementById("revisionBuscar")?.value||"").trim().toLowerCase();
-  return revisionNominaRealBase.filter(x=>{
-    if (estado && String(x.estado_revision||"").toLowerCase()!==estado) return false;
-    if (buscar && !`${x.empleado||""} ${x.cedula||""} ${x.concepto_codigo||""} ${x.concepto_nombre||""}`.toLowerCase().includes(buscar)) return false;
+  const extras=new Set(["P003","P004","P008","P009"]);
+  const recargos=new Set(["P005","P006","P007","P100"]);
+  const filas=revisionNominaRealBase.filter(x=>{
+    const desde=document.getElementById("revisionFechaDesde")?.value;
+    const hasta=document.getElementById("revisionFechaHasta")?.value;
+    if(desde && String(x.fecha||"")<desde)return false;
+    if(hasta && String(x.fecha||"")>hasta)return false;
+    const estadoFila=String(x.estado_revision||"").toLowerCase();
+    const concepto=String(x.concepto_codigo||"").toUpperCase();
+    const incidencia=String(x.estado_comparacion||"") && String(x.estado_comparacion||"")!=="comparable";
+    if (estado && estadoFila!==estado) return false;
+    if (prioridad==="accionables" && !x.permite_revision) return false;
+    if (prioridad==="incidencias" && !incidencia) return false;
+    if (prioridad==="extras" && !extras.has(concepto)) return false;
+    if (prioridad==="recargos" && !recargos.has(concepto)) return false;
+    if (prioridad==="cerrados" && !["aprobado","rechazado"].includes(estadoFila)) return false;
+    if (buscar && !`${x.empleado||""} ${x.cedula||""} ${x.concepto_codigo||""} ${x.concepto_nombre||""} ${x.proceso_nombre||""} ${x.proceso_codigo||""} ${x.observacion||""}`.toLowerCase().includes(buscar)) return false;
     return true;
+  });
+  const pesoEstado={observado:0,pendiente:1,aprobado:2,rechazado:3};
+  return filas.sort((a,b)=>{
+    const pa=pesoEstado[String(a.estado_revision||"").toLowerCase()]??9;
+    const pb=pesoEstado[String(b.estado_revision||"").toLowerCase()]??9;
+    if(pa!==pb)return pa-pb;
+    if(Boolean(a.permite_revision)!==Boolean(b.permite_revision))return a.permite_revision?-1:1;
+    return String(b.fecha||"").localeCompare(String(a.fecha||""));
   });
 }
 
@@ -4310,7 +4756,8 @@ function estadoComparacionRevision(registro) {
     programado_sin_marcaciones:"Sin marcaciones",
     marcado_sin_programacion:"Sin programación",
     programacion_a_revisar:"Programación por revisar",
-    pendiente_revision:"Comparación pendiente"
+    pendiente_revision:"Comparación pendiente",
+    comparacion_por_actualizar:"Comparación guardada; pendiente de actualizar"
   };
   return estado&&estado!=="comparable"
     ? `<div class="small text-warning-emphasis mt-1">${escaparHtml(textos[estado]||estado)}</div>`:"";
@@ -4318,6 +4765,7 @@ function estadoComparacionRevision(registro) {
 
 function renderRevisionNominaReal() {
   const tbody=document.getElementById("tbodyRevisionNominaReal"); if(!tbody)return;
+  actualizarResumenRevisionNomina();
   const rows=registrosRevisionFiltrados();
   if(!rows.length){tbody.innerHTML='<tr><td colspan="11" class="text-muted text-center">No hay conceptos para los filtros seleccionados.</td></tr>';return;}
   tbody.innerHTML=rows.map(x=>{
@@ -4325,59 +4773,176 @@ function renderRevisionNominaReal() {
     const cerrado=["aprobado","rechazado"].includes(estado);
     const horasCalculadas=horasCalculadasRevision(x);
     const diferenciaAprobada=x.horas_aprobadas!=null && Math.abs(Number(x.horas_aprobadas)-horasCalculadas)>0.01;
-    return `<tr>
+    const incidencia=String(x.estado_comparacion||"") && String(x.estado_comparacion||"")!=="comparable";
+    const claseFila=cerrado?"ayb-row-cerrado":estado==="observado"?"ayb-row-observado":incidencia?"ayb-row-incidencia":"";
+    return `<tr class="${claseFila}" data-revision-id="${escaparHtml(x.revision_id)}" aria-busy="${revisionGuardando.has(String(x.revision_id))}">
       <td><strong>${escaparHtml(x.empleado||"")}</strong><div class="small text-muted">${escaparHtml(x.codigo_erp||"Sin código ERP")} · ${escaparHtml(x.cedula||"")}</div></td>
       <td>${escaparHtml(formatearFechaCorta(x.fecha)||x.fecha||"")}</td>
-      <td>${formatearHorasRevision(x.horas_programadas_netas||0)}<div class="small text-muted">${escaparHtml(x.turno||"")} · ${escaparHtml((x.hora_inicio||"-").slice(0,5))}–${escaparHtml((x.hora_fin||"-").slice(0,5))}</div></td>
-      <td>${formatearHorasRevision(x.horas_reales||0)}<div class="small text-muted">${x.total_marcaciones||0} marcación(es)</div>${estadoComparacionRevision(x)}</td>
+      <td>${x.horas_programadas_netas==null?"Sin verificar":formatearHorasRevision(x.horas_programadas_netas)}<div class="small text-muted">${escaparHtml(x.turno||"")} · ${escaparHtml((x.hora_inicio||"-").slice(0,5))}–${escaparHtml((x.hora_fin||"-").slice(0,5))}</div></td>
+      <td>${x.horas_reales==null?"Sin verificar":formatearHorasRevision(x.horas_reales)}<div class="small text-muted">${x.total_marcaciones==null?"Sin verificar":`${x.total_marcaciones} marcación(es)`}</div>${estadoComparacionRevision(x)}</td>
       <td>${bloqueHorarioRevision(x.hora_inicio,x.primera_marcacion,"entrada")}</td>
       <td>${bloqueHorarioRevision(x.hora_fin,x.ultima_marcacion,"salida")}</td>
       <td><strong>${escaparHtml(x.concepto_codigo||"")}</strong><div class="small">${escaparHtml(x.concepto_nombre||"")}</div></td>
       <td><strong>${formatearHorasRevision(horasCalculadas)}</strong><div class="small text-muted mt-1">${escaparHtml(descripcionCalculoRevision(x))}</div></td>
       <td>${x.horas_aprobadas==null?"-":`${formatearHorasRevision(x.horas_aprobadas)}${diferenciaAprobada?'<div class="small text-warning-emphasis mt-1">Difiere del cálculo actual</div>':""}`}</td>
-      <td>${crearBadgeEstadoExtra(estado)}</td>
-      <td>${!usuarioPuedeDecidirRevisionAyb()?'<span class="small text-muted">Solo lectura</span>':cerrado ? `<div class="d-flex flex-column align-items-start gap-1"><span class="small text-muted">Cerrado</span><button class="btn btn-outline-primary btn-sm" onclick="window.editarRevisionNomina('${x.revision_id}',${Number(x.horas_aprobadas||0)})">Editar</button></div>` : !x.permite_revision ? `<span class="small text-muted">Solo seguimiento</span>` : `<div class="d-flex flex-wrap gap-1"><button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','aprobar')">Aprobar ${horasCalculadas.toFixed(2)} h</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','ajustar')">Ajustar</button><button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','rechazar')">Rechazar</button></div>`}</td>
+      <td class="revision-estado-nota">${renderEstadoObservacionRevision(x)}</td>
+      <td>${revisionGuardando.has(String(x.revision_id))?'<button type="button" class="btn btn-outline-primary btn-sm" disabled>Guardando...</button>':!usuarioPuedeDecidirRevisionAyb()?'<span class="small text-muted">Solo lectura</span>':cerrado ? `<div class="d-flex flex-column align-items-start gap-1"><span class="small text-muted">Cerrado</span><button class="btn btn-outline-primary btn-sm" onclick="window.editarRevisionNomina('${x.revision_id}',${Number(x.horas_aprobadas||0)})">Editar</button></div>` : !x.permite_revision ? `<span class="small text-muted">Solo seguimiento</span>` : `<div class="d-flex flex-wrap gap-1"><button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','aprobar')">Aprobar ${horasCalculadas.toFixed(2)} h</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','ajustar')">Ajustar</button><button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','rechazar')">Rechazar</button></div>`}</td>
     </tr>`;
   }).join("");
 }
 
+function badgeEstadoRevisionAyb(estado) {
+  const valor=String(estado||'pendiente').toLowerCase();
+  const etiquetas={pendiente:'Pendiente',observado:'Observado',aprobado:'Aprobado',rechazado:'Rechazado'};
+  const clave=Object.hasOwn(etiquetas,valor)?valor:'pendiente';
+  return `<span class="revision-badge revision-badge-${clave}">${escaparHtml(etiquetas[clave])}</span>`;
+}
+
+function fechaHoraDecisionAyb(valor) {
+  const d=new Date(valor);
+  return valor && Number.isFinite(d.getTime())
+    ? d.toLocaleString('es-CO',{timeZone:'America/Bogota',dateStyle:'short',timeStyle:'short'}) : '';
+}
+
+function renderEstadoObservacionRevision(x) {
+  const id=String(x.revision_id||'');
+  const abierta=revisionHistorialAbierto.has(id);
+  const obs=String(x.observacion||'').trim();
+  let historial='';
+  if(abierta) {
+    const entradas=revisionHistorialCache.get(id);
+    historial=revisionHistorialCargando.has(id) ? '<p>Consultando historial...</p>'
+      : !entradas ? '<p>No fue posible consultar el historial. Cierra y vuelve a abrir para reintentar.</p>'
+      : !entradas.length ? '<p>No hay movimientos de auditor\u00eda para este concepto.</p>'
+      : entradas.map(a=>`<article class="revision-audit-item"><strong>${escaparHtml(a.accion)}: ${escaparHtml(a.estado_anterior)} \u2192 ${escaparHtml(a.estado_nuevo)}</strong><div>${escaparHtml(a.usuario||'')} \u00b7 ${escaparHtml(fechaHoraDecisionAyb(a.created_at))}</div><div class="revision-observacion">${escaparHtml(a.observacion||'Sin observaci\u00f3n')}</div></article>`).join('');
+    historial=`<div class="revision-audit" id="historial-${escaparHtml(id)}">${historial}</div>`;
+  }
+  return `${badgeEstadoRevisionAyb(x.estado_revision)}
+    <div class="revision-observacion">${obs?escaparHtml(obs):'<span class="text-muted">Sin observaci\u00f3n registrada</span>'}</div>
+    <button type="button" class="revision-historial-btn" aria-expanded="${abierta}" onclick="window.verHistorialRevisionNomina('${escaparHtml(id)}')">${abierta?'Ocultar historial':'Ver historial'}</button>${historial}`;
+}
+
+window.verHistorialRevisionNomina=async function(id) {
+  if(revisionHistorialAbierto.has(id)) { revisionHistorialAbierto.delete(id); renderRevisionNominaReal(); return; }
+  if(!revisionNominaRealBase.some(x=>String(x.revision_id)===id))return;
+  revisionHistorialAbierto.add(id);
+  if(revisionHistorialCache.has(id)||revisionHistorialCargando.has(id)) { renderRevisionNominaReal(); return; }
+  const decisionInicial=revisionDecisionesConfirmadas.get(id);
+  revisionHistorialCargando.add(id);
+  renderRevisionNominaReal();
+  try {
+    const filas=[];
+    for(let offset=0;;offset+=100) {
+      const {data}=await lecturaRevisionAcotada(supabase.from('turnos_conceptos_revision_auditoria')
+        .select('id,revision_id,accion,estado_anterior,estado_nuevo,usuario,observacion,created_at')
+        .eq('revision_id',id).order('created_at',{ascending:false}).order('id',{ascending:false})
+        .range(offset,offset+99));
+      filas.push(...(data||[]));
+      if((data||[]).length<100)break;
+    }
+    if(decisionInicial===revisionDecisionesConfirmadas.get(id)) revisionHistorialCache.set(id,filas);
+  }catch(e){console.warn('Historial de decisiones:',e.message);}
+  finally {revisionHistorialCargando.delete(id);renderRevisionNominaReal();}
+};
+
+function actualizarFilaConDecisionConfirmada(id,guardada) {
+  revisionDecisionesConfirmadas.set(id,guardada);
+  revisionHistorialCache.delete(id);
+  revisionHistorialAbierto.delete(id);
+  revisionNominaRealBase=revisionNominaRealBase.map(anterior=>{
+    if(String(anterior.revision_id)!==id) return anterior;
+    const nueva={...anterior,...guardada,revision_id:guardada.id,estado_revision:String(guardada.estado||'').toLowerCase(),horas_candidatas:guardada.horas_calculadas};
+    const cerrado=['aprobado','rechazado'].includes(nueva.estado_revision);
+    const esExtra=['P003','P004','P008','P009'].includes(String(nueva.concepto_codigo||'').toUpperCase());
+    const extraValida=!esExtra||Number(nueva.minutos_posteriores_turno||0)>25;
+    nueva.permite_revision=!cerrado&&extraValida&&Number(nueva.horas_calculadas||0)>0;
+    nueva.ocultar_por_tolerancia=false;
+    return nueva;
+  });
+}
+
+async function guardarDecisionRevisionAyb(id,funcion,parametros) {
+  if(revisionGuardando.has(id))return false;
+  revisionGuardando.add(id);
+  actualizarBotonesCargaRevision();
+  renderRevisionNominaReal();
+  mensajeRevisionAyb('Guardando decisi\u00f3n...','info','revisionEstadoGuardado');
+  let escrituraConfirmada=false;
+  const reloj=setTimeout(()=>mensajeRevisionAyb('El servidor sigue procesando la decisi\u00f3n. No la env\u00edes de nuevo.','warning','revisionEstadoGuardado'),8000);
+  try {
+    const {data,error}=await supabase.rpc(funcion,parametros);
+    if(error)throw error;
+    escrituraConfirmada=true;
+    let guardada=Array.isArray(data)?data[0]:data;
+    if(!guardada?.id) {
+      // Compatibilidad con respuestas RPC sin fila: leer UN concepto, no toda la bandeja.
+      const resultado=await lecturaRevisionAcotada(supabase.from('turnos_conceptos_revision')
+        .select(COLUMNAS_REVISION_AYB).eq('id',id).maybeSingle());
+      guardada=resultado.data;
+    }
+    if(!guardada?.id||String(guardada.id)!==id||!guardada.estado)throw new Error('Respuesta de guardado incompleta.');
+    actualizarFilaConDecisionConfirmada(id,guardada);
+    const sigueVisible=registrosRevisionFiltrados().some(x=>String(x.revision_id)===id);
+    const nombre=revisionNominaRealBase.find(x=>String(x.revision_id)===id)?.empleado||'';
+    const mensaje=parametros.p_accion==='observar'?'Observaci\u00f3n guardada':'Decisi\u00f3n guardada';
+    mensajeRevisionAyb(`${mensaje} para ${nombre}. Estado: ${guardada.estado}.${sigueVisible?'':' Ya no coincide con el filtro actual; cambia Estado para consultarla.'}`,'success','revisionEstadoGuardado');
+    return true;
+  }catch(e){
+    console.error('Guardar decisi\u00f3n:',e);
+    mensajeRevisionAyb(escrituraConfirmada
+      ? 'El servidor acept\u00f3 la decisi\u00f3n, pero no se pudo recuperar su resultado. Actualiza la bandeja antes de volver a enviarla.'
+      : `No se pudo confirmar el guardado: ${e.message||String(e)}. Si hubo una falla de conexi\u00f3n, actualiza antes de reintentar.`, 'error','revisionEstadoGuardado');
+    return false;
+  }finally{
+    clearTimeout(reloj);
+    revisionGuardando.delete(id);
+    actualizarBotonesCargaRevision();
+    renderRevisionNominaReal();
+  }
+}
+
 window.resolverRevisionNomina=async function(id,accion){
-  const usuario=usuarioRevisionActual(); if(!usuario){alert("No se pudo identificar el usuario de la sesión.");return;}
-  const registro=revisionNominaRealBase.find(x=>String(x.revision_id||"")===String(id));
-  if(!registro){alert("No fue posible localizar el concepto seleccionado. Actualiza la bandeja e inténtalo nuevamente.");return;}
+  if(revisionGuardando.has(id)||!usuarioPuedeDecidirRevisionAyb())return;
+  const usuario=usuarioRevisionActual(); if(!usuario){alert('No se pudo identificar el usuario de la sesi\u00f3n.');return;}
+  const registro=revisionNominaRealBase.find(x=>String(x.revision_id||'')===String(id));
+  if(!registro){alert('No fue posible localizar el concepto. Actualiza la bandeja.');return;}
+  if(!registro.permite_revision){alert('Este concepto no permite esta acci\u00f3n. Verifica su estado.');return;}
   const calculadas=horasCalculadasRevision(registro);
   const descripcion=descripcionCalculoRevision(registro);
   let horas=null,obs=null;
-  if(accion==="ajustar"){
-    const raw=prompt(`Horas que se aprobarán\n\n${descripcion}`,calculadas.toFixed(2)); if(raw===null)return; horas=Number(String(raw).replace(",","."));
-    if(!Number.isFinite(horas)||horas<=0){alert("Ingresa una cantidad de horas válida.");return;}
-    obs=prompt("Justificación obligatoria del ajuste:"); if(!obs?.trim())return alert("El ajuste requiere justificación.");
-  } else if(["rechazar","observar"].includes(accion)){
-    obs=prompt(accion==="rechazar"?"Motivo obligatorio del rechazo:":"Observación obligatoria:"); if(!obs?.trim())return alert("Debes registrar una observación.");
-  } else {
+  if(accion==='ajustar'){
+    const raw=prompt(`Horas que se aprobar\u00e1n\n\n${descripcion}`,calculadas.toFixed(2)); if(raw===null)return; horas=Number(String(raw).replace(',','.'));
+    if(!Number.isFinite(horas)||horas<=0){alert('Ingresa una cantidad de horas v\u00e1lida.');return;}
+    obs=prompt('Justificaci\u00f3n obligatoria del ajuste:'); if(obs===null)return; if(!obs.trim())return alert('El ajuste requiere justificaci\u00f3n.');
+  }else if(['rechazar','observar'].includes(accion)){
+    obs=prompt(accion==='rechazar'?'Motivo obligatorio del rechazo:':'Observaci\u00f3n obligatoria:',accion==='observar'?(registro.observacion||''):'');
+    if(obs===null)return; if(!obs.trim())return alert('Debes registrar una observaci\u00f3n.');
+  }else if(accion==='aprobar'){
     horas=calculadas;
-    const turno=`${String(registro.hora_inicio||"-").slice(0,5)}–${String(registro.hora_fin||"-").slice(0,5)}`;
-    if(!confirm(`APROBACIÓN DE HORAS\n\nHoras: ${formatearHorasRevision(calculadas)}\nConcepto: ${registro.concepto_codigo||"-"} · ${registro.concepto_nombre||"-"}\nTurno programado: ${turno}\n\n¿Confirmas esta aprobación?`)) return;
-  }
-  const {error}=await supabase.rpc("resolver_concepto_revision",{p_revision_id:id,p_accion:accion,p_usuario:usuario,p_horas_aprobadas:horas,p_observacion:obs});
-  if(error){console.error(error);alert("No fue posible guardar la decisión: "+error.message);return;}
-  await cargarRevisionNominaReal();
+    const turno=`${String(registro.hora_inicio||'-').slice(0,5)}\u2013${String(registro.hora_fin||'-').slice(0,5)}`;
+    if(!confirm(`APROBACI\u00d3N DE HORAS\n\nHoras: ${formatearHorasRevision(calculadas)}\nConcepto: ${registro.concepto_codigo||'-'} \u00b7 ${registro.concepto_nombre||'-'}\nTurno programado: ${turno}\n\n\u00bfConfirmas esta aprobaci\u00f3n?`))return;
+  }else return;
+  await guardarDecisionRevisionAyb(id,'resolver_concepto_revision',{
+    p_revision_id:id,p_accion:accion,p_usuario:usuario,p_horas_aprobadas:horas,p_observacion:obs?.trim()||null
+  });
 };
 
 window.editarRevisionNomina=async function(id,horasActuales){
-  const usuario=usuarioRevisionActual();
-  if(!usuario){alert("No se pudo identificar el usuario de la sesión.");return;}
+  if(revisionGuardando.has(id)||!usuarioPuedeDecidirRevisionAyb())return;
+  const usuario=usuarioRevisionActual(); if(!usuario){alert('No se pudo identificar el usuario de la sesi\u00f3n.');return;}
+  const registro=revisionNominaRealBase.find(x=>String(x.revision_id)===id);
+  if(!registro||!['aprobado','rechazado'].includes(registro.estado_revision))return;
   const actual=Number(horasActuales||0);
   const raw=prompt(`Horas aprobadas corregidas (actual: ${formatearHorasRevision(actual)}):`,actual.toFixed(2));
   if(raw===null)return;
-  const horas=Number(String(raw).replace(",","."));
-  if(!Number.isFinite(horas)||horas<0){alert("Ingresa una cantidad de horas válida.");return;}
-  const obs=prompt("Motivo obligatorio de la corrección. Este cambio quedará registrado en auditoría:");
-  if(!obs?.trim()){alert("Debes registrar el motivo de la corrección.");return;}
-  if(!confirm(`¿Confirmas cambiar las horas aprobadas a ${formatearHorasRevision(horas)}?`))return;
-  const {error}=await supabase.rpc("editar_concepto_revision",{p_revision_id:id,p_usuario:usuario,p_horas_aprobadas:horas,p_observacion:obs.trim()});
-  if(error){console.error(error);alert("No fue posible corregir la decisión: "+error.message);return;}
-  await cargarRevisionNominaReal();
+  const horas=Number(String(raw).replace(',','.'));
+  if(!Number.isFinite(horas)||horas<0){alert('Ingresa una cantidad de horas v\u00e1lida.');return;}
+  const obs=prompt('Motivo obligatorio de la correcci\u00f3n. Este cambio quedar\u00e1 registrado en auditor\u00eda:');
+  if(obs===null)return; if(!obs.trim())return alert('Debes registrar el motivo de la correcci\u00f3n.');
+  if(!confirm(`\u00bfConfirmas cambiar las horas aprobadas a ${formatearHorasRevision(horas)}?`))return;
+  await guardarDecisionRevisionAyb(id,'editar_concepto_revision',{
+    p_revision_id:id,p_usuario:usuario,p_horas_aprobadas:horas,p_observacion:obs.trim()
+  });
 };
 
 function fechaRealProsof(valor){

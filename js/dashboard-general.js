@@ -1,209 +1,160 @@
-import { supabase } from "../supabase/supabaseClient.js";
+import { supabase } from '../supabase/supabaseClient.js';
+import { asegurarSesion, rpcConSesion, esErrorAcceso, mostrarErrorAcceso, observarSesion, ErrorSesion } from './sesion-protegida.js?v=sesion-6-2-1';
+import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,selectedJourneys,summary,dailyFlow,areaFlow,heatmap,punctuality,mergeNotices} from './centro-control-metricas.js?v=cc-20260910-v2';
 
-const REPETIDA_MIN = 5;
-const FECHA_INICIO_METRICAS = "2026-08-27";
-const VERSION_METRICAS = "V6-CORTE-REAL-20260827";
-window.CENTRO_CONTROL_METRICAS_VERSION = VERSION_METRICAS;
-const HOY = fechaIso(new Date());
-let empleadosHoy=[], areasHoy=[], cumplimiento=[], diasIngreso=[], diasAnterior=[];
-let recorridos=[], auditoria=[], personalAyb=[], novedades=[], charts={};
-let canalActualizaciones=null, intervaloRespaldo=null, temporizadorRecarga=null, actualizando=false;
-
+// Solo lectura. Los modulos de aprobacion y pago no se invocan desde aqui.
 const $=id=>document.getElementById(id);
-const text=(id,v)=>{if($(id))$(id).textContent=v??""};
-const esc=v=>String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
-const norm=v=>String(v??"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-const key=(cedula,fecha)=>`${cedula||""}|${String(fecha||"").slice(0,10)}`;
-
-function fechaIso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
-function fechaTxt(v){if(!v)return "—";return new Date(`${String(v).slice(0,10)}T00:00:00`).toLocaleDateString("es-CO",{day:"2-digit",month:"short",year:"numeric"})}
-function hora(v){const m=String(v??"").match(/(\d{2}:\d{2})(?::\d{2})?/);return m?m[1]:"—"}
-function mins(v){const m=String(v??"").match(/(\d{2}):(\d{2})/);return m?Number(m[1])*60+Number(m[2]):null}
-function numero(v,d=1){return Number(v||0).toLocaleString("es-CO",{minimumFractionDigits:d,maximumFractionDigits:d})}
-function rango(){return{desde:$("filtroFechaDesde")?.value||HOY,hasta:$("filtroFechaHasta")?.value||HOY}}
-function rangoMetricas(){const r=rango(),desde=r.desde>FECHA_INICIO_METRICAS?r.desde:FECHA_INICIO_METRICAS;return{desde,hasta:r.hasta,valido:r.hasta>=desde}}
-function area(x){return x.proceso_nombre||x.grupo_nombre||x.area_operativa||x.area||x.centro_costos||x.area_ultima_marcacion||x.area_primera_marcacion||x.area_biometrico||"Sin clasificar"}
-function punto(x){return x.area_biometrico||x.terminal_alias||"Punto sin identificar"}
-function cedula(x){return String(x.cedula||x.documento||x.numero_documento||x.emp_code||"").trim()}
-function nombre(x){return x.empleado||x.nombre_empleado||x.nombre_completo||x.nombre||x.colaborador||cedula(x)||"Sin identificar"}
-function sesion(){try{return JSON.parse(localStorage.getItem("ccp_sesion")||"null")}catch{return null}}
-
-function iniciarUsuario(){const s=sesion();if(!s){location.href="login.html";return false}text("nombreUsuario",s.nombre_completo||`${s.nombres||""} ${s.apellidos||""}`.trim()||s.usuario||"Usuario");text("rolUsuario",s.rol||"Sin rol");text("fechaDashboard",new Date().toLocaleDateString("es-CO",{weekday:"long",year:"numeric",month:"long",day:"numeric"}));return true}
-function iniciarRango(){const h=new Date(),d=new Date(h);d.setDate(h.getDate()-6);$("filtroFechaDesde").value=fechaIso(d);$("filtroFechaHasta").value=fechaIso(h)}
-function rangoAnterior(r){const a=new Date(`${r.desde}T00:00:00`),b=new Date(`${r.hasta}T00:00:00`),dias=Math.round((b-a)/86400000)+1;const fin=new Date(a);fin.setDate(fin.getDate()-1);const ini=new Date(fin);ini.setDate(ini.getDate()-dias+1);return{desde:fechaIso(ini),hasta:fechaIso(fin)}}
-function fechaRegistro(x,campo="fecha"){return String(x?.[campo]||"").slice(0,10)}
-function esFechaMetrica(x,campo="fecha"){const fecha=fechaRegistro(x,campo);return Boolean(fecha)&&fecha>=FECHA_INICIO_METRICAS}
-function soloMetricas(lista,campo="fecha"){return(lista||[]).filter(x=>esFechaMetrica(x,campo))}
-function consultaVacia(){return Promise.resolve({data:[],error:null})}
-
-async function consultaSegura(nombreConsulta,promesa,obligatoria=false){const resultado=await promesa;if(resultado.error){console.warn(`${nombreConsulta}:`,resultado.error);if(obligatoria)throw new Error(`${nombreConsulta}: ${resultado.error.message}`);return[]}return resultado.data||[]}
-
-async function cargar(){
-  if(actualizando)return;
-  actualizando=true;
-  text("ultimaActualizacion","Actualizando…");
-  try {
-  const r=rango(),rm=rangoMetricas(),ant=rm.valido?rangoAnterior(rm):null;
-  const anteriorConfiable=Boolean(ant&&ant.desde>=FECHA_INICIO_METRICAS);
-  const resultados=await Promise.all([
-    consultaSegura("Marcaciones de hoy",supabase.from("vw_centro_control_salidas_hoy").select("*").order("primera_marcacion"),true),
-    consultaSegura("Áreas de hoy",supabase.from("vw_centro_control_areas_hoy").select("*").order("area_operativa")),
-    consultaSegura("Cumplimiento",supabase.from("vw_centro_control_cumplimiento_semanal").select("*").lte("semana_inicio",r.hasta).gte("semana_fin",r.desde)),
-    consultaSegura("Movimiento actual",rm.valido?supabase.from("vw_centro_control_dias_mayor_ingreso").select("*").gte("fecha",rm.desde).lte("fecha",rm.hasta).order("fecha"):consultaVacia()),
-    consultaSegura("Movimiento anterior",anteriorConfiable?supabase.from("vw_centro_control_dias_mayor_ingreso").select("*").gte("fecha",ant.desde).lte("fecha",ant.hasta).order("fecha"):consultaVacia()),
-    consultaSegura("Recorridos",supabase.from("vw_asistencia_recorrido_frontend").select("*").gte("fecha",r.desde).lte("fecha",r.hasta).order("fecha").order("punch_time").limit(10000)),
-    consultaSegura("Auditoría",supabase.from("vw_centro_control_auditoria_semanal").select("*").gte("fecha",r.desde).lte("fecha",r.hasta).order("fecha")),
-    consultaSegura("Personal AyB",supabase.from("vw_ayb_personal_disponible").select("*").eq("agregado_ayb",true)),
-    consultaSegura("Novedades",supabase.from("programacion_turnos").select("*").gte("fecha",r.desde).lte("fecha",r.hasta).order("fecha"))
-  ]);
-  [empleadosHoy,areasHoy,cumplimiento,diasIngreso,diasAnterior,recorridos,auditoria,personalAyb,novedades]=resultados;
-  procesarSalidasSinPerderBase();poblarAreas();renderTodo();
-  text("ultimaActualizacion",`Conectado · Actualizado ${new Date().toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"})} · corte real 27/08/2026 · V6`);
-  } finally {
-    actualizando=false;
-  }
+const txt=(id,value)=>{if($(id))$(id).textContent=value??'';};
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=(v,d=0)=>v===null||v===undefined?'\u2014':Number(v).toLocaleString('es-CO',{maximumFractionDigits:d});
+const pretty=d=>d?`${d.slice(8,10)}/${d.slice(5,7)}/${d.slice(0,4)}`:'\u2014';
+const monthStart=d=>d.slice(0,7)+'-01';
+const monthEnd=d=>new Date(Date.UTC(+d.slice(0,4),+d.slice(5,7),0)).toISOString().slice(0,10);
+const inRange=(d,r)=>d>=r.from&&d<=r.to;
+const s={model:null,range:null,tab:'summary',page:0,loadToken:0,abort:null,channel:null,timer:null,debounce:null,lastLoaded:0,compliance:null,complianceKey:'',auditToken:0};
+const stateLabels={puntual:['A tiempo','ok'],tarde:['Llegada tarde','bad'],justificada:['Descanso / novedad','info'],sin_programacion:['Sin programaci\u00f3n','warn'],sin_marca:['Sin marcaci\u00f3n; revisar','warn'],sin_entrada:['Sin entrada verificable','warn'],en_espera:['Jornada en curso','info'],futura:['Programaci\u00f3n futura',''],inferida:['Horario inferido; excluido',''],conflicto:['Programaciones en conflicto','warn'],sin_horario:['Sin horario comparable','']};
+function pill(label,cl=''){return `<span class="cc-pill ${cl}">${esc(label)}</span>`;}
+function empty(message='No hay registros para estos filtros.'){return `<p class="cc-empty">${esc(message)}</p>`;}
+function table(headers,rows){return rows.length?`<div class="cc-table-scroll"><table class="cc-table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:empty();}
+function filters(extra={}){return {...(s.range||{from:$('ccFrom').value,to:$('ccTo').value}),population:$('ccPopulation').value,area:$('ccArea').value,search:$('ccSearch').value.trim(),...extra};}
+function periodPrevious(r){const n=Math.round((dayMinute(r.to)-dayMinute(r.from))/1440)+1;return {from:addDays(r.from,-n),to:addDays(r.from,-1)};}
+function punctualRange(){const r=filters({population:'club'});return $('ccPunctRange').value==='month'?{...r,from:monthStart(r.to),to:monthEnd(r.to)<s.model.today?monthEnd(r.to):s.model.today}:r;}
+function error(message){$('ccError').hidden=false;txt('ccError',message);}
+function clearError(){$('ccError').hidden=true;txt('ccError','');}
+function switchTab(tab){if(!$(`ccPanel-${tab}`))return;s.tab=tab;document.querySelectorAll('.cc-panel').forEach(e=>e.hidden=e.id!==`ccPanel-${tab}`);document.querySelectorAll('.cc-tabs [data-tab]').forEach(b=>{b.classList.toggle('selected',b.dataset.tab===tab);b.setAttribute('aria-selected',String(b.dataset.tab===tab));});if(tab==='compliance')loadCompliance();}
+async function rpc(name,args,signal){
+ const res=await rpcConSesion(name,args,{signal,read:true});
+ if(res.error)throw new Error(`${name}: ${res.error.message||'No se pudo completar la consulta'}`);
+ if(res.data===null||res.data===undefined)throw new Error(`${name}: respuesta vac\u00eda del servidor`);
+ return res.data;
 }
-
-function programarRecarga(motivo="Cambio detectado"){
-  clearTimeout(temporizadorRecarga);
-  text("ultimaActualizacion",`${motivo} · Actualizando…`);
-  temporizadorRecarga=setTimeout(()=>cargar().catch(mostrarError),2500);
+async function loadMarks(from,to,signal,token){let cursor=0,ceiling=null,total=null,all=[];const ids=new Set();
+ for(let page=0;page<150;page++){
+  if(signal.aborted)throw new DOMException('Consulta cancelada','AbortError');
+  const data=await rpc('consultar_centro_control_marcaciones_v2',{p_desde:from,p_hasta:to,p_despues:cursor,p_hasta_id:ceiling,p_limite:1500},signal);
+  if(total===null){total=Number(data.total);ceiling=Number(data.hasta_id);if(!Number.isFinite(total)||total<0)throw new Error('No se recibio el control total de marcaciones');}
+  const batch=data.registros;if(!Array.isArray(batch))throw new Error('Formato de marcaciones inesperado');
+  for(const row of batch){if(ids.has(String(row.biotime_id)))throw new Error('Se repitio un ID al paginar. Se conserva la consulta anterior; actualiza de nuevo.');ids.add(String(row.biotime_id));all.push(row);}
+  if(token===s.loadToken)txt('ccStatus',`Leyendo marcaciones: ${num(all.length)} de ${num(total)}...`);
+  if(all.length===total)return {rows:all,total,ceiling};
+  if(!batch.length||Number(data.cursor)<=cursor||all.length>total)throw new Error('La lectura no coincide con el total de Supabase. No se publicaran metricas parciales.');
+  cursor=Number(data.cursor);
+ }
+ throw new Error('El periodo excede el limite de lectura segura. Reduce el rango.');
 }
-
-function iniciarActualizacionAutomatica(){
-  if(canalActualizaciones)return;
-  canalActualizaciones=supabase
-    .channel("centro-control-actualizaciones")
-    .on("postgres_changes",{
-      event:"UPDATE",
-      schema:"public",
-      table:"app_actualizacion_eventos",
-      filter:"id=eq.centro_control"
-    },()=>programarRecarga("Nueva sincronización"))
-    .subscribe(estado=>{
-      if(estado==="SUBSCRIBED")text("ultimaActualizacion",`Conectado · ${VERSION_METRICAS}`);
-      if(estado==="CHANNEL_ERROR"||estado==="TIMED_OUT")text("ultimaActualizacion",`Reconectando · ${VERSION_METRICAS}`);
-    });
-
-  intervaloRespaldo=setInterval(()=>{
-    if(document.visibilityState==="visible")programarRecarga("Actualización de respaldo");
-  },60000);
-
-  document.addEventListener("visibilitychange",()=>{
-    if(document.visibilityState==="visible")programarRecarga("Ventana activa");
-  });
-
-  window.addEventListener("beforeunload",()=>{
-    clearInterval(intervaloRespaldo);
-    clearTimeout(temporizadorRecarga);
-    if(canalActualizaciones)supabase.removeChannel(canalActualizaciones);
-  });
+async function load(silent=false){
+ const requested={from:$('ccFrom').value,to:$('ccTo').value};const span=(dayMinute(requested.to)-dayMinute(requested.from))/1440;
+ if(!Number.isFinite(span)||span<0||span>61){error('Selecciona un rango valido de hasta 62 dias.');return;}
+ const now=bogotaNow(),today=iso(now),prior=periodPrevious(requested);
+ let from=[requested.from,monthStart(requested.to),prior.from].sort()[0];if(from<HISTORY_START)from=HISTORY_START;
+ let to=[requested.to,monthEnd(requested.to)<today?monthEnd(requested.to):today].sort().at(-1);
+ if(to<from){error('Los registros disponibles para este modulo comienzan el 23/08/2026.');return;}
+ if((dayMinute(to)-dayMinute(from))/1440>94)from=requested.from<monthStart(requested.to)?requested.from:monthStart(requested.to);
+ // Un dia de contexto a cada lado permite evaluar turnos que cruzan medianoche.
+ from=addDays(from,-1);to=addDays(to,1);
+ const token=++s.loadToken;s.abort?.abort();s.abort=new AbortController();const signal=s.abort.signal;
+ const timeout=setTimeout(()=>s.abort?.signal===signal&&s.abort.abort(),45000);
+ $('ccRefresh').disabled=true;if(!silent)clearError();txt('ccStatus','Consultando personal, programacion y novedades...');
+ try{
+  await asegurarSesion();
+  const [ctx,marks]=await Promise.all([rpc('consultar_centro_control_contexto_v2',{p_desde:from,p_hasta:to},signal),loadMarks(from,to,signal,token)]);
+  if(token!==s.loadToken)return;
+  const model=buildModel(ctx,marks.rows,ctx.server_time?bogotaNow(new Date(ctx.server_time)):now);
+  if(model.diagnostic.invalid)throw new Error('Hay marcas con fecha invalida; se requiere revisar la fuente antes de calcular indicadores.');
+  s.model=model;s.range=requested;s.loaded={from,to,total:marks.total,ceiling:marks.ceiling};s.lastLoaded=Date.now();s.page=0;s.compliance=null;s.complianceKey='';
+  populateAreas();render();clearError();realtime();
+  txt('ccStatus',`Actualizado ${clock(model.now)} (Colombia) \u00b7 ${num(marks.total)} marcaciones leidas completas`);
+  if(s.tab==='compliance')loadCompliance();
+ }catch(e){if(token!==s.loadToken)return;console.error('Centro de Control',e);if(esErrorAcceso(e)){limpiarDatosPorSesion();mostrarErrorAcceso($('ccError'),e,()=>load());}else{error(e.name==='AbortError'?'La consulta supero el tiempo de espera. Se conservan los datos anteriores; pulsa Actualizar.':`No se actualizo el Centro de Control. ${e.message}. No se reemplazaron los datos por ceros.`);}txt('ccStatus',s.model?'Mostrando la ultima lectura completada':'Lectura no disponible');}
+ finally{clearTimeout(timeout);if(token===s.loadToken)$('ccRefresh').disabled=false;}
 }
-
-function gruposRecorrido(){
-  const mapa=new Map();
-  recorridos.forEach(e=>{const k=key(cedula(e),e.fecha);if(!mapa.has(k))mapa.set(k,[]);mapa.get(k).push({...e,marca_repetida:false})});
-  mapa.forEach(eventos=>{eventos.sort((a,b)=>String(a.punch_time||a.hora_marcacion).localeCompare(String(b.punch_time||b.hora_marcacion)));let ultima=null;eventos.forEach(e=>{if(!ultima){ultima=e;return}const dif=(new Date(e.punch_time)-new Date(ultima.punch_time))/60000;if(norm(punto(e))===norm(punto(ultima))&&dif>=0&&dif<=REPETIDA_MIN)e.marca_repetida=true;else ultima=e})});
-  return mapa;
+function populateAreas(){const prior=$('ccArea').value;const areas=new Set();for(const e of s.model.ctx.employees||[])areas.add(s.model.person(e.cedula,s.range.to).areaLabel);for(const ev of s.model.events)areas.add(ev.person.areaLabel);$('ccArea').innerHTML='<option value="">Todas las \u00e1reas</option>'+[...areas].sort((a,b)=>a.localeCompare(b)).map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join('');if(areas.has(prior))$('ccArea').value=prior;}
+function chartBars(data,labelKey,valueKey){if(!data.length)return empty();const w=Math.max(570,data.length*35+55),h=240,pad=37,bottom=205,top=22,max=Math.max(1,...data.map(x=>x[valueKey])),bw=(w-pad-15)/data.length;
+ let content='';for(let k=0;k<=4;k++){const y=bottom-(bottom-top)*k/4;content+=`<line class="cc-grid" x1="${pad}" y1="${y}" x2="${w}" y2="${y}"/><text class="cc-axis" x="${pad-7}" y="${y+3}" text-anchor="end">${num(max*k/4)}</text>`;}
+ data.forEach((x,i)=>{const height=(bottom-top)*x[valueKey]/max,xx=pad+i*bw+bw*.18;content+=`<g><title>${esc(x.tooltip||`${x[labelKey]}: ${num(x[valueKey],1)} personas`)}</title><rect class="cc-bar${x.today?' today':''}" x="${xx}" y="${bottom-height}" width="${Math.max(3,bw*.64)}" height="${height}" rx="3"/><text class="cc-bar-label" x="${xx+bw*.32}" y="${bottom-height-6}" text-anchor="middle">${num(x[valueKey],1)}</text><text class="cc-axis" x="${xx+bw*.32}" y="226" text-anchor="middle">${esc(x[labelKey])}</text></g>`;});
+ return `<div class="cc-svg-scroll"><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Grafica de personas por fecha" style="min-width:${Math.min(w,1300)}px">${content}</svg></div>`;
 }
-
-function procesarSalidasSinPerderBase(){
-  const grupos=gruposRecorrido();
-  const turnosHoy=new Map(auditoria.filter(x=>String(x.fecha).slice(0,10)===HOY).map(x=>[cedula(x),x]));
-  const ahora=new Date().getHours()*60+new Date().getMinutes();
-  empleadosHoy=empleadosHoy.map(base=>{
-    const eventos=grupos.get(key(cedula(base),HOY));
-    if(!eventos?.length)return{...base,marcas_repetidas:0,total_marcaciones_validas:Number(base.total_marcaciones||0),fuente_salida:"vista_base"};
-    const validas=eventos.filter(x=>!x.marca_repetida),primera=validas[0]?.punch_time||base.primera_marcacion,ultima=validas.at(-1)?.punch_time||base.ultima_marcacion;
-    const turno=turnosHoy.get(cedula(base)),fin=mins(turno?.hora_fin),ultimaM=mins(ultima);
-    const puedeConfirmar=Boolean(turno)&&validas.length>1&&fin!==null&&(ahora>=fin||ultimaM>=fin);
-    return{...base,primera_marcacion:primera,ultima_marcacion:puedeConfirmar?ultima:null,salida_registrada:puedeConfirmar,total_marcaciones_validas:validas.length,marcas_repetidas:eventos.length-validas.length,ultima_marca_provisional:!puedeConfirmar&&validas.length>1?ultima:null,turno_programado:turno||null,fuente_salida:"recorrido_turno"};
-  });
+function allAreaFlow(evs,f){const rows=areaFlow(evs),seen=new Set(rows.map(x=>x.label));for(const e of s.model.ctx.employees||[]){if(e.estado===false)continue;const p=s.model.person(e.cedula,f.to);if(matchPerson(p,f)&&!seen.has(p.areaLabel)){seen.add(p.areaLabel);rows.push({label:p.areaLabel,people:0,personDays:0,marks:0,peak:null});}}return rows.sort((a,b)=>b.people-a.people||a.label.localeCompare(b.label));}
+function areaTable(evs,f){const rows=allAreaFlow(evs,f),max=Math.max(1,...rows.map(x=>x.people));return table(['\u00c1rea laboral','Personas distintas','D\u00edas-persona','Registros','Franja con mayor movimiento'],rows.map(a=>[`<button class="cc-link" data-area="${esc(a.label)}">${esc(a.label)}</button>`,`<strong>${num(a.people)}</strong><div class="cc-progress"><i style="width:${a.people/max*100}%"></i></div>`,num(a.personDays),num(a.marks),a.peak?`${String(a.peak.hour).padStart(2,'0')}:00\u2013${String(a.peak.hour+1).padStart(2,'0')}:00<small>${num(a.peak.count)} personas-d\u00eda en esa franja</small>`:'Sin actividad']));}
+function renderSummary(){const f=filters(),a=summary(s.model,f),flows=areaFlow(a.events),from=f.from>METRIC_START?f.from:METRIC_START,to=f.to<s.model.today?f.to:s.model.today,daily=dailyFlow(a.events,from,to),best=daily.slice().sort((x,y)=>y.people-x.people)[0];
+ txt('ccPeople',num(a.people));txt('ccTopArea',flows[0]?.label||'Sin actividad');txt('ccTopAreaHint',flows[0]?`${num(flows[0].people)} personas distintas en el per\u00edodo`:'No hay registros para el filtro');
+ const official=summary(s.model,{...f,population:'club'});txt('ccRate',official.rate===null?'Sin base':`${num(official.rate,1)}%`);txt('ccRateHint',`${num(official.onTime)} de ${num(official.comparable)} jornadas comparables del filtro`);txt('ccMissing',num(a.missing));
+ txt('ccRangeLabel',`${pretty(f.from)} \u2014 ${pretty(f.to)}`);
+ $('ccDailyChart').innerHTML=chartBars(daily.map(d=>({...d,label:d.date.slice(8,10)+'/'+d.date.slice(5,7),today:d.date===s.model.today,tooltip:`${pretty(d.date)}: ${d.people} personas unicas; ${d.marks} marcaciones`})), 'label','people');
+ const todayEvents=selectedEvents(s.model,{...f,from:s.model.today,to:s.model.today}),points=new Map();for(const e of todayEvents)points.set(e.point,(points.get(e.point)||0)+1);const point=[...points].sort((a,b)=>b[1]-a[1])[0];
+ $('ccInsights').innerHTML=[best&&best.people?`<strong>Mayor ingreso registrado:</strong> ${pretty(best.date)}, con <strong>${num(best.people)} personas</strong>.<small>Personas con al menos una marcaci\u00f3n, bajo el filtro actual.</small>`:'Sin actividad registrada en este per\u00edodo.',point?`<strong>${esc(point[0])}</strong> registr\u00f3 el mayor movimiento de hoy: <strong>${num(point[1])} marcas</strong>.<small>Registro del punto f\u00edsico; no \u00e1rea laboral.</small>`:'El d\u00eda de hoy no tiene actividad en la lectura y filtros actuales.',`<strong>${num(a.unplanned)} jornadas con marcaci\u00f3n sin programaci\u00f3n.</strong><small>No se califican como impuntualidad. Hace falta el horario confirmado para compararlas.</small>`,`<strong>${num(a.justified)} jornadas con descanso o novedad registrada.</strong><small>Se muestran con causa y vigencia; no se tratan como ausencia injustificada.</small>`].map(t=>`<div class="cc-insight">${t}</div>`).join('');
+ $('ccAreaComparison').innerHTML=areaTable(a.events,f);
+ const coverage=[];if(f.from<METRIC_START)coverage.push('Los registros anteriores al 27/08 permanecen en el detalle, fuera de los indicadores.');if(f.population!=='club')coverage.push('La puntualidad oficial siempre compara personal del Club. El flujo y detalle respetan el tipo de personal seleccionado.');if(!a.comparable&&a.people)coverage.push('No hay jornadas comparables en este filtro; la presencia se conserva sin inventar horarios.');
+ $('ccCoverage').hidden=!coverage.length;txt('ccCoverage',coverage.join(' '));txt('ccIntegrity',`Control de lectura: ${num(s.loaded.total)} registros recibidos de ${num(s.loaded.total)} esperados, hasta ID ${s.loaded.ceiling}. El filtro puede mostrar menos registros. No se eliminaron marcaciones. La clasificaci\u00f3n laboral usa proceso asignado y, si falta, \u00e1rea / centro de costos / cargo; se identifica su fuente en el detalle.`);
 }
-
-function coincide(x){const a=$("filtroAreaGeneral")?.value||"",q=norm($("filtroEmpleadoGeneral")?.value||"");if(a&&!norm(area(x)).includes(norm(a)))return false;if(q&&!norm(`${nombre(x)} ${cedula(x)} ${x.cargo||""}`).includes(q))return false;return true}
-function poblarAreas(){const s=$("filtroAreaGeneral"),actual=s.value;const lista=[...new Set([...empleadosHoy,...auditoria,...novedades].map(area).filter(x=>x&&x!=="Sin clasificar"))].sort();s.innerHTML='<option value="">Todos</option>'+lista.map(x=>`<option>${esc(x)}</option>`).join("");if(lista.includes(actual))s.value=actual}
-function aybSet(){return new Set(personalAyb.map(cedula).filter(Boolean))}
-function jornadasAyb(){const set=aybSet();return auditoria.filter(x=>esFechaMetrica(x)&&set.has(cedula(x))&&coincide(x))}
-function comparablesAyb(){return jornadasAyb().filter(x=>mins(x.hora_inicio)!==null&&mins(x.primera_marcacion)!==null)}
-function recorridosMetricas(){return soloMetricas(recorridos)}
-
-function renderKpis(){
-  const hoyFiltrados=empleadosHoy.filter(coincide),jornadas=jornadasAyb(),comparables=comparablesAyb();
-  const programadas=jornadas.filter(x=>x.hora_inicio||Number(x.horas_programadas_netas)>0),asistidas=programadas.filter(x=>x.primera_marcacion),puntuales=comparables.filter(x=>mins(x.primera_marcacion)<=mins(x.hora_inicio));
-  text("kpiEmpleados",new Set(hoyFiltrados.map(cedula).filter(Boolean)).size);
-  text("kpiAsistencia",programadas.length?`${numero(asistidas.length/programadas.length*100,1)}%`:"—");text("hintAsistencia",programadas.length?`${asistidas.length} de ${programadas.length} jornadas`:"No calculable con los datos disponibles");
-  text("kpiPuntualidad",comparables.length?`${numero(puntuales.length/comparables.length*100,1)}%`:"—");text("hintPuntualidad",comparables.length?`${puntuales.length} de ${comparables.length} entradas`:"No hay jornadas comparables");
-  text("kpiEnCurso",hoyFiltrados.filter(x=>!x.salida_registrada).length);text("kpiSalidas",hoyFiltrados.filter(x=>x.salida_registrada).length);
-  const repetidas=[...gruposRecorrido().values()].flat().filter(x=>esFechaMetrica(x)&&x.marca_repetida).length,incompletas=hoyFiltrados.filter(x=>!x.salida_registrada).length,tardias=comparables.filter(x=>mins(x.primera_marcacion)>mins(x.hora_inicio)).length;
-  text("kpiAlertasAltas",repetidas+incompletas+tardias);text("kpiAreas",`${new Set(hoyFiltrados.map(area)).size} áreas`);
+function renderToday(){const f=filters({from:s.model.today,to:s.model.today});$('ccTodayAreas').innerHTML=inRange(s.model.today,s.loaded)?areaTable(selectedEvents(s.model,f),f):empty('Hoy no esta incluido en los datos cargados. Pulsa Consultar hoy.');txt('ccTodayCaption',`${pretty(s.model.today)} \u00b7 personas \u00fanicas por \u00e1rea laboral; no es ocupaci\u00f3n actual.`);
+ const range=filters(),evs=selectedEvents(s.model,range),rows=heatmap(evs,$('ccHeatBy').value),max=Math.max(1,...rows.flatMap(r=>r.hours)),ndays=dates(range.from>METRIC_START?range.from:METRIC_START,range.to<s.model.today?range.to:s.model.today).length;
+ txt('ccHeatCaption',ndays===1?'Personas \u00fanicas por franja de 1 hora':`Personas-d\u00eda por franja \u00b7 ${ndays} d\u00edas del filtro`);
+ $('ccHeat').innerHTML=rows.length?`<table class="cc-heat"><thead><tr><th>${$('ccHeatBy').value==='area'?'\u00c1rea laboral':'Punto biom\u00e9trico'}</th>${Array.from({length:24},(_,h)=>`<th>${String(h).padStart(2,'0')}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><th>${esc(r.label)}</th>${r.hours.map((n,h)=>`<td class="${n&&n/max>=.75?'peak':n/max>=.4?'medium':''}">${n?`<button data-heat="${esc(r.label)}" data-hour="${h}" title="${esc(r.label)} ${h}:00: ${n} personas-dia; promedio ${num(n/Math.max(1,ndays),1)} por dia" aria-label="${esc(r.label)}, ${h} horas, ${n} personas-dia"><i style="width:${6+18*Math.sqrt(n/max)}px;height:${6+18*Math.sqrt(n/max)}px"></i></button>`:'\u00b7'}</td>`).join('')}</tr>`).join('')}</tbody></table>`:empty('No hay movimiento para dibujar las franjas.');
 }
-
-function renderHoy(){
-  const filas=empleadosHoy.filter(coincide);text("contadorEmpleadosFiltrados",`${filas.length} resultados`);
-  $("tablaAreasReal").innerHTML=areasHoy.length?areasHoy.map(x=>`<tr><td><strong>${esc(x.area_operativa)}</strong></td><td>${x.empleados||0}</td><td>${x.marcaciones||0}</td><td>${x.jornadas_en_curso||0}</td></tr>`).join(""):'<tr><td colspan="4" class="text-center text-muted">Sin actividad hoy.</td></tr>';
-  $("tablaEmpleadosReal").innerHTML=filas.length?filas.map(x=>{const estado=x.salida_registrada?'<span class="cc-badge cc-ok">Salida confirmada</span>':x.ultima_marca_provisional?`<span class="cc-badge cc-info">Provisional ${hora(x.ultima_marca_provisional)}</span>`:x.marcas_repetidas?'<span class="cc-badge cc-warn">Abierta · repetición</span>':'<span class="cc-badge cc-warn">Jornada abierta</span>';return`<tr><td><strong>${esc(nombre(x))}</strong><div class="cc-muted">${esc(cedula(x))} · ${esc(x.cargo||"")}</div></td><td>${esc(area(x))}</td><td>${hora(x.primera_marcacion)}</td><td>${x.salida_registrada?hora(x.ultima_marcacion):"—"}</td><td>${x.total_marcaciones_validas??x.total_marcaciones??0}${x.marcas_repetidas?` <small class="text-warning">+${x.marcas_repetidas} rep.</small>`:""}</td><td>${estado}</td></tr>`}).join(""):'<tr><td colspan="6" class="text-center text-muted">Sin resultados.</td></tr>';
+function rankedAreas(rows,bad=false){return rows.length?`<div class="cc-rank-list">${rows.slice(0,5).map(a=>`<div class="cc-rank ${bad?'bad':''}"><div><button class="cc-link" data-area="${esc(a.label)}">${esc(a.label)}</button><small>${bad?a.late:a.onTime} de ${a.comparable} jornadas${a.comparable<5?' \u00b7 base peque\u00f1a':''}</small></div><strong>${num(bad?100-a.rate:a.rate,1)}%</strong></div>`).join('')}</div>`:empty('Todavia no hay jornadas comparables.');}
+function renderPunctuality(){const f=punctualRange(),p=punctuality(s.model,f),comp=p.areas.reduce((sum,a)=>sum+a.comparable,0),late=p.areas.reduce((sum,a)=>sum+a.late,0),mins=p.areas.reduce((sum,a)=>sum+a.minutes,0);
+ $('ccPunctSummary').innerHTML=[[`${pretty(f.from)} \u2014 ${pretty(f.to)}`,'Per\u00edodo de puntualidad'],[num(comp),'Jornadas comparables'],[num(late),'Jornadas con tardanza'],[num(mins)+' min','Retraso acumulado; no descuento autom\u00e1tico']].map(([v,l])=>`<div class="cc-insight"><strong style="font-size:${l==='Per\u00edodo de puntualidad'?'15':'23'}px">${esc(v)}</strong><small>${esc(l)}</small></div>`).join('');
+ const valid=p.areas.filter(a=>a.rate!==null);$('ccBestAreas').innerHTML=rankedAreas(valid.slice().sort((a,b)=>b.rate-a.rate||b.comparable-a.comparable));$('ccLateAreas').innerHTML=rankedAreas(valid.filter(a=>a.late>0).sort((a,b)=>a.rate-b.rate||b.late-a.late),true);
+ $('ccPunctAreas').innerHTML=table(['\u00c1rea','Puntualidad','A tiempo','Tarde','Base comparable','Cobertura de horarios','Sin programaci\u00f3n / con marca','Novedades'],p.areas.sort((a,b)=>a.label.localeCompare(b.label)).map(a=>[`<strong>${esc(a.label)}</strong>`,a.rate===null?'Sin base':`${num(a.rate,1)}%${a.comparable<5?'<small>Base menor de 5 jornadas</small>':''}`,num(a.onTime),num(a.late),num(a.comparable),a.scheduled?`${num(a.coverage,1)}%<small>${a.comparable} / ${a.scheduled} con horario evaluable</small>`:'No calculable',num(a.unplanned),num(a.justified)]));
+ $('ccLatePeople').innerHTML=table(['Empleado','\u00c1rea','D\u00edas tarde','D\u00edas comparables','Tardanzas / base','Minutos acumulados'],p.employees.filter(e=>e.late>0).map(e=>[`<button class="cc-link" data-person="${esc(e.cedula)}" data-context="punctuality">${esc(e.name)}</button><small>${esc(e.cedula)}</small>`,esc(e.areaLabel),`<strong>${e.late}</strong>`,e.comparable,`${num(e.lateRate,1)}%`,num(e.minutes)]));
 }
-
-function resumenPuntualidad(){
-  const fuenteConfiable=comparablesAyb().filter(j=>esFechaMetrica(j)&&fechaRegistro(j)!=="2026-08-26");
-  const mapa=new Map();fuenteConfiable.forEach(j=>{const id=cedula(j);if(!mapa.has(id))mapa.set(id,{cedula:id,empleado:nombre(j),area:area(j),programadas:0,tempranas:0,exactas:0,tardias:0,minTarde:0,salidas:0,minSalida:0});const m=mapa.get(id),d=mins(j.primera_marcacion)-mins(j.hora_inicio);m.programadas++;if(d<0)m.tempranas++;else if(d===0)m.exactas++;else{m.tardias++;m.minTarde+=d}const f=mins(j.hora_fin),s=mins(j.ultima_marcacion);if(f!==null&&s!==null&&s<f){m.salidas++;m.minSalida+=f-s}});return[...mapa.values()]}
-function renderPuntualidad(){
-  const lista=resumenPuntualidad().sort((a,b)=>b.tardias-a.tardias||b.minTarde-a.minTarde),total=lista.reduce((s,x)=>s+x.programadas,0);text("contadorJornadasComparables",`${total} jornadas · desde 27/08`);
-  const click=x=>`onclick="window.abrirDetallePuntualidad('${esc(x.cedula)}','${esc(x.empleado)}')" style="cursor:pointer"`;
-  $("tablaPuntualidadGeneral").innerHTML=lista.length?lista.map(x=>`<tr ${click(x)}><td><strong>${esc(x.empleado)}</strong><div class="cc-muted">${esc(x.area)}</div></td><td>${x.programadas}</td><td>${x.tempranas}</td><td>${x.exactas}</td><td>${x.tardias}</td><td>${x.minTarde}</td></tr>`).join(""):'<tr><td colspan="6" class="text-center text-muted">No calculable con los datos disponibles.</td></tr>';
-  const tard=lista.filter(x=>x.tardias).slice(0,8),sal=[...lista].filter(x=>x.salidas).sort((a,b)=>b.salidas-a.salidas||b.minSalida-a.minSalida).slice(0,8);
-  $("tablaTardanzas").innerHTML=tard.length?tard.map(x=>`<tr ${click(x)}><td>${esc(x.empleado)}</td><td>${x.tardias}</td><td>${x.minTarde}</td></tr>`).join(""):'<tr><td colspan="3" class="text-center text-muted">Sin tardanzas.</td></tr>';
-  $("tablaSalidasAnticipadas").innerHTML=sal.length?sal.map(x=>`<tr ${click(x)}><td>${esc(x.empleado)}</td><td>${x.salidas}</td><td>${x.minSalida}</td></tr>`).join(""):'<tr><td colspan="3" class="text-center text-muted">Sin casos calculables.</td></tr>';
+function causes(j){return (j.notices||[]).map(n=>`${n.label}: ${pretty(n.from)} hasta ${pretty(n.to)} (${n.source})`).join('; ');}
+function statusCell(j){const [label,cl]=stateLabels[j.status]||[j.status,''];return pill(label,cl);}
+function journeyRows(){const f=filters(),type=$('ccJourneyFilter').value;return s.model.journeys.filter(j=>inRange(j.date,f)&&matchPerson(j.person,f)).filter(j=>type==='all'||(type==='review'?['sin_marca','sin_entrada','conflicto','sin_programacion'].includes(j.status):j.status===type));}
+function renderPeople(){const rows=journeyRows(),size=35,maxPage=Math.max(0,Math.ceil(rows.length/size)-1);s.page=Math.min(s.page,maxPage);const part=rows.slice(s.page*size,(s.page+1)*size);
+ $('ccJourneyTable').innerHTML=table(['Fecha','Empleado / \u00e1rea','Horario guardado','Entrada de referencia','Estado','Causa / vigencia','Detalle'],part.map(j=>[pretty(j.date),`<strong>${esc(j.person.name)}</strong><small>${esc(j.person.areaLabel)} \u00b7 ${esc(j.code)}</small>`,j.begin?`${esc(j.begin.slice(0,5))}\u2013${esc(clock(j.end?new Date(j.end*60000).toISOString():''))}<small>${esc(j.source)}</small>`:esc(j.source),j.entry?`${esc(j.entry.clock)}<small>${esc(j.entry.alias||j.entry.point)}</small>`:'\u2014',statusCell(j),esc(causes(j)|| (j.status==='sin_programacion'?'Falta horario guardado; no se considera ausencia.':'Sin novedad registrada.')),`<button class="cc-link" data-journey="${esc(j.code)}" data-date="${j.date}">Ver recorrido</button>`]));
+ txt('ccPageLabel',rows.length?`${s.page*size+1}\u2013${Math.min((s.page+1)*size,rows.length)} de ${num(rows.length)} jornadas`:'0 jornadas');$('ccPrev').disabled=s.page===0;$('ccNext').disabled=s.page>=maxPage;
 }
-
-function renderTrayectos(){
-  const grupos=[...gruposRecorrido().values()].filter(g=>g.length&&coincide(g[0])),rep=grupos.flat().filter(x=>x.marca_repetida).length; text("contadorMarcasRepetidas",`${rep} repetida${rep===1?"":"s"}`);
-  $("resumenTrayectos").innerHTML=[["Jornadas",grupos.length],["Marcas",grupos.flat().length],["Repetidas",rep],["Con recorrido",grupos.filter(g=>g.filter(x=>!x.marca_repetida).length>1).length]].map(([a,b])=>`<div class="cc-mini"><span>${a}</span><strong>${b}</strong></div>`).join("");
-  $("tablaTrayectos").innerHTML=grupos.length?grupos.sort((a,b)=>String(b[0].fecha).localeCompare(String(a[0].fecha))).map(g=>{const validas=g.filter(x=>!x.marca_repetida),repetidas=g.length-validas.length,camino=g.map((x,i)=>`${i?'<span class="cc-arrow">→</span>':""}<span class="cc-point ${x.marca_repetida?"repetida":""}">${hora(x.punch_time||x.hora_marcacion)} · ${esc(punto(x))}</span>`).join("");return`<tr><td>${fechaTxt(g[0].fecha)}</td><td><strong>${esc(nombre(g[0]))}</strong></td><td><div class="cc-trayecto">${camino}</div></td><td>${validas.length}</td><td>${repetidas}</td><td><span class="cc-badge ${validas.length>1?"cc-ok":"cc-info"}">${validas.length>1?"Recorrido":"Una marca"}</span></td></tr>`}).join(""):'<tr><td colspan="6" class="text-center text-muted">No hay recorridos para el período.</td></tr>';
+function renderNotices(){const rows=mergeNotices(s.model,filters());$('ccNotices').innerHTML=table(['Empleado','\u00c1rea','Causa','Desde','Hasta registrado','Fuente / estado'],rows.map(n=>[`<button class="cc-link" data-person="${esc(n.code)}">${esc(n.person.name)}</button>`,esc(n.person.areaLabel),esc(n.label),pretty(n.from),pretty(n.to),`${esc([...new Set(n.sources)].join(' / '))}<small>${esc(n.state)}${n.full?'':' \u00b7 No exime por si sola toda la jornada'}</small>`]));}
+function renderTrends(){const f=filters(),evs=selectedEvents(s.model,f),from=f.from>METRIC_START?f.from:METRIC_START,to=f.to<s.model.today?f.to:s.model.today,daily=dailyFlow(evs,from,to),days=['Dom','Lun','Mar','Mi\u00e9','Jue','Vie','S\u00e1b'];
+ const week=Array.from({length:7},(_,i)=>{const d=(i+1)%7,rows=daily.filter(x=>new Date(x.date+'T00:00:00Z').getUTCDay()===d);return {label:days[d],people:rows.length?rows.reduce((n,x)=>n+x.people,0)/rows.length:0,tooltip:`${days[d]}: ${rows.length} fechas en el periodo`};});$('ccWeekdayChart').innerHTML=chartBars(week,'label','people');
+ const prior=periodPrevious(f);if(prior.from>=METRIC_START&&prior.from>=s.loaded.from&&prior.to<=s.loaded.to){const prevEv=selectedEvents(s.model,{...f,...prior}),prev=dailyFlow(prevEv,prior.from,prior.to),nowAvg=daily.length?daily.reduce((n,x)=>n+x.people,0)/daily.length:0,prevAvg=prev.length?prev.reduce((n,x)=>n+x.people,0)/prev.length:0;$('ccPeriodComparison').innerHTML=`<div class="cc-insight"><strong>${num(nowAvg,1)}</strong> personas por d\u00eda en el per\u00edodo seleccionado.</div><div class="cc-insight"><strong>${num(prevAvg,1)}</strong> personas por d\u00eda en el per\u00edodo anterior.<small>${pretty(prior.from)} \u2014 ${pretty(prior.to)}</small></div><div class="cc-insight">${prevAvg?`${num((nowAvg-prevAvg)/prevAvg*100,1)}% de variaci\u00f3n`:'Sin base para calcular un porcentaje.'}<small>Compara per\u00edodos de igual duraci\u00f3n. Hoy puede estar incompleto.</small></div>`;}else $('ccPeriodComparison').innerHTML=empty('No hay una base anterior completa y confiable para comparar este rango. No se calcula una variacion contra ceros.');
+ const emp=new Map();for(const e of evs){const k=e.person.cedula;if(!emp.has(k))emp.set(k,{p:e.person,days:new Set});emp.get(k).days.add(e.date);}const rows=[...emp.values()].sort((a,b)=>b.days.size-a.days.size||a.p.name.localeCompare(b.p.name)).slice(0,20);$('ccAttendanceRanking').innerHTML=table(['Empleado','\u00c1rea','D\u00edas con registro'],rows.map(x=>[`<button class="cc-link" data-person="${esc(x.p.cedula)}">${esc(x.p.name)}</button>`,esc(x.p.areaLabel),num(x.days.size)]));
 }
-
-function renderCumplimiento(){const lista=cumplimiento.filter(x=>fechaRegistro(x,"semana_inicio")>=FECHA_INICIO_METRICAS).filter(coincide),cumplen=lista.filter(x=>x.estado_cumplimiento==="cumplio").length;text("kpiCumplimientoResumen",`${cumplen} cumplen · ${lista.length} evaluados`);$("tablaCumplimientoSemanal").innerHTML=lista.length?lista.map(x=>{const dif=Number(x.horas_reales_consolidadas||0)-Number(x.horas_programadas_netas||0),estado=x.estado_cumplimiento==="datos_incompletos"?'<span class="cc-badge cc-warn">Datos incompletos</span>':x.estado_cumplimiento==="cumplio"?'<span class="cc-badge cc-ok">Cumplió</span>':'<span class="cc-badge cc-bad">Por revisar</span>';return`<tr><td><strong>${esc(nombre(x))}</strong></td><td>${fechaTxt(x.semana_inicio)} – ${fechaTxt(x.semana_fin)}</td><td>${numero(x.horas_programadas_netas)}</td><td>${numero(x.horas_reales_consolidadas)}</td><td>${numero(x.porcentaje_cumplimiento)}%</td><td>${dif>0?"+":""}${numero(dif)}</td><td>${estado}</td><td><button class="btn btn-outline-secondary btn-sm" onclick="window.abrirAuditoriaSemanal('${esc(cedula(x))}','${esc(x.semana_inicio)}','${esc(x.semana_fin)}','${esc(nombre(x))}')">Abrir</button></td></tr>`}).join(""):'<tr><td colspan="8" class="text-center text-muted">No hay semanas confiables iniciadas desde el 27/08/2026.</td></tr>'}
-
-function tipoNovedad(x){const t=norm(`${x.novedad_codigo||""} ${x.novedad||""} ${x.tipo_novedad||""} ${x.tipo_registro||""} ${x.observacion||""}`);if(t.includes("incap"))return"Incapacidad";if(t.includes("vacac"))return"Vacaciones";if(t.includes("perm")||t.includes("licen"))return"Permiso/licencia";if(t.includes("descanso")||t.includes("libre"))return"Descanso";return"Otra novedad"}
-function esNovedad(x){return norm(x.tipo_registro).includes("novedad")||Boolean(x.novedad_codigo||x.tipo_novedad||x.novedad)}
-function fechaFinNovedad(x){return String(x.fecha_fin||x.hasta||x.fecha||"").slice(0,10)}
-function diasNovedad(x){const a=new Date(`${String(x.fecha||"").slice(0,10)}T00:00:00`),b=new Date(`${fechaFinNovedad(x)}T00:00:00`);return Number.isNaN(a.getTime())||Number.isNaN(b.getTime())?1:Math.max(1,Math.round((b-a)/86400000)+1)}
-function renderNovedades(){
-  const lista=soloMetricas(novedades).filter(esNovedad).filter(coincide),conteos={"Incapacidad":0,"Vacaciones":0,"Permiso/licencia":0,"Descanso":0,"Otra novedad":0};lista.forEach(x=>conteos[tipoNovedad(x)]++);
-  $("resumenNovedades").innerHTML=Object.entries(conteos).slice(0,4).map(([k,v])=>`<div class="cc-mini"><span>${k}</span><strong>${v}</strong></div>`).join("");
-  $("tablaNovedadesActivas").innerHTML=lista.length?lista.slice(0,100).map(x=>`<tr><td><strong>${esc(nombre(x))}</strong><div class="cc-muted">${esc(cedula(x))}</div></td><td>${esc(area(x))}</td><td>${esc(tipoNovedad(x))}</td><td>${fechaTxt(x.fecha)}</td><td>${fechaTxt(fechaFinNovedad(x))}</td><td><span class="cc-badge cc-info">Registrada</span></td></tr>`).join(""):'<tr><td colspan="6" class="text-center text-muted">No hay novedades registradas en el período.</td></tr>';
-  const criticas=lista.filter(x=>diasNovedad(x)>=5);$("tablaNovedadesCriticas").innerHTML=criticas.length?criticas.map(x=>`<tr><td>${esc(nombre(x))}</td><td>${esc(tipoNovedad(x))}</td><td>${diasNovedad(x)} días</td><td>Duración de 5 días o más; requiere revisión de contexto.</td></tr>`).join(""):'<tr><td colspan="4" class="text-center text-muted">Sin novedades de 5 días o más.</td></tr>';
-  crearGrafica("graficaNovedades","doughnut",Object.keys(conteos),[{data:Object.values(conteos),backgroundColor:["#b84d4d","#315fbd","#d49028","#25845b","#819087"]}]);
+function render(){if(!s.model)return;renderSummary();renderToday();renderPunctuality();renderPeople();renderNotices();renderTrends();}
+function showDialog(title,subtitle,html){txt('ccDialogTitle',title);txt('ccDialogSubtitle',subtitle);$('ccDialogBody').innerHTML=html;if(!$('ccDialog').open)$('ccDialog').showModal();}
+function openPerson(code,context='period'){const range=context==='punctuality'?punctualRange():filters(),p=s.model.person(code,range.to),js=s.model.journeys.filter(j=>j.code===code&&inRange(j.date,range));
+ showDialog(p.name,`${p.areaLabel} \u00b7 ${p.cedula} \u00b7 ${p.areaSource}`,table(['Fecha','Horario','Entrada / punto','Diferencia','Estado','Causa y vigencia','Recorrido'],js.map(j=>[pretty(j.date),j.begin?`${j.begin.slice(0,5)} \u2014 ${clock(j.end?new Date(j.end*60000).toISOString():'')}<small>${esc(j.source)}</small>`:esc(j.source),j.entry?`${j.entry.clock}<small>${esc(j.entry.alias||j.entry.point)}</small>`:'\u2014',j.delta===null||j.delta===undefined?'No comparable':j.delta>0?`${num(j.delta)} min tarde`:j.delta<0?`${num(-j.delta)} min antes`:'Hora exacta',statusCell(j),esc(causes(j)||'Sin novedad registrada'),`<button class="cc-link" data-journey="${esc(code)}" data-date="${j.date}">Abrir</button>`])));
 }
-
-function crearGrafica(id,tipo,labels,datasets,extra={}){if(!$(id)||typeof Chart==="undefined")return;charts[id]?.destroy();charts[id]=new Chart($(id),{type:tipo,data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:"index",intersect:false},plugins:{legend:{position:"bottom",labels:{boxWidth:11,font:{size:10}}}},scales:tipo==="doughnut"?undefined:{x:{grid:{display:false}},y:{beginAtZero:true,grid:{color:"#edf1ef"}}},...extra}})}
-function renderGraficas(){
-  const dias=[...diasIngreso].sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));crearGrafica("graficaMovimientoDiario","line",dias.map(x=>fechaTxt(x.fecha)),[{label:"Personas",data:dias.map(x=>Number(x.empleados_con_marcacion||0)),borderColor:"#23835b",backgroundColor:"#23835b20",fill:true,tension:.3},{label:"Marcaciones",data:dias.map(x=>Number(x.total_marcaciones||0)),borderColor:"#315fbd",tension:.3}]);
-  const j=comparablesAyb(),tem=j.filter(x=>mins(x.primera_marcacion)<mins(x.hora_inicio)).length,exact=j.filter(x=>mins(x.primera_marcacion)===mins(x.hora_inicio)).length,tarde=j.length-tem-exact;crearGrafica("graficaPuntualidad","doughnut",["Tempranas","Hora exacta","Tardías"],[{data:[tem,exact,tarde],backgroundColor:["#25845b","#315fbd","#c95555"]}]);
-  const puntos=new Map();recorridosMetricas().filter(coincide).forEach(x=>puntos.set(punto(x),(puntos.get(punto(x))||0)+1));const top=[...puntos].sort((a,b)=>b[1]-a[1]).slice(0,10);crearGrafica("graficaPuntos","bar",top.map(x=>x[0]),[{label:"Marcaciones",data:top.map(x=>x[1]),backgroundColor:"#257254"}],{indexAxis:"y"});
-  const semana=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"],agg=semana.map(()=>({t:0,n:0}));dias.forEach(x=>{const i=new Date(`${x.fecha}T00:00:00`).getDay();agg[i].t+=Number(x.empleados_con_marcacion||0);agg[i].n++});crearGrafica("graficaDiasSemana","bar",semana.map(x=>x[0].toUpperCase()+x.slice(1)),[{label:"Promedio de personas",data:agg.map(x=>x.n?Number((x.t/x.n).toFixed(1)):0),backgroundColor:"#315fbd"}]);
+function openJourney(code,date){const j=s.model.journeys.find(x=>x.code===code&&x.date===date),p=s.model.person(code,date),ev=s.model.perDay.get(`${code}|${date}`)||[];const next=j?.end&&j.end>=dayMinute(addDays(date,1))?(s.model.perDay.get(`${code}|${addDays(date,1)}`)||[]).filter(e=>e.t<=j.end+120):[];
+ showDialog(`Recorrido \u00b7 ${p.name}`,`${pretty(date)} \u00b7 ${p.areaLabel}`,`<p>${j?statusCell(j):''} ${esc(j?causes(j):'')}</p><div class="cc-history"><div class="cc-route">${[...ev,...next].map(e=>`<span class="${e.direction==='out'?'out':''}">${esc(e.clock)} \u00b7 ${esc(e.point)}<em>${esc(e.alias)} \u00b7 ID ${esc(e.id)}${e.date!==date?' \u00b7 '+pretty(e.date):''}</em></span>`).join('')||empty('No hay marcaciones en esa fecha.')}</div></div><p class="cc-footnote">Se presentan los eventos originales. La ultima marca no se declara salida si el dispositivo no la identifica como tal. El recorrido no equivale a horas pagables.</p>`);
 }
-
-function renderResumen(){
-  const topDia=[...diasIngreso].sort((a,b)=>Number(b.empleados_con_marcacion)-Number(a.empleados_con_marcacion))[0],topArea=[...areasHoy].sort((a,b)=>Number(b.marcaciones)-Number(a.marcaciones))[0];const puntos=new Map();recorridosMetricas().forEach(x=>puntos.set(punto(x),(puntos.get(punto(x))||0)+1));const topPunto=[...puntos].sort((a,b)=>b[1]-a[1])[0];const rep=[...gruposRecorrido().values()].flat().filter(x=>esFechaMetrica(x)&&x.marca_repetida).length;
-  $("resumenAnalitico").innerHTML=[["Día con mayor ingreso",topDia?fechaTxt(topDia.fecha):"No calculable"],["Área más activa",topArea?.area_operativa||"No calculable"],["Punto más usado",topPunto?.[0]||"No calculable"],["Marcas repetidas",rep]].map(([a,b])=>`<div class="cc-mini"><span>${a}</span><strong>${esc(b)}</strong></div>`).join("");
-  const insights=[];if(topDia)insights.push(`Mayor ingreso: <strong>${fechaTxt(topDia.fecha)}</strong>, con <strong>${topDia.empleados_con_marcacion}</strong> personas.`);if(topArea)insights.push(`<strong>${esc(topArea.area_operativa)}</strong> registró el mayor movimiento de hoy: <strong>${topArea.marcaciones}</strong> marcas.`);if(rep)insights.push(`Se conservaron <strong>${rep}</strong> repeticiones en el mismo punto dentro de 5 minutos; no se usaron como salida.`);const comp=comparablesAyb(),tarde=comp.filter(x=>mins(x.primera_marcacion)>mins(x.hora_inicio)).length;if(comp.length)insights.push(`AyB: <strong>${tarde}</strong> de <strong>${comp.length}</strong> entradas comparables fueron posteriores al turno.`);if(!insights.length)insights.push("No hay datos suficientes para generar insights verificables.");$("insightsAutomaticos").innerHTML=insights.map(x=>`<div class="cc-insight">${x}</div>`).join("");
+function openHeat(label,hour){const by=$('ccHeatBy').value,evs=selectedEvents(s.model,filters()).filter(e=>(by==='area'?e.person.areaLabel:e.point)===label&&e.hour===hour),groups=new Map();for(const e of evs){const k=e.person.cedula+'|'+e.date;if(!groups.has(k))groups.set(k,{e,times:[]});groups.get(k).times.push(e.clock);}
+ showDialog(`${label} \u00b7 ${String(hour).padStart(2,'0')}:00\u2013${String(hour+1).padStart(2,'0')}:00`,`${groups.size} personas-d\u00eda; no estimacion de ocupacion`,table(['Fecha','Empleado','\u00c1rea laboral','Horas registradas'],[...groups.values()].map(({e,times})=>[pretty(e.date),`<button class="cc-link" data-person="${esc(e.person.cedula)}">${esc(e.person.name)}</button>`,esc(e.person.areaLabel),esc(times.join(' \u00b7 '))])));
 }
-
-function renderTendencias(){
-  const actual=diasIngreso.reduce((s,x)=>s+Number(x.total_marcaciones||0),0),anterior=diasAnterior.reduce((s,x)=>s+Number(x.total_marcaciones||0),0),dif=actual-anterior,pct=anterior?dif/anterior*100:null;$("comparativoPeriodo").innerHTML=`<div class="cc-mini mb-2"><span>Marcaciones actuales</span><strong>${actual}</strong></div><div class="cc-mini mb-2"><span>Período anterior</span><strong>${anterior||"No calculable"}</strong></div><div class="cc-mini"><span>Variación</span><strong>${pct===null?"No calculable":`${dif>=0?"+":""}${numero(pct)}%`}</strong></div>`;
-  const asistencia=new Map();recorridosMetricas().filter(x=>!x.marca_repetida&&coincide(x)).forEach(x=>{const id=cedula(x);if(!id)return;if(!asistencia.has(id))asistencia.set(id,{empleado:nombre(x),area:area(x),dias:new Set});asistencia.get(id).dias.add(String(x.fecha).slice(0,10))});const prog=new Map();jornadasAyb().forEach(x=>{const id=cedula(x);prog.set(id,(prog.get(id)||0)+1)});const ranking=[...asistencia].map(([id,x])=>({...x,cedula:id,total:x.dias.size,programados:prog.get(id)||0})).sort((a,b)=>b.total-a.total).slice(0,15);$("tablaMasAsistencia").innerHTML=ranking.length?ranking.map(x=>`<tr><td>${esc(x.empleado)}</td><td>${esc(x.area)}</td><td><strong>${x.total}</strong></td><td>${x.programados?`${numero(x.total/x.programados*100)}%`:"No calculable"}</td></tr>`).join(""):'<tr><td colspan="4" class="text-center text-muted">No hay datos.</td></tr>';
-  const recorridosValidos=recorridosMetricas(),rep=[...gruposRecorrido().values()].flat().filter(x=>esFechaMetrica(x)&&x.marca_repetida).length,incompletas=empleadosHoy.filter(x=>!x.salida_registrada).length,sinId=recorridosValidos.filter(x=>!cedula(x)||nombre(x)==="Sin identificar").length,sinTurno=empleadosHoy.filter(x=>!x.turno_programado).length;const filas=[["Marcas repetidas",rep],["Jornadas sin salida confirmada",incompletas],["Marcaciones sin identidad",sinId],["Personas sin turno comparable",sinTurno]];text("nivelConfiabilidadDatos",filas.some(x=>x[1])?"Requiere revisión":"Sin hallazgos");$("tablaCalidadDatos").innerHTML=filas.map(([a,b])=>`<tr><td>${a}</td><td>${b}</td><td><span class="cc-badge ${b?"cc-warn":"cc-ok"}">${b?"Revisar":"Correcto"}</span></td></tr>`).join("");
+function openKpi(kind){if(kind==='people'){const seen=new Map();for(const e of selectedEvents(s.model,filters()))seen.set(e.person.cedula,e.person);showDialog('Personas con marcaci\u00f3n','Personas unicas del filtro',table(['Empleado','Documento','\u00c1rea','Clasificaci\u00f3n'],[...seen.values()].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>[`<button class="cc-link" data-person="${esc(p.cedula)}">${esc(p.name)}</button>`,esc(p.cedula),esc(p.areaLabel),p.external?'Externo / extra':p.known?'Personal del Club':'Sin v\u00ednculo'])));}else{$('ccJourneyFilter').value='review';s.page=0;renderPeople();switchTab('people');}}
+async function loadCompliance(){if(!s.model)return;const f=filters({population:'club'}),key=f.from+'|'+f.to,token=s.loadToken;if(s.complianceKey===key&&s.compliance){paintCompliance();return;}s.complianceKey=key;$('ccCompliance').innerHTML=empty('Consultando la fuente de cumplimiento semanal...');try{s.compliance=await rpc('consultar_centro_control_cumplimiento_v2',{p_desde:f.from,p_hasta:f.to});if(token!==s.loadToken)return;paintCompliance();}catch(e){if(token===s.loadToken){s.complianceKey='';$('ccCompliance').innerHTML=empty('No fue posible consultar cumplimiento: '+e.message);}}}
+function paintCompliance(){const rows=(s.compliance||[]).filter(r=>r.semana_inicio>=METRIC_START&&matchPerson(s.model.person(r.cedula,r.semana_fin),filters({population:'club'})));$('ccCompliance').innerHTML=table(['Empleado','Semana','Programadas','Realizadas (fuente existente)','Estado de la fuente','Auditar'],rows.map(r=>[`<strong>${esc(r.empleado)}</strong><small>${esc(s.model.person(r.cedula,r.semana_fin).areaLabel)}</small>`,`${pretty(r.semana_inicio)} \u2014 ${pretty(r.semana_fin)}`,`${num(r.horas_programadas_netas,2)} h`,r.horas_reales_consolidadas===null?'No calculable':`${num(r.horas_reales_consolidadas,2)} h`,esc(r.estado_cumplimiento||'Por revisar'),`<button class="cc-link" data-audit="${esc(r.cedula)}" data-from="${r.semana_inicio}" data-to="${r.semana_fin}">Abrir auditor\u00eda</button>`]));}
+async function openAudit(code,from,to){const token=++s.auditToken;showDialog('Auditor\u00eda semanal',`${s.model.person(code,to).name} \u00b7 ${pretty(from)} \u2014 ${pretty(to)}`,empty('Consultando detalle...'));try{const rows=await rpc('consultar_centro_control_auditoria_v2',{p_cedula:code,p_desde:from,p_hasta:to});if(token!==s.auditToken||!$('ccDialog').open)return;$('ccDialogBody').innerHTML=table(['Fecha','Turno','Programadas','Reales seg\u00fan fuente','Entrada','\u00daltima marca','Estado','Horas aprobadas'],rows.map(r=>[pretty(r.fecha),esc(r.turno||'\u2014'),num(r.horas_programadas_netas,2),num(r.horas_reales_pareadas,2),clock(r.primera_marcacion),clock(r.ultima_marcacion),esc(r.estado_comparacion),num(r.horas_conceptos_aprobadas,2)]));}catch(e){if(token===s.auditToken)$('ccDialogBody').innerHTML=empty(e.message);}}
+function exportPunct(){if(!s.model)return;const p=punctuality(s.model,punctualRange());const rows=[['Fecha','Cedula','Empleado','Area','Fuente programacion','Inicio programado','Primera entrada','Punto entrada','Minutos diferencia','Estado','Causa / vigencia'],...p.journeys.map(j=>[j.date,j.code,j.person.name,j.person.areaLabel,j.source,j.begin||'',j.entry?.clock||'',j.entry?.alias||'',j.delta??'',stateLabels[j.status]?.[0]||j.status,causes(j)])];const safe=v=>{let t=String(v??'');if(/^[=+@\-\t\r]/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"';};const blob=new Blob(['\uFEFF'+rows.map(r=>r.map(safe).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a'),url=URL.createObjectURL(blob);a.href=url;a.download=`Puntualidad_${punctualRange().from}_${punctualRange().to}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function preset(which){const today=iso(bogotaNow());$('ccTo').value=today;$('ccFrom').value=which==='today'?today:which==='month'?monthStart(today):addDays(today,-((new Date(today+'T00:00:00Z').getUTCDay()+6)%7));document.querySelectorAll('[data-preset]').forEach(b=>b.classList.toggle('selected',b.dataset.preset===which));load();}
+function realtime(){if(s.channel)return;s.channel=supabase.channel('cc-lectura-v2').on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_actualizacion_eventos',filter:'id=eq.centro_control'},()=>scheduleRefresh()).subscribe(status=>txt('ccLive',status==='SUBSCRIBED'?'Actualizaci\u00f3n autom\u00e1tica conectada':'Respaldo autom\u00e1tico cada minuto'));s.timer=setInterval(()=>{if(document.visibilityState==='visible'&&Date.now()-s.lastLoaded>55000)scheduleRefresh();},60000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-s.lastLoaded>60000)scheduleRefresh();});window.addEventListener('beforeunload',()=>{s.abort?.abort();clearInterval(s.timer);clearTimeout(s.debounce);if(s.channel)supabase.removeChannel(s.channel);});}
+function scheduleRefresh(){clearTimeout(s.debounce);s.debounce=setTimeout(()=>{if(document.visibilityState==='visible'&&!$('ccRefresh').disabled)load(true);},1800);}
+function events(){
+ $('ccFilterForm').addEventListener('submit',e=>{e.preventDefault();load();});$('ccRefresh').addEventListener('click',()=>load());
+ for(const id of ['ccArea','ccPopulation','ccHeatBy','ccPunctRange','ccJourneyFilter'])$(id).addEventListener('change',()=>{s.page=0;render();if(s.tab==='compliance'&&s.compliance)paintCompliance();});let searchTimer;$('ccSearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{s.page=0;render();},160);});
+ $('ccPrev').addEventListener('click',()=>{s.page=Math.max(0,s.page-1);renderPeople();});$('ccNext').addEventListener('click',()=>{s.page++;renderPeople();});$('ccExportPunct').addEventListener('click',exportPunct);$('ccReloadCompliance').addEventListener('click',()=>{s.complianceKey='';s.compliance=null;loadCompliance();});$('ccDialogClose').addEventListener('click',()=>{$('ccDialog').close();s.auditToken++;});$('ccDialog').addEventListener('cancel',()=>s.auditToken++);
+ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.preset){preset(b.dataset.preset);return;}if(b.dataset.tab){switchTab(b.dataset.tab);return;}if(!s.model)return;if(b.dataset.open)openKpi(b.dataset.open);if(b.dataset.area){$('ccArea').value=b.dataset.area;s.page=0;render();}if(b.dataset.person)openPerson(b.dataset.person,b.dataset.context);if(b.dataset.journey)openJourney(b.dataset.journey,b.dataset.date);if(b.dataset.heat)openHeat(b.dataset.heat,+b.dataset.hour);if(b.dataset.audit)openAudit(b.dataset.audit,b.dataset.from,b.dataset.to);});
 }
-
-function renderTodo(){renderKpis();renderHoy();renderPuntualidad();renderTrayectos();renderCumplimiento();renderNovedades();renderGraficas();renderResumen();renderTendencias()}
-function tablaPersonas(lista){return`<div class="table-responsive"><table class="table cc-table"><thead><tr><th>Empleado</th><th>Área</th><th>Entrada</th><th>Salida válida</th><th>Estado</th></tr></thead><tbody>${lista.map(x=>`<tr><td><strong>${esc(nombre(x))}</strong><div class="cc-muted">${esc(cedula(x))}</div></td><td>${esc(area(x))}</td><td>${hora(x.primera_marcacion)}</td><td>${x.salida_registrada?hora(x.ultima_marcacion):"—"}</td><td>${x.salida_registrada?"Confirmada":"Por revisar"}</td></tr>`).join("")}</tbody></table></div>`}
-function detalleKpi(tipo){const base=empleadosHoy.filter(coincide);let titulo="Detalle",contenido="";if(tipo==="personas"){titulo="Personas con marcación";contenido=tablaPersonas(base)}if(tipo==="abiertas"){titulo="Jornadas sin salida confirmada";contenido=tablaPersonas(base.filter(x=>!x.salida_registrada))}if(tipo==="salidas"){titulo="Salidas confirmadas";contenido=tablaPersonas(base.filter(x=>x.salida_registrada))}if(tipo==="puntualidad"||tipo==="asistencia"){titulo="Puntualidad y asistencia programada AyB";contenido='<p>Abre la pestaña <strong>Puntualidad</strong> para consultar cada jornada y su horario real.</p>'}if(tipo==="alertas"){titulo="Alertas para revisión";contenido='<p>Las alertas reúnen jornadas abiertas, tardanzas y marcas repetidas. No constituyen sanción ni aprobación automática.</p>'}text("detalleControlTitulo",titulo);text("detalleControlSubtitulo",`${fechaTxt(rango().desde)} – ${fechaTxt(rango().hasta)}`);$("detalleControlContenido").innerHTML=contenido||'<div class="alert alert-info">Sin detalle.</div>';bootstrap.Modal.getOrCreateInstance($("modalDetalleControl")).show()}
-
-window.abrirDetallePuntualidad=async(c,n)=>{const r=rangoMetricas(),tabla=$("tablaPuntualidadEmpleado");text("puntualidadEmpleadoTitulo",`Puntualidad · ${n}`);text("puntualidadEmpleadoSubtitulo",r.valido?`Métricas desde ${fechaTxt(r.desde)} hasta ${fechaTxt(r.hasta)} · V6`:"Sin período confiable");bootstrap.Modal.getOrCreateInstance($("modalPuntualidadEmpleado")).show();if(!r.valido){tabla.innerHTML='<tr><td colspan="7">Las métricas confiables comienzan el 27/08/2026.</td></tr>';return}const{data,error}=await supabase.from("vw_centro_control_auditoria_semanal").select("*").eq("cedula",c).gte("fecha",r.desde).lte("fecha",r.hasta).order("fecha");if(error){tabla.innerHTML=`<tr><td colspan="7" class="text-danger">${esc(error.message)}</td></tr>`;return}const filas=(data||[]).filter(x=>esFechaMetrica(x)&&fechaRegistro(x)!=="2026-08-26");tabla.innerHTML=filas.map(x=>{const i=mins(x.hora_inicio),e=mins(x.primera_marcacion),d=i!==null&&e!==null?e-i:null,estado=d===null?"No calculable":d<0?"Llegó temprano":d===0?"Hora exacta":"Llegó tarde",dif=d===null?"No calculable":d===0?"0 min":d>0?`${d} min tarde`:`${Math.abs(d)} min temprano`;return`<tr><td>${fechaTxt(x.fecha)}</td><td>${esc(x.turno||"—")}</td><td>${esc(x.hora_inicio||"—")}–${esc(x.hora_fin||"—")}</td><td>${hora(x.primera_marcacion)}</td><td>${dif}</td><td>${hora(x.ultima_marcacion)}</td><td>${estado}</td></tr>`}).join("")||'<tr><td colspan="7">No calculable con los datos disponibles desde el 27/08/2026.</td></tr>'};
-window.abrirAuditoriaSemanal=async(c,d,h,n)=>{const tabla=$("tablaAuditoriaSemanal");text("auditoriaSubtitulo",`${n} · ${fechaTxt(d)} – ${fechaTxt(h)}`);bootstrap.Modal.getOrCreateInstance($("modalAuditoriaSemanal")).show();const{data,error}=await supabase.from("vw_centro_control_auditoria_semanal").select("*").eq("cedula",c).gte("fecha",d).lte("fecha",h).order("fecha");if(error){tabla.innerHTML=`<tr><td colspan="9">${esc(error.message)}</td></tr>`;return}tabla.innerHTML=(data||[]).map(x=>`<tr><td>${fechaTxt(x.fecha)}</td><td>${esc(x.turno||"—")}</td><td>${numero(x.horas_programadas_netas)}</td><td>${x.horas_reales_pareadas==null?"—":numero(x.horas_reales_pareadas)}</td><td>${hora(x.primera_marcacion)}</td><td>${hora(x.ultima_marcacion)}</td><td>${esc(x.estado_comparacion||"—")}</td><td>${x.total_alertas||0}</td><td>${numero(x.horas_conceptos_aprobadas||0)}</td></tr>`).join("")};
-
-function eventos(){$("btnActualizarDashboard")?.addEventListener("click",()=>cargar().catch(mostrarError));$("btnAplicarFiltros")?.addEventListener("click",()=>cargar().catch(mostrarError));$("filtroAreaGeneral")?.addEventListener("change",renderTodo);$("filtroEmpleadoGeneral")?.addEventListener("input",renderTodo);document.querySelectorAll("[data-kpi]").forEach(x=>x.addEventListener("click",()=>detalleKpi(x.dataset.kpi)));document.querySelectorAll('[data-bs-toggle="pill"]').forEach(x=>x.addEventListener("shown.bs.tab",()=>Object.values(charts).forEach(c=>c.resize())))}
-function mostrarError(e){console.error(e);text("ultimaActualizacion","Error al actualizar");alert(`No fue posible cargar el Centro de Control: ${e.message||e}`)}
-document.addEventListener("DOMContentLoaded",async()=>{if(!iniciarUsuario())return;iniciarRango();eventos();iniciarActualizacionAutomatica();try{await cargar()}catch(e){mostrarError(e)}});
+function limpiarDatosPorSesion(){
+ s.model=null;s.compliance=null;s.complianceKey='';s.loaded=null;s.auditToken++;clearInterval(s.timer);clearTimeout(s.debounce);
+ for(const id of ['ccPeople','ccTopArea','ccRate','ccMissing'])txt(id,'\u2014');
+ for(const id of ['ccDailyChart','ccInsights','ccAreaComparison','ccTodayAreas','ccHeat','ccPunctSummary','ccBestAreas','ccLateAreas','ccPunctAreas','ccLatePeople','ccJourneyTable','ccNotices','ccCompliance','ccWeekdayChart','ccPeriodComparison','ccAttendanceRanking','ccDialogBody','ccIntegrity','ccPageLabel'])if($(id))$(id).replaceChildren();
+ if($('ccDialog')?.open)$('ccDialog').close();
+ if(s.channel){supabase.removeChannel(s.channel);s.channel=null;}
+ txt('ccLive','Sesion pendiente de verificar');
+}
+async function init(){
+ const today=iso(bogotaNow());$('ccFrom').value=monthStart(today);$('ccTo').value=today;events();
+ let session;try{session=JSON.parse(localStorage.getItem('ccp_sesion')||'null');}catch{}
+ txt('ccUser',session?.nombre_completo||session?.usuario||'Sesion por verificar');
+ observarSesion(()=>{
+  s.abort?.abort();s.loadToken++;limpiarDatosPorSesion();$('ccRefresh').disabled=false;
+  mostrarErrorAcceso($('ccError'),new ErrorSesion('AUTH_REQUIRED','Tu sesion cambio o termino. Vuelve a ingresar para consultar tu informacion.'),()=>load());
+  txt('ccStatus','Se requiere iniciar sesion');
+ });
+ await load();
+ if(s.model)realtime();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();

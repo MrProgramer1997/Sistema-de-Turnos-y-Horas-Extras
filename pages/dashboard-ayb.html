@@ -11,10 +11,7 @@
   <link rel="stylesheet" href="../css/layout.css" />
 
   <style>
-    body.ayb-vista-compacta .grafica-card,
-    body.ayb-vista-compacta .seccion-externos-chef,
-    body.ayb-vista-compacta .bloque-externos-chef,
-    body.ayb-vista-compacta .kpi-externos-chef { display:none !important; }
+    body.ayb-vista-compacta .grafica-card { display:none !important; }
     .ayb-organizacion-note{font-size:.82rem;color:#6c7b75;margin-top:.5rem}
     .ayb-panel-nav{position:sticky;top:8px;z-index:20;background:#eef3f0;border:1px solid #dce7e1;border-radius:14px;padding:5px;display:flex;gap:4px;flex-wrap:wrap;box-shadow:0 5px 16px rgba(25,62,49,.07)}
     .ayb-panel-nav .btn{border:0;border-radius:10px;color:#315247;font-size:.79rem;font-weight:800;padding:.48rem .78rem;background:transparent}
@@ -130,8 +127,96 @@
     @media(min-width:1200px){body.ayb-redisenado .seccion-dashboard.row>.col-xl-3{width:16.666667%}}
     @media(max-width:1199px){.ayb-panel-summary{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:767px){.ayb-panel-summary{grid-template-columns:repeat(2,1fr)}.ayb-panel-nav{position:static}.ayb-panel-nav .btn{flex:1 1 45%}}
+
+    /* ==========================================================
+       INTERFAZ A&B V2 · PALETA CORPORATIVA / OPERACIÓN
+       ========================================================== */
+    body.ayb-redisenado{background:#f4f7fb!important;color:#172433}
+    body.ayb-redisenado .dashboard-hero{background:#004AA1!important;box-shadow:0 10px 28px rgba(0,74,161,.18)!important}
+    .ayb-panel-nav{background:#f7fbff;border-color:#BBDFFF;box-shadow:0 5px 16px rgba(0,74,161,.08)}
+    .ayb-panel-nav .btn{color:#164d7d}
+    .ayb-panel-nav .btn.active{background:#004AA1;color:#fff;box-shadow:0 4px 10px rgba(0,74,161,.20)}
+    .ayb-panel-summary .ayb-summary-item{border-color:#dce9f5;border-left-color:#1AC189}
+    .ayb-panel-summary strong,.ayb-summary-help strong{color:#004AA1}
+    .ayb-summary-item[data-ayb-detail]:after{color:#004AA1}
+    .ayb-summary-help{background:#eef7ff;border-color:#BBDFFF;color:#315d82}
+    body.ayb-redisenado .seccion-titulo{border-left-color:#1AC189}
+    body.ayb-redisenado .table thead th{background:#004AA1!important;color:#fff!important;border-color:#004AA1!important}
+    body.ayb-redisenado .badge-soft{background:#edf6ff!important;color:#004AA1!important;border-color:#BBDFFF!important}
+    .ayb-detail-head{background:#004AA1}
+    .ayb-detail-head p{color:#dfefff}
+
+    .ayb-operational-strip{display:grid;grid-template-columns:repeat(5,minmax(140px,1fr));gap:.6rem;margin-bottom:.85rem}
+    .ayb-op-item{background:#fff;border:1px solid #dce7f1;border-left:4px solid #1AC189;border-radius:10px;padding:.62rem .72rem;min-height:72px}
+    .ayb-op-item.warning{border-left-color:#F88906}.ayb-op-item.danger{border-left-color:#C62828}.ayb-op-item.info{border-left-color:#004AA1}
+    .ayb-op-item small{display:block;font-size:.65rem;font-weight:800;text-transform:uppercase;color:#637587;line-height:1.15}
+    .ayb-op-item strong{display:block;font-size:1.18rem;color:#14324c;line-height:1.2;margin:.22rem 0}
+    .ayb-op-item span{display:block;font-size:.65rem;color:#7c8a97;line-height:1.2}
+    .ayb-op-item[data-revision-fast]{cursor:pointer}.ayb-op-item[data-revision-fast]:hover{border-color:#88C3FF;box-shadow:0 5px 14px rgba(0,74,161,.10)}
+
+    .ayb-priority-high{font-weight:800;color:#C62828}.ayb-priority-medium{font-weight:800;color:#b86a00}.ayb-priority-low{font-weight:800;color:#006d55}
+    .ayb-row-incidencia{background:#fff8ed}.ayb-row-observado{background:#fff4e6}.ayb-row-cerrado{opacity:.76}
+    .ayb-table-note{font-size:.7rem;color:#697a89}
+
+    .ayb-insight-panel{background:#fff;border:1px solid #dce7f1;border-radius:12px;overflow:hidden;margin-bottom:1rem}
+    .ayb-insight-head{padding:.72rem .9rem;border-bottom:1px solid #e5edf4;display:flex;justify-content:space-between;gap:1rem;align-items:center}
+    .ayb-insight-head strong{color:#004AA1}.ayb-insight-head span{font-size:.7rem;color:#708090}
+    .ayb-insight-grid{display:grid;grid-template-columns:repeat(4,1fr)}
+    .ayb-insight{padding:.78rem .9rem;border-right:1px solid #edf1f5;min-height:96px}
+    .ayb-insight:last-child{border-right:0}.ayb-insight .label{font-size:.66rem;font-weight:800;text-transform:uppercase;color:#637587}
+    .ayb-insight .value{font-size:1rem;font-weight:800;color:#14324c;margin:.28rem 0}.ayb-insight .detail{font-size:.68rem;color:#71808d;line-height:1.28}
+    .ayb-insight.ok{border-top:3px solid #1AC189}.ayb-insight.alerta{border-top:3px solid #F88906}.ayb-insight.critico{border-top:3px solid #C62828}
+
+    .ayb-integracion-strip{grid-template-columns:repeat(4,minmax(150px,1fr))}
+    @media(max-width:1199px){.ayb-operational-strip{grid-template-columns:repeat(3,1fr)}.ayb-insight-grid{grid-template-columns:repeat(2,1fr)}.ayb-insight:nth-child(2){border-right:0}}
+    @media(max-width:767px){.ayb-operational-strip,.ayb-integracion-strip,.ayb-insight-grid{grid-template-columns:1fr}.ayb-insight{border-right:0;border-bottom:1px solid #edf1f5}}
+
+    /* FASE 4.1 · jerarquía visual y lectura operativa */
+    body.ayb-redisenado .analitica-card,
+    body.ayb-redisenado .preview-card{background:#fff!important;border:1px solid #dce7f1!important;border-left:4px solid #004AA1!important;box-shadow:none!important;border-radius:12px!important}
+    body.ayb-redisenado .novedad-card{background:#fff!important;border:1px solid #e5e8ec!important;border-left:4px solid #F88906!important;box-shadow:none!important;border-radius:12px!important}
+    body.ayb-redisenado .alerta-card{background:#fff!important;border:1px solid #e5e8ec!important;border-left:4px solid #C62828!important;box-shadow:none!important;border-radius:12px!important}
+    body.ayb-redisenado .externo-card{background:#fff!important;border:1px solid #dce7f1!important;border-left:4px solid #1CAFBF!important;box-shadow:none!important;border-radius:12px!important}
+    body.ayb-redisenado .analitica-card .titulo,body.ayb-redisenado .novedad-card .titulo,body.ayb-redisenado .alerta-card .titulo,body.ayb-redisenado .externo-card .titulo{color:#526273!important}
+    body.ayb-redisenado .analitica-card .valor,body.ayb-redisenado .preview-card .valor{color:#17324d!important}
+    body.ayb-redisenado .novedad-card .valor{color:#9a5700!important}
+    body.ayb-redisenado .alerta-card .valor{color:#8f1e1e!important}
+    body.ayb-redisenado .externo-card .valor{color:#116d78!important}
+    body.ayb-redisenado .dashboard-bloque{border:1px solid #e1e8ef!important;box-shadow:0 4px 14px rgba(22,52,77,.055)!important}
+    body.ayb-redisenado .dashboard-bloque>.card-header{color:#17324d!important;background:#fff!important;border-bottom:1px solid #e7edf3!important}
+    body.ayb-vista-compacta .ayb-row-comparativo>.col-xl-8{display:none!important}
+    body.ayb-vista-compacta .ayb-row-comparativo>.col-xl-4{width:100%!important}
+    body.ayb-vista-compacta .ayb-row-comparativo>.col-xl-4 .card-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+    body.ayb-vista-compacta .ayb-row-comparativo>.col-xl-4 .analitica-card{margin-bottom:0!important}
+    .ayb-causa-detalle{font-size:.72rem;line-height:1.35;color:#56697b;min-width:280px}
+    .ayb-causa-detalle strong{display:block;color:#17324d;margin-bottom:.15rem}
+    .ayb-historico-novedad{font-size:.7rem;line-height:1.35;color:#526273;min-width:280px}
+    .ayb-historico-novedad strong{color:#17324d}
+    @media(max-width:767px){body.ayb-vista-compacta .ayb-row-comparativo>.col-xl-4 .card-body{grid-template-columns:1fr}.ayb-causa-detalle,.ayb-historico-novedad{min-width:220px}}
   </style>
 
+
+  <style id="revision-ayb-fase43">
+    #panelRevisionNominaReal .revision-mensaje {padding:9px 12px;border-left:3px solid #004AA1;background:#BBDFFF;color:#000; margin-bottom:10px;font-size:.84rem;overflow-wrap:anywhere;}
+    #panelRevisionNominaReal .revision-mensaje[hidden] {display:none!important;}
+    #panelRevisionNominaReal .revision-mensaje[data-tipo="success"] {background:#B2FEE0;border-color:#1AC189;}
+    #panelRevisionNominaReal #revisionEstadoCarga[data-tipo="success"] {background:transparent;border-color:#E3E3E3;padding:5px 10px;}
+    #panelRevisionNominaReal .revision-mensaje[data-tipo="warning"] {background:#FFE1A1;border-color:#F8BA03;}
+    #panelRevisionNominaReal .revision-mensaje[data-tipo="error"] {background:#FDECEC;border-color:#C62828;}
+    #panelRevisionNominaReal .revision-estado-nota {min-width:190px;max-width:300px;}
+    #panelRevisionNominaReal .revision-observacion {white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin-top:7px;font-size:.82rem;color:#000;}
+    #panelRevisionNominaReal .revision-badge {display:inline-block;padding:3px 9px;border-radius:6px;font-size:.78rem;font-weight:700;color:#000;}
+    #panelRevisionNominaReal .revision-badge-observado {background:#FFD2A8;border:1px solid #F88906;}
+    #panelRevisionNominaReal .revision-badge-pendiente {background:#FFE1A1;border:1px solid #F8BA03;}
+    #panelRevisionNominaReal .revision-badge-aprobado {background:#B2FEE0;border:1px solid #1AC189;}
+    #panelRevisionNominaReal .revision-badge-rechazado {background:#FDECEC;color:#C62828;border:1px solid #C62828;}
+    #panelRevisionNominaReal .revision-historial-btn {margin-top:6px;border:0;padding:2px 0;background:transparent;color:#004AA1;text-decoration:underline;font-size:.8rem;}
+    #panelRevisionNominaReal .revision-audit {margin-top:8px;max-height:270px;overflow-y:auto;font-size:.78rem;}
+    #panelRevisionNominaReal .revision-audit-item {border-top:1px solid #E3E3E3;padding:8px 0;}
+    #panelRevisionNominaReal tr[aria-busy="true"] {opacity:.7;}
+    #panelRevisionNominaReal button:focus-visible {outline:3px solid #004AA1;outline-offset:2px;}
+    @media(max-width:600px){#panelRevisionNominaReal .revision-estado-nota{min-width:175px;}}
+  </style>
 </head>
 
 <body class="ayb-redisenado ayb-vista-compacta">
@@ -312,38 +397,11 @@
           </div>
         </div>
 
-        <div class="row g-3 mb-4 seccion-dashboard">
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="resumen-extra-card shadow-sm p-3">
-              <div class="titulo">Oficial A&amp;B en semana</div>
-              <div class="valor" id="kpiSemanaAyb">0</div>
-              <div class="text-muted small">Programación A&amp;B + Cocina Chef consolidada</div>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="resumen-extra-card shadow-sm p-3">
-              <div class="titulo">Duplicidades detectadas</div>
-              <div class="valor" id="kpiDuplicidadesChef">0</div>
-              <div class="text-muted small">Misma persona y fecha en ambos módulos</div>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="resumen-extra-card shadow-sm p-3">
-              <div class="titulo">Pendientes clasificación</div>
-              <div class="valor" id="kpiRevisionChef">0</div>
-              <div class="text-muted small">Registros Chef sin vínculo confirmado</div>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="resumen-extra-card shadow-sm p-3">
-              <div class="titulo">Empleados únicos en semana</div>
-              <div class="valor" id="kpiSemanaEmpleados">0</div>
-              <div class="text-muted small">Colaboradores con programación</div>
-            </div>
-          </div>
+        <div class="ayb-operational-strip ayb-integracion-strip seccion-dashboard" aria-label="Estado de integración A&B y Cocina Chef">
+          <div class="ayb-op-item info"><small>Programación oficial semana</small><strong id="kpiSemanaAyb">0</strong><span>A&amp;B + Chef consolidados</span></div>
+          <div class="ayb-op-item warning"><small>Duplicidades excluidas</small><strong id="kpiDuplicidadesChef">0</strong><span>Misma persona y fecha</span></div>
+          <div class="ayb-op-item danger"><small>Pendientes integración</small><strong id="kpiRevisionChef">0</strong><span>Chef sin vínculo confirmado</span></div>
+          <div class="ayb-op-item"><small>Empleados únicos semana</small><strong id="kpiSemanaEmpleados">0</strong><span>Con programación oficial</span></div>
         </div>
 
         <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard" id="panelRevisionNominaReal">
@@ -354,30 +412,37 @@
             </div>
             <div class="d-flex gap-2 flex-wrap">
               <button class="btn btn-outline-primary btn-sm" id="btnActualizarRevisionNomina">Actualizar bandeja</button>
+              <button class="btn btn-outline-primary btn-sm" id="btnRecalcularRevisionNomina" title="Actualiza los candidatos; no aprueba ni modifica decisiones cerradas">Recalcular candidatos</button>
               <button class="btn btn-success btn-sm" id="btnGenerarProsof">Generar plantilla PROSOF</button>
               <button class="btn btn-success btn-sm" id="btnConfirmarNominaWhatsapp">💬 Confirmar a Nómina</button>
             </div>
           </div>
           <div class="card-body">
+            <div class="ayb-operational-strip" id="revisionResumenOperativo" aria-label="Resumen de revisión biométrica">
+              <div class="ayb-op-item warning" data-revision-fast="pendiente" tabindex="0"><small>Pendientes</small><strong id="kpiRevisionPendientes">0</strong><span>Requieren decisión</span></div>
+              <div class="ayb-op-item warning" data-revision-fast="observado" tabindex="0"><small>Observados</small><strong id="kpiRevisionObservados">0</strong><span>Devueltos para validar</span></div>
+              <div class="ayb-op-item" data-revision-fast="accionables" tabindex="0"><small>Accionables ahora</small><strong id="kpiRevisionAccionables">0</strong><span>Cálculo válido para decidir</span></div>
+              <div class="ayb-op-item info"><small>Horas candidatas</small><strong id="kpiRevisionHorasCandidatas">0.00 h</strong><span>Solo pendientes/observados</span></div>
+              <div class="ayb-op-item danger" data-revision-fast="incidencias" tabindex="0"><small>Con incidencia</small><strong id="kpiRevisionIncidencias">0</strong><span>Marcación o programación a revisar</span></div>
+            </div>
             <div class="alert alert-info py-2 small d-none" id="alertaCorteNomina" role="alert"></div>
             <div class="small text-muted mb-2" id="estadoConfirmacionNomina"></div>
+            <div class="revision-mensaje" id="revisionEstadoGuardado" role="status" aria-live="polite" hidden></div>
+            <div class="revision-mensaje" id="revisionEstadoCarga" role="status" aria-live="polite" hidden></div>
             <div class="alert alert-warning py-2 small">
               <strong>Regla de exportación:</strong> PROSOF conserva inicialmente una fila por concepto aprobado y fecha. No se consolidan registros repetidos hasta validación expresa de Nómina.<br>
               <strong>Lectura de horas:</strong> la bandeja muestra horas decimales y su equivalencia en horas/minutos (ej.: 8.40 h = 8 h 24 min). Las decisiones cerradas pueden corregirse con <strong>Editar</strong>; el motivo y los valores anterior/nuevo quedan en auditoría.
             </div>
-            <div class="row g-2 mb-3">
-              <div class="col-12 col-md-3"><input type="date" class="form-control form-control-sm" id="revisionFechaDesde"></div>
-              <div class="col-12 col-md-3"><input type="date" class="form-control form-control-sm" id="revisionFechaHasta"></div>
-              <div class="col-12 col-md-3">
-                <select class="form-select form-select-sm" id="revisionEstado">
-                  <option value="">Todos los estados</option><option value="pendiente">Pendientes</option><option value="observado">Observados</option><option value="aprobado">Aprobados</option><option value="rechazado">Rechazados</option>
-                </select>
-              </div>
-              <div class="col-12 col-md-3"><input type="search" class="form-control form-control-sm" id="revisionBuscar" placeholder="Empleado, cédula o concepto"></div>
+            <div class="row g-2 mb-3 align-items-end">
+              <div class="col-6 col-lg-2"><label class="form-label small mb-1">Desde</label><input type="date" class="form-control form-control-sm" id="revisionFechaDesde"></div>
+              <div class="col-6 col-lg-2"><label class="form-label small mb-1">Hasta</label><input type="date" class="form-control form-control-sm" id="revisionFechaHasta"></div>
+              <div class="col-6 col-lg-2"><label class="form-label small mb-1">Estado</label><select class="form-select form-select-sm" id="revisionEstado"><option value="">Todos</option><option value="pendiente">Pendientes</option><option value="observado">Observados</option><option value="aprobado">Aprobados</option><option value="rechazado">Rechazados</option></select></div>
+              <div class="col-6 col-lg-2"><label class="form-label small mb-1">Priorizar</label><select class="form-select form-select-sm" id="revisionPrioridad"><option value="accionables" selected>Accionables</option><option value="incidencias">Incidencias</option><option value="extras">Horas extra</option><option value="recargos">Recargos</option><option value="cerrados">Cerrados</option><option value="">Todo</option></select></div>
+              <div class="col-12 col-lg-4"><label class="form-label small mb-1">Buscar</label><input type="search" class="form-control form-control-sm" id="revisionBuscar" placeholder="Empleado, cédula, concepto, proceso u observación"></div>
             </div>
             <div class="table-responsive">
               <table class="table table-sm table-hover align-middle">
-                <thead class="table-light"><tr><th>Empleado</th><th>Fecha</th><th>Programado</th><th>Marcado</th><th>Ingreso</th><th>Salida</th><th>Concepto</th><th>Calculadas</th><th>Aprobadas</th><th>Estado</th><th>Acciones</th></tr></thead>
+                <thead class="table-light"><tr><th>Empleado</th><th>Fecha</th><th>Programado</th><th>Marcado</th><th>Ingreso</th><th>Salida</th><th>Concepto</th><th>Calculadas</th><th>Aprobadas</th><th>Estado y observación</th><th>Acciones</th></tr></thead>
                 <tbody id="tbodyRevisionNominaReal"><tr><td colspan="11" class="text-muted text-center">Cargando bandeja...</td></tr></tbody>
               </table>
             </div>
@@ -391,7 +456,7 @@
 
         <div class="alert alert-info panel-nota-externos mb-4" role="alert">
           Esta sección presenta únicamente personas registradas como <strong>externas</strong> en Cocina Chef.
-          Sus horas son informativas para control operativo y no se suman a nómina ni a las métricas del personal vinculado al Club.
+          Se muestran para control de programación y asistencia; <strong>no se suman a nómina, recargos, horas extra ni KPIs oficiales del Club</strong>.
         </div>
 
         <div class="row g-3 mb-4 seccion-dashboard kpi-externos-chef">
@@ -404,51 +469,23 @@
           </div>
           <div class="col-12 col-md-6 col-xl-3">
             <div class="externo-card p-3">
-              <div class="titulo">Turnos externos</div>
-              <div class="valor" id="kpiExternosTurnos">0</div>
-              <p class="kpi-subtexto">Registros Cocina Chef</p>
+              <div class="titulo">Jornadas con horario</div>
+              <div class="valor" id="kpiExternosJornadas">0</div>
+              <p class="kpi-subtexto">Control operativo, no nómina Club</p>
             </div>
           </div>
           <div class="col-12 col-md-6 col-xl-3">
             <div class="externo-card p-3">
-              <div class="titulo">Horas diurnas</div>
-              <div class="valor" id="kpiExternosHorasDiurnas">0</div>
-              <p class="kpi-subtexto">Control externo</p>
-            </div>
-          </div>
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="externo-card p-3">
-              <div class="titulo">Horas nocturnas</div>
-              <div class="valor" id="kpiExternosHorasNocturnas">0</div>
-              <p class="kpi-subtexto">Control externo</p>
-            </div>
-          </div>
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="externo-card p-3">
-              <div class="titulo">Horas netas</div>
+              <div class="titulo">Horas netas programadas</div>
               <div class="valor" id="kpiExternosHorasNetas">0</div>
-              <p class="kpi-subtexto">Programación externa</p>
+              <p class="kpi-subtexto">Referencia operativa independiente</p>
             </div>
           </div>
           <div class="col-12 col-md-6 col-xl-3">
             <div class="externo-card p-3">
-              <div class="titulo">Extra diurna</div>
-              <div class="valor" id="kpiExternosExtraDiurna">0</div>
-              <p class="kpi-subtexto">Estimación operativa</p>
-            </div>
-          </div>
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="externo-card p-3">
-              <div class="titulo">Extra nocturna</div>
-              <div class="valor" id="kpiExternosExtraNocturna">0</div>
-              <p class="kpi-subtexto">Estimación operativa</p>
-            </div>
-          </div>
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="externo-card p-3">
-              <div class="titulo">Extra total</div>
-              <div class="valor" id="kpiExternosExtraTotal">0</div>
-              <p class="kpi-subtexto">No suma a nómina oficial</p>
+              <div class="titulo">Sin horario / descanso</div>
+              <div class="valor" id="kpiExternosSinHorario">0</div>
+              <p class="kpi-subtexto">Códigos sin jornada horaria</p>
             </div>
           </div>
         </div>
@@ -472,16 +509,13 @@
                     <th>Fecha</th>
                     <th>Punto</th>
                     <th>Turno(s)</th>
-                    <th>D</th>
-                    <th>N</th>
-                    <th>Netas</th>
-                    <th>ED</th>
-                    <th>EN</th>
-                    <th>Extra</th>
+                    <th>Horario</th>
+                    <th>Horas netas</th>
+                    <th>Detalle operativo</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyExternosChef">
-                  <tr><td colspan="12" class="texto-vacio">Cargando personal externo...</td></tr>
+                  <tr><td colspan="9" class="texto-vacio">Cargando personal externo...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -565,6 +599,21 @@
           </div>
         </div>
 
+        <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard" id="panelNovedadesPrioritarias">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div><span class="fw-bold">Bandeja priorizada de novedades</span><div class="ayb-table-note">Solo casos que requieren gestión: pendientes, documentos faltantes o radicación fuera de tiempo.</div></div>
+            <span class="badge-soft" id="badgeNovedadesPrioritarias">0 por gestionar</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>Prioridad</th><th>Empleado</th><th>Novedad</th><th>Período</th><th>Estado</th><th>Motivo de atención</th></tr></thead>
+                <tbody id="tbodyNovedadesPrioritarias"><tr><td colspan="6" class="texto-vacio">Cargando novedades por gestionar...</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
           <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span class="fw-bold">Ranking A&amp;B de empleados con más novedades</span>
@@ -605,6 +654,16 @@
           <span class="subtexto-validacion">Ranking preventivo de baja programación/asistencia en el periodo filtrado</span>
         </div>
 
+        <div class="ayb-insight-panel" data-ayb-panel="analitica">
+          <div class="ayb-insight-head"><strong>Lectura ejecutiva del período</strong><span id="dashboardUltimaActualizacion">Última actualización: --</span></div>
+          <div class="ayb-insight-grid">
+            <div class="ayb-insight" id="cardInsightValidacion"><div class="label">Validación de extras</div><div class="value" id="insightValidacionExtras">Sin pendientes</div><div class="detail" id="insightValidacionExtrasDetalle">0 registros con extra.</div></div>
+            <div class="ayb-insight" id="cardInsightNomina"><div class="label">Listo para Nómina</div><div class="value" id="insightNomina">0 aprobados</div><div class="detail" id="insightNominaDetalle">0 horas listas para exportar.</div></div>
+            <div class="ayb-insight" id="cardInsightBienestar"><div class="label">Alertas de novedades</div><div class="value" id="insightBienestar">Sin alertas críticas</div><div class="detail" id="insightBienestarDetalle">Sin pendientes críticos.</div></div>
+            <div class="ayb-insight" id="cardInsightCobertura"><div class="label">Cobertura del período</div><div class="value" id="insightCobertura">0 empleados</div><div class="detail" id="insightCoberturaDetalle">Sin registros para analizar.</div></div>
+          </div>
+        </div>
+
         <div class="card shadow-sm border-0 mb-4 dashboard-bloque seccion-dashboard">
           <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span class="fw-bold">Análisis de baja carga / baja asistencia</span>
@@ -625,10 +684,10 @@
                     <th>Días programados</th>
                     <th>Horas netas</th>
                     <th>Promedio diario</th>
-                    <th>Novedades</th>
+                    <th>Novedades / justificadas</th>
                     <th>Última programación</th>
                     <th>Estado</th>
-                    <th>Causa probable</th>
+                    <th>Motivo y vigencia</th>
                   </tr>
                 </thead>
                 <tbody id="tbodyMenorCarga">
@@ -896,7 +955,7 @@
           </div>
         </div>
 
-        <div class="row g-3 mb-4 seccion-dashboard">
+        <div class="row g-3 mb-4 seccion-dashboard ayb-row-comparativo">
           <div class="col-12 col-xl-8">
             <div class="card shadow-sm border-0 h-100 dashboard-bloque grafica-card">
               <div class="card-header bg-white fw-bold">Tendencia por fecha</div>
@@ -972,7 +1031,7 @@
                     </thead>
                     <tbody id="tbodyNovedadesActivas">
                       <tr>
-                        <td colspan="5" class="texto-vacio">Cargando análisis...</td>
+                        <td colspan="7" class="texto-vacio">Cargando análisis...</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1037,16 +1096,18 @@
 
           <div class="col-12 col-xl-6">
             <div class="card shadow-sm border-0 h-100 dashboard-bloque">
-              <div class="card-header bg-white fw-bold">Alertas de novedades críticas</div>
+              <div class="card-header bg-white fw-bold">Alertas de novedades críticas · contexto anual</div>
               <div class="card-body bloque-scroll">
                 <div class="table-responsive">
                   <table class="table table-hover mb-0">
                     <thead class="table-light">
                       <tr>
-                        <th>#</th>
+                        <th>Ranking anual</th>
                         <th>Empleado</th>
-                        <th>Novedad</th>
-                        <th>Días consecutivos</th>
+                        <th>Novedad actual</th>
+                        <th>Racha actual</th>
+                        <th>Días con novedades en el año</th>
+                        <th>Histórico anual</th>
                         <th>Estado</th>
                       </tr>
                     </thead>
@@ -1244,7 +1305,7 @@
           elemento.classList.contains("bloque-externos-chef") ||
           elemento.id === "controlIntegracionChef"
         ) grupo = "integracion";
-        else if (texto.startsWith("novedades e incapacidades")) grupo = "novedades";
+        else if (texto.startsWith("novedades")) grupo = "novedades";
         else if (texto.startsWith("empleados con menor carga")) grupo = "analitica";
         else if (texto.startsWith("indicadores analíticos")) grupo = "analitica";
 
@@ -1293,6 +1354,7 @@
       });
 
       function mostrarPanel(panel) {
+        document.body.dataset.aybPanelActivo = panel;
         document.querySelectorAll("[data-ayb-panel]").forEach((elemento) => {
           elemento.hidden = elemento.dataset.aybPanel !== panel;
         });
@@ -1334,7 +1396,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="../js/layout.js"></script>
-  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260910-marcaciones-colores"></script>
+  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260910-fase4-3-observaciones-carga-v1"></script>
 
   <script>
     function usuarioPuedeVerSolicitudesBienestarDashboard(sesion) {

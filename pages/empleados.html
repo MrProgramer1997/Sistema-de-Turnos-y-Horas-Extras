@@ -5,15 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gestión de Empleados</title>
 
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="../css/layout.css">
 
   <style>
-    body {
-      background: #f5f7fb;
+    :root {
+      --club-blue: #004AA1;
+      --club-blue-strong: #003D86;
+      --club-blue-light: #88C3FF;
+      --club-blue-soft: #BBDFFF;
+      --club-green: #1AC189;
+      --club-green-soft: #B2FEE0;
+      --club-orange: #F88906;
+      --club-orange-soft: #FFD2A8;
+      --club-yellow: #F8BA03;
+      --club-yellow-soft: #FFE1A1;
+      --club-turquoise: #1CAFBF;
+      --club-turquoise-soft: #EAFDF9;
+      --club-gray: #E3E3E3;
+      --club-danger: #C62828;
+      --text-main: #0F172A;
+      --text-soft: #64748B;
+      --page-bg: #F5F7FB;
+      --surface: #FFFFFF;
+      --border-soft: #D8E1EC;
+    }
+
+    body { background: var(--page-bg); color: var(--text-main); }
+
+    .btn-primary {
+      --bs-btn-bg: var(--club-blue);
+      --bs-btn-border-color: var(--club-blue);
+      --bs-btn-hover-bg: var(--club-blue-strong);
+      --bs-btn-hover-border-color: var(--club-blue-strong);
+    }
+
+    .btn-outline-primary {
+      --bs-btn-color: var(--club-blue);
+      --bs-btn-border-color: var(--club-blue);
+      --bs-btn-hover-bg: var(--club-blue);
+      --bs-btn-hover-border-color: var(--club-blue);
     }
 
     .page-wrap {
@@ -24,104 +55,113 @@
       box-sizing: border-box;
     }
 
-    .card-soft {
+    .hero-card,
+    .soft-card {
       border: 0;
       border-radius: 18px;
-      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      background: var(--surface);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
     }
 
-    .required::after {
-      content: " *";
-      color: #dc3545;
+    .hero-card {
+      padding: 22px 24px;
+      background: linear-gradient(135deg, rgba(0,74,161,.96), rgba(28,175,191,.96));
+      color: #fff;
     }
 
-    .small-muted {
-      font-size: 0.9rem;
-      color: #6c757d;
+    .hero-card h2 {
+      font-weight: 800;
+      letter-spacing: -.02em;
+      margin-bottom: 6px;
     }
 
-    .table thead th {
-      white-space: nowrap;
+    .hero-subtitle { color: rgba(255,255,255,.88); }
+
+    .page-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
     }
 
-    .estado-badge {
-      display: inline-block;
-      border-radius: 999px;
-      padding: 6px 10px;
-      font-size: 12px;
+    .page-actions .btn {
+      border-radius: 12px;
       font-weight: 600;
     }
 
-    .estado-activo {
-      background: #d1fae5;
-      color: #065f46;
+    .page-actions .btn-light {
+      background: rgba(255,255,255,.96);
+      border-color: rgba(255,255,255,.96);
+      color: var(--club-blue);
     }
 
-    .estado-inactivo {
-      background: #fee2e2;
-      color: #991b1b;
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
     }
 
-    .toolbar {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .toolbar-left,
-    .toolbar-right {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .sticky-actions {
-      position: sticky;
-      bottom: 0;
+    .metric-item {
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
       background: #fff;
-      padding-top: 12px;
+      padding: 14px 16px;
+      min-width: 0;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--text-soft);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .metric-value {
+      font-size: 1.35rem;
+      font-weight: 800;
+      line-height: 1.1;
+      color: var(--club-blue);
+    }
+
+    .metric-hint {
+      font-size: 12px;
+      color: var(--text-soft);
+      margin-top: 6px;
     }
 
     .section-title {
       font-size: 1rem;
-      font-weight: 700;
+      font-weight: 800;
+      margin-bottom: 12px;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-help {
+      font-size: .92rem;
+      color: var(--text-soft);
       margin-bottom: 14px;
-      color: #0f172a;
     }
 
-    .check-card {
-      border: 1px solid #dee2e6;
-      border-radius: 10px;
-      padding: 10px 12px;
-      background: #fff;
-    }
+    .required::after { content: " *"; color: #dc3545; }
+    .small-muted { font-size: 0.92rem; color: var(--text-soft); }
 
-    .check-card.disabled {
-      opacity: 0.65;
-    }
-
-    .check-card input[type="checkbox"] {
-      margin-right: 8px;
-    }
-
-    /* Corrección definitiva del módulo Empleados */
-    .empleados-stack {
-      width: 100%;
-      margin-left: 0;
-      margin-right: 0;
-    }
-
-    .empleados-stack > .col-12 {
-      min-width: 0;
+    .table thead th {
+      white-space: nowrap;
+      background: #F8FBFF;
+      color: #163B66;
+      border-bottom-width: 1px;
     }
 
     .tabla-empleados-scroll {
       width: 100%;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
+      border-radius: 16px;
+      border: 1px solid #EEF2F7;
     }
 
     .tabla-empleados-scroll table {
@@ -129,34 +169,254 @@
       margin-bottom: 0;
     }
 
-    .toolbar-right {
-      min-width: 0;
+    .table tbody tr:hover { background: rgba(136,195,255,.10); }
+
+    .estado-badge,
+    .zk-badge,
+    .mini-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .estado-activo { background: #DFFBF1; color: #096747; }
+    .estado-inactivo { background: #FDECEC; color: #991B1B; }
+
+    .zk-procesado { background: var(--club-green-soft); color: #096747; }
+    .zk-pendiente { background: var(--club-yellow-soft); color: #725400; }
+    .zk-procesando { background: var(--club-blue-soft); color: #00417F; }
+    .zk-error { background: #FDECEC; color: var(--club-danger); }
+    .zk-sin-solicitud { background: #F2F4F7; color: #5f6368; }
+
+    .toolbar-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 220px 180px;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .toolbar-field label,
+    .form-label-top {
+      font-size: .83rem;
+      font-weight: 700;
+      color: var(--text-soft);
+      margin-bottom: 6px;
+    }
+
+    .toolbar-field .form-control,
+    .toolbar-field .form-select {
+      border-radius: 12px;
+      min-height: 44px;
+    }
+
+    .search-note {
+      margin-top: 10px;
+      font-size: .86rem;
+      color: var(--text-soft);
+    }
+
+    .summary-strip {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .mini-badge { padding: 7px 12px; }
+    .mini-blue { background: #EAF2FF; color: var(--club-blue); }
+    .mini-green { background: #EAFDF9; color: #0C7D58; }
+    .mini-yellow { background: #FFF8DF; color: #806200; }
+    .mini-red { background: #FDECEC; color: var(--club-danger); }
+
+    .alert-info-soft {
+      border: 1px solid rgba(28,175,191,.18);
+      border-left: 4px solid var(--club-turquoise);
+      border-radius: 14px;
+      background: #F7FEFF;
+      color: #124353;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: .95rem;
+    }
+
+    .accordion-shell {
+      border-radius: 18px;
+      overflow: hidden;
+      border: 0;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      background: #fff;
+    }
+
+    .accordion-button {
+      font-weight: 800;
+      color: var(--text-main);
+      background: #fff;
+      box-shadow: none !important;
+      padding: 18px 20px;
+    }
+
+    .accordion-button:not(.collapsed) {
+      color: var(--club-blue);
+      background: #F8FBFF;
+    }
+
+    .accordion-button .accordion-copy {
+      font-size: .9rem;
+      font-weight: 500;
+      color: var(--text-soft);
+      margin-top: 4px;
+    }
+
+    .form-section {
+      border: 1px solid #EEF2F7;
+      border-radius: 16px;
+      padding: 16px;
+      background: #FCFDFE;
+    }
+
+    .form-control,
+    .form-select {
+      border-radius: 12px;
+      border-color: #D7E0EA;
+      min-height: 44px;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+      border-color: var(--club-blue-light);
+      box-shadow: 0 0 0 .2rem rgba(0,74,161,.12);
+    }
+
+    .area-helper-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    .link-btn {
+      border: 0;
+      background: none;
+      color: var(--club-blue);
+      font-weight: 700;
+      padding: 0;
+      font-size: .92rem;
+      text-decoration: none;
+    }
+
+    .link-btn:hover { color: var(--club-blue-strong); text-decoration: underline; }
+
+    .check-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .check-card {
+      position: relative;
+      border: 1px solid #DDE6F0;
+      border-radius: 14px;
+      padding: 12px 14px 12px 40px;
+      background: #fff;
+      transition: .15s ease;
+      min-height: 56px;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .check-card:hover {
+      border-color: var(--club-blue-light);
+      background: #F8FBFF;
+      transform: translateY(-1px);
+    }
+
+    .check-card input[type="checkbox"] {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      margin: 0;
+    }
+
+    .check-card.selected {
+      border-color: var(--club-blue);
+      background: #EEF5FF;
+      box-shadow: inset 0 0 0 1px rgba(0,74,161,.08);
+    }
+
+    .sticky-actions {
+      position: sticky;
+      bottom: 0;
+      z-index: 3;
+      background: linear-gradient(180deg, rgba(255,255,255,.65), #fff 24%);
+      padding-top: 14px;
+    }
+
+    .sticky-actions .btn {
+      min-height: 44px;
+      border-radius: 12px;
+      font-weight: 700;
+    }
+
+    .form-legend {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #F8FBFF;
+      color: #163B66;
+      border: 1px solid #D9E7FA;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: .85rem;
+      font-weight: 700;
+    }
+
+    .empty-hint {
+      font-size: .9rem;
+      color: var(--text-soft);
+    }
+
+    .field-tip {
+      margin-top: 6px;
+      font-size: .84rem;
+      color: var(--text-soft);
+    }
+
+    @media (max-width: 991.98px) {
+      .metric-grid,
+      .toolbar-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .toolbar-grid > :first-child {
+        grid-column: 1 / -1;
+      }
     }
 
     @media (max-width: 767.98px) {
-      .page-wrap {
-        padding: 72px 12px 16px;
-      }
-
-      .toolbar,
-      .toolbar-left,
-      .toolbar-right {
-        width: 100%;
-      }
-
-      .toolbar-right input,
-      .toolbar-right select {
-        width: 100% !important;
-        min-width: 0 !important;
-      }
-
-      .d-flex.justify-content-between.align-items-center.mb-3 {
-        flex-direction: column;
-        align-items: flex-start !important;
-        gap: 12px;
-      }
+      .page-wrap { padding: 72px 12px 18px; }
+      .hero-card { padding: 18px; }
+      .page-actions { width: 100%; }
+      .page-actions .btn { flex: 1 1 auto; }
+      .metric-grid,
+      .toolbar-grid,
+      .check-grid { grid-template-columns: 1fr; }
+      .sticky-actions { position: static; }
     }
 
+    #collapseNuevoEmpleado { scroll-margin-top: 16px; }
+    #collapseListado { scroll-margin-top: 16px; }
+    .accordion-shell { margin-bottom: 18px; }
+    .accordion-button.collapsed { background: #fff; }
+    .accordion-button.collapsed:hover { background: #F8FBFF; }
   </style>
 </head>
 <body>
@@ -165,192 +425,277 @@
 
   <main class="main-content fondo-modulo">
     <div class="page-wrap">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <div>
-        <h2 class="mb-1">Gestión de empleados</h2>
-        <div class="small-muted">Registro de empleados desde el módulo web</div>
+      <div class="hero-card mb-4">
+        <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3">
+          <div>
+            <h2>Gestión de empleados</h2>
+            <div class="hero-subtitle">Registro oficial de empleados del Club y envío a ZKTeco BioTime.</div>
+            <div class="mt-3 small" id="infoSesion">Cargando sesión...</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-light" type="button" id="btnNuevoEmpleado" data-bs-toggle="collapse" data-bs-target="#collapseNuevoEmpleado" aria-expanded="false" aria-controls="collapseNuevoEmpleado">
+              + Nuevo empleado
+            </button>
+            <button class="btn btn-outline-light btn-light" type="button" id="btnToggleListado" data-bs-toggle="collapse" data-bs-target="#collapseListado" aria-expanded="false" aria-controls="collapseListado">
+              Buscar / ver empleados
+            </button>
+            <button class="btn btn-outline-light btn-light" type="button" id="btnRecargar">Recargar</button>
+            <button class="btn btn-outline-light btn-light" type="button" onclick="history.back()">Volver</button>
+          </div>
+        </div>
       </div>
 
-      <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary" onclick="history.back()">Volver</button>
-        <button class="btn btn-outline-primary" id="btnRecargar">Recargar</button>
-      </div>
-    </div>
+      <div id="contenedorAlertas" class="mb-3"></div>
 
-    <div class="card card-soft mb-4">
-      <div class="card-body">
-        <div class="toolbar">
-          <div class="toolbar-left">
+      <div class="accordion accordion-shell" id="acordionEmpleados">
+        <div class="accordion-item border-0">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNuevoEmpleado" aria-expanded="false" aria-controls="collapseNuevoEmpleado">
+              <div>
+                Nuevo empleado
+                <div class="accordion-copy">Alta integrada: crea el empleado en el sistema del Club y envía la solicitud a la cola de ZKTeco.</div>
+              </div>
+            </button>
+          </h2>
+          <div id="collapseNuevoEmpleado" class="accordion-collapse collapse" data-bs-parent="#acordionEmpleados">
+            <div class="accordion-body p-4 pt-0">
+              <div class="alert-info-soft">
+                <strong>Flujo aprobado:</strong> al guardar, el empleado queda registrado en el sistema y se genera la solicitud para ZKTeco. La huella y el rostro se registran después directamente en BioTime / biométricos.
+              </div>
+
+              <form id="formEmpleado" novalidate>
+                <div class="form-section mb-3">
+                  <div class="section-title">🧾 Identificación y nómina</div>
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="form-label required">Tipo de personal</label>
+                      <select class="form-select" id="tipo_personal" required>
+                        <option value="nomina" selected>EMPLEADO DE NÓMINA</option>
+                        <option value="extra">EXTRA / EVENTUAL</option>
+                      </select>
+                      <div class="field-tip">Si es EXTRA, el sistema genera automáticamente un código interno de nómina.</div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label required">Empleado ID / Cédula</label>
+                      <input type="text" class="form-control" id="cedula" maxlength="20" inputmode="numeric" required />
+                      <div class="field-tip">Es el identificador del colaborador en ZKTeco.</div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label required" id="lblCodigoNomina">Código de nómina</label>
+                      <input type="text" class="form-control" id="codigo" maxlength="20" required />
+                      <div class="field-tip" id="tipCodigoNomina">Debe ser el código real utilizado por Nómina / PROSOF.</div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label required">Fecha de contratación</label>
+                      <input type="date" class="form-control" id="fecha_ingreso" required />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label required">Nombres</label>
+                      <input type="text" class="form-control text-uppercase" id="nombres" autocomplete="off" required />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label required">Apellidos</label>
+                      <input type="text" class="form-control text-uppercase" id="apellidos" autocomplete="off" required />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-section mb-3">
+                  <div class="section-title">🏢 Estructura organizacional ZKTeco</div>
+                  <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="form-label required">Nombre del departamento</label>
+                      <select class="form-select" id="departamento" required></select>
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label required">Código departamento</label>
+                      <input type="text" class="form-control text-uppercase" id="codigo_departamento" maxlength="20" required />
+                      <div class="field-tip">Se completa automáticamente cuando el código está documentado; si queda vacío, usa el código exacto de ZKTeco.</div>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label required">Nombre centro de costos</label>
+                      <select class="form-select" id="centro_costos" required></select>
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label">Código centro costos</label>
+                      <input type="text" class="form-control text-uppercase" id="codigo_centro_costos" maxlength="20" />
+                      <div class="field-tip">Opcional si ZKTeco no utiliza un código separado para este centro.</div>
+                    </div>
+                    <div class="col-md-8">
+                      <label class="form-label required">Cargo</label>
+                      <select class="form-select" id="cargo" required></select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label">Nombre del cargo</label>
+                      <input type="text" class="form-control text-uppercase" id="nombre_cargo" readonly />
+                      <div class="field-tip">Se completa con el cargo seleccionado, como en la plantilla ZKTeco.</div>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Área principal del sistema</label>
+                      <select class="form-select" id="area"></select>
+                      <div class="field-tip">Clasificación interna del Club; no reemplaza el código de área biométrica.</div>
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label required">Estado laboral</label>
+                      <select class="form-select" id="estado" required>
+                        <option value="true" selected>ACTIVO</option>
+                        <option value="false">INACTIVO</option>
+                      </select>
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label">Tarjeta número</label>
+                      <input type="text" class="form-control" id="tarjeta_numero" maxlength="40" />
+                      <div class="field-tip">Opcional. Puede quedar vacío si usará huella/rostro.</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-section mb-3">
+                  <div class="section-title">🏷️ Empresa y biométricos</div>
+                  <div class="row g-3">
+                    <div class="col-md-2">
+                      <label class="form-label">Código empresa</label>
+                      <input type="text" class="form-control" id="codigo_empresa" value="1" readonly />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Nombre de la empresa</label>
+                      <input type="text" class="form-control" id="nombre_empresa" value="CORPORACION CLUB CAMPESTRE DE PEREIRA" readonly />
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label">Código compañía</label>
+                      <input type="text" class="form-control" id="codigo_compania" value="1" readonly />
+                    </div>
+                    <div class="col-md-2">
+                      <label class="form-label">Código de área</label>
+                      <input type="text" class="form-control" id="codigo_area" value="3,4,5,6,7" readonly />
+                    </div>
+                    <div class="col-12">
+                      <div class="alert-info-soft mb-0">
+                        <strong>Habilitación biométrica:</strong> el colaborador se solicita para Portería, Piscina, Hoyo 19, Tenis y Bodega/Administración. La huella y el rostro se enrolan posteriormente.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-section mb-3">
+                  <div class="section-title">📞 Contacto</div>
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label">Celular</label>
+                      <input type="text" class="form-control" id="telefono" maxlength="20" />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Correo electrónico</label>
+                      <input type="email" class="form-control" id="correo" />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="alert-info-soft mb-3">
+                  <strong>Acceso al software:</strong> en esta pantalla Nómina registra al colaborador y solicita su creación en ZKTeco. Los permisos para ingresar al sistema, roles y accesos administrativos se gestionan aparte en el módulo de Usuarios.
+                </div>
+
+                <div class="sticky-actions mt-4 d-flex gap-2 flex-wrap">
+                  <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar empleado</button>
+                  <button type="button" class="btn btn-outline-secondary" id="btnLimpiar">Limpiar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <div class="collapse" id="collapseListado">
+      <div class="metric-grid mb-4">
+        <div class="metric-item">
+          <div class="metric-label">Total empleados</div>
+          <div class="metric-value" id="metricTotal">0</div>
+          <div class="metric-hint">Registros visibles en el listado actual</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Activos</div>
+          <div class="metric-value" id="metricActivos">0</div>
+          <div class="metric-hint">Personal con estado activo</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Pendientes ZKTeco</div>
+          <div class="metric-value" id="metricPendientesZk">0</div>
+          <div class="metric-hint">Solicitudes nuevas pendientes o en proceso</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Errores ZKTeco</div>
+          <div class="metric-value" id="metricErroresZk">0</div>
+          <div class="metric-hint">Casos a revisar con BioTime</div>
+        </div>
+      </div>
+
+      <div class="soft-card mb-4">
+        <div class="card-body p-4">
+          <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start gap-3 mb-3">
             <div>
-              <div class="fw-semibold">Sesión actual</div>
-              <div id="infoSesion" class="small-muted">Cargando...</div>
+              <div class="section-title mb-1">🔎 Consulta de empleados</div>
+              <div class="section-help mb-0">Busca por nombre, cédula, cargo o filtra por área. El listado permanece oculto hasta que el usuario decida consultarlo.</div>
+            </div>
+            <span id="contadorRegistros" class="form-legend">0 registros</span>
+          </div>
+
+          <div class="toolbar-grid">
+            <div class="toolbar-field">
+              <label for="filtroBusqueda">Buscar empleado</label>
+              <input
+                type="text"
+                id="filtroBusqueda"
+                class="form-control"
+                placeholder="Cédula, nombre, cargo, código o centro de costos"
+              />
+            </div>
+            <div class="toolbar-field">
+              <label for="filtroArea">Área</label>
+              <select id="filtroArea" class="form-select">
+                <option value="">Todas las áreas</option>
+              </select>
+            </div>
+            <div class="toolbar-field">
+              <label for="filtroEstado">Estado</label>
+              <select id="filtroEstado" class="form-select">
+                <option value="">Todos</option>
+                <option value="true">Activos</option>
+                <option value="false">Inactivos</option>
+              </select>
             </div>
           </div>
 
-          <div class="toolbar-right">
-            <input
-              type="text"
-              id="filtroBusqueda"
-              class="form-control"
-              placeholder="Buscar por cédula, nombre, cargo o centro de costos"
-              style="min-width: 320px;"
-            />
-            <select id="filtroArea" class="form-select" style="min-width: 240px;">
-              <option value="">Todas las áreas</option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </div>
+          <div class="search-note">Tip: puedes escribir una parte de la cédula, del nombre o del cargo. El listado se filtra sin recargar la página.</div>
+          <div class="summary-strip" id="summaryStrip"></div>
 
-    <div id="contenedorAlertas" class="mb-3"></div>
-
-    <div class="row g-4 empleados-stack">
-      <div class="col-12">
-        <div class="card card-soft">
-          <div class="card-body">
-            <h5 class="mb-3">Nuevo empleado</h5>
-
-            <form id="formEmpleado" novalidate>
-              <div class="section-title">Datos básicos</div>
-
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label">Código</label>
-                  <input type="text" class="form-control" id="codigo" maxlength="20" readonly />
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label required">Cédula</label>
-                  <input type="text" class="form-control" id="cedula" maxlength="20" required />
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label required">Nombres</label>
-                  <input type="text" class="form-control" id="nombres" required />
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label required">Apellidos</label>
-                  <input type="text" class="form-control" id="apellidos" required />
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label required">Cargo</label>
-                  <input type="text" class="form-control" id="cargo" required />
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label required">Rol</label>
-                  <select class="form-select" id="rol" required>
-                    <option value="empleado" selected>Empleado</option>
-                    <option value="administrativo">Administrativo</option>
-                    <option value="jefe_area">Jefe de área</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label required">Centro de costos</label>
-                  <input type="text" class="form-control" id="centro_costos" required />
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label">Área</label>
-                  <select class="form-select" id="area"></select>
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label required">Fecha de ingreso</label>
-                  <input type="date" class="form-control" id="fecha_ingreso" required />
-                </div>
-              </div>
-
-              <div class="section-title mt-4">Contacto</div>
-
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label">Teléfono</label>
-                  <input type="text" class="form-control" id="telefono" maxlength="20" />
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label">Correo</label>
-                  <input type="email" class="form-control" id="correo" />
-                </div>
-              </div>
-
-              <div class="section-title mt-4">Permisos</div>
-
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label required">Estado</label>
-                  <select class="form-select" id="estado" required>
-                    <option value="true" selected>Activo</option>
-                    <option value="false">Inactivo</option>
-                  </select>
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label">¿Puede ver todo?</label>
-                  <select class="form-select" id="puede_ver_todo">
-                    <option value="false" selected>No</option>
-                    <option value="true">Sí</option>
-                  </select>
-                </div>
-
-                <div class="col-12">
-                  <label class="form-label">Áreas permitidas</label>
-                  <div class="row row-cols-1 row-cols-md-2 g-2" id="contenedorAreasPermitidas"></div>
-                </div>
-
-                <div class="col-12">
-                  <label class="form-label">Módulos permitidos</label>
-                  <div class="row row-cols-1 row-cols-md-2 g-2" id="contenedorModulosPermitidos"></div>
-                </div>
-              </div>
-
-              <div class="sticky-actions mt-4 d-flex gap-2">
-                <button type="submit" class="btn btn-primary" id="btnGuardar">Guardar empleado</button>
-                <button type="button" class="btn btn-outline-secondary" id="btnLimpiar">Limpiar</button>
-              </div>
-            </form>
+          <div class="tabla-empleados-scroll mt-3" id="panelListado">
+            <table class="table table-hover align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Cédula</th>
+                  <th>Nombre</th>
+                  <th>Área</th>
+                  <th>Cargo</th>
+                  <th>Centro costos</th>
+                  <th>Estado</th>
+                  <th>ZKTeco</th>
+                  <th>Fecha ingreso</th>
+                </tr>
+              </thead>
+              <tbody id="tablaEmpleados">
+                <tr>
+                  <td colspan="9" class="text-center text-muted py-4">Cargando...</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
-      <div class="col-12">
-        <div class="card card-soft">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h5 class="mb-0">Listado de empleados</h5>
-              <span id="contadorRegistros" class="small-muted">0 registros</span>
-            </div>
-
-            <div class="table-responsive tabla-empleados-scroll">
-              <table class="table table-hover align-middle">
-                <thead>
-                  <tr>
-                    <th>Código</th>
-                    <th>Cédula</th>
-                    <th>Nombre</th>
-                    <th>Cargo</th>
-                    <th>Centro costos</th>
-                    <th>Estado</th>
-                    <th>Fecha ingreso</th>
-                  </tr>
-                </thead>
-                <tbody id="tablaEmpleados">
-                  <tr>
-                    <td colspan="7" class="text-center text-muted py-4">Cargando...</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
       </div>
-    </div>
+
     </div>
   </main>
 
@@ -358,38 +703,51 @@
     import {
       crearEmpleado,
       existeEmpleadoPorCedula,
-      obtenerEmpleados
-    } from "../supabase/empleados.js";
+      obtenerEmpleados,
+      obtenerEstadosBiotimeEmpleados
+    } from "../supabase/empleados.js?v=empleados-zkteco-20260910-v5";
 
     const AREAS_SISTEMA = [
       "Alimentos y Bebidas",
+      "Deportes",
+      "Dirección Administrativa",
       "Servicios Generales",
-      "Bienestar Institucional",
-      "Dirección Administrativa y Financiera",
-      "Auditoría",
-      "Sistemas",
-      "Contabilidad",
-      "Cartera",
-      "Compras",
-      "Cocina",
-      "Restaurantes",
-      "Bar",
-      "Eventos",
-      "Administración"
+      "Campo",
+      "Mantenimiento",
+      "Infraestructura",
+      "Eventos y Servicios",
+      "Comercial y Mercadeo",
+      "Jubilados",
+      "Otros"
     ];
 
-    const MODULOS_SISTEMA = [
-      "dashboard",
-      "empleados",
-      "mis_turnos",
-      "programacion",
-      "marcaciones",
-      "horas_extras",
-      "reportes"
+    // Códigos documentados en la plantilla operativa suministrada por el Club.
+    // Para departamentos no incluidos en esa plantilla el código debe ser confirmado por Nómina/ZKTeco.
+    const CODIGOS_DEPARTAMENTO_ZKTECO = {
+      "DIRECCION ADMINISTRATIVA": "02",
+      "DIRECCION DEPORTES": "03",
+      "DIRECCION ALIMENTOS Y BEBIDAS": "05",
+      "COORDINACION MANTENIMIENTO": "07",
+      "SERVICIOS GENERALES": "09"
+    };
+
+    const CENTROS_BASE = [
+      "COMERCIAL Y MERCADEO",
+      "COORDINACION CAMPO",
+      "COORDINACION MANTENIMIENTO",
+      "DIRECCION ADMINISTRATIVA",
+      "DIRECCION ALIMENTOS Y BEBIDAS",
+      "DIRECCION DEPORTES",
+      "EVENTOS Y SERVICIOS",
+      "INFRAESTRUCTURA",
+      "JUBILADOS",
+      "SERVICIOS GENERALES"
     ];
 
     let usuarioActual = null;
     let empleadosMemoria = [];
+    let estadosBiotime = new Map();
+    let estadosBiotimeCargando = false;
 
     function mostrarAlerta(mensaje, tipo = "success") {
       const contenedor = document.getElementById("contenedorAlertas");
@@ -405,6 +763,32 @@
       return (valor || "").toString().trim();
     }
 
+    function normalizarClave(valor) {
+      return texto(valor)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase();
+    }
+
+    function obtenerAreaOperativa(emp) {
+      const directa = normalizarClave(emp?.area);
+      const centro = normalizarClave(emp?.centro_costos);
+      const fuente = directa || centro;
+
+      if (fuente.includes("ALIMENTOS") || fuente.includes("AYB") || fuente.includes("COCINA") || fuente.includes("RESTAURANTE") || fuente.includes("BAR")) return "Alimentos y Bebidas";
+      if (fuente.includes("DEPORTE") || fuente.includes("TENIS") || fuente.includes("GOLF") || fuente.includes("NATACION") || fuente.includes("FUTBOL") || fuente.includes("GIMNASIO") || fuente.includes("WAKEBOARD")) return "Deportes";
+      if (fuente.includes("SERVICIOS GENERALES")) return "Servicios Generales";
+      if (fuente.includes("CAMPO")) return "Campo";
+      if (fuente.includes("MANTENIMIENTO")) return "Mantenimiento";
+      if (fuente.includes("INFRAESTRUCTURA")) return "Infraestructura";
+      if (fuente.includes("EVENTOS")) return "Eventos y Servicios";
+      if (fuente.includes("COMERCIAL") || fuente.includes("MERCADEO")) return "Comercial y Mercadeo";
+      if (fuente.includes("JUBILADO")) return "Jubilados";
+      if (fuente.includes("ADMINISTRATIVA") || fuente.includes("ADMINISTRACION") || fuente.includes("CONTABIL") || fuente.includes("TESORER") || fuente.includes("CARTERA") || fuente.includes("COMPRAS") || fuente.includes("AUDITOR") || fuente.includes("SISTEMAS") || fuente.includes("BIENESTAR") || fuente.includes("GERENCIA")) return "Dirección Administrativa";
+
+      return texto(emp?.area) || texto(emp?.centro_costos) || "Otros";
+    }
+
     function aBoolean(valor) {
       if (typeof valor === "boolean") return valor;
       return String(valor).toLowerCase() === "true";
@@ -418,10 +802,9 @@
     }
 
     function pintarEstado(estado) {
-      if (estado === true) {
-        return `<span class="estado-badge estado-activo">Activo</span>`;
-      }
-      return `<span class="estado-badge estado-inactivo">Inactivo</span>`;
+      return estado === true
+        ? `<span class="estado-badge estado-activo">Activo</span>`
+        : `<span class="estado-badge estado-inactivo">Inactivo</span>`;
     }
 
     function nombreCompleto(emp) {
@@ -429,168 +812,202 @@
     }
 
     function obtenerUsuarioActual() {
-      const posiblesLlaves = [
-        "usuarioActual",
-        "empleadoActual",
-        "sessionUser",
-        "userData",
-        "authUser"
-      ];
-
+      const posiblesLlaves = ["ccp_sesion", "usuarioActual", "empleadoActual", "sessionUser", "userData", "authUser"];
       for (const llave of posiblesLlaves) {
         const valor = localStorage.getItem(llave);
         if (!valor) continue;
-
         try {
           const obj = JSON.parse(valor);
-          if (obj && (obj.id || obj.cedula || obj.correo)) {
-            return obj;
-          }
-        } catch (e) {}
+          if (obj && (obj.id || obj.cedula || obj.correo)) return obj;
+        } catch (_) {}
       }
-
       return null;
     }
 
     function puedeCrearEmpleados(usuario) {
       if (!usuario) return true;
-
       if (usuario.puede_ver_todo === true) return true;
-
       const rol = texto(usuario.rol).toLowerCase();
-      return [
-        "admin",
-        "administrador",
-        "jefe_area",
-        "jefe",
-        "administrativo",
-        "gerencia"
-      ].includes(rol);
+      return ["admin", "administrador", "nomina", "jefe_area", "jefe", "administrativo", "gerencia"].includes(rol);
     }
 
     function obtenerAreasPermitidasUsuario(usuario) {
       if (!usuario) return [...AREAS_SISTEMA];
-
-      if (usuario.puede_ver_todo === true) {
-        return [...AREAS_SISTEMA];
-      }
-
-      if (Array.isArray(usuario.areas_permitidas) && usuario.areas_permitidas.length) {
-        return usuario.areas_permitidas;
-      }
-
-      if (texto(usuario.area)) {
-        return [usuario.area];
-      }
-
-      if (texto(usuario.centro_costos)) {
-        return [usuario.centro_costos];
-      }
-
+      if (usuario.puede_ver_todo === true) return [...AREAS_SISTEMA];
+      if (Array.isArray(usuario.areas_permitidas) && usuario.areas_permitidas.length) return usuario.areas_permitidas;
+      if (texto(usuario.area)) return [usuario.area];
+      if (texto(usuario.centro_costos)) return [usuario.centro_costos];
       return [...AREAS_SISTEMA];
     }
 
     function renderAreasPermitidas() {
-      const contenedor = document.getElementById("contenedorAreasPermitidas");
-      contenedor.innerHTML = AREAS_SISTEMA.map((area, index) => `
-        <div class="col">
-          <label class="check-card d-block" for="area_perm_${index}">
-            <input class="form-check-input area-permitida-check" type="checkbox" value="${area}" id="area_perm_${index}">
-            ${area}
-          </label>
-        </div>
-      `).join("");
-    }
-
-    function renderModulosPermitidos() {
-      const contenedor = document.getElementById("contenedorModulosPermitidos");
-      contenedor.innerHTML = MODULOS_SISTEMA.map((modulo, index) => `
-        <div class="col">
-          <label class="check-card d-block" for="mod_perm_${index}">
-            <input class="form-check-input modulo-permitido-check" type="checkbox" value="${modulo}" id="mod_perm_${index}">
-            ${modulo.replaceAll("_", " ")}
-          </label>
-        </div>
-      `).join("");
+      // Los permisos de acceso se administran en el módulo de Usuarios.
+      // En Empleados solo se conserva el área principal del colaborador.
     }
 
     function cargarSelectAreas() {
-      const areasUsuario = obtenerAreasPermitidasUsuario(usuarioActual);
       const selectArea = document.getElementById("area");
       const filtroArea = document.getElementById("filtroArea");
-
-      selectArea.innerHTML = areasUsuario.map(area => `
-        <option value="${area}">${area}</option>
-      `).join("");
-
-      filtroArea.innerHTML = `<option value="">Todas las áreas</option>` + areasUsuario.map(area => `
-        <option value="${area}">${area}</option>
-      `).join("");
+      const opciones = AREAS_SISTEMA.map(area => `<option value="${area}">${area}</option>`).join("");
+      selectArea.innerHTML = `<option value="">Selecciona el área</option>${opciones}`;
+      filtroArea.innerHTML = `<option value="">Todas las áreas</option>${opciones}`;
     }
 
-    function obtenerAreasPermitidasFormulario() {
-      return Array.from(document.querySelectorAll(".area-permitida-check:checked")).map(x => x.value);
+    function valoresUnicosMayuscula(valores) {
+      return [...new Set(valores.map(v => texto(v).toUpperCase()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
     }
 
-    function obtenerModulosPermitidosFormulario() {
-      return Array.from(document.querySelectorAll(".modulo-permitido-check:checked")).map(x => x.value);
+    function cargarCatalogosLaborales() {
+      const centros = valoresUnicosMayuscula([
+        ...CENTROS_BASE,
+        ...empleadosMemoria.map(e => e.centro_costos)
+      ]).filter(v => v !== "DEPARTAMENTO" && v !== "ALIMENTOS Y BEBIDAS");
+
+      const cargos = valoresUnicosMayuscula(empleadosMemoria.map(e => e.cargo));
+      const departamentos = valoresUnicosMayuscula([
+        ...centros,
+        ...Object.keys(CODIGOS_DEPARTAMENTO_ZKTECO)
+      ]);
+
+      const selectCentro = document.getElementById("centro_costos");
+      const selectDepartamento = document.getElementById("departamento");
+      const selectCargo = document.getElementById("cargo");
+
+      selectCentro.innerHTML = `<option value="">SELECCIONA CENTRO DE COSTOS</option>` +
+        centros.map(v => `<option value="${v}">${v}</option>`).join("");
+      selectDepartamento.innerHTML = `<option value="">SELECCIONA DEPARTAMENTO</option>` +
+        departamentos.map(v => `<option value="${v}">${v}</option>`).join("");
+      selectCargo.innerHTML = `<option value="">SELECCIONA CARGO</option>` +
+        cargos.map(v => `<option value="${v}">${v}</option>`).join("");
+    }
+
+    function actualizarDepartamento() {
+      const departamento = texto(document.getElementById("departamento").value).toUpperCase();
+      const codigo = CODIGOS_DEPARTAMENTO_ZKTECO[departamento] || "";
+      const inputCodigo = document.getElementById("codigo_departamento");
+      inputCodigo.value = codigo;
+      inputCodigo.readOnly = Boolean(codigo);
+      inputCodigo.placeholder = codigo ? "" : "INGRESA CÓDIGO ZKTECO";
+
+      const centro = document.getElementById("centro_costos");
+      if (!centro.value && [...centro.options].some(o => o.value === departamento)) {
+        centro.value = departamento;
+      }
+    }
+
+    function actualizarNombreCargo() {
+      document.getElementById("nombre_cargo").value = texto(document.getElementById("cargo").value).toUpperCase();
+    }
+
+    function actualizarModoCodigoNomina() {
+      const tipo = texto(document.getElementById("tipo_personal").value).toLowerCase();
+      const input = document.getElementById("codigo");
+      const label = document.getElementById("lblCodigoNomina");
+      const tip = document.getElementById("tipCodigoNomina");
+
+      if (tipo === "extra") {
+        input.value = "";
+        input.readOnly = true;
+        input.required = false;
+        input.placeholder = "AUTOMÁTICO AL GUARDAR";
+        label.classList.remove("required");
+        tip.textContent = "Para extras el sistema genera un código único automáticamente.";
+      } else {
+        input.readOnly = false;
+        input.required = true;
+        input.placeholder = "EJ. 01311";
+        label.classList.add("required");
+        tip.textContent = "Debe ser el código real utilizado por Nómina / PROSOF. Conserva ceros iniciales.";
+      }
+    }
+
+    function forzarMayusculaInput(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const inicio = el.selectionStart;
+      const fin = el.selectionEnd;
+      el.value = el.value.toUpperCase();
+      try { el.setSelectionRange(inicio, fin); } catch (_) {}
     }
 
     function construirPayload() {
+      const tipo_personal = texto(document.getElementById("tipo_personal").value).toLowerCase();
       const cedula = texto(document.getElementById("cedula").value);
-      const codigoManual = texto(document.getElementById("codigo").value);
-      const nombres = texto(document.getElementById("nombres").value);
-      const apellidos = texto(document.getElementById("apellidos").value);
-      const cargo = texto(document.getElementById("cargo").value);
-      const centro_costos = texto(document.getElementById("centro_costos").value);
+      const codigoManual = texto(document.getElementById("codigo").value).toUpperCase();
+      const nombres = texto(document.getElementById("nombres").value).toUpperCase();
+      const apellidos = texto(document.getElementById("apellidos").value).toUpperCase();
+      const departamento = texto(document.getElementById("departamento").value).toUpperCase();
+      const codigo_departamento = texto(document.getElementById("codigo_departamento").value).toUpperCase();
+      const centro_costos = texto(document.getElementById("centro_costos").value).toUpperCase();
+      const codigo_centro_costos = texto(document.getElementById("codigo_centro_costos").value).toUpperCase();
+      const cargo = texto(document.getElementById("cargo").value).toUpperCase();
+      const nombre_cargo = texto(document.getElementById("nombre_cargo").value).toUpperCase() || cargo;
       const telefono = texto(document.getElementById("telefono").value);
-      const correo = texto(document.getElementById("correo").value);
+      const correo = texto(document.getElementById("correo").value).toLowerCase();
+      const tarjeta_numero = texto(document.getElementById("tarjeta_numero").value);
+      const codigo_empresa = texto(document.getElementById("codigo_empresa").value) || "1";
+      const nombre_empresa = texto(document.getElementById("nombre_empresa").value).toUpperCase();
+      const codigo_compania = texto(document.getElementById("codigo_compania").value) || "1";
+      const codigo_area = texto(document.getElementById("codigo_area").value) || "3,4,5,6,7";
       const estado = aBoolean(document.getElementById("estado").value);
-      const rol = texto(document.getElementById("rol").value) || "empleado";
       const area = texto(document.getElementById("area").value) || null;
       const fecha_ingreso = texto(document.getElementById("fecha_ingreso").value) || null;
-      const puede_ver_todo = aBoolean(document.getElementById("puede_ver_todo").value);
-      const areas_permitidas = obtenerAreasPermitidasFormulario();
-      const modulos_permitidos = obtenerModulosPermitidosFormulario();
-
-      const codigo = codigoManual || cedula;
-      document.getElementById("codigo").value = codigo;
+      const codigo = tipo_personal === "extra" ? null : codigoManual;
 
       const errores = [];
-
-      if (!cedula) errores.push("La cédula es obligatoria.");
+      if (!cedula) errores.push("La cédula / Empleado ID es obligatoria.");
       if (!nombres) errores.push("Los nombres son obligatorios.");
       if (!apellidos) errores.push("Los apellidos son obligatorios.");
-      if (!cargo) errores.push("El cargo es obligatorio.");
-      if (!centro_costos) errores.push("El centro de costos es obligatorio.");
-      if (!fecha_ingreso) errores.push("La fecha de ingreso es obligatoria.");
+      if (!departamento) errores.push("Selecciona el departamento.");
+      if (!codigo_departamento) errores.push("El código de departamento es obligatorio para ZKTeco.");
+      if (!centro_costos) errores.push("Selecciona el centro de costos.");
+      if (!cargo) errores.push("Selecciona el cargo.");
+      if (!fecha_ingreso) errores.push("La fecha de contratación es obligatoria.");
+      if (tipo_personal === "nomina" && !codigo) errores.push("El código de nómina es obligatorio para empleados de nómina.");
 
       if (correo) {
         const regexCorreo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!regexCorreo.test(correo)) {
-          errores.push("El correo no tiene un formato válido.");
-        }
+        if (!regexCorreo.test(correo)) errores.push("El correo no tiene un formato válido.");
       }
 
       return {
         errores,
         payload: {
+          tipo_personal,
           codigo,
+          codigo_nomina: codigo,
           cedula,
           nombres,
           apellidos,
-          cargo,
+          departamento,
+          codigo_departamento,
+          codigo_empresa,
+          nombre_empresa,
+          codigo_centro_costos: codigo_centro_costos || null,
           centro_costos,
+          cargo,
+          nombre_cargo,
+          fecha_ingreso,
+          tarjeta_numero: tarjeta_numero || null,
+          codigo_area,
           telefono: telefono || null,
           correo: correo || null,
+          codigo_compania,
           estado,
-          rol,
+          rol: "empleado",
           password: null,
-          areas_permitidas,
-          modulos_permitidos,
-          puede_ver_todo,
+          areas_permitidas: area ? [area] : [],
+          modulos_permitidos: [],
+          puede_ver_todo: false,
           area,
-          fecha_ingreso,
+          areas_biotime: [
+            { codigo: "3", nombre: "Porteria" },
+            { codigo: "4", nombre: "PISCINA" },
+            { codigo: "5", nombre: "HOYO 19" },
+            { codigo: "6", nombre: "TENIS" },
+            { codigo: "7", nombre: "Bodega" }
+          ],
           creado_por: usuarioActual?.id || null
         }
       };
@@ -600,9 +1017,19 @@
       return await existeEmpleadoPorCedula(cedula);
     }
 
+    function pintarEstadoBiotime(emp) {
+      const z = estadosBiotime.get(emp.id);
+      if (!z && estadosBiotimeCargando) return `<span class="zk-badge zk-procesando">↻ Consultando...</span>`;
+      if (!z) return `<span class="zk-badge zk-sin-solicitud">Sin solicitud nueva</span>`;
+      const e = texto(z.estado).toLowerCase();
+      if (e === "procesado") return `<span class="zk-badge zk-procesado">✓ Creado en ZKTeco</span>`;
+      if (e === "procesando") return `<span class="zk-badge zk-procesando">↻ Sincronizando</span>`;
+      if (e === "error") return `<span class="zk-badge zk-error" title="${texto(z.ultimo_error)}">✕ Error ZKTeco</span>`;
+      return `<span class="zk-badge zk-pendiente">⏳ Pendiente ZKTeco</span>`;
+    }
+
     async function guardarEmpleado(event) {
       event.preventDefault();
-
       if (!puedeCrearEmpleados(usuarioActual)) {
         mostrarAlerta("Tu usuario no tiene permisos para registrar empleados.", "danger");
         return;
@@ -614,7 +1041,6 @@
 
       try {
         const { errores, payload } = construirPayload();
-
         if (errores.length) {
           mostrarAlerta(errores.join("<br>"), "danger");
           return;
@@ -627,11 +1053,16 @@
         }
 
         const data = await crearEmpleado(payload);
-
-        console.log("Empleado guardado en Supabase:", data);
-        mostrarAlerta("Empleado registrado correctamente en Supabase.", "success");
+        console.log("Empleado y solicitud ZKTeco creados:", data);
+        const codigoCreado = texto(data?.codigo_nomina || payload.codigo_nomina || "");
+        mostrarAlerta(`✓ Empleado creado correctamente.<br><strong>Código de nómina:</strong> ${codigoCreado || "generado"}<br><strong>ZKTeco:</strong> solicitud enviada; queda pendiente la sincronización y luego el registro presencial de huella/rostro.`, "success");
+        const cedulaCreada = payload.cedula;
         limpiarFormulario();
         await cargarEmpleados();
+        document.getElementById("filtroBusqueda").value = cedulaCreada;
+        aplicarFiltrosYRenderizar();
+        const collapseListado = bootstrap.Collapse.getOrCreateInstance(document.getElementById("collapseListado"), { toggle: false });
+        collapseListado.show();
       } catch (error) {
         console.error(error);
         mostrarAlerta("No se pudo registrar el empleado: " + error.message, "danger");
@@ -641,58 +1072,128 @@
       }
     }
 
-    async function cargarEmpleados() {
-      try {
-        const filtroBusqueda = texto(document.getElementById("filtroBusqueda").value).toLowerCase();
-        const filtroArea = texto(document.getElementById("filtroArea").value);
+    function aplicarFiltrosYRenderizar() {
+      const filtroBusqueda = texto(document.getElementById("filtroBusqueda").value).toLowerCase();
+      const filtroEstado = texto(document.getElementById("filtroEstado").value);
+      let visibles = empleadosMemoria;
 
-        empleadosMemoria = await obtenerEmpleados({ area: filtroArea });
+      if (filtroBusqueda) {
+        visibles = visibles.filter(emp => {
+          const bolsa = [
+            emp.codigo,
+            emp.cedula,
+            emp.nombres,
+            emp.apellidos,
+            emp.cargo,
+            emp.centro_costos,
+            emp.area,
+            obtenerAreaOperativa(emp)
+          ].join(" ").toLowerCase();
+          return bolsa.includes(filtroBusqueda);
+        });
+      }
 
-        let visibles = empleadosMemoria;
+      const filtroArea = texto(document.getElementById("filtroArea").value);
+      if (filtroArea) {
+        visibles = visibles.filter(emp => obtenerAreaOperativa(emp) === filtroArea);
+      }
 
+      if (filtroEstado) {
+        const estadoBool = aBoolean(filtroEstado);
+        visibles = visibles.filter(emp => Boolean(emp.estado) === estadoBool);
+      }
+
+      visibles = [...visibles].sort((a, b) => {
         if (filtroBusqueda) {
-          visibles = visibles.filter(emp => {
-            const bolsa = [
-              emp.codigo,
-              emp.cedula,
-              emp.nombres,
-              emp.apellidos,
-              emp.cargo,
-              emp.centro_costos,
-              emp.area
-            ].join(" ").toLowerCase();
-
-            return bolsa.includes(filtroBusqueda);
-          });
+          const aNombre = nombreCompleto(a).toLowerCase();
+          const bNombre = nombreCompleto(b).toLowerCase();
+          const aExact = [a.cedula, a.codigo, aNombre].some(v => texto(v).toLowerCase().startsWith(filtroBusqueda));
+          const bExact = [b.cedula, b.codigo, bNombre].some(v => texto(v).toLowerCase().startsWith(filtroBusqueda));
+          if (aExact !== bExact) return aExact ? -1 : 1;
         }
+        return nombreCompleto(a).localeCompare(nombreCompleto(b), 'es', { sensitivity: 'base' });
+      });
 
-        pintarTabla(visibles);
+      pintarTabla(visibles);
+      actualizarResumen(visibles);
+    }
+
+    function actualizarResumen(lista) {
+      const total = lista.length;
+      const activos = lista.filter(emp => emp.estado === true).length;
+      let pendientesZk = 0;
+      let erroresZk = 0;
+      let procesadosZk = 0;
+
+      lista.forEach(emp => {
+        const z = estadosBiotime.get(emp.id);
+        const e = texto(z?.estado).toLowerCase();
+        if (z && (e === 'pendiente' || e === 'procesando')) pendientesZk += 1;
+        if (e === 'error') erroresZk += 1;
+        if (e === 'procesado') procesadosZk += 1;
+      });
+
+      document.getElementById('metricTotal').textContent = total;
+      document.getElementById('metricActivos').textContent = activos;
+      document.getElementById('metricPendientesZk').textContent = pendientesZk;
+      document.getElementById('metricErroresZk').textContent = erroresZk;
+
+      const strip = document.getElementById('summaryStrip');
+      strip.innerHTML = `
+        <span class="mini-badge mini-blue">Mostrando: <strong>${total}</strong></span>
+        <span class="mini-badge mini-green">Activos: <strong>${activos}</strong></span>
+        <span class="mini-badge mini-yellow">Procesados ZKTeco: <strong>${procesadosZk}</strong></span>
+        <span class="mini-badge mini-red">Errores ZKTeco: <strong>${erroresZk}</strong></span>
+      `;
+    }
+
+    async function cargarEstadosZKTecoSinBloquear() {
+      estadosBiotimeCargando = true;
+      aplicarFiltrosYRenderizar();
+      try {
+        const timeout = new Promise(resolve => setTimeout(() => resolve([]), 8000));
+        const estados = await Promise.race([obtenerEstadosBiotimeEmpleados(), timeout]);
+        estadosBiotime = new Map((Array.isArray(estados) ? estados : []).map(z => [z.empleado_id, z]));
       } catch (error) {
-        console.error(error);
-        document.getElementById("tablaEmpleados").innerHTML = `
+        console.warn("No fue posible actualizar estados ZKTeco sin bloquear el listado:", error);
+        estadosBiotime = new Map();
+      } finally {
+        estadosBiotimeCargando = false;
+        aplicarFiltrosYRenderizar();
+      }
+    }
+
+    async function cargarEmpleados() {
+      const tabla = document.getElementById("tablaEmpleados");
+      try {
+        tabla.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">Cargando empleados...</td></tr>`;
+        empleadosMemoria = await obtenerEmpleados();
+        cargarCatalogosLaborales();
+        estadosBiotime = new Map();
+        aplicarFiltrosYRenderizar();
+        cargarEstadosZKTecoSinBloquear();
+      } catch (error) {
+        console.error("Error cargando empleados:", error);
+        tabla.innerHTML = `
           <tr>
-            <td colspan="7" class="text-center text-danger py-4">
-              Error inesperado cargando empleados.
+            <td colspan="9" class="text-center text-danger py-4">
+              No fue posible cargar el listado de empleados.<br>
+              <small>${texto(error?.message) || "Error de conexión o permisos."}</small>
             </td>
           </tr>
         `;
+        document.getElementById("contadorRegistros").textContent = "0 registros";
+        actualizarResumen([]);
       }
     }
 
     function pintarTabla(lista) {
       const tabla = document.getElementById("tablaEmpleados");
       const contador = document.getElementById("contadorRegistros");
-
       contador.textContent = `${lista.length} registro(s)`;
 
       if (!lista.length) {
-        tabla.innerHTML = `
-          <tr>
-            <td colspan="7" class="text-center text-muted py-4">
-              No hay empleados para mostrar.
-            </td>
-          </tr>
-        `;
+        tabla.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No hay empleados para mostrar.</td></tr>`;
         return;
       }
 
@@ -700,75 +1201,94 @@
         <tr>
           <td>${emp.codigo || ""}</td>
           <td>${emp.cedula || ""}</td>
-          <td>${nombreCompleto(emp)}</td>
+          <td><strong>${nombreCompleto(emp)}</strong></td>
+          <td>${obtenerAreaOperativa(emp)}</td>
           <td>${emp.cargo || ""}</td>
           <td>${emp.centro_costos || ""}</td>
           <td>${pintarEstado(emp.estado)}</td>
+          <td>${pintarEstadoBiotime(emp)}</td>
           <td>${formatearFecha(emp.fecha_ingreso)}</td>
         </tr>
       `).join("");
     }
 
-    function desmarcarChecks() {
-      document.querySelectorAll(".area-permitida-check").forEach(el => el.checked = false);
-      document.querySelectorAll(".modulo-permitido-check").forEach(el => el.checked = false);
-    }
-
     function limpiarFormulario() {
       document.getElementById("formEmpleado").reset();
-      desmarcarChecks();
       document.getElementById("estado").value = "true";
-      document.getElementById("rol").value = "empleado";
-      document.getElementById("puede_ver_todo").value = "false";
+      document.getElementById("tipo_personal").value = "nomina";
       document.getElementById("codigo").value = "";
-
-      const areas = obtenerAreasPermitidasUsuario(usuarioActual);
-      if (areas.length) {
-        document.getElementById("area").value = areas[0];
-      }
-    }
-
-    function actualizarCodigoAutomatico() {
-      const cedula = texto(document.getElementById("cedula").value);
-      document.getElementById("codigo").value = cedula;
+      document.getElementById("codigo_empresa").value = "1";
+      document.getElementById("nombre_empresa").value = "CORPORACION CLUB CAMPESTRE DE PEREIRA";
+      document.getElementById("codigo_compania").value = "1";
+      document.getElementById("codigo_area").value = "3,4,5,6,7";
+      document.getElementById("codigo_departamento").value = "";
+      document.getElementById("codigo_departamento").readOnly = false;
+      document.getElementById("codigo_centro_costos").value = "";
+      document.getElementById("nombre_cargo").value = "";
+      document.getElementById("area").value = "";
+      actualizarModoCodigoNomina();
     }
 
     function bindEventos() {
       document.getElementById("formEmpleado").addEventListener("submit", guardarEmpleado);
       document.getElementById("btnLimpiar").addEventListener("click", limpiarFormulario);
       document.getElementById("btnRecargar").addEventListener("click", cargarEmpleados);
-      document.getElementById("filtroBusqueda").addEventListener("input", cargarEmpleados);
-      document.getElementById("filtroArea").addEventListener("change", cargarEmpleados);
-      document.getElementById("cedula").addEventListener("input", actualizarCodigoAutomatico);
+      document.getElementById("filtroBusqueda").addEventListener("input", aplicarFiltrosYRenderizar);
+      document.getElementById("filtroArea").addEventListener("change", aplicarFiltrosYRenderizar);
+      document.getElementById("filtroEstado").addEventListener("change", aplicarFiltrosYRenderizar);
+      document.getElementById("tipo_personal").addEventListener("change", actualizarModoCodigoNomina);
+      document.getElementById("departamento").addEventListener("change", actualizarDepartamento);
+      document.getElementById("cargo").addEventListener("change", actualizarNombreCargo);
+      ["nombres", "apellidos", "codigo_departamento", "codigo_centro_costos"].forEach(id => {
+        document.getElementById(id)?.addEventListener("input", () => forzarMayusculaInput(id));
+      });
+
+      const formCollapse = document.getElementById("collapseNuevoEmpleado");
+      formCollapse?.addEventListener("shown.bs.collapse", () => {
+        formCollapse.scrollIntoView({ behavior: "smooth", block: "start" });
+        setTimeout(() => document.getElementById("cedula")?.focus(), 250);
+      });
+
+      const listCollapse = document.getElementById("collapseListado");
+      listCollapse?.addEventListener("shown.bs.collapse", () => {
+        listCollapse.scrollIntoView({ behavior: "smooth", block: "start" });
+        setTimeout(() => document.getElementById("filtroBusqueda")?.focus(), 250);
+      });
     }
 
     function cargarInfoSesion() {
       const info = document.getElementById("infoSesion");
       usuarioActual = obtenerUsuarioActual();
-
       if (!usuarioActual) {
         info.innerHTML = "No se detectó sesión local. El formulario seguirá funcionando.";
         return;
       }
-
-      info.innerHTML = `
-        ${usuarioActual.nombres || ""} ${usuarioActual.apellidos || ""} ·
-        Rol: <strong>${usuarioActual.rol || "sin rol"}</strong> ·
-        Puede ver todo: <strong>${usuarioActual.puede_ver_todo ? "Sí" : "No"}</strong>
-      `;
+      info.innerHTML = `${usuarioActual.nombres || ""} ${usuarioActual.apellidos || ""} · Rol: <strong>${usuarioActual.rol || "sin rol"}</strong> · Puede ver todo: <strong>${usuarioActual.puede_ver_todo ? "Sí" : "No"}</strong>`;
     }
 
     async function init() {
       bindEventos();
       renderAreasPermitidas();
-      renderModulosPermitidos();
       cargarInfoSesion();
       cargarSelectAreas();
       limpiarFormulario();
       await cargarEmpleados();
     }
 
-    init();
+    init().catch(error => {
+      console.error("No fue posible inicializar el módulo Empleados:", error);
+      const tabla = document.getElementById("tablaEmpleados");
+      if (tabla) {
+        tabla.innerHTML = `
+          <tr>
+            <td colspan="9" class="text-center text-danger py-4">
+              No fue posible inicializar el módulo de Empleados.<br>
+              <small>${texto(error?.message) || "Revisa la consola del navegador."}</small>
+            </td>
+          </tr>
+        `;
+      }
+    });
   </script>
   <script src="../js/layout.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

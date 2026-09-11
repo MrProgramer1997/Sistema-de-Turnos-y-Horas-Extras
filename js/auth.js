@@ -162,6 +162,11 @@ function obtenerPermisosPorRol(rol) {
   };
 }
 
+const parametrosRecuperacion = new URLSearchParams(window.location.search);
+const requiereAuthVerificada = parametrosRecuperacion.get('sesion') === 'verificada';
+const retornoSolicitado = parametrosRecuperacion.get('volver');
+const retornoSeguro = ['dashboard.html','horas-extras.html'].includes(retornoSolicitado) ? retornoSolicitado : null;
+
 window.loginAdmin = async function () {
   const selectorUsuario = document.getElementById("usuario");
   const correoAuth = selectorUsuario?.value.trim().toLowerCase() || "";
@@ -184,7 +189,7 @@ window.loginAdmin = async function () {
       password
     });
 
-    if (!authError && authData?.user) {
+    if (!authError && authData?.user && authData?.session?.access_token) {
       const authUser = authData.user;
       const metadata = authUser.app_metadata || {};
       const empleadoId = metadata.empleado_id || null;
@@ -255,11 +260,17 @@ window.loginAdmin = async function () {
 
       const areasAuth=Array.isArray(metadata.areas_permitidas)?metadata.areas_permitidas:[];
       const esAyb=areasAuth.some(a=>normalizarTexto(a).includes("alimentos")||normalizarTexto(a).includes("ayb"));
-      window.location.href = ["ayb", "ayb_admin"].includes(perfilAcceso)
+      window.location.href = (requiereAuthVerificada && retornoSeguro) ? retornoSeguro : ["ayb", "ayb_admin"].includes(perfilAcceso)
         ? "dashboard-ayb.html"
         : rolAuth === "aprobador" ? (esAyb ? "dashboard-ayb.html" : "horas-extras.html")
         : rolAuth === "auditor" ? "horas-extras.html" : "dashboard.html";
       return true;
+    }
+
+    if (requiereAuthVerificada) {
+      if (typeof ocultarLoader === "function") ocultarLoader();
+      if (typeof mostrarMensaje === "function") mostrarMensaje("error", "No se pudo iniciar la sesion segura. Usa la contrasena de tu cuenta Supabase Auth. El acceso anterior no habilita Centro de Control ni Nomina; no se cambio tu contrasena.");
+      return false;
     }
 
     // Respaldo temporal: conserva el acceso anterior mientras se crean y prueban
@@ -317,6 +328,9 @@ window.loginAdmin = async function () {
 
       return false;
     }
+
+    const {error: errorSalidaAnterior} = await supabase.auth.signOut({scope:'local'});
+    if(errorSalidaAnterior) throw new Error('No se pudo cerrar la sesion anterior. Reintenta el ingreso.');
 
     const permisos = obtenerPermisosPorRol(usuarioAdmin.rol);
 
@@ -408,6 +422,9 @@ window.consultarTurnos = async function () {
 
       return false;
     }
+
+    const {error: errorSalidaEmpleado} = await supabase.auth.signOut({scope:'local'});
+    if(errorSalidaEmpleado) throw new Error('No se pudo cerrar la sesion anterior. Reintenta el ingreso.');
 
     const sesionEmpleado = {
       id: data.id || null,

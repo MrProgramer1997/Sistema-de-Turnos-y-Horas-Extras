@@ -433,6 +433,15 @@ async function cargarPersonal() {
         id,
         codigo,
         nombre
+      ),
+      externo:cocina_personal_externo (
+        id,
+        codigo_nomina,
+        biotime_emp_code,
+        biotime_person_id,
+        biotime_sync_estado,
+        biotime_sync_error,
+        biotime_sync_at
       )
     `)
     .eq("activo", true)
@@ -1122,6 +1131,7 @@ function renderTabla() {
         <div class="chef-persona-badges">
           <span class="chef-chip-area">${escaparHtmlCocina(nombreAreaBase)}</span>
           <span class="chef-chip-tipo">${escaparHtmlCocina(tipoPersona)}</span>
+          ${estadoBiotimeChef(persona)}
         </div>
         <div class="chef-persona-resumen">
           <span>${resumen.turnos} turno(s)</span>
@@ -2470,71 +2480,104 @@ function limpiarFormularioExterno() {
   document.getElementById("extTipoPersonal").value = "externo";
   document.getElementById("extArea").value = "";
   document.getElementById("extObservacion").value = "";
+  const estado = document.getElementById("extEstadoBiotime");
+  if (estado) {
+    estado.className = "alert alert-info py-2 mb-3";
+    estado.innerHTML = "<strong>ZKTeco:</strong> al guardar se creará la solicitud para habilitar al extra en todos los biométricos. El código de nómina se asigna automáticamente.";
+  }
+}
+
+function estadoBiotimeChef(persona) {
+  if (persona?.tipo_personal !== "externo" || !persona?.externo) return "";
+  const estado = String(persona.externo.biotime_sync_estado || "pendiente").toLowerCase();
+  const codigo = persona.externo.codigo_nomina ? ` · Cod. ${escaparHtmlCocina(persona.externo.codigo_nomina)}` : "";
+  if (estado === "sincronizado" || persona.externo.biotime_person_id) {
+    return `<span class="chef-chip-biotime chef-chip-biotime-ok" title="Usuario creado en BioTime/ZKTeco">✓ ZKTeco${codigo}</span>`;
+  }
+  if (estado === "error") {
+    const detalle = escaparHtmlCocina(persona.externo.biotime_sync_error || "Error de sincronización");
+    return `<span class="chef-chip-biotime chef-chip-biotime-error" title="${detalle}">✕ ZKTeco${codigo}</span>`;
+  }
+  return `<span class="chef-chip-biotime chef-chip-biotime-pendiente" title="Pendiente de sincronización con BioTime/ZKTeco">⏳ ZKTeco${codigo}</span>`;
 }
 
 async function guardarExterno() {
-  const nombre = document.getElementById("extNombre").value.trim();
+  const nombre = document.getElementById("extNombre").value.trim().toUpperCase();
   const documento = document.getElementById("extDocumento").value.trim();
   const telefono = document.getElementById("extTelefono").value.trim();
   const tipoPersonal = document.getElementById("extTipoPersonal").value;
   const areaId = document.getElementById("extArea").value;
   const observacion = document.getElementById("extObservacion").value.trim();
+  const btnGuardar = document.getElementById("guardarExterno");
+  const estado = document.getElementById("extEstadoBiotime");
 
   if (!nombre) {
     alert("El nombre es obligatorio.");
     return;
   }
-
+  if (!documento) {
+    alert("El documento es obligatorio porque será el identificador del usuario en ZKTeco.");
+    return;
+  }
   if (!areaId) {
     alert("Selecciona el área operativa.");
     return;
   }
 
-  const area = obtenerAreaPorId(areaId);
+  try {
+    if (btnGuardar) {
+      btnGuardar.disabled = true;
+      btnGuardar.textContent = "Creando...";
+    }
+    if (estado) {
+      estado.className = "alert alert-warning py-2 mb-3";
+      estado.innerHTML = "<strong>Procesando:</strong> creando el extra y generando la solicitud ZKTeco...";
+    }
 
-  const { data: externo, error: errorExterno } = await supabase
-    .from("cocina_personal_externo")
-    .insert({
-      nombre,
-      documento,
-      telefono,
-      observacion,
-      tipo_personal: tipoPersonal,
-      activo: true
-    })
-    .select()
-    .single();
-
-  if (errorExterno) {
-    console.error("Error creando externo:", errorExterno);
-    alert("No se pudo crear el externo.");
-    return;
-  }
-
-  const { error: errorCronograma } = await supabase
-    .from("cocina_cronograma_personal")
-    .insert({
-      externo_id: externo.id,
-      nombre_visible: externo.nombre,
-      documento: externo.documento,
-      cargo: "Externo",
-      tipo_personal: tipoPersonal,
-      area_cocina_id: areaId,
-      area_cocina: area?.nombre || null,
-      observacion_operativa: observacion,
-      creado_por: obtenerUsuarioId(),
-      activo: true
+    const { data, error } = await supabase.rpc("crear_externo_chef_con_biotime_v2", {
+      p_payload: {
+        nombre,
+        documento,
+        telefono: telefono || null,
+        tipo_personal: tipoPersonal,
+        area_cocina_id: areaId,
+        observacion: observacion || null
+      }
     });
 
-  if (errorCronograma) {
-    console.error("Error agregando externo al cronograma:", errorCronograma);
-    alert("El externo fue creado, pero no se pudo agregar al cronograma.");
-    return;
-  }
+    if (error) throw error;
 
-  cerrarModal("modalExterno");
-  limpiarFormularioExterno();
-  await recargar();
+    const codigo = data?.codigo_nomina || "pendiente";
+    const fueReutilizado = data?.existente_reutilizado === true;
+    const textoAccion = fueReutilizado
+      ? "El extra ya existía y se reutilizó sin duplicarlo."
+      : "El extra fue creado correctamente.";
+
+    if (estado) {
+      estado.className = "alert alert-success py-2 mb-3";
+      estado.innerHTML = `<strong>${textoAccion}</strong><br>Código extra: <strong>${escaparHtmlCocina(codigo)}</strong> · ZKTeco: <strong>${escaparHtmlCocina(data?.biotime_estado || "pendiente")}</strong>.<br><small>La huella y el rostro se registran posteriormente en el biométrico.</small>`;
+    }
+
+    await recargar();
+
+    setTimeout(() => {
+      cerrarModal("modalExterno");
+      limpiarFormularioExterno();
+    }, 1700);
+  } catch (error) {
+    console.error("Error creando extra Chef/ZKTeco:", error);
+    if (estado) {
+      estado.className = "alert alert-danger py-2 mb-3";
+      estado.innerHTML = `<strong>No se pudo completar el alta.</strong><br>${escaparHtmlCocina(error?.message || "Error desconocido")}`;
+    } else {
+      alert(`No se pudo crear el extra: ${error?.message || "Error desconocido"}`);
+    }
+  } finally {
+    if (btnGuardar) {
+      btnGuardar.disabled = false;
+      btnGuardar.textContent = "Crear extra y enviar a ZKTeco";
+    }
+  }
 }
 
 // ======================================================
