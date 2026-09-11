@@ -9,7 +9,15 @@
   <link rel="icon" href="../assets/img/club campestre logo negro.png" />
 
   <style>
+    /* Fase 6.2.3: no cambia los accesos ya existentes. */
+    #cuentaManualContenedor[hidden] { display: none !important; }
+    .login-otra-cuenta { align-self: flex-start; width: fit-content; border: 0; background: transparent;
+      color: #88C3FF; font: inherit; font-size: 0.9rem; text-decoration: underline;
+      text-underline-offset: 3px; cursor: pointer; padding: 8px 0; }
+    .login-otra-cuenta:focus-visible { outline: 2px solid #88C3FF; outline-offset: 3px; }
+    .login-ayuda-cuenta { display: block; color: #BBDFFF; line-height: 1.45; }
     /* Ajuste UX Login - Empleados + loader seguro */
+
     .tab-empleado-destacado {
       position: relative;
       font-weight: 900 !important;
@@ -234,6 +242,7 @@
                 <option value="atorres@turnos.club" data-usuario-legacy="atorres">ANGIE TORRES</option>
                 <option value="aagudelo@turnos.club">ANGELICA AGUDELO</option>
                 <option value="agonzalez@turnos.club">ANGEE GONZALEZ DURAN</option>
+                <option value="ccardona@turnos.club" data-usuario-legacy="ccardona" data-auth-only="true">CAROLINA MARÍA CARDONA SÁNCHEZ · BIENESTAR</option>
                 <option value="ddiaz@turnos.club">DIANA DIAZ</option>
                 <option value="gdelacruz@turnos.club">GERARDO DE LA CRUZ</option>
                 <option value="gagudelo@turnos.club">GONZALO AGUDELO</option>
@@ -256,9 +265,23 @@
                 <option value="lpalacio@turnos.club">LAURA PALACIO · GERENCIA</option>
                 <option value="mramirez@turnos.club">MARÍA CONSTANZA RAMÍREZ · GERENCIA</option>
                 <option value="" disabled>BODEGA · DESHABILITADO</option>
+                <option value="__otra_cuenta__">OTRO USUARIO / CUENTA NUEVA</option>
               </select>
             </div>
             <small class="field-error" id="errorUsuario"></small>
+            <button type="button" id="btnOtraCuenta" class="login-otra-cuenta">Mi usuario no aparece</button>
+          </div>
+
+          <div class="input-group" id="cuentaManualContenedor" hidden>
+            <label for="usuarioManual">Usuario o correo de acceso</label>
+            <div class="input-wrapper">
+              <span class="input-icon" aria-hidden="true">@</span>
+              <input type="text" id="usuarioManual" placeholder="Escriba el usuario creado"
+                autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254"
+                aria-describedby="ayudaUsuarioManual errorUsuarioManual" disabled />
+            </div>
+            <small id="ayudaUsuarioManual" class="login-ayuda-cuenta">Use el usuario que le asignaron o su correo de acceso. La contraseña va abajo.</small>
+            <small class="field-error" id="errorUsuarioManual"></small>
           </div>
 
           <div class="input-group">
@@ -410,14 +433,62 @@
       cedula.style.opacity = "1";
     }
 
+
+    // Una cuenta nueva no depende de estar publicada en el selector.
+    // Este dato identifica la cuenta: los permisos siguen viniendo de Auth.
+    function obtenerIdentidadAdminLogin() {
+      const selector = document.getElementById("usuario");
+      const seleccion = String(selector?.value || "").trim().toLowerCase();
+      const manual = seleccion === "__otra_cuenta__";
+      const entrada = manual
+        ? String(document.getElementById("usuarioManual")?.value || "").trim().toLowerCase()
+        : seleccion;
+      const campo = manual ? "usuarioManual" : "usuario";
+      const campoError = manual ? "errorUsuarioManual" : "errorUsuario";
+      const fallo = (error) => ({ correo: "", usuario: "", soloAuth: manual, campo, campoError, error });
+      if (!entrada) return fallo(manual ? "Escriba el usuario que le asignaron." : "Seleccione su usuario.");
+      if (entrada.length > 254) return fallo("El usuario o correo es demasiado largo.");
+      let correo = entrada;
+      if (!entrada.includes("@")) {
+        if (!/^[a-z0-9][a-z0-9._-]{0,63}$/.test(entrada)) {
+          return fallo("Escriba el usuario, sin espacios. No escriba el nombre completo.");
+        }
+        correo = `${entrada}@turnos.club`;
+      }
+      if (!/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(correo)) {
+        return fallo("Revise el formato del correo de acceso.");
+      }
+      const opcion = selector?.selectedOptions?.[0];
+      return {
+        correo,
+        usuario: manual ? correo.split("@")[0] : (opcion?.dataset?.usuarioLegacy || correo.split("@")[0]),
+        soloAuth: manual || opcion?.dataset?.authOnly === "true",
+        campo, campoError, error: ""
+      };
+    }
+
+    function alternarCuentaManual(enfocar = false) {
+      const manual = document.getElementById("usuario")?.value === "__otra_cuenta__";
+      const contenedor = document.getElementById("cuentaManualContenedor");
+      const input = document.getElementById("usuarioManual");
+      if (!contenedor || !input) return;
+      contenedor.hidden = !manual;
+      input.disabled = !manual;
+      input.required = manual;
+      input.classList.remove("input-error");
+      const error = document.getElementById("errorUsuarioManual");
+      if (error) error.textContent = "";
+      if (manual && enfocar) input.focus();
+    }
+
     function validarAdminUI() {
       limpiarErrores();
       let valido = true;
 
-      const usuario = document.getElementById("usuario").value.trim();
+      const identidad = obtenerIdentidadAdminLogin();
       const password = document.getElementById("password").value.trim();
-      if (!usuario) {
-        marcarError("usuario", "errorUsuario", "Debe ingresar el usuario o cédula.");
+      if (identidad.error) {
+        marcarError(identidad.campo, identidad.campoError, identidad.error);
         valido = false;
       }
 
@@ -511,22 +582,24 @@
 
     function guardarUsuarioRecordado() {
       const checkbox = document.getElementById("recordarUsuario");
-      const usuario = document.getElementById("usuario").value.trim();
-
-      if (checkbox.checked && usuario) {
-        localStorage.setItem("usuarioRecordadoTurnos", usuario);
+      const identidad = obtenerIdentidadAdminLogin();
+      // Se recuerda solo el identificador; nunca la contraseña.
+      if (checkbox.checked && !identidad.error) {
+        localStorage.setItem("usuarioRecordadoTurnos", identidad.correo);
       } else {
         localStorage.removeItem("usuarioRecordadoTurnos");
       }
     }
 
     function cargarUsuarioRecordado() {
-      const usuarioGuardado = localStorage.getItem("usuarioRecordadoTurnos");
-
-      if (usuarioGuardado) {
-        document.getElementById("usuario").value = usuarioGuardado;
-        document.getElementById("recordarUsuario").checked = true;
-      }
+      const guardado = localStorage.getItem("usuarioRecordadoTurnos");
+      if (!guardado) { alternarCuentaManual(); return; }
+      const selector = document.getElementById("usuario");
+      const disponible = Array.from(selector.options).some(o => !o.disabled && o.value === guardado);
+      selector.value = disponible ? guardado : "__otra_cuenta__";
+      if (!disponible) document.getElementById("usuarioManual").value = guardado;
+      alternarCuentaManual();
+      document.getElementById("recordarUsuario").checked = true;
     }
 
 
@@ -558,7 +631,18 @@
       const password = document.getElementById("password");
       const cedula = document.getElementById("cedula");
 
+      document.getElementById("btnOtraCuenta")?.addEventListener("click", () => {
+        usuario.value = "__otra_cuenta__";
+        alternarCuentaManual(true);
+        limpiarErrores();
+        limpiarMensaje();
+      });
+      document.getElementById("usuarioManual")?.addEventListener("input", () => {
+        document.getElementById("usuarioManual").classList.remove("input-error");
+        document.getElementById("errorUsuarioManual").textContent = "";
+      });
       if (usuario) {
+        usuario.addEventListener("change", () => alternarCuentaManual(true));
         usuario.addEventListener("input", () => {
           usuario.classList.remove("input-error");
           document.getElementById("errorUsuario").textContent = "";
@@ -585,7 +669,7 @@
     });
   </script>
 
-  <script type="module" src="../js/auth.js?v=sesion-6-2-1"></script>
+  <script type="module" src="../js/auth.js?v=login-cuentas-6-2-3-v1"></script>
 </body>
 
 </html>

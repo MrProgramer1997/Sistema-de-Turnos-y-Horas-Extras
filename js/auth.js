@@ -169,9 +169,23 @@ const retornoSeguro = ['dashboard.html','horas-extras.html'].includes(retornoSol
 
 window.loginAdmin = async function () {
   const selectorUsuario = document.getElementById("usuario");
-  const correoAuth = selectorUsuario?.value.trim().toLowerCase() || "";
   const opcionSeleccionada = selectorUsuario?.selectedOptions?.[0];
-  const usuario = opcionSeleccionada?.dataset?.usuarioLegacy || correoAuth.split("@")[0];
+  const valorSelector = selectorUsuario?.value.trim().toLowerCase() || "";
+  const identidad = typeof window.obtenerIdentidadAdminLogin === "function"
+    ? window.obtenerIdentidadAdminLogin()
+    : {
+        correo: valorSelector,
+        usuario: opcionSeleccionada?.dataset?.usuarioLegacy || valorSelector.split("@")[0],
+        soloAuth: opcionSeleccionada?.dataset?.authOnly === "true",
+        error: valorSelector === "__otra_cuenta__" ? "Actualice la página de inicio y vuelva a intentar." : ""
+      };
+  if (identidad.error) {
+    if (typeof ocultarLoader === "function") ocultarLoader();
+    if (typeof mostrarMensaje === "function") mostrarMensaje("error", identidad.error);
+    return false;
+  }
+  const correoAuth = identidad.correo;
+  const usuario = identidad.usuario;
   const password = document.getElementById("password")?.value.trim() || "";
 
   if (!correoAuth || !password) {
@@ -262,6 +276,7 @@ window.loginAdmin = async function () {
       const esAyb=areasAuth.some(a=>normalizarTexto(a).includes("alimentos")||normalizarTexto(a).includes("ayb"));
       window.location.href = (requiereAuthVerificada && retornoSeguro) ? retornoSeguro : ["ayb", "ayb_admin"].includes(perfilAcceso)
         ? "dashboard-ayb.html"
+        : perfilAcceso === "bienestar" ? "solicitudes-bienestar.html"
         : rolAuth === "aprobador" ? (esAyb ? "dashboard-ayb.html" : "horas-extras.html")
         : rolAuth === "auditor" ? "horas-extras.html" : "dashboard.html";
       return true;
@@ -270,6 +285,13 @@ window.loginAdmin = async function () {
     if (requiereAuthVerificada) {
       if (typeof ocultarLoader === "function") ocultarLoader();
       if (typeof mostrarMensaje === "function") mostrarMensaje("error", "No se pudo iniciar la sesion segura. Usa la contrasena de tu cuenta Supabase Auth. El acceso anterior no habilita Centro de Control ni Nomina; no se cambio tu contrasena.");
+      return false;
+    }
+
+    // Las cuentas nuevas y Carolina solo usan Auth; no se les habilita acceso heredado.
+    if (identidad.soloAuth) {
+      if (typeof ocultarLoader === "function") ocultarLoader();
+      if (typeof mostrarMensaje === "function") mostrarMensaje("error", "No fue posible iniciar sesión con esa cuenta. Revise el usuario y la contraseña asignados. Si persiste, solicite a Sistemas que revise el acceso.");
       return false;
     }
 
