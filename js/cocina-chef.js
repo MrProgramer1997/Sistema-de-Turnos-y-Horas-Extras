@@ -5,6 +5,7 @@
 // ======================================================
 
 import { supabase } from "../supabase/supabaseClient.js";
+import { resolverHorarioCodigo, horarioTextoCodigo, validarHorarioCodigo } from "./cocina-turnos-horario.js?v=7-1";
 
 const HORA_INICIO_NOCTURNO_CHEF = 21 * 60; // 9:00 p.m.
 const HORA_FIN_NOCTURNO_CHEF = 6 * 60; // 6:00 a.m.
@@ -703,7 +704,7 @@ function renderVisualProgramacionChef() {
 
         const codigo = obtenerCodigoTurnoChef(registro.codigo_turno, registro.fecha);
         const horario = codigo?.hora_inicio && codigo?.hora_fin
-          ? `${String(codigo.hora_inicio).substring(0, 5)}-${String(codigo.hora_fin).substring(0, 5)}`
+          ? horarioTextoCodigo(codigo)
           : "Horario por código";
         const area = obtenerAreaPorId(registro.area_cocina_id)?.nombre || registro.area_cocina || obtenerNombreAreaPersona(persona);
         const codigo2 = registro.codigo_turno_2 ? ` + B2 ${registro.codigo_turno_2}` : "";
@@ -1159,7 +1160,7 @@ function renderTabla() {
           const codigo = obtenerCodigoTurnoChef(registro.codigo_turno, registro.fecha);
           const areaTurno = obtenerAreaPorId(registro.area_cocina_id);
           const horario = codigo?.hora_inicio && codigo?.hora_fin
-            ? `${String(codigo.hora_inicio).substring(0, 5)}-${String(codigo.hora_fin).substring(0, 5)}`
+            ? horarioTextoCodigo(codigo)
             : "Horario por código";
           const nombreAreaTurno = areaTurno?.nombre || registro.area_cocina || nombreAreaBase;
           const color = colorSeguroCocina(codigo?.color);
@@ -1168,7 +1169,7 @@ function renderTabla() {
             : null;
           const areaTurno2 = registro.area_cocina_id_2 ? obtenerAreaPorId(registro.area_cocina_id_2) : null;
           const horario2 = codigo2?.hora_inicio && codigo2?.hora_fin
-            ? `${String(codigo2.hora_inicio).substring(0, 5)}-${String(codigo2.hora_fin).substring(0, 5)}`
+            ? horarioTextoCodigo(codigo2)
             : "";
           const nombreAreaTurno2 = areaTurno2?.nombre || registro.area_cocina_2 || "";
 
@@ -1801,7 +1802,7 @@ function generarPdfGeneralChef() {
 
       const area = turno.area_cocina || obtenerAreaPorId(turno.area_cocina_id)?.nombre || "";
       const horario = turno.horario_calculable
-        ? `${turno.hora_inicio_calculada}-${turno.hora_fin_calculada}`
+        ? horarioTextoCodigo({hora_inicio:turno.hora_inicio_calculada,hora_fin:turno.hora_fin_calculada})
         : "Sin horario";
       const bloque2 = turno.codigo_turno_2
         ? ` | B2 ${turno.codigo_turno_2} ${turno.hora_inicio_calculada_2 || ""}-${turno.hora_fin_calculada_2 || ""}`
@@ -1875,7 +1876,7 @@ function generarPdfEmpleadoChef() {
 
     const area = turno.area_cocina || obtenerAreaPorId(turno.area_cocina_id)?.nombre || "";
     const horario = turno.horario_calculable
-      ? `${turno.hora_inicio_calculada} - ${turno.hora_fin_calculada}`
+      ? horarioTextoCodigo({hora_inicio:turno.hora_inicio_calculada,hora_fin:turno.hora_fin_calculada})
       : "Sin horario configurado";
 
     doc.setFont("helvetica", "bold");
@@ -1942,7 +1943,7 @@ function obtenerTextoRegistroChef(registro) {
   if (!registro) return "LIBRE";
   const codigo = obtenerCodigoTurnoChef(registro.codigo_turno, registro.fecha);
   const horario = codigo?.hora_inicio && codigo?.hora_fin
-    ? `${String(codigo.hora_inicio).substring(0, 5)}-${String(codigo.hora_fin).substring(0, 5)}`
+    ? horarioTextoCodigo(codigo)
     : "Sin horario";
   const bloque2 = registro.codigo_turno_2 ? ` / B2 ${registro.codigo_turno_2}` : "";
   return `${registro.codigo_turno || ""}${bloque2} ${horario}`.trim();
@@ -2248,13 +2249,7 @@ function obtenerCodigoTurnoChef(codigo, fechaISO) {
   const codigoNormalizado = String(codigo || "").trim();
   const base = codigos.find((item) => String(item.codigo || "").trim() === codigoNormalizado) || { codigo: codigoNormalizado };
   const dinamico = obtenerCatalogoTurnosChefPorFecha(fechaISO)[codigoNormalizado];
-  if (!dinamico) return base;
-  return {
-    ...base,
-    descripcion: dinamico.descripcion || base.descripcion || "",
-    hora_inicio: dinamico.hora_inicio,
-    hora_fin: dinamico.hora_fin
-  };
+  return resolverHorarioCodigo(base, dinamico);
 }
 
 function cargarOpcionesCodigoTurnoChef(selectElement, permitirVacio = false) {
@@ -2284,7 +2279,7 @@ function cargarOpcionesCodigoTurnoChef(selectElement, permitirVacio = false) {
     opt.value = codigo.codigo;
     const hora =
       codigo.hora_inicio && codigo.hora_fin
-        ? ` (${String(codigo.hora_inicio).substring(0, 5)} - ${String(codigo.hora_fin).substring(0, 5)})`
+        ? ` (${horarioTextoCodigo(codigo)})`
         : "";
     opt.textContent = `${codigo.codigo} - ${codigo.descripcion || ""}${hora}`;
     selectElement.appendChild(opt);
@@ -2373,7 +2368,7 @@ function abrirModalTurno(persona, fecha, registro) {
 // GUARDAR TURNO
 // ======================================================
 async function guardarTurno() {
-  if (!selectedCelda) return;
+  if (!selectedCelda || !puedeAdministrarCocina()) return;
 
   const codigo1 = document.getElementById("selectTurno").value;
   const observacion1 = document.getElementById("obsTurno").value.trim();
@@ -2430,16 +2425,27 @@ async function guardarTurno() {
     payload.creado_por = obtenerUsuarioId();
   }
 
-  const { error } = await supabase
-    .from("cocina_programacion_turnos")
-    .upsert(payload, {
-      onConflict: "cronograma_personal_id,fecha"
-    });
-
-  if (error) {
+  // Confirm the saved row. Do not report success on a failed or empty response.
+  const botonGuardar = document.getElementById("guardarTurno");
+  if (botonGuardar?.disabled) return;
+  if (botonGuardar) botonGuardar.disabled = true;
+  try {
+    const { data, error } = await supabase
+      .from("cocina_programacion_turnos")
+      .upsert(payload, { onConflict: "cronograma_personal_id,fecha" })
+      .select("cronograma_personal_id,fecha,codigo_turno,codigo_turno_2")
+      .single();
+    if (error) throw error;
+    if (!data || data.cronograma_personal_id !== payload.cronograma_personal_id ||
+        data.fecha !== payload.fecha || data.codigo_turno !== payload.codigo_turno ||
+        (data.codigo_turno_2 || null) !== (payload.codigo_turno_2 || null))
+      throw new Error("No se pudo confirmar el turno guardado. Actualiza antes de repetir el envio.");
+  } catch (error) {
     console.error("Error guardando turno:", error);
-    alert("No se pudo guardar el turno. Valida que hayas ejecutado el SQL de turno partido en Supabase.");
+    alert(`No se confirmo la asignacion del turno ${codigo1}. ${error.message || "Revisa la conexion."}${error.code ? " (" + error.code + ")" : ""}`);
     return;
+  } finally {
+    if (botonGuardar) botonGuardar.disabled = false;
   }
 
   cerrarModal("modalTurno");
@@ -2827,8 +2833,9 @@ function limpiarFormularioCodigo() {
 }
 
 async function guardarCodigo() {
+  if (!puedeAdministrarCocina()) return alert("No tienes permisos para gestionar c\u00f3digos.");
   const codigo = document.getElementById("codigoNuevo").value.trim().toUpperCase();
-  const descripcion = document.getElementById("codigoDescripcion").value.trim();
+  const descripcion = document.getElementById("codigoDescripcion").value.trim().toUpperCase();
   const horaInicio = document.getElementById("codigoInicio").value || null;
   const horaFin = document.getElementById("codigoFin").value || null;
   const color = document.getElementById("codigoColor").value || "#0d6efd";
@@ -2837,6 +2844,9 @@ async function guardarCodigo() {
     alert("El código es obligatorio.");
     return;
   }
+
+  const validacion = validarHorarioCodigo(horaInicio, horaFin);
+  if (validacion) return alert(validacion);
 
   const { error } = await supabase
     .from("cocina_codigos_turno")
@@ -2906,7 +2916,7 @@ function renderCodigos() {
 
     const horario =
       codigo.hora_inicio && codigo.hora_fin
-        ? `${String(codigo.hora_inicio).substring(0, 5)} - ${String(codigo.hora_fin).substring(0, 5)}`
+        ? horarioTextoCodigo(codigo)
         : "Sin horario";
 
     tr.innerHTML = `

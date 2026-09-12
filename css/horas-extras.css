@@ -18,3 +18,11 @@ body{background:var(--he-bg)}.he-main{min-height:100vh}.he-hero{background:linea
 @media(max-width:1250px){.he-kpis-turnos{grid-template-columns:repeat(3,1fr)}}@media(max-width:1100px){.he-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:767px){.he-content{padding:14px}.he-hero{padding:20px}.he-kpis,.he-kpis-turnos{grid-template-columns:1fr 1fr}}@media(max-width:480px){.he-kpis,.he-kpis-turnos{grid-template-columns:1fr}}
 
 .he-kpi-nocturno{border-top-color:var(--club-turquoise)!important}.he-nocturno{display:inline-block;border-radius:999px;padding:4px 8px;font-size:.7rem;font-weight:800;background:var(--club-turquoise-soft);color:#075E68;white-space:nowrap}
+
+/* Fase 7.1: compact summary, no extra inference cards or decorative colors. */
+.he-kpis{display:flex;flex-wrap:wrap;gap:0;background:#fff;border:1px solid var(--he-line);border-radius:10px}
+.he-kpi{flex:1;min-width:120px;border:0;box-shadow:none;padding:10px 16px;background:transparent;border-radius:0}
+.he-kpi+.he-kpi{border-left:1px solid var(--he-line)}.he-kpi strong{font-size:1.25rem}
+.he-turno-state{background:transparent;color:var(--he-muted);padding:0;border:0;border-radius:0}
+.he-dia-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.he-dia-grid dt{font-size:.85rem;color:var(--he-muted)}.he-dia-grid dd{font-weight:600}
+@media(max-width:600px){.he-dia-grid{grid-template-columns:1fr}.he-kpi{flex-basis:45%}}
