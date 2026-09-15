@@ -1,3 +1,4 @@
+import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
 export const BUCKET = 'mis-turnos-soportes';
 export const TYPES = {
  incapacidad:'Incapacidad', permiso_no_remunerado:'Permiso sin pago', dia_familia:'D\u00eda de la familia',
@@ -58,15 +59,16 @@ export function validateFiles(fs){
   if(!f.size)return 'Uno de los archivos est\u00e1 vac\u00edo. Elige otro.';
  }return '';
 }
-const OFF={D:'Hoy descansas',DESC:'Hoy descansas',DESCANSO:'Hoy descansas',VAC:'Est\u00e1s de vacaciones',INC:'Tienes una incapacidad registrada',DFAM:'Tienes d\u00eda de la familia',F:'Tienes d\u00eda de la familia',PNR:'Tienes un permiso sin pago',LR:'Tienes un permiso sin pago',COMP:'Tienes un compensatorio',CUMP:'Tienes permiso de cumplea\u00f1os',CAL:'Tienes una calamidad registrada',LUTO:'Tienes una licencia por luto'};
+const OFF={L:'Hoy descansas',V:'Est\u00e1s de vacaciones',DC:'Tienes permiso de cumplea\u00f1os',DF:'Tienes d\u00eda de la familia',PC:'Tu turno est\u00e1 por confirmar',D:'Hoy descansas',DESC:'Hoy descansas',DESCANSO:'Hoy descansas',VAC:'Est\u00e1s de vacaciones',INC:'Tienes una incapacidad registrada',DFAM:'Tienes d\u00eda de la familia',F:'Tienes d\u00eda de la familia',PNR:'Tienes un permiso sin pago',LR:'Tienes un permiso sin pago',COMP:'Tienes un compensatorio',CUMP:'Tienes permiso de cumplea\u00f1os',CAL:'Tienes una calamidad registrada',LUTO:'Tienes una licencia por luto'};
 export function resolveDay(bundle,day){
  const rows=[];
  for(const source of ['chef','ayb','general'])for(const raw of bundle[source]||[]){
   if(raw.fecha!==day||['anulado','cancelado','eliminado','borrador'].includes(raw.estado))continue;
   const type=String(raw.tipo_registro||'').toLowerCase(),code=String(raw.novedad_codigo||raw.turno||'').toUpperCase(),blocks=[];
   for(const suffix of ['','_2']){
-   const start=raw['hora_inicio'+suffix]?.slice(0,5),end=raw['hora_fin'+suffix]?.slice(0,5);
-   if(timeText(start)&&timeText(end)&&start!==end)blocks.push({start,end,overnight:end<start,place:raw['lugar'+suffix]||raw['subarea'+suffix]||raw.lugar||raw.subarea||'Confirma el lugar con tu jefe'});
+   const c=source==='chef'?codigoAsignado(raw,{hora_inicio:raw['hora_inicio'+suffix],hora_fin:raw['hora_fin'+suffix]},suffix?2:1):{hora_inicio:raw['hora_inicio'+suffix],hora_fin:raw['hora_fin'+suffix]}; const start=c.hora_inicio?.slice(0,5),end=c.hora_fin?.slice(0,5);
+   const individual=source==='chef'&&raw.horario_asignado?analizarHorario(raw.horario_asignado).bloques.find(b=>b.n===(suffix?2:1)):null;
+   if(timeText(start)&&timeText(end)&&start!==end)blocks.push({start,end,startDayOffset:individual?.diaInicio||0,endDayOffset:individual?.diaFin||(end<start?1:0),overnight:individual?individual.diaFin>0:end<start,place:raw['lugar'+suffix]||raw['subarea'+suffix]||raw.lugar||raw.subarea||'Confirma el lugar con tu jefe'});
   }
   const off=['descanso','novedad'].includes(type)||OFF[code];
   const inferred=String(raw.origen_programacion||'').includes('infer');

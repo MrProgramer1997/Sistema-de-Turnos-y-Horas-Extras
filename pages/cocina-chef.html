@@ -12,6 +12,7 @@
 
   <link rel="stylesheet" href="../css/layout.css">
   <link rel="stylesheet" href="../css/cocina-chef.css">
+  <link rel="stylesheet" href="../css/cocina-planificacion.css?v=chef-7-3">
 </head>
 
 <body>
@@ -20,6 +21,8 @@
 <div id="sidebar-container"></div>
 
 <main class="main-content fondo-modulo">
+<div id="estadoHorarioChef" class="alert alert-info d-none my-2" role="status" aria-live="polite"></div>
+
 <div class="container-fluid cocina-page p-3">
 
   <div class="cocina-header mb-3">
@@ -321,6 +324,7 @@
       </div>
 
       <div class="modal-body">
+        <small id="versionHorariosChef" class="text-muted d-block mb-2">Horarios Chef 7.3</small>
         <div class="alert alert-light border small mb-3" id="infoTurnoSeleccionado">
           Selección actual
         </div>
@@ -340,6 +344,8 @@
           <label class="form-label">Observación</label>
           <textarea id="obsTurno" class="form-control" placeholder="Observación"></textarea>
         </div>
+
+        <div id="resumenHorarioAsignacionChef" class="alert alert-info mt-3 mb-2 small" role="status" aria-live="polite"></div>
 
         <div class="form-check turno-partido-check-chef mt-3">
           <input class="form-check-input" type="checkbox" id="checkTurnoPartidoChef">
@@ -401,6 +407,7 @@
           <div class="col-md-3">
             <label class="form-label">Fin</label>
             <input type="time" id="codigoFin" class="form-control">
+            <small class="text-muted">Si la salida es menor que la entrada, corresponde al día siguiente.</small>
           </div>
           <div class="col-md-2">
             <label class="form-label">Color</label>
@@ -496,7 +503,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="../js/layout.js"></script>
-<script type="module" src="../js/cocina-chef.js?v=chef-7-1"></script>
+<script type="module" src="../js/cocina-chef.js?v=chef-7-3"></script>
 
 </body>
 </html>

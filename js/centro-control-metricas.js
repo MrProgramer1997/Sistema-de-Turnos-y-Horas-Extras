@@ -1,3 +1,4 @@
+import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
 /** Centro de Control V2. Motor de lectura: no guarda, liquida ni aprueba horas. */
 export const METRIC_START = '2026-08-27';
 export const HISTORY_START = '2026-08-23';
@@ -88,8 +89,8 @@ export function buildModel(ctx={}, raw=[], now=bogotaNow()) {
  function addSchedule(code,date,s){if(!code||!date)return;const k=`${doc(code)}|${date}`;if(!schedules.has(k))schedules.set(k,[]);schedules.get(k).push({...s,code:doc(code),date});}
  for(const r of ctx.legacy||[])addSchedule(r.cedula,r.fecha,{source:'Programaci\u00f3n A&B',priority:2,begin:r.hora_inicio,end:r.hora_fin,begin2:r.hora_inicio_2,end2:r.hora_fin_2,turn:r.turno,notice:r.novedad_codigo||(/novedad|descanso/.test(norm(r.tipo_registro))?r.turno:''),id:r.id,breakMin:30});
  for(const r of ctx.general||[]){if(/cancel|rechaz|borrador/.test(norm(r.estado)))continue;addSchedule(byId.get(r.empleado_id)?.cedula,r.fecha,{source:'Programaci\u00f3n general',priority:1,begin:r.hora_inicio,end:r.hora_fin,turn:proc.get(r.proceso_id)?.nombre||'Turno',notice:r.novedad_codigo||(norm(r.tipo_registro)==='descanso'?'D':''),id:r.id,breakMin:r.minutos_descanso||0,inferred:/infer/.test(norm(r.origen_programacion))});}
- for(const r of ctx.chef||[]){if(/cancel|rechaz|borrador/.test(norm(r.estado)))continue;const p=chefPeople.get(r.cronograma_personal_id);if(!p)continue;const code=doc(byId.get(p.empleado_id)?.cedula||p.documento),a=codes.get(r.codigo_turno),b=codes.get(r.codigo_turno_2);
-  addSchedule(code,r.fecha,{source:'Programaci\u00f3n Chef',priority:3,begin:a?.hora_inicio,end:a?.hora_fin,begin2:b?.hora_inicio,end2:b?.hora_fin,turn:r.codigo_turno,notice:!a?.hora_inicio?r.codigo_turno:'',id:r.id,breakMin:30});}
+ for(const r of ctx.chef||[]){if(/cancel|rechaz|borrador/.test(norm(r.estado)))continue;const p=chefPeople.get(r.cronograma_personal_id);if(!p)continue;const code=doc(byId.get(p.empleado_id)?.cedula||p.documento),a=codigoAsignado(r,codes.get(r.codigo_turno),1),b=codigoAsignado(r,codes.get(r.codigo_turno_2),2);
+  addSchedule(code,r.fecha,{source:'Programaci\u00f3n Chef',priority:3,begin:a?.hora_inicio,end:a?.hora_fin,begin2:b?.hora_inicio,end2:b?.hora_fin,turn:r.codigo_turno,notice:!a?.hora_inicio?r.codigo_turno:'',id:r.id,breakMin:30,assignedNet:r.horario_asignado?analizarHorario(r.horario_asignado).netos/60:null});}
  const notices=[];
  function addNotice(r,source,code,state){const c=doc(r.cedula||byId.get(r.empleado_id)?.cedula),from=iso(r.fecha_inicio||r.fecha),to=iso(r.fecha_fin||r.fecha_inicio||r.fecha);if(!c||!from||!to||to<from)return;notices.push({id:r.id,code:c,from,to,label:noticeLabel(code),type:code,source,state,full:fullDayNotice(code),person:person(c,from)});}
  for(const r of ctx.requests||[])if(['aprobada','aprobado','autorizada','autorizado'].includes(norm(r.estado)))addNotice(r,'Solicitud aprobada',r.codigo_tipo||r.tipo_solicitud,r.estado);
@@ -120,7 +121,7 @@ export function buildModel(ctx={}, raw=[], now=bogotaNow()) {
   if(start!==null&&end!==null&&end>=dayMinute(addDays(s.date,1))) {
     for(const ev of perPerson.get(s.code)||[])if(ev.date>s.date&&ev.t>=start&&ev.t<=end+120)nightEvents.add(ev.id);
   }
-  journeys.push({...s,person:p,start,end,status,entry,delta,notices:n,conflict,dayEvents:perDay.get(k)||[],sourceDetail:s.source,netHours:start!==null&&end!==null?Math.max(0,(end-start-(s.breakMin||0))/60):null});
+  journeys.push({...s,person:p,start,end,status,entry,delta,notices:n,conflict,dayEvents:perDay.get(k)||[],sourceDetail:s.source,netHours:s.assignedNet!=null?s.assignedNet:start!==null&&end!==null?Math.max(0,(end-start-(s.breakMin||0))/60):null});
  }
  const coverageKeys=new Set(journeys.map(j=>`${j.code}|${j.date}`));
  for(const [k,allEvs] of perDay)if(!coverageKeys.has(k)){const evs=allEvs.filter(e=>!nightEvents.has(e.id));if(!evs.length)continue;const ev=evs[0];journeys.push({code:ev.person.cedula,date:ev.date,person:ev.person,status:'sin_programacion',dayEvents:evs,entry:null,delta:null,notices:getNotices(ev.person.cedula,ev.date),source:'Sin programaci\u00f3n'});}

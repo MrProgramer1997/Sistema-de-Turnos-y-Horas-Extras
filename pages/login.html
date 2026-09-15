@@ -5,165 +5,10 @@
   <meta charset="UTF-8" />
   <title>Login - Club Campestre Turnos</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="../css/login.css?v=selector-auth-v3" />
   <link rel="icon" href="../assets/img/club campestre logo negro.png" />
 
-  <style>
-    /* Fase 6.2.3: no cambia los accesos ya existentes. */
-    #cuentaManualContenedor[hidden] { display: none !important; }
-    .login-otra-cuenta { align-self: flex-start; width: fit-content; border: 0; background: transparent;
-      color: #88C3FF; font: inherit; font-size: 0.9rem; text-decoration: underline;
-      text-underline-offset: 3px; cursor: pointer; padding: 8px 0; }
-    .login-otra-cuenta:focus-visible { outline: 2px solid #88C3FF; outline-offset: 3px; }
-    .login-ayuda-cuenta { display: block; color: #BBDFFF; line-height: 1.45; }
-    /* Ajuste UX Login - Empleados + loader seguro */
-
-    .tab-empleado-destacado {
-      position: relative;
-      font-weight: 900 !important;
-    }
-
-    .tab-empleado-destacado::after {
-      content: "Rápido";
-      position: absolute;
-      top: -10px;
-      right: 10px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #22c55e;
-      color: #ffffff;
-      font-size: 0.68rem;
-      font-weight: 900;
-      line-height: 1.2;
-      box-shadow: 0 8px 18px rgba(34, 197, 94, 0.25);
-    }
-
-    .tabs.empleado-activo #tabEmpleado,
-    #tabEmpleado.active {
-      background: linear-gradient(135deg, #16a34a, #0f766e) !important;
-      color: #ffffff !important;
-      box-shadow: 0 14px 28px rgba(22, 163, 74, 0.24);
-    }
-
-    .empleado-help-box {
-      display: grid;
-      gap: 0.25rem;
-      padding: 0.95rem 1rem;
-      margin-bottom: 1rem;
-      border-radius: 1rem;
-      background: linear-gradient(135deg, #ecfdf5, #eff6ff);
-      border: 1px solid #bbf7d0;
-      color: #064e3b;
-    }
-
-    .empleado-help-box strong {
-      font-size: 0.98rem;
-      font-weight: 900;
-    }
-
-    .empleado-help-box span {
-      color: #475569;
-      font-size: 0.9rem;
-      line-height: 1.35;
-    }
-
-    .empleado-input-wrapper {
-      border-color: #86efac !important;
-      background: #ffffff !important;
-      box-shadow: 0 8px 20px rgba(22, 163, 74, 0.08);
-    }
-
-    .btn-empleado-principal {
-      background: linear-gradient(135deg, #16a34a, #0f766e) !important;
-      border: 0 !important;
-      color: #ffffff !important;
-      font-size: 1.05rem !important;
-      font-weight: 950 !important;
-      box-shadow: 0 16px 30px rgba(22, 163, 74, 0.25) !important;
-    }
-
-    .btn-empleado-principal:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 20px 36px rgba(22, 163, 74, 0.32) !important;
-    }
-
-    @media (max-width: 768px) {
-      .tab-empleado-destacado::after {
-        top: -8px;
-        right: 6px;
-        font-size: 0.62rem;
-      }
-
-      .btn-empleado-principal {
-        min-height: 54px;
-      }
-    }
-  </style>
-
-
-  <style>
-    /* FIX SEGURO LOGIN - Visibilidad cédula y acceso empleados */
-    #empleadoLogin #cedula {
-      color: #0f172a !important;
-      -webkit-text-fill-color: #0f172a !important;
-      caret-color: #16a34a !important;
-      background: transparent !important;
-      opacity: 1 !important;
-      font-size: 1.18rem !important;
-      font-weight: 900 !important;
-      letter-spacing: 0.04em !important;
-      text-shadow: none !important;
-    }
-
-    #empleadoLogin #cedula::placeholder {
-      color: #94a3b8 !important;
-      -webkit-text-fill-color: #94a3b8 !important;
-      opacity: 1 !important;
-      font-weight: 700 !important;
-      letter-spacing: normal !important;
-    }
-
-    #empleadoLogin .input-wrapper,
-    #empleadoLogin .empleado-input-wrapper {
-      background: #ffffff !important;
-      border: 2px solid #86efac !important;
-      box-shadow: 0 8px 22px rgba(22, 163, 74, 0.12) !important;
-    }
-
-    #empleadoLogin .input-wrapper:focus-within,
-    #empleadoLogin .empleado-input-wrapper:focus-within {
-      border-color: #16a34a !important;
-      box-shadow: 0 0 0 0.22rem rgba(22, 163, 74, 0.16) !important;
-    }
-
-    #empleadoLogin .input-icon {
-      color: #166534 !important;
-      opacity: 1 !important;
-    }
-
-    #tabEmpleado.active,
-    .tabs.empleado-activo #tabEmpleado {
-      background: linear-gradient(135deg, #16a34a, #0f766e) !important;
-      color: #ffffff !important;
-      box-shadow: 0 14px 28px rgba(22, 163, 74, 0.24) !important;
-    }
-
-    .btn-empleado-principal {
-      background: linear-gradient(135deg, #16a34a, #0f766e) !important;
-      border: 0 !important;
-      color: #ffffff !important;
-      font-weight: 950 !important;
-      min-height: 54px !important;
-    }
-
-    .loader-overlay.hidden {
-      display: none !important;
-      visibility: hidden !important;
-      opacity: 0 !important;
-      pointer-events: none !important;
-    }
-  </style>
-
+<link rel="stylesheet" href="../css/login-buscador.css?v=7-7">
+<link rel="stylesheet" href="../css/login-corporativo.css?v=7-8">
 </head>
 
 <body>
@@ -213,6 +58,7 @@
 
       <!-- PANEL DERECHO -->
       <section class="login-card animate-slide-right">
+        <div class="login-mobile-brand"><img src="../assets/img/club campestre logo negro.png" alt=""><span>CLUB CAMPESTRE PEREIRA<br>TURNOS Y ASISTENCIA</span></div>
         <div class="card-top">
           <h2>Ingreso al Sistema</h2>
           <p>Seleccione si ingresa como administrador o como empleado para consultar sus turnos.</p>
@@ -231,56 +77,32 @@
 
         <!-- FORMULARIO ADMIN -->
         <form id="adminLogin" class="form-panel" onsubmit="loginAdminConUI(); return false;">
-          <div class="input-group">
-            <label for="usuario">Seleccione su usuario</label>
-            <div class="input-wrapper">
-              <span class="input-icon">👤</span>
-              <select id="usuario" aria-label="Seleccione su usuario" required>
-                <option value="">Seleccione...</option>
-                <option value="jhonnier@turnos.club" data-usuario-legacy="jhonnier">JHONNIER VILLADA</option>
-                <option value="aperez@turnos.club" data-usuario-legacy="aperez">ADRIANA PÉREZ</option>
-                <option value="atorres@turnos.club" data-usuario-legacy="atorres">ANGIE TORRES</option>
-                <option value="aagudelo@turnos.club">ANGELICA AGUDELO</option>
-                <option value="agonzalez@turnos.club">ANGEE GONZALEZ DURAN</option>
-                <option value="ccardona@turnos.club" data-usuario-legacy="ccardona" data-auth-only="true">CAROLINA MARÍA CARDONA SÁNCHEZ · BIENESTAR</option>
-                <option value="ddiaz@turnos.club">DIANA DIAZ</option>
-                <option value="gdelacruz@turnos.club">GERARDO DE LA CRUZ</option>
-                <option value="gagudelo@turnos.club">GONZALO AGUDELO</option>
-                <option value="iperez@turnos.club">IVAN LEONARDO PEREZ</option>
-                <option value="jdgarcia@turnos.club">JUAN DAVID GARCIA</option>
-                <option value="jdrestrepo@turnos.club">JUAN DAVID RESTREPO</option>
-                <option value="jfrico@turnos.club">JUAN FELIPE RICO</option>
-                <option value="jtriana@turnos.club">JUAN TRIANA</option>
-                <option value="jguzman@turnos.club">JULIANA GUZMAN</option>
-                <option value="pfernandez@turnos.club">PATRICIA FERNANDEZ</option>
-                <option value="rgarcia@turnos.club">REINEL</option>
-                <option value="vbustos@turnos.club">VANESSA BUSTOS</option>
-                <option value="yvalencia@turnos.club">YORDY VALENCIA</option>
-                <option value="ypena@turnos.club">YOHAN PEÑA</option>
-                <option value="igarcia@turnos.club">IGNACIO GARCIA</option>
-                <option value="kfranco@turnos.club">KEVIN FRANCO</option>
-                <option value="ngutierrez@turnos.club">NATALIA GUTIERREZ</option>
-                <option value="ggaviria@turnos.club">GERALDIN GAVIRIA</option>
-                <option value="mescobar@turnos.club" data-usuario-legacy="mescobar">MARÍA ANGÉLICA ESCOBAR · CHEF</option>
-                <option value="lpalacio@turnos.club">LAURA PALACIO · GERENCIA</option>
-                <option value="mramirez@turnos.club">MARÍA CONSTANZA RAMÍREZ · GERENCIA</option>
-                <option value="" disabled>BODEGA · DESHABILITADO</option>
-                <option value="__otra_cuenta__">OTRO USUARIO / CUENTA NUEVA</option>
-              </select>
-            </div>
-            <small class="field-error" id="errorUsuario"></small>
-            <button type="button" id="btnOtraCuenta" class="login-otra-cuenta">Mi usuario no aparece</button>
+          <div class="input-group" style="display:none">
+            <label for="usuario">Cuenta</label>
+            <select id="usuario" aria-label="Cuenta administrativa">
+              <option value="" selected>Selecciona tu nombre</option><option value="aperez@turnos.club" data-auth-only="true">ADRIANA PEREZ GIL</option><option value="agonzalez@turnos.club" data-auth-only="true">ANGEE CAROLINA GONZALEZ DURAN</option><option value="aagudelo@turnos.club" data-auth-only="true">ANGELICA MARIA AGUDELO PULIDO</option><option value="atorres@turnos.club" data-auth-only="true">ANGIE MICHELLE TORRES GIRALDO</option><option value="ccardona@turnos.club" data-auth-only="true">CAROLINA MARIA CARDONA SANCHEZ</option><option value="ggaviria@turnos.club" data-auth-only="true">DANNA GERALDINE GAVIRIA PIEDRAHITA</option><option value="ddiaz@turnos.club" data-auth-only="true">DIANA MARCELA DIAZ CARDONA</option><option value="gdelacruz@turnos.club" data-auth-only="true">GERARDO DE LA CRUZ CRUZ</option><option value="gagudelo@turnos.club" data-auth-only="true">GONZALO DE JESUS AGUDELO RAMIREZ</option><option value="igarcia@turnos.club" data-auth-only="true">IGNACIO GARCIA MORALES</option><option value="iperez@turnos.club" data-auth-only="true">IVAN LEONARDO PEREZ CORTES</option><option value="jhonnier@turnos.club" data-auth-only="true">JHONNIER ALBERTO VILLADA VALENCIA</option><option value="jtriana@turnos.club" data-auth-only="true">JUAN CARLOS TRIANA GIRALDO</option><option value="jdgarcia@turnos.club" data-auth-only="true">JUAN DAVID GARCIA</option><option value="jdrestrepo@turnos.club" data-auth-only="true">JUAN DAVID RESTREPO QUINTERO</option><option value="jfrico@turnos.club" data-auth-only="true">JUAN FELIPE RICO VALENCIA</option><option value="jguzman@turnos.club" data-auth-only="true">JULIANA GUZMAN VERGARA</option><option value="kfranco@turnos.club" data-auth-only="true">KEVIN FRANCO SANCHEZ</option><option value="mescobar@turnos.club" data-auth-only="true">MARIA ANGELICA ESCOBAR RODRIGUEZ</option><option value="ngutierrez@turnos.club" data-auth-only="true">NATALIA GUTIERREZ ESPINOSA</option><option value="pfernandez@turnos.club" data-auth-only="true">PATRICIA FERNANDEZ LOPEZ</option><option value="rgarcia@turnos.club" data-auth-only="true">REINEL CALED GARCIA SUAREZ</option><option value="vbustos@turnos.club" data-auth-only="true">VANESA VIVIANA BUSTOS MILLAN</option><option value="vocampo@turnos.club" data-auth-only="true">VANESSA OCAMPO LOPEZ</option><option value="ypena@turnos.club" data-auth-only="true">YOHAN DAVID PEÑA RAMIREZ</option><option value="yvalencia@turnos.club" data-auth-only="true">YORDY ALEJANDRO VALENCIA ASCENCIO</option><option value="__otra_cuenta__" data-auth-only="true">Otra cuenta</option>
+            </select>
+            
           </div>
 
+          <div class="input-group login-nombres" id="buscarNombreContenedor">
+            <label for="buscarNombre">Busca y selecciona tu nombre</label>
+            <input id="buscarNombre" type="search" placeholder="Escribe tu nombre o apellido" autocomplete="off"
+              role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="resultadosNombres" aria-describedby="nombreSeleccionado" />
+            <div id="resultadosNombres" role="listbox" aria-label="Usuarios de acceso" hidden></div>
+            <small class="field-error" id="errorUsuario"></small><small id="nombreSeleccionado" role="status">Selecciona tu nombre; luego escribe tu contraseña.</small>
+          </div>
+          <button type="button" class="login-otra-cuenta" id="btnOtraCuenta">Mi nombre no aparece / usar otra cuenta</button>
+          <button type="button" class="login-otra-cuenta" id="btnVolverNombres" hidden>Volver a buscar por nombre</button>
           <div class="input-group" id="cuentaManualContenedor" hidden>
-            <label for="usuarioManual">Usuario o correo de acceso</label>
+            <label for="usuarioManual">Usuario</label>
             <div class="input-wrapper">
-              <span class="input-icon" aria-hidden="true">@</span>
-              <input type="text" id="usuarioManual" placeholder="Escriba el usuario creado"
+              <span class="input-icon" aria-hidden="true">👤</span>
+              <input type="text" id="usuarioManual" placeholder="Ejemplo: aperez o correo@turnos.club"
                 autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254"
-                aria-describedby="ayudaUsuarioManual errorUsuarioManual" disabled />
+                aria-describedby="ayudaUsuarioManual errorUsuarioManual" />
             </div>
-            <small id="ayudaUsuarioManual" class="login-ayuda-cuenta">Use el usuario que le asignaron o su correo de acceso. La contraseña va abajo.</small>
+            <small id="ayudaUsuarioManual" class="login-ayuda-cuenta">Escribe el usuario asignado. Si escribes solo el usuario, el sistema completa @turnos.club automáticamente.</small>
             <small class="field-error" id="errorUsuarioManual"></small>
           </div>
 
@@ -288,7 +110,7 @@
             <label for="password">Contraseña</label>
             <div class="input-wrapper">
               <span class="input-icon">🔒</span>
-              <input type="password" id="password" placeholder="Ingrese su contraseña" />
+              <input type="password" id="password" autocomplete="current-password" placeholder="Tu contraseña actual" />
               <button type="button" class="toggle-password" onclick="togglePassword()" aria-label="Mostrar contraseña">
                 👁
               </button>
@@ -443,10 +265,10 @@
       const entrada = manual
         ? String(document.getElementById("usuarioManual")?.value || "").trim().toLowerCase()
         : seleccion;
-      const campo = manual ? "usuarioManual" : "usuario";
+      const campo = manual ? "usuarioManual" : "buscarNombre";
       const campoError = manual ? "errorUsuarioManual" : "errorUsuario";
       const fallo = (error) => ({ correo: "", usuario: "", soloAuth: manual, campo, campoError, error });
-      if (!entrada) return fallo(manual ? "Escriba el usuario que le asignaron." : "Seleccione su usuario.");
+      if (!entrada) return fallo(manual ? "Escriba el usuario que le asignaron." : "Busque y seleccione su nombre en la lista.");
       if (entrada.length > 254) return fallo("El usuario o correo es demasiado largo.");
       let correo = entrada;
       if (!entrada.includes("@")) {
@@ -669,7 +491,8 @@
     });
   </script>
 
-  <script type="module" src="../js/auth.js?v=login-cuentas-6-2-3-v1"></script>
+  <script src="../js/login-buscador.js?v=7-7"></script>
+  <script type="module" src="../js/auth.js?v=login-cuentas-7-6-v1"></script>
 </body>
 
 </html>

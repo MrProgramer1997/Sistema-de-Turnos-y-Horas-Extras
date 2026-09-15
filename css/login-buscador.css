@@ -1,0 +1,23 @@
+/* Corporate palette, scoped to the search-enabled login. */
+.login-card{background:#fff!important;color:#000!important;border:1px solid #BBDFFF!important}
+.login-card h2,.login-card label{color:#004AA1!important}
+.login-card p,.login-card small,.login-card .remember-box{color:#354655!important}
+.login-card .input-wrapper{background:#fff!important;border-color:#88C3FF!important}
+.login-card input{color:#000!important;-webkit-text-fill-color:#000!important}
+.login-card input::placeholder{color:#66717d!important;-webkit-text-fill-color:#66717d!important}
+.login-card .btn-primary,.login-card #tabAdmin.active{background:#004AA1!important;color:#fff!important}
+.login-card .tab-btn:not(.active){background:#BBDFFF!important;color:#004AA1!important}
+.login-card .toggle-password{color:#004AA1!important}
+.login-nombres{position:relative;gap:8px}
+#buscarNombre{width:100%;min-height:48px;border:1px solid #88C3FF;border-radius:10px;padding:12px 14px;font:inherit;background:#fff}
+#buscarNombre:focus{outline:3px solid #BBDFFF;border-color:#004AA1}
+#resultadosNombres{max-height:230px;overflow-y:auto;background:#fff;border:1px solid #88C3FF;border-radius:10px;box-shadow:0 8px 24px #0001}
+#resultadosNombres button{display:block;width:100%;padding:12px 14px;min-height:44px;background:#fff;color:#004AA1;border:0;border-bottom:1px solid #E3E3E3;text-align:left;cursor:pointer;font:inherit;font-size:.91rem;line-height:1.4}
+#resultadosNombres button:hover,#resultadosNombres button.activo,#resultadosNombres button[aria-selected=true]{background:#BBDFFF}
+#resultadosNombres p{padding:12px;margin:0}
+#nombreSeleccionado{line-height:1.45}
+#btnOtraCuenta,#btnVolverNombres{color:#004AA1!important}
+#buscarNombreContenedor[hidden],#btnOtraCuenta[hidden],#btnVolverNombres[hidden],#resultadosNombres[hidden]{display:none!important}
+@media(max-width:640px){.login-side{display:none!important}.login-wrapper{display:block!important}.login-card{width:100%;padding:22px!important}.login-page{padding:16px!important}#resultadosNombres{max-height:210px}}
+
+.login-card.animate-slide-right{animation:none;opacity:1}.login-card #errorUsuario{color:#b42318!important;display:block}.login-card .input-with-icon{border:1px solid #88C3FF;border-radius:10px}

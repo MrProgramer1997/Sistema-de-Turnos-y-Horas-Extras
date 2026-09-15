@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../css/estilos.css" />
   <link rel="stylesheet" href="../css/dashboard.css" />
   <link rel="stylesheet" href="../css/layout.css" />
+  <link rel="stylesheet" href="../css/dashboard-ayb-control.css?v=ayb-7-5" />
 
   <style>
     body.ayb-vista-compacta .grafica-card { display:none !important; }
@@ -217,9 +218,9 @@
     #panelRevisionNominaReal button:focus-visible {outline:3px solid #004AA1;outline-offset:2px;}
     @media(max-width:600px){#panelRevisionNominaReal .revision-estado-nota{min-width:175px;}}
   </style>
-</head>
+<link rel="stylesheet" href="../css/revision-comparacion.css?v=7-7"></head>
 
-<body class="ayb-redisenado ayb-vista-compacta">
+<body class="ayb-redisenado">
   <div id="sidebar-container"></div>
 
   <div class="container-fluid" id="dashboardExportable">
@@ -243,10 +244,6 @@
               <div class="text-xl-end">
                 <div class="mini-badge-fecha mb-3" id="fechaDashboard">Cargando fecha...</div>
                 <div class="hero-actions">
-                  <button class="btn btn-outline-secondary" id="btnModoCompactoAyb">Vista compacta</button>
-                  <button class="btn btn-outline-secondary" id="btnLimpiarFiltros">Limpiar filtros</button>
-                  <button class="btn btn-outline-success" id="btnExportarExcel">Exportar período Excel</button>
-                  <button class="btn btn-outline-dark" id="btnExportarPDF">Exportar vista PDF</button>
                   <button class="btn btn-primary" id="btnActualizarTablero">Actualizar tablero</button>
                 </div>
               </div>
@@ -254,8 +251,6 @@
           </div>
         </section>
 
-
-        <div class="ayb-organizacion-note mb-2">Use <strong>Vista compacta</strong> para dejar visibles los indicadores y controles principales. Las gráficas y bloques secundarios pueden mostrarse cuando se necesite análisis detallado.</div>
         <div class="card shadow-sm border-0 mb-4 dashboard-bloque dashboard-panel dashboard-filters seccion-dashboard">
           <div class="card-header bg-white fw-bold">Filtros analíticos</div>
           <div class="card-body">
@@ -325,6 +320,10 @@
               <strong>Corte confiable de métricas: 27/08/2026.</strong>
               Los registros de programación y marcaciones del 23 al 26 de agosto permanecen disponibles en la revisión y en la descarga Excel, pero no alimentan KPI, rankings ni gráficas debido al incidente de base de datos del 26/08/2026.
             </div>
+            <div class="ayb-filter-actions mt-3">
+              <button class="btn btn-outline-secondary btn-sm" id="btnLimpiarFiltros">Limpiar filtros</button>
+              <button class="btn btn-outline-dark btn-sm" id="btnExportarPDF">Descargar vista PDF</button>
+            </div>
           </div>
         </div>
 
@@ -332,9 +331,36 @@
           <button type="button" class="btn active" data-ayb-target="resumen">Resumen</button>
           <button type="button" class="btn" data-ayb-target="revision">Revisión biométrica</button>
           <button type="button" class="btn" data-ayb-target="novedades">Novedades</button>
-          <button type="button" class="btn" data-ayb-target="analitica">Analítica y rankings</button>
+          <button type="button" class="btn" data-ayb-target="tendencias">Tendencias</button>
+          <button type="button" class="btn" data-ayb-target="puntualidad">Puntualidad</button>
           <button type="button" class="btn" data-ayb-target="integracion">Integración Chef</button>
         </nav>
+
+        <section class="aybc-panel" id="panelTendenciasAyb" data-ayb-panel="tendencias" hidden>
+          <div class="aybc-panel-head">
+            <div><h2>Tendencias A&amp;B</h2><p>Las mismas lecturas operativas del Centro de Control, limitadas al personal oficial de Alimentos y Bebidas.</p></div>
+            <span class="aybc-status" id="aybControlStatus" role="status">Abre Tendencias para consultar la información.</span>
+          </div>
+          <div class="aybc-grid aybc-grid-2">
+            <article class="aybc-card"><h3>Personas con marcación por día</h3><p>Una persona cuenta una sola vez por fecha aunque tenga varias marcaciones.</p><div id="aybTrendDaily"></div></article>
+            <article class="aybc-card"><h3>Movimiento por área / punto A&amp;B</h3><p>Pulsa un área para ver quién vino y en qué fechas.</p><div id="aybTrendAreas"></div></article>
+          </div>
+          <div class="aybc-grid aybc-grid-2">
+            <article class="aybc-card"><h3>Promedio de personas por día de la semana</h3><p>Promedio de personas distintas por lunes, martes, miércoles, etc.</p><div id="aybTrendWeekday"></div></article>
+            <article class="aybc-card"><h3>Comparación con el mes anterior</h3><p>Compara el promedio diario del período seleccionado con el mismo tramo del mes anterior.</p><div id="aybTrendComparison"></div></article>
+          </div>
+          <article class="aybc-card"><h3>Empleados con más días con registro</h3><p>Abre una persona para comparar sus marcaciones con el turno programado.</p><div id="aybTrendEmployees"></div></article>
+        </section>
+
+        <section class="aybc-panel" id="panelPuntualidadAyb" data-ayb-panel="puntualidad" hidden>
+          <div class="aybc-panel-head">
+            <div><h2>Puntualidad A&amp;B</h2><p>Comparación de la primera marcación contra el inicio de turno guardado. Sin programación, la presencia se conserva pero no se califica como tardanza.</p></div>
+            <button class="btn btn-outline-success btn-sm" id="aybExportPunctuality">Descargar puntualidad Excel</button>
+          </div>
+          <div class="aybc-summary" id="aybPunctSummary"></div>
+          <article class="aybc-card"><h3>Comparación de todas las áreas / puntos A&amp;B</h3><div id="aybPunctAreas"></div></article>
+          <article class="aybc-card"><h3>Empleados con más tardanzas</h3><p>El detalle muestra turno, primera y última marcación y las horas realizables a partir de marcas pareadas.</p><div id="aybPunctPeople"></div></article>
+        </section>
 
         <div class="ayb-panel-summary" id="aybResumenCompacto" data-ayb-panel="resumen">
           <div class="ayb-summary-item" data-ayb-detail="turnos-hoy" tabindex="0" role="button"><small>Turnos programados hoy</small><strong data-kpi-copy="kpiProgramadosHoy">0</strong><span>No incluye novedades</span></div>
@@ -414,6 +440,7 @@
               <button class="btn btn-outline-primary btn-sm" id="btnActualizarRevisionNomina">Actualizar bandeja</button>
               <button class="btn btn-outline-primary btn-sm" id="btnRecalcularRevisionNomina" title="Actualiza los candidatos; no aprueba ni modifica decisiones cerradas">Recalcular candidatos</button>
               <button class="btn btn-success btn-sm" id="btnGenerarProsof">Generar plantilla PROSOF</button>
+              <button class="btn btn-outline-success btn-sm" id="btnExportarExcel">Descargar período Excel</button>
               <button class="btn btn-success btn-sm" id="btnConfirmarNominaWhatsapp">💬 Confirmar a Nómina</button>
             </div>
           </div>
@@ -1294,11 +1321,14 @@
           iniciarAgrupacion = true;
           return;
         }
-        if (!iniciarAgrupacion || elemento.id === "aybResumenCompacto") return;
+        if (!iniciarAgrupacion) return;
+        if (elemento.id === "aybResumenCompacto") { grupo = "resumen"; return; }
 
         const texto = String(elemento.textContent || "").trim().toLowerCase();
 
         if (elemento.id === "panelRevisionNominaReal") grupo = "revision";
+        else if (elemento.id === "panelTendenciasAyb") grupo = "tendencias";
+        else if (elemento.id === "panelPuntualidadAyb") grupo = "puntualidad";
         else if (
           elemento.classList.contains("seccion-externos-chef") ||
           elemento.classList.contains("kpi-externos-chef") ||
@@ -1365,6 +1395,8 @@
           const grafica = window.Chart?.getChart?.(canvas);
           if (grafica) grafica.resize();
         });
+        if (panel === "revision") window.cargarRevisionAybSiNecesario?.();
+        window.activateAybControl?.(panel);
         window.scrollTo({ top: Math.max(0, nav.offsetTop - 12), behavior: "smooth" });
       }
 
@@ -1377,6 +1409,14 @@
       mostrarPanel("resumen");
     });
   </script>
+
+  <dialog class="aybc-dialog" id="aybControlDialog">
+    <div class="aybc-dialog-head">
+      <div><h3 id="aybControlDialogTitle">Detalle A&amp;B</h3><p id="aybControlDialogSubtitle"></p></div>
+      <button type="button" id="aybControlDialogClose" aria-label="Cerrar">×</button>
+    </div>
+    <div class="aybc-dialog-body" id="aybControlDialogBody"></div>
+  </dialog>
 
   <div class="ayb-detail-backdrop" id="aybDetailBackdrop" aria-hidden="true"></div>
   <aside class="ayb-detail-drawer" id="aybDetailDrawer" aria-hidden="true" aria-labelledby="aybDetailTitle">
@@ -1396,7 +1436,8 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="../js/layout.js"></script>
-  <script type="module" src="../js/dashboard-ayb.js?v=ayb-20260910-fase4-3-observaciones-carga-v1"></script>
+  <script type="module" src="../js/dashboard-ayb.js?v=7-7"></script>
+  <script type="module" src="../js/dashboard-ayb-control.js?v=ayb-7-5"></script>
 
   <script>
     function usuarioPuedeVerSolicitudesBienestarDashboard(sesion) {
@@ -1456,13 +1497,6 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      const btnCompacto = document.getElementById("btnModoCompactoAyb");
-      if (btnCompacto) {
-        const aplicarTexto = () => btnCompacto.textContent = document.body.classList.contains("ayb-vista-compacta") ? "Ver análisis completo" : "Vista compacta";
-        document.body.classList.add("ayb-vista-compacta");
-        aplicarTexto();
-        btnCompacto.addEventListener("click", () => { document.body.classList.toggle("ayb-vista-compacta"); aplicarTexto(); });
-      }
       aplicarAccesoSolicitudesBienestarDashboard();
       setTimeout(aplicarAccesoSolicitudesBienestarDashboard, 300);
       setTimeout(aplicarAccesoSolicitudesBienestarDashboard, 900);

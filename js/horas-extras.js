@@ -1,10 +1,14 @@
+import { construirCalendario, calendarioDia, diagnosticoHorario, diagnosticoHorarioHtml, fechaHtml, resumenCalidad, filaCalidadExcel, filaControlExcel, controlConceptoHtml, revisarConcepto } from "./nomina-calidad.js?v=7-8";
+import { duracionRevision, modeloRevision, comparacionCelda, programacionCelda, marcadoCelda, totalCelda, advertenciaNocturna, requiereRevisionNocturna, crearVisorRevision, columnasRevisionExcel } from "./revision-evidencia.js?v=7-7";
 import { supabase } from "../supabase/supabaseClient.js";
 import { asegurarSesion, rpcConSesion, consultaConSesion, esErrorAcceso, mostrarErrorAcceso, observarSesion, ErrorSesion } from "./sesion-protegida.js?v=sesion-6-2-1";
-import { cargarFuentesNomina, leerPaginas, diasEntre, recalcularPorDias } from "./nomina-carga.js?v=nomina-6-2-4";
+import { cargarFuentesNomina, leerPaginas, diasEntre, recalcularPorDias } from "./nomina-carga.js?v=7-8";
 import { resumenTrabajoDia, duracionTexto, instanteLocal, explicarTurno, resumenConceptosNocturnos, coberturaPorArea } from "./nomina-detalle-jornada.js?v=7-1";
 let heCargando=false,heCargaId=0,heAbort=null,heDisponible=false;
 let heGuardando=false,heRecalculando=false,heLecturaValida=false,heRango=null;
 let heMarcasFuente=[],heEmpleadosDetalle=[];
+let heEvidencias=new Map();
+let heCalendario=null;
 let heTiempoTimer=null,heInicioTiempo=0,heCanceladaPorUsuario=false;
 
 
@@ -40,7 +44,7 @@ async function iniciar(){
     heLecturaValida=false;actualizarAcciones();
     avisoCarga("Fechas modificadas. Pulsa Actualizar para consultar el nuevo periodo.","warning");
     if(heDisponible)render();
-  }));["heArea","heEstado","heTurnoEstado"].forEach(id=>$(id).addEventListener("change",()=>{pagina=0;render()}));$("heBuscar").addEventListener("input",()=>{pagina=0;render()});
+  }));["heArea","heEstado","heTurnoEstado","heDiaCalendario"].forEach(id=>$(id).addEventListener("change",()=>{pagina=0;render()}));$("heBuscar").addEventListener("input",()=>{pagina=0;render()});
   document.querySelectorAll("[data-he-vista]").forEach(b=>b.addEventListener("click",()=>cambiarVista(b.dataset.heVista)));
   $("heAnterior").addEventListener("click",()=>{if(pagina>0){pagina--;render()}});$("heSiguiente").addEventListener("click",()=>{pagina++;render()});
   $("heXlsx").addEventListener("click",descargarRevision);$("heXls").addEventListener("click",descargarProsof);
@@ -117,7 +121,8 @@ async function completarDatosEmpleados(revisiones,conocidos,signal){
   return [...mapa.values()];
 }
 function limpiarNominaPorSesion(){
-  heDisponible=false;heLecturaValida=false;heRango=null;heMarcasFuente=[];heEmpleadosDetalle=[];base=[];jornadas=[];catalogo=[];responsables=[];
+  heCalendario=null; if($("heCalidadContenido"))$("heCalidadContenido").textContent="Inicia sesion para consultar el diagnostico.";
+  heDisponible=false;heLecturaValida=false;heRango=null;heMarcasFuente=[];heEmpleadosDetalle=[];heEvidencias.clear();base=[];jornadas=[];catalogo=[];responsables=[];
   $('heAreasBody').replaceChildren();$('hePaginaInfo').textContent='';
   document.querySelectorAll('[id^="heKpi"]').forEach(el=>el.textContent='\u2014');
   $('heBody').innerHTML='<tr><td colspan="12" class="text-center py-4">Inicia sesion nuevamente para consultar los datos.</td></tr>';
@@ -139,13 +144,20 @@ async function cargar(){
     const r=await cargarFuentesNomina({request:lecturaRpc,readReviews:leerRevisiones,desde,hasta,signal,
       onProgress:p=>{if(cargaId===heCargaId)progresoCarga(p);}});
     if(cargaId!==heCargaId)return;
+    avisoCarga("Verificando el calendario del periodo...");
+    const calendarioRespuesta=await lecturaRpc('consultar_calendario_nomina_v78',{p_desde:desde,p_hasta:hasta},{signal});
+    if(calendarioRespuesta.error)throw calendarioRespuesta.error;
+    if(calendarioRespuesta.data?.desde!==desde||calendarioRespuesta.data?.hasta!==hasta)throw new Error("El calendario no corresponde al periodo solicitado.");
+    const nuevoCalendario=construirCalendario(calendarioRespuesta.data);
     const nuevoCatalogo=desenvolverEmpleados(r.empleados);
     const marcasFuente=desenvolver(r.marcas);
     if(new Set(marcasFuente.map(claveDia)).size!==marcasFuente.length)throw new Error("La fuente de marcaciones contiene jornadas repetidas. No se habilita Nomina.");
     const nuevasJornadas=completarUniversoEmpleados(combinarJornadas(r.general,r.ayb,r.inferidos,r.marcas),nuevoCatalogo,desde,hasta);
     const conocidos=[...nuevoCatalogo,...marcasFuente.filter(e=>!nuevoCatalogo.some(c=>texto(c.cedula)===texto(e.cedula)))];
     const detalleEmpleados=await completarDatosEmpleados(r.revisiones,conocidos,signal);
-    const nuevaBase=completarBandeja(r.revisiones,detalleEmpleados,marcasFuente);
+    avisoCarga('Contrastando programacion actual y evidencia de las revisiones...');
+    const nuevasEvidencias=await leerEvidenciasRevision(r.revisiones,signal);
+    const nuevaBase=completarBandeja(r.revisiones,detalleEmpleados,marcasFuente,nuevasJornadas,nuevasEvidencias);
     let nuevosResponsables=[],avisoResponsables="";
     try{
       const rr=await consultaConSesion(()=>supabase.from("vw_turnos_responsables_activos").select("*"),{signal,read:true});
@@ -159,7 +171,8 @@ async function cargar(){
     verificarIntegridadMarcaciones(marcasFuente,nuevasJornadas);
     // Commit only after every mandatory read and the integrity check succeed.
     catalogo=nuevoCatalogo;jornadas=nuevasJornadas;base=nuevaBase;responsables=nuevosResponsables;
-    heMarcasFuente=marcasFuente;heEmpleadosDetalle=detalleEmpleados;
+    heMarcasFuente=marcasFuente;heEmpleadosDetalle=detalleEmpleados;heEvidencias=nuevasEvidencias;
+    heCalendario=nuevoCalendario;
     heRango={desde,hasta};pagina=0;heDisponible=true;heLecturaValida=true;
     poblarAreas();render();
     avisoCarga(`Lectura completa del ${fechaCorta(desde)} al ${fechaCorta(hasta)}. Se muestran decisiones y candidatos guardados. Usa Recalcular candidatos solo para actualizar los calculos.${avisoResponsables}`,avisoResponsables?"warning":"success");
@@ -254,15 +267,12 @@ function combinarJornadas(generales,ayb,inferidos,marcas){
       recorrido:m.recorrido
     });
   });
-  const patron=new Map();
-  for(const x of programadasConMarcas)if(!patron.has(texto(x.cedula))&&texto(x.turno))patron.set(texto(x.cedula),x);
   const clavesProgramadas = new Set(programadasConMarcas.map(claveDia));
-  const sueltas=[...marcasPorDia.values()].filter(x=>!clavesProgramadas.has(claveDia(x))).map(x=>{
-    const p=patron.get(texto(x.cedula));
-    return compararConMarcaciones({...x,turno:p?.turno||"",turno_2:p?.turno_2||"",hora_inicio:p?.hora_inicio||"",hora_fin:p?.hora_fin||"",
-      hora_inicio_2:p?.hora_inicio_2||"",hora_fin_2:p?.hora_fin_2||"",
-      programacion_tipo:p?"Probable; solo referencia":"Sin programación",estado_comparacion:"sin_programacion"});
-  });
+  const sueltas=[...marcasPorDia.values()].filter(x=>!clavesProgramadas.has(claveDia(x))).map(x=>compararConMarcaciones({...x,
+    turno:"",turno_2:"",hora_inicio:"",hora_fin:"",hora_inicio_2:"",hora_fin_2:"",
+    programacion_tipo:"Sin programaci\u00f3n",estado_comparacion:"sin_programacion",
+    diagnostico_turno:"No hay horario asignado para esta fecha. No se copia el turno de otro dia."
+  }));
   return [...programadasConMarcas,...sueltas].sort((a,b)=>texto(b.fecha).localeCompare(texto(a.fecha))||empleado(a).localeCompare(empleado(b),"es"));
 }
 function fechasRango(desde,hasta){const r=[],d=new Date(`${desde}T12:00:00`),f=new Date(`${hasta}T12:00:00`);while(d<=f){r.push(iso(d));d.setDate(d.getDate()+1)}return r}
@@ -298,29 +308,48 @@ function verificarIntegridadMarcaciones(fuente,resultado){
   aviso.textContent=`Integridad verificada: ${totalFuente} marcaciones cargadas en ${clavesFuente.size} combinaciones empleado/día. No se omitieron registros recibidos desde Supabase.`;
 }
 
-function completarBandeja(revisiones,empleados,marcas){
+async function leerEvidenciasRevision(revisiones,signal){
+  const pares=[...new Map(revisiones.map(r=>[claveDia(r),{cedula:r.cedula,fecha:texto(r.fecha).slice(0,10)}])).values()];
+  const mapa=new Map();
+  for(let i=0;i<pares.length;i+=200){
+    const {data,error}=await lecturaRpc('consultar_evidencia_nomina_v77',{p_items:pares.slice(i,i+200)},{signal});
+    if(error)throw error;
+    if(!data||!Array.isArray(data.jornadas)||data.total!==data.jornadas.length)throw new Error('La evidencia de comparacion no se recibio completa.');
+    for(const r of data.jornadas)mapa.set(claveDia(r),r);
+  }
+  return mapa;
+}
+function completarBandeja(revisiones,empleados,marcas,actuales=jornadas,evidencias=heEvidencias){
   const porCedula=new Map(empleados.map(x=>[texto(x.cedula),x]));
   const porDia=new Map(marcas.map(m=>[claveDia(m),m]));
+  const porJornada=new Map(actuales.map(m=>[claveDia(m),m]));
   return revisiones.map(r=>{
-    const d=r.detalle||{},e=porCedula.get(texto(r.cedula))||{};
-    const m=porDia.get(claveDia(r));
+    const d=r.detalle||{},e=porCedula.get(texto(r.cedula))||{},m=porDia.get(claveDia(r)),j=porJornada.get(claveDia(r));
+    const p=j&&j.programacion_tipo==='confirmada'?j:d;
     return {...r,
-      empleado:empleado(e)||r.cedula,
-      cargo:e.cargo||"",centro_costos:e.centro_costos||"",area:e.area||"",
-      grupo_nombre:r.grupo_codigo==="ALIMENTOS_BEBIDAS"?"Alimentos y Bebidas":r.grupo_codigo,
-      turno:d.turno||"",turno_2:d.turno_2||"",hora_inicio:d.hora_inicio||"",hora_fin:d.hora_fin||"",hora_inicio_2:d.hora_inicio_2||"",hora_fin_2:d.hora_fin_2||"",
-      horas_programadas_netas:d.horas_programadas_netas??d.horas_programadas,
-      horas_reales:d.horas_reales,horas_candidatas:r.horas_calculadas,
-      primera_marcacion:m?.primera_marcacion||null,ultima_marcacion:m?.ultima_marcacion||null,total_marcaciones:num(m?.total_marcaciones),
-      revision_id:r.id,estado_revision:r.estado,permite_revision:!["aprobado","rechazado"].includes(estado(r.estado))
+      empleado:empleado(e)||r.cedula,cargo:e.cargo||'',centro_costos:e.centro_costos||'',area:e.area||'',
+      grupo_nombre:r.grupo_codigo==='ALIMENTOS_BEBIDAS'?'Alimentos y Bebidas':r.grupo_codigo,
+      turno:p.turno||'',turno_2:p.turno_2||'',hora_inicio:p.hora_inicio||'',hora_fin:p.hora_fin||'',hora_inicio_2:p.hora_inicio_2||'',hora_fin_2:p.hora_fin_2||'',
+      horas_programadas_netas:p.horas_programadas_netas??p.horas_programadas,
+      horas_reales:undefined,horas_candidatas:r.horas_calculadas,minutos_descanso:j?.minutos_descanso,
+      primera_marcacion:m?.primera_marcacion||null,ultima_marcacion:num(m?.total_marcaciones)>1?m?.ultima_marcacion:null,total_marcaciones:num(m?.total_marcaciones),recorrido:m?.recorrido||[],
+      programacion_tipo:j?.programacion_tipo||'Sin programacion',jornada_actual:j,evidencia_revision:evidencias.get(claveDia(r)),
+      revision_id:r.id,estado_revision:r.estado,permite_revision:!['aprobado','rechazado'].includes(estado(r.estado))
     };
   });
 }
+const mostrarRevisionEvidencia=crearVisorRevision({
+  rpc:(name,args)=>rpcConSesion(name,args,{read:name!=='actualizar_recargo_nocturno_v77'}),
+  onChanged:(fila,e)=>{heEvidencias.set(claveDia(fila),e);const nueva=completarBandeja([fila],heEmpleadosDetalle,heMarcasFuente)[0];base=base.map(r=>r.revision_id===fila.id?nueva:r);render();avisoCarga('Candidato actualizado con evidencia; sigue pendiente de revision y no se aprobo ningun pago.','success');}
+});
+window.heVerRevision=(id,nocturno=false)=>{if(!datosUtilizables())return;const fila=base.find(r=>r.revision_id===id);if(fila)mostrarRevisionEvidencia(fila,{nocturno});};
+
 function poblarAreas(){const actual=$("heArea").value;const areas=[...new Set([...base,...jornadas].map(area))].sort((a,b)=>a.localeCompare(b,"es"));$("heArea").innerHTML='<option value="">Todas</option>'+areas.map(x=>`<option ${x===actual?"selected":""}>${html(x)}</option>`).join("")}
 // Fase temporal confirmada: todos los usuarios administrativos autorizados
 // pueden revisar el consolidado completo, independientemente de su área base.
 function dentroAlcance(){return true}
-function filtrados(){const a=$("heArea").value,e=$("heEstado").value,b=texto($("heBuscar").value).toLowerCase();return base.filter(x=>dentroAlcance(x)&&(!a||area(x)===a)&&(!e||estado(x)===e)&&(!b||`${empleado(x)} ${x.cedula||""} ${codigoErp(x)} ${concepto(x)}`.toLowerCase().includes(b)))}
+function coincideDia(x){const d=$("heDiaCalendario")?.value||"";const c=calendarioDia(texto(x.fecha).slice(0,10),heCalendario);return !d||c.tipo===d;}
+function filtrados(){const a=$("heArea").value,e=$("heEstado").value,b=texto($("heBuscar").value).toLowerCase();return base.filter(x=>coincideDia(x)&&dentroAlcance(x)&&(!a||area(x)===a)&&(!e||estado(x)===e)&&(!b||`${empleado(x)} ${x.cedula||""} ${codigoErp(x)} ${concepto(x)}`.toLowerCase().includes(b)))}
 function esNocturnoObservado(x){
   if(num(x.total_marcaciones)<2||!x.ultima_marcacion)return false;
   const salida=minutosHora(x.ultima_marcacion);
@@ -329,7 +358,7 @@ function esNocturnoObservado(x){
 function etiquetaNocturno(x){
   return esNocturnoObservado(x)?'<span class="he-nocturno">◐ Revisar nocturno</span>':'<span class="text-muted small">-</span>';
 }
-function jornadasFiltradas(){const a=$("heArea").value,t=$("heTurnoEstado").value,n=$("heNocturno")?.value||"",b=texto($("heBuscar").value).toLowerCase();return jornadas.filter(x=>(!a||area(x)===a)&&(!t||tipoTurno(x)===t)&&(!n||(n==="si"?esNocturnoObservado(x):!esNocturnoObservado(x)))&&(!b||`${empleado(x)} ${x.cedula||""} ${codigoErp(x)} ${x.turno||""}`.toLowerCase().includes(b)))}
+function jornadasFiltradas(){const a=$("heArea").value,t=$("heTurnoEstado").value,n=$("heNocturno")?.value||"",b=texto($("heBuscar").value).toLowerCase();return jornadas.filter(x=>coincideDia(x)&&(!a||area(x)===a)&&(!t||tipoTurno(x)===t)&&(!n||(n==="si"?esNocturnoObservado(x):!esNocturnoObservado(x)))&&(!b||`${empleado(x)} ${x.cedula||""} ${codigoErp(x)} ${x.turno||""}`.toLowerCase().includes(b)))}
 function puedeDecidir(){return datosUtilizables()}
 
 function tipoTurno(x){
@@ -343,7 +372,7 @@ function tipoTurno(x){
 }
 function etiquetaTurno(x){
   const t=tipoTurno(x);
-  return ({confirmada:"Confirmado",inferida_alta:"Inferido · alta",inferida_media:"Inferido · media",inferida_ambigua:"Turno por confirmar",sin_programacion:"Sin programación"})[t]||"Sin programación";
+  return ({confirmada:"Confirmado",inferida_alta:"Sugerido · alta",inferida_media:"Sugerido · media",inferida_ambigua:"Turno por confirmar",sin_programacion:"Sin programación"})[t]||"Sin programación";
 }
 function badgeTurno(x){return `<span class="he-turno-state" title="${html(explicarTurno(x))}">${html(etiquetaTurno(x))}</span>`}
 function resumenAuditoriaTurnos(rows){
@@ -363,34 +392,56 @@ function badge(e){
   return `<span class="he-state he-${html(e)}">${html(nombres[e]||e)}</span>`;
 }
 function cambiarVista(nueva){vista=nueva;pagina=0;document.querySelectorAll("[data-he-vista]").forEach(b=>{const activa=b.dataset.heVista===vista;b.classList.toggle("active",activa);b.classList.toggle("btn-primary",activa);b.classList.toggle("btn-outline-primary",!activa)});$("heEstadoWrap").classList.toggle("d-none",vista==="jornadas");$("heTurnoWrap").classList.toggle("d-none",vista!=="jornadas");render()}
+function jornadaConEvidencia(x){const e=heEvidencias.get(claveDia(x));return e?{...x,evidencia_revision:e}:x;}
+function renderCalidad(rows){
+  const cont=$("heCalidadContenido");if(!cont)return;
+  const grupos=resumenCalidad(rows,area),total=grupos.reduce((a,b)=>a+b.jornadas,0),cal=heCalendario;
+  const fs=cal?[...cal.festivos].filter(([d])=>d>=heRango.desde&&d<=heRango.hasta):[];
+  const calendario=cal?(fs.length?"Festivos registrados: "+fs.map(([d,n])=>fechaCorta(d)+" - "+n).join("; "):"El calendario activo no registra festivos en este periodo. Los domingos se identifican por separado."):"Calendario pendiente de verificar.";
+  const headers=['Area','Personas','Dias con marcas','Guardados','Sugerencia alta','Sugerencia media','Por confirmar','Sin horario','Una marca'];
+  cont.innerHTML=`<p>${html(calendario)}</p><p>${total} jornadas con marcaciones en los filtros actuales. No se cuentan como faltantes los empleados/dias sin marcas. Guardado no significa trabajado ni aprobado. Las sugerencias no reemplazan la programacion oficial.</p><div class="nc-tabla"><table><thead><tr>${headers.map(h=>`<th scope="col">${html(h)}</th>`).join('')}</tr></thead><tbody>${grupos.map(g=>`<tr>${[g.area,g.personas,g.jornadas,g.guardados,g.alta,g.media,g.porConfirmar,g.sinHorario,g.unaMarca].map(v=>`<td>${html(v)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="9">Sin marcaciones para estos filtros.</td></tr>'}</tbody></table></div><p class="mb-0 mt-2">El Excel de revision incluye el origen del horario, alternativas y controles de cada concepto. Un festivo sin plantilla especifica requiere programacion o validacion, no se asume como un dia laboral ordinario.</p>`;
+}
 function render(){
-  if(!heDisponible)return;const conceptos=filtrados(),jfs=jornadasFiltradas(),rows=vista==="jornadas"?jfs:conceptos;$("heKpiRegistros").textContent=rows.length;$("heKpiPendientes").textContent=conceptos.filter(x=>estado(x)==="pendiente").length;$("heKpiAprobados").textContent=conceptos.filter(x=>estado(x)==="aprobado").length;$("heKpiHoras").textContent=conceptos.filter(x=>estado(x)==="aprobado").reduce((s,x)=>s+num(x.horas_aprobadas),0).toFixed(2);renderAreas(conceptos);vista==="jornadas"?renderJornadas(rows):renderTabla(rows)}
+  if(!heDisponible)return;const conceptos=filtrados(),jfs=jornadasFiltradas(),rows=vista==="jornadas"?jfs:conceptos;$("heKpiRegistros").textContent=rows.length;$("heKpiPendientes").textContent=conceptos.filter(x=>estado(x)==="pendiente").length;$("heKpiAprobados").textContent=conceptos.filter(x=>estado(x)==="aprobado").length;$("heKpiHoras").textContent=conceptos.filter(x=>estado(x)==="aprobado").reduce((s,x)=>s+num(x.horas_aprobadas),0).toFixed(2);renderAreas(conceptos);renderCalidad(jfs);vista==="jornadas"?renderJornadas(rows):renderTabla(rows)}
 function resumenAreas(rows){const map=new Map();for(const x of rows){const a=area(x),o=map.get(a)||{p:0,o:0,a:0,r:new Set()};const e=estado(x);if(e==="pendiente")o.p++;if(e==="observado")o.o++;if(e==="aprobado")o.a++;o.r.add(responsableDe(x));map.set(a,o)}return map}
 function renderAreas(rows){const map=resumenAreas(rows);$("heKpiAreas").textContent=[...map.values()].filter(x=>x.p+x.o>0).length;$("heAreasBody").innerHTML=[...map].sort().map(([a,x])=>`<tr class="he-area-row ${x.p+x.o===0?"cerrada":""}"><td><strong>${html(a)}</strong></td><td>${html([...x.r].join(", "))}</td><td>${x.p}</td><td>${x.o}</td><td>${x.a}</td><td>${x.p+x.o?badge("pendiente"):badge("aprobado")}</td></tr>`).join("")||'<tr><td colspan="6" class="text-center text-muted">Sin datos.</td></tr>'}
-function renderTabla(rows){$("hePaginacion").classList.add("d-none");$("heHead").innerHTML="<tr><th>Área</th><th>Empleado</th><th>Fecha</th><th>Turno</th><th>Salida real</th><th>Concepto</th><th>Calculadas</th><th>Aprobadas</th><th>Estado</th><th>Responsable</th><th>Acciones</th></tr>";$("heBody").innerHTML=rows.map(x=>`<tr><td>${html(area(x))}</td><td><strong>${html(empleado(x))}</strong><div class="small text-muted">${html(codigoErp(x)||"Sin código ERP")} · ${html(x.cedula||"")}</div></td><td>${html(fechaCorta(x.fecha))}</td><td>${html(x.turno||"")}<div class="small text-muted">${html(hora(x.hora_inicio))}–${html(hora(x.hora_fin))}</div></td><td>${html(hora(x.ultima_marcacion))}</td><td><strong>${html(concepto(x))}</strong><div class="small">${html(x.concepto_nombre||"")}</div></td><td>${horasCalculadas(x).toFixed(2)}</td><td>${horasAprobadas(x)==null?"-":horasAprobadas(x).toFixed(2)}</td><td>${badge(estado(x))}</td><td>${html(responsableDe(x))}</td><td>${puedeDecidir()&&x.permite_revision&&!["aprobado","rechazado"].includes(estado(x))?`<div class="d-flex flex-wrap gap-1"><button class="btn btn-success btn-sm" data-action="aprobar" data-id="${html(x.revision_id)}">Aprobar</button><button class="btn btn-outline-primary btn-sm" data-action="ajustar" data-id="${html(x.revision_id)}">Ajustar</button><button class="btn btn-outline-warning btn-sm" data-action="observar" data-id="${html(x.revision_id)}">Observar</button><button class="btn btn-outline-danger btn-sm" data-action="rechazar" data-id="${html(x.revision_id)}">Rechazar</button></div>`:`<span class="small text-muted">${datosUtilizables()?'Decisión cerrada':'Actualizar para decidir'}</span>`}</td></tr>`).join("")||'<tr><td colspan="11" class="text-center text-muted py-4">No hay resultados.</td></tr>';$("heBody").querySelectorAll("button[data-action]").forEach(b=>b.addEventListener("click",()=>resolver(b.dataset.id,b.dataset.action)))}
+function renderTabla(rows){
+  $('hePaginacion').classList.add('d-none');
+  $('heHead').closest('table').classList.add('he-revision-comparable');
+  $('heHead').innerHTML='<tr><th>Empleado</th><th>Fecha</th><th>Programado</th><th>Marcado</th><th>Ingreso</th><th>Salida</th><th>Total horas</th><th>Concepto</th><th>Calculadas</th><th>Aprobadas</th><th>Estado y observación</th><th>Acciones</th></tr>';
+  const visibles=rows;
+  $('heBody').innerHTML=visibles.map(x=>{
+    const m=modeloRevision(x),riesgo=requiereRevisionNocturna(x),abierta=puedeDecidir()&&x.permite_revision&&!['aprobado','rechazado'].includes(estado(x));
+    const boton=(accion,nombre,estilo)=>`<button class="btn btn-${estilo} btn-sm" data-action="${accion}" data-id="${html(x.revision_id)}">${nombre}</button>`;
+    const acciones=abierta?`<div class="rev-actions">${riesgo?`<button class="btn btn-outline-primary btn-sm" onclick="window.heVerRevision('${html(x.revision_id)}',true)">Revisar cálculo</button>`:boton('aprobar','Aprobar '+horasCalculadas(x).toFixed(2)+' h','success')+boton('ajustar','Ajustar','outline-primary')}${boton('observar','Observar','outline-warning')}${boton('rechazar','Rechazar','outline-danger')}</div>`:'<span class="text-muted small">'+(x.permite_revision?'Actualiza la consulta':'Cerrado')+'</span>';
+    return `<tr><td><strong>${html(empleado(x))}</strong><small class="rev-small">${html(codigoErp(x))} · ${html(x.cedula)}<br>${html(area(x))}</small></td><td>${html(fechaCorta(x.fecha))}${fechaHtml(x,heCalendario)}</td><td>${programacionCelda(m)}${diagnosticoHorarioHtml(x)}</td><td>${marcadoCelda(m)}<button class="rev-detail-button" onclick="window.heVerRevision('${html(x.revision_id)}')">Ver todas las marcas</button></td><td>${comparacionCelda(m,'entrada')}</td><td>${comparacionCelda(m,'salida')}</td><td>${totalCelda(m)}</td><td><strong>${html(concepto(x))}</strong><div class="rev-small">${html(x.concepto_nombre)}</div></td><td><strong>${horasCalculadas(x).toFixed(2)} h</strong><div class="rev-small">Aprox. ${duracionRevision(Math.round(horasCalculadas(x)*60))}</div>${advertenciaNocturna(x)}${controlConceptoHtml(x,heCalendario,m)}${texto(x.origen_calculo)==='dominical_marcaciones_v1'?'<div class="rev-small">Dominical estimado; revisar antes de aprobar</div>':''}</td><td>${horasAprobadas(x)===null?'—':horasAprobadas(x).toFixed(2)+' h'}</td><td>${badge(estado(x))}<div class="rev-small">${html(x.observacion||'Sin observación registrada')}</div></td><td>${acciones}</td></tr>`;
+  }).join('')||'<tr><td colspan="12" class="text-center py-4">No hay conceptos para los filtros seleccionados.</td></tr>';
+  $('heBody').querySelectorAll('button[data-action]').forEach(b=>b.addEventListener('click',()=>resolver(b.dataset.id,b.dataset.action)));
+}
+
 function diferenciaLlegada(x){if(!x.primera_marcacion)return "Sin entrada";const m=num(x.minutos_tarde);if(m>0)return `Llegó ${m} min tarde`;if(texto(x.hora_inicio)&&["confirmada","inferida_alta","inferida_media"].includes(texto(x.programacion_tipo).toLowerCase())){const ini=new Date(`${texto(x.fecha).slice(0,10)}T${hora(x.hora_inicio)}:00`),real=new Date(x.primera_marcacion);const antes=Math.max(0,Math.round((ini-real)/60000));return antes?`Llegó ${antes} min antes`:"A tiempo"}return "Sin comparación"}
 function diferenciaSalida(x){if(num(x.total_marcaciones)===1)return "Sin salida verificable";if(!x.ultima_marcacion)return "Sin salida";const a=num(x.minutos_salida_anticipada),p=num(x.minutos_posteriores_turno);if(a>0)return `Salió ${a} min antes`;if(p>0)return `Salió ${p} min después`;return x.programacion_tipo==="confirmada"?"A tiempo":"Sin comparación"}
 function marcasTexto(x){const r=Array.isArray(x.recorrido)?x.recorrido:[];return r.length?r.map(m=>hora(m.hora)).join(", "):`${num(x.total_marcaciones)} marcación(es)`}
 function renderJornadas(rows){
+  $("heHead").closest("table").classList.remove("he-revision-comparable");
   $("heHead").innerHTML="<tr><th>Área</th><th>Empleado</th><th>Fecha</th><th>Turno</th><th>Programado</th><th>Marcaciones</th><th>Entrada</th><th>Salida</th><th>Total diario</th><th>Llegada</th><th>Salida vs. turno</th><th>Estado</th></tr>";
   const totalPaginas=Math.max(1,Math.ceil(rows.length/TAMANO_PAGINA));if(pagina>=totalPaginas)pagina=totalPaginas-1;const desde=pagina*TAMANO_PAGINA,visibles=rows.slice(desde,desde+TAMANO_PAGINA);
-  $("heBody").innerHTML=visibles.map(x=>`<tr><td>${html(area(x))}</td><td><strong>${html(empleado(x)||"Sin nombre")}</strong><div class="small text-muted">${html(x.cedula||"")}</div></td><td>${fechaCorta(x.fecha)}</td><td>${html(x.turno||((x.total_marcaciones>0)?"Horario observado; sin turno asignado":"Sin programación"))}<div class="mt-1">${badgeTurno(x)}</div></td><td>${html(hora(x.hora_inicio))}–${html(hora(x.hora_fin))}${x.turno_2?`<div class="small">${html(hora(x.hora_inicio_2))}–${html(hora(x.hora_fin_2))}</div>`:""}</td><td><strong>${num(x.total_marcaciones)}</strong><div class="small text-muted">${html(marcasTexto(x))}</div></td><td>${html(hora(x.primera_marcacion))}</td><td>${html(hora(x.ultima_marcacion))}</td><td>${celdaTrabajo(x)}</td><td>${html(diferenciaLlegada(x))}</td><td>${html(diferenciaSalida(x))}</td><td>${badge(texto(x.estado_comparacion||"sin_programacion"))}</td></tr>`).join("")||'<tr><td colspan="12" class="text-center text-muted py-4">No hay jornadas ni marcaciones para los filtros seleccionados.</td></tr>';
+  $("heBody").innerHTML=visibles.map(x=>`<tr><td>${html(area(x))}</td><td><strong>${html(empleado(x)||"Sin nombre")}</strong><div class="small text-muted">${html(x.cedula||"")}</div></td><td>${fechaCorta(x.fecha)}${fechaHtml(x,heCalendario)}</td><td>${html(x.turno||((x.total_marcaciones>0)?"Horario observado; sin turno asignado":"Sin programación"))}<div class="mt-1">${badgeTurno(x)}</div>${diagnosticoHorarioHtml(x)}</td><td>${html(hora(x.hora_inicio))}–${html(hora(x.hora_fin))}${x.turno_2?`<div class="small">${html(hora(x.hora_inicio_2))}–${html(hora(x.hora_fin_2))}</div>`:""}</td><td><strong>${num(x.total_marcaciones)}</strong><div class="small text-muted">${html(marcasTexto(x))}</div></td><td>${html(hora(x.primera_marcacion))}</td><td>${html(hora(x.ultima_marcacion))}</td><td>${celdaTrabajo(x)}</td><td>${html(diferenciaLlegada(x))}</td><td>${html(diferenciaSalida(x))}</td><td>${badge(texto(x.estado_comparacion||"sin_programacion"))}</td></tr>`).join("")||'<tr><td colspan="12" class="text-center text-muted py-4">No hay jornadas ni marcaciones para los filtros seleccionados.</td></tr>';
   $("heBody").querySelectorAll("button[data-detalle-dia]").forEach(b=>b.addEventListener("click",()=>abrirDetalleDia(b.dataset.detalleDia)));
   $("hePaginacion").classList.remove("d-none");$("hePaginaInfo").textContent=`Mostrando ${rows.length?desde+1:0}–${Math.min(desde+TAMANO_PAGINA,rows.length)} de ${rows.length} jornadas · ${catalogo.length} empleados activos`;
   $("heAnterior").disabled=pagina===0;$("heSiguiente").disabled=pagina>=totalPaginas-1;
 }
 function celdaTrabajo(x){
-  const r=resumenTrabajoDia(x);
-  const valor=r.minutosNetos===null ? (r.minutosBrutos===null ? "No calculable" : duracionTexto(r.minutosBrutos)) : duracionTexto(r.minutosNetos);
-  const nota=r.minutosNetos===null ? (r.cantidad===1?"Marca incompleta":"Tiempo entre marcas") : (r.estado==="TOTAL DEL MOTOR"?"Total del motor":"Neto estimado");
-  return `<strong>${html(valor)}</strong><div class="he-note">${html(nota)}</div><button class="btn btn-link btn-sm p-0" data-detalle-dia="${html(claveDia(x))}">Ver detalle</button>`;
+  const m=modeloRevision(jornadaConEvidencia(x));
+  return `${totalCelda(m)}<button class="btn btn-link btn-sm p-0" data-detalle-dia="${html(claveDia(x))}">Ver detalle</button>`;
 }
 function abrirDetalleDia(clave){
   const x=jornadas.find(x=>claveDia(x)===clave);if(!x)return;
-  const r=resumenTrabajoDia(x),n=resumenConceptosNocturnos(x,base);
+  const modelo=modeloRevision(jornadaConEvidencia(x));
+  const r={...resumenTrabajoDia(x),minutosNetos:modelo.neto,horasNetas:modelo.neto===null?null:Math.round(modelo.neto/60*100)/100,minutosBrutos:modelo.brutos,minutosDescontados:modelo.neto===null?null:modelo.pausa,estado:modelo.neto===null?"NETO POR VERIFICAR":"ESTIMADO; VALIDAR PAUSAS",criterio:modelo.criterio},n=resumenConceptosNocturnos(x,base);
   $("heDiaTitulo").textContent=`${empleado(x)} | ${fechaCorta(x.fecha)}`;
   const dato=(titulo,valor)=>`<div><dt>${html(titulo)}</dt><dd>${html(valor)}</dd></div>`;
-  $("heDiaContenido").innerHTML=`<p>${html(explicarTurno(x))}</p><dl class="he-dia-grid">
+  $("heDiaContenido").innerHTML=`<p>${html(diagnosticoHorario(x))}</p>${diagnosticoHorarioHtml(x)}<dl class="he-dia-grid">
     ${dato("Marcaciones recibidas",r.cantidad)}
     ${dato("Tiempo entre primera y ultima marca",duracionTexto(r.minutosBrutos))}
     ${dato("Descanso / diferencia descontada",duracionTexto(r.minutosDescontados))}
@@ -409,6 +460,9 @@ function abrirDetalleDia(clave){
 async function resolver(id,accion){
   if(!datosUtilizables())return;
   const x=base.find(v=>texto(v.revision_id)===texto(id));if(!x)return;
+  if(['aprobar','ajustar'].includes(accion)&&requiereRevisionNocturna(x)){await mostrarRevisionEvidencia(x,{nocturno:true});return;}
+  const control=revisarConcepto(x,heCalendario);
+  if(accion==="aprobar"&&control.avisos.length&&!confirm("Antes de aprobar debes verificar:\n\n"+control.avisos.map(a=>"- "+a.texto).join("\n")+"\n\nConfirmas que revisaste estos puntos y deseas continuar? No se ha aprobado nada todavia."))return;
   let h=horasCalculadas(x),obs=null;
   if(accion==="ajustar"){
     const raw=prompt("Horas aprobadas:",h.toFixed(2));if(raw===null)return;
@@ -454,7 +508,8 @@ function descargarRevision(){
   if(!window.XLSX)return alert("No se cargo el componente Excel.");
   const rows=filtrados(),js=jornadasFiltradas(),wb=XLSX.utils.book_new();
   const asistencia=js.map(x=>{
-    const d=resumenTrabajoDia(x),n=resumenConceptosNocturnos(x,base);
+    const modelo=modeloRevision(jornadaConEvidencia(x));
+    const d={...resumenTrabajoDia(x),minutosBrutos:modelo.brutos,minutosNetos:modelo.neto,horasNetas:modelo.neto===null?null:Math.round(modelo.neto/60*100)/100,minutosDescontados:modelo.neto===null?null:modelo.pausa,estado:modelo.neto===null?"NETO POR VERIFICAR":"ESTIMADO; VALIDAR PAUSAS",criterio:modelo.criterio},n=resumenConceptosNocturnos(x,base);
     return {Area:area(x),Empleado:empleado(x),Cedula:x.cedula||"","Codigo PROSOF":codigoErp(x),Fecha:texto(x.fecha).slice(0,10),
       Turno:x.turno||"Sin programacion","Tipo programacion":x.programacion_tipo||"","Inicio programado":hora(x.hora_inicio),
       "Salida programada":hora(x.hora_fin),"Inicio bloque 2":hora(x.hora_inicio_2),"Salida bloque 2":hora(x.hora_fin_2),
@@ -466,13 +521,13 @@ function descargarRevision(){
       "Estado del total":d.estado,"Criterio del total":d.criterio,
       "Tiempo nocturno despues del turno (h; no aprobado)":d.minutosDespuesNocturnos===null?null:Math.round(d.minutosDespuesNocturnos/60*100)/100,
       "Extra nocturna registrada por revisar (h)":n.registros?n.pendiente:null,"Extra nocturna aprobada (h)":n.registros?n.aprobada:null,
-      Llegada:diferenciaLlegada(x),"Salida vs turno":diferenciaSalida(x),"Estado comparacion":x.estado_comparacion||""};
+      Llegada:diferenciaLlegada(x),"Salida vs turno":diferenciaSalida(x),"Estado comparacion":x.estado_comparacion||"",...filaCalidadExcel(x,heCalendario)};
   });
   const sh=XLSX.utils.json_to_sheet(asistencia);
   sh["!cols"]=Object.keys(asistencia[0]||{}).map(k=>({wch:k.includes("Criterio")?75:k.includes("Empleado")?32:k.includes("Estado")?30:24}));
   if(asistencia.length)sh["!autofilter"]={ref:sh["!ref"]};
   XLSX.utils.book_append_sheet(wb,sh,"Jornadas y marcaciones");
-  const detalle=rows.map(x=>({Area:area(x),Empleado:empleado(x),Cedula:x.cedula||"","Codigo PROSOF":codigoErp(x),Fecha:texto(x.fecha).slice(0,10),Turno:x.turno||"","Inicio programado":hora(x.hora_inicio),"Salida programada":hora(x.hora_fin),"Salida real":hora(x.ultima_marcacion),Concepto:concepto(x),"Horas calculadas":horasCalculadas(x),"Horas aprobadas":horasAprobadas(x),Estado:estado(x),Responsable:responsableDe(x),Observacion:x.observacion||""}));
+  const detalle=rows.map(x=>({Area:area(x),Empleado:empleado(x),Cedula:x.cedula||"","Codigo PROSOF":codigoErp(x),Fecha:texto(x.fecha).slice(0,10),Turno:x.turno||"","Inicio programado":hora(x.hora_inicio),"Salida programada":hora(x.hora_fin),"Salida real":hora(x.ultima_marcacion),Concepto:concepto(x),"Horas calculadas":horasCalculadas(x),"Horas aprobadas":horasAprobadas(x),Estado:estado(x),Responsable:responsableDe(x),Observacion:x.observacion||"",...columnasRevisionExcel(x),...filaControlExcel(x,heCalendario)}));
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(detalle),"Conceptos para aprobación");
   const areas=[];for(const [a,x] of resumenAreas(rows))areas.push({Area:a,Responsable:[...x.r].join(", "),Pendientes:x.p,Observados:x.o,Aprobados:x.a,Estado:x.p+x.o?"PENDIENTE":"CERRADO"});
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(areas),"Estado por área");

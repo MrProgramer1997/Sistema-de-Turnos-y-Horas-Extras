@@ -1,3 +1,5 @@
+import { modeloRevision, comparacionCelda, programacionCelda, marcadoCelda, advertenciaNocturna, requiereRevisionNocturna, crearVisorRevision, contextoComoJornada } from "./revision-evidencia.js?v=7-7";
+import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
 import { supabase } from "../supabase/supabaseClient.js";
 
 let sesionActiva = null;
@@ -222,7 +224,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   configurarCierreNominaAyb();
   configurarFiltros();
 
-  await Promise.all([cargarDashboardReal(sesion), cargarRevisionNominaReal({ recalcular: true })]);
+  // La revisión biométrica se consulta solo cuando el usuario abre esa pestaña.
+  // Evita bloquear la carga del Dashboard y nunca recalcula candidatos automáticamente.
+  await cargarDashboardReal(sesion);
 });
 
 function cargarDatosUsuario(sesion) {
@@ -381,11 +385,12 @@ async function cargarFuenteCocinaChefDashboard() {
 }
 
 function transformarRegistroCocinaChefDashboard(turno, persona, empleadoOficial, codigosPorCodigo) {
-  const codigo1 = codigosPorCodigo.get(String(turno.codigo_turno || ""));
-  const codigo2 = codigosPorCodigo.get(String(turno.codigo_turno_2 || ""));
+  const codigo1 = codigoAsignado(turno,codigosPorCodigo.get(String(turno.codigo_turno || "")),1);
+  const codigo2 = codigoAsignado(turno,codigosPorCodigo.get(String(turno.codigo_turno_2 || "")),2);
   const esOficial = Boolean(empleadoOficial);
 
   return {
+    horario_asignado: turno.horario_asignado || null,
     id: `chef_${turno.id}`,
     id_origen: turno.id,
     origen_datos: "cocina_chef",
@@ -728,7 +733,7 @@ function aplicarCalculoSemanal44Dashboard(registros) {
     items.forEach((registro) => {
       const segmentos = Array.isArray(registro._segmentos_netos_ayb) ? registro._segmentos_netos_ayb : [];
       const fechaRegistro = String(registro.fecha || "");
-      const jornadaDiaInfo = obtenerJornadaEsperadaPorFecha(fechaRegistro);
+      const jornadaDiaInfo = registro.horario_asignado?.flexible ? {horas:analizarHorario(registro.horario_asignado).netos/60,tipo:"Distribucion semanal acordada"} : obtenerJornadaEsperadaPorFecha(fechaRegistro);
       const limiteDiaMinutos = Math.max(0, Number(jornadaDiaInfo.horas || 0) * 60);
       let minutosDia = minutosAcumuladosDia.get(fechaRegistro) || 0;
       let extraDiurnaMin = 0;
@@ -4280,6 +4285,15 @@ function configurarRevisionNominaReal() {
   document.getElementById("btnGenerarProsof")?.addEventListener("click", generarPlantillaProsof);
 }
 
+window.cargarRevisionAybSiNecesario = async function cargarRevisionAybSiNecesario(force = false) {
+  if (revisionCargaEnCurso) return;
+  if (!force && revisionCargaInicialRealizada) {
+    renderRevisionNominaReal();
+    return;
+  }
+  await cargarRevisionNominaReal();
+};
+
 function configurarCierreNominaAyb(){
   actualizarAlertaCorteNomina();
   document.getElementById("btnConfirmarNominaWhatsapp")?.addEventListener("click",confirmarReporteListoNomina);
@@ -4355,6 +4369,7 @@ async function confirmarReporteListoNomina(){
 
 // FASE 4.3: decisiones separadas de consultas/calculos. Cache solo en memoria.
 let revisionCargaVersion = 0;
+let revisionCargaInicialRealizada = false;
 let revisionCargaEnCurso = false;
 let revisionCalculoEnCurso = false;
 let revisionContextoActual = null;
@@ -4476,6 +4491,7 @@ function enriquecerFilaRevisionAyb(original, contexto) {
     horas_programadas_netas: j ? j.horas_programadas_netas : (detalle.horas_programadas_netas ?? detalle.horas_programadas),
     horas_reales: j ? j.horas_reales_pareadas : detalle.horas_reales,
     horas_candidatas: r.horas_calculadas,
+    evidencia_revision: j?.evidencia_revision, recorrido:j?.recorrido||[], programacion_tipo:j?.programacion_tipo||'Sin programacion',
     primera_marcacion: fuente.primera_marcacion ?? null, ultima_marcacion: fuente.ultima_marcacion ?? null,
     total_marcaciones: fuente.total_marcaciones == null ? null : Number(fuente.total_marcaciones),
     estado_comparacion: estadoComparacion, minutos_posteriores_turno: minutosPosteriores,
@@ -4516,6 +4532,7 @@ async function cargarRevisionNominaReal(opciones = {}) {
     mensajeRevisionAyb(contexto.fallidos.size
       ? 'Bandeja disponible. Algunas comparaciones no pudieron actualizarse; se conserva el detalle guardado. Usa Actualizar bandeja para reintentar.'
       : `Bandeja actualizada: ${revisionNominaRealBase.length} conceptos del per\u00edodo.`, contexto.fallidos.size ? 'warning' : 'success');
+    revisionCargaInicialRealizada = true;
   } catch (e) {
     if (version !== revisionCargaVersion) return;
     console.error('Bandeja revisi\u00f3n:', e);
@@ -4534,6 +4551,7 @@ async function cargarRevisionNominaReal(opciones = {}) {
 
 async function completarRevisionNominaAyb(revisiones, desde, hasta, contexto = nuevoContextoRevision(desde, hasta, revisionCargaVersion)) {
   if (!revisiones.length) return [];
+
   const cedulas = [...new Set(revisiones.map(x => String(x.cedula || '').trim()).filter(Boolean))];
   const faltan = cedulas.filter(c => !contexto.empleados.has(normalizarDocumentoEmpleado(c)));
   for (let i=0; i<faltan.length; i+=100) {
@@ -4541,21 +4559,53 @@ async function completarRevisionNominaAyb(revisiones, desde, hasta, contexto = n
       const { data } = await lecturaRevisionAcotada(supabase.from('empleados')
         .select('cedula,nombres,apellidos,cargo,centro_costos,area,codigo').in('cedula',faltan.slice(i,i+100)));
       for (const e of data || []) contexto.empleados.set(normalizarDocumentoEmpleado(e.cedula),e);
-    } catch (e) { console.warn('Directorio de revisi\u00f3n:',e.message); }
+    } catch (e) { console.warn('Directorio de revisión:',e.message); }
   }
-  const lotes = [];
-  const nuevas = cedulas.filter(c => !contexto.documentosListos.has(normalizarDocumentoEmpleado(c)));
-  for (let i=0; i<nuevas.length; i+=20) lotes.push(nuevas.slice(i,i+20));
-  let indice = 0;
-  async function trabajador() {
-    while (indice < lotes.length && contexto.version === revisionCargaVersion) {
-      const lote = lotes[indice++];
-      const jornadas = await consultarJornadasRevisionAyb(lote,desde,hasta,contexto);
-      for (const j of jornadas) contexto.porDia.set(`${normalizarDocumentoEmpleado(j.cedula)}|${String(j.fecha || '').slice(0,10)}`,j);
+
+  // Fase 7.5: consultar únicamente las jornadas que realmente aparecen en la
+  // bandeja. Se evita recalcular la vista biométrica completa por cada lote de
+  // empleados. La RPC combina programación A&B con las marcaciones crudas y
+  // conserva una marca aunque no exista programación comparable.
+  const mapaPares = new Map();
+  for (const r of revisiones) {
+    const cedula = normalizarDocumentoEmpleado(r.cedula);
+    const fecha = String(r.fecha || '').slice(0,10);
+    if (!cedula || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) continue;
+    const clave = `${cedula}|${fecha}`;
+    if (!contexto.porDia.has(clave)) mapaPares.set(clave,{cedula,fecha});
+  }
+  const pendientes=[...mapaPares.values()];
+  if (!pendientes.length) return revisiones.map(r => enriquecerFilaRevisionAyb(r,contexto)).filter(r => !r.ocultar_por_tolerancia);
+
+  const lotes=[];
+  for(let i=0;i<pendientes.length;i+=200) lotes.push(pendientes.slice(i,i+200));
+  let indice=0;
+  async function trabajadorRapido(){
+    while(indice<lotes.length && contexto.version===revisionCargaVersion){
+      const lote=lotes[indice++];
+      try{
+        const {data}=await lecturaRevisionAcotada(
+          supabase.rpc('consultar_evidencia_nomina_v77',{p_items:lote}),12000
+        );
+        const jornadas=Array.isArray(data?.jornadas)?data.jornadas.map(contextoComoJornada):[];
+        for(const j of jornadas){
+          const key=`${normalizarDocumentoEmpleado(j.cedula)}|${String(j.fecha||'').slice(0,10)}`;
+          contexto.porDia.set(key,j);
+        }
+        for(const item of lote) contexto.documentosListos.add(normalizarDocumentoEmpleado(item.cedula));
+      }catch(e){
+        console.warn('Lectura rápida A&B no disponible; usando compatibilidad:',e.message||e);
+        const loteCedulas=[...new Set(lote.map(x=>x.cedula))];
+        const loteFechas=lote.map(x=>x.fecha).sort();
+        const respaldo=await consultarJornadasRevisionAyb(loteCedulas,loteFechas[0],loteFechas[loteFechas.length-1],contexto);
+        for(const j of respaldo){
+          contexto.porDia.set(`${normalizarDocumentoEmpleado(j.cedula)}|${String(j.fecha||'').slice(0,10)}`,j);
+        }
+      }
     }
   }
-  // Concurrencia acotada: dos lotes, no una consulta por cada fila/concepto.
-  await Promise.all([trabajador(),trabajador()]);
+  // Dos peticiones simultáneas como máximo para no competir con otras lecturas del módulo.
+  await Promise.all([trabajadorRapido(),trabajadorRapido()]);
   return revisiones.map(r => enriquecerFilaRevisionAyb(r,contexto)).filter(r => !r.ocultar_por_tolerancia);
 }
 
@@ -4699,6 +4749,8 @@ function horasCalculadasRevision(registro) {
 function descripcionCalculoRevision(registro) {
   const codigo = String(registro?.concepto_codigo || "").toUpperCase();
   const calculadas = horasCalculadasRevision(registro);
+  if(registro?.origen_calculo==='motor_central_nocturno_19_00')return 'Estimación del horario. No verifica la salida real ni la clasificación dominical/festiva.';
+  if(registro?.origen_calculo==='evidencia_punto_nocturno_v77')return 'Tramo observado en el punto, dentro del turno; pendiente de validar pausas.';
   if (codigo === "P005") {
     const bloques = [
       registro?.hora_inicio && registro?.hora_fin ? `${String(registro.hora_inicio).slice(0,5)}–${String(registro.hora_fin).slice(0,5)}` : "",
@@ -4769,6 +4821,7 @@ function renderRevisionNominaReal() {
   const rows=registrosRevisionFiltrados();
   if(!rows.length){tbody.innerHTML='<tr><td colspan="11" class="text-muted text-center">No hay conceptos para los filtros seleccionados.</td></tr>';return;}
   tbody.innerHTML=rows.map(x=>{
+    const modelo=modeloRevision(x);
     const estado=String(x.estado_revision||"pendiente");
     const cerrado=["aprobado","rechazado"].includes(estado);
     const horasCalculadas=horasCalculadasRevision(x);
@@ -4778,15 +4831,15 @@ function renderRevisionNominaReal() {
     return `<tr class="${claseFila}" data-revision-id="${escaparHtml(x.revision_id)}" aria-busy="${revisionGuardando.has(String(x.revision_id))}">
       <td><strong>${escaparHtml(x.empleado||"")}</strong><div class="small text-muted">${escaparHtml(x.codigo_erp||"Sin código ERP")} · ${escaparHtml(x.cedula||"")}</div></td>
       <td>${escaparHtml(formatearFechaCorta(x.fecha)||x.fecha||"")}</td>
-      <td>${x.horas_programadas_netas==null?"Sin verificar":formatearHorasRevision(x.horas_programadas_netas)}<div class="small text-muted">${escaparHtml(x.turno||"")} · ${escaparHtml((x.hora_inicio||"-").slice(0,5))}–${escaparHtml((x.hora_fin||"-").slice(0,5))}</div></td>
-      <td>${x.horas_reales==null?"Sin verificar":formatearHorasRevision(x.horas_reales)}<div class="small text-muted">${x.total_marcaciones==null?"Sin verificar":`${x.total_marcaciones} marcación(es)`}</div>${estadoComparacionRevision(x)}</td>
-      <td>${bloqueHorarioRevision(x.hora_inicio,x.primera_marcacion,"entrada")}</td>
-      <td>${bloqueHorarioRevision(x.hora_fin,x.ultima_marcacion,"salida")}</td>
+      <td>${programacionCelda(modelo)}</td>
+      <td>${marcadoCelda(modelo)}<button class="rev-detail-button" onclick="window.aybVerEvidencia('${x.revision_id}')">Ver todas las marcas</button>${estadoComparacionRevision(x)}</td>
+      <td>${comparacionCelda(modelo,"entrada")}</td>
+      <td>${comparacionCelda(modelo,"salida")}</td>
       <td><strong>${escaparHtml(x.concepto_codigo||"")}</strong><div class="small">${escaparHtml(x.concepto_nombre||"")}</div></td>
-      <td><strong>${formatearHorasRevision(horasCalculadas)}</strong><div class="small text-muted mt-1">${escaparHtml(descripcionCalculoRevision(x))}</div></td>
+      <td><strong>${formatearHorasRevision(horasCalculadas)}</strong><div class="small text-muted mt-1">${escaparHtml(descripcionCalculoRevision(x))}</div>${advertenciaNocturna(x)}</td>
       <td>${x.horas_aprobadas==null?"-":`${formatearHorasRevision(x.horas_aprobadas)}${diferenciaAprobada?'<div class="small text-warning-emphasis mt-1">Difiere del cálculo actual</div>':""}`}</td>
       <td class="revision-estado-nota">${renderEstadoObservacionRevision(x)}</td>
-      <td>${revisionGuardando.has(String(x.revision_id))?'<button type="button" class="btn btn-outline-primary btn-sm" disabled>Guardando...</button>':!usuarioPuedeDecidirRevisionAyb()?'<span class="small text-muted">Solo lectura</span>':cerrado ? `<div class="d-flex flex-column align-items-start gap-1"><span class="small text-muted">Cerrado</span><button class="btn btn-outline-primary btn-sm" onclick="window.editarRevisionNomina('${x.revision_id}',${Number(x.horas_aprobadas||0)})">Editar</button></div>` : !x.permite_revision ? `<span class="small text-muted">Solo seguimiento</span>` : `<div class="d-flex flex-wrap gap-1"><button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','aprobar')">Aprobar ${horasCalculadas.toFixed(2)} h</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','ajustar')">Ajustar</button><button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','rechazar')">Rechazar</button></div>`}</td>
+      <td>${revisionGuardando.has(String(x.revision_id))?'<button type="button" class="btn btn-outline-primary btn-sm" disabled>Guardando...</button>':!usuarioPuedeDecidirRevisionAyb()?'<span class="small text-muted">Solo lectura</span>':cerrado ? `<div class="d-flex flex-column align-items-start gap-1"><span class="small text-muted">Cerrado</span><button class="btn btn-outline-primary btn-sm" onclick="window.editarRevisionNomina('${x.revision_id}',${Number(x.horas_aprobadas||0)})">Editar</button></div>` : requiereRevisionNocturna(x) ? `<div class="rev-actions"><button class="btn btn-outline-primary btn-sm" onclick="window.aybVerEvidencia('${x.revision_id}',true)">Revisar cálculo</button><button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','rechazar')">Rechazar</button></div>` : !x.permite_revision ? `<span class="small text-muted">Solo seguimiento</span>` : `<div class="d-flex flex-wrap gap-1"><button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','aprobar')">Aprobar ${horasCalculadas.toFixed(2)} h</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','ajustar')">Ajustar</button><button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','rechazar')">Rechazar</button></div>`}</td>
     </tr>`;
   }).join("");
 }
@@ -4907,6 +4960,7 @@ window.resolverRevisionNomina=async function(id,accion){
   const registro=revisionNominaRealBase.find(x=>String(x.revision_id||'')===String(id));
   if(!registro){alert('No fue posible localizar el concepto. Actualiza la bandeja.');return;}
   if(!registro.permite_revision){alert('Este concepto no permite esta acci\u00f3n. Verifica su estado.');return;}
+  if(['aprobar','ajustar'].includes(accion)&&requiereRevisionNocturna(registro)){await mostrarEvidenciaAyb(registro,{nocturno:true});return;}
   const calculadas=horasCalculadasRevision(registro);
   const descripcion=descripcionCalculoRevision(registro);
   let horas=null,obs=null;
@@ -5016,3 +5070,17 @@ async function generarPlantillaProsof(){
     window.XLSX.writeFile(wb,`PROSOF_AYB_${desde||"inicio"}_${hasta||"fin"}.xls`,{bookType:"biff8",cellStyles:true});
   }catch(e){console.error("PROSOF:",e);alert("No fue posible generar la plantilla PROSOF: "+(e.message||e));}
 }
+
+const mostrarEvidenciaAyb=crearVisorRevision({
+ rpc:(name,args)=>supabase.rpc(name,args),
+ onChanged:(fila,e)=>{
+   if(revisionContextoActual)revisionContextoActual.porDia.set(`${fila.cedula}|${String(fila.fecha).slice(0,10)}`,contextoComoJornada(e));
+   actualizarFilaConDecisionConfirmada(String(fila.id),fila);
+   revisionNominaRealBase=revisionNominaRealBase.map(r=>r.revision_id===fila.id?{...r,evidencia_revision:e}:r);
+   renderRevisionNominaReal();mensajeRevisionAyb('Candidato actualizado con evidencia; no se aprobo ningun pago.','success');
+ }
+});
+window.aybVerEvidencia=(id,nocturno=false)=>{
+ if(revisionCargaEnCurso||revisionGuardando.size)return;
+ const fila=revisionNominaRealBase.find(r=>String(r.revision_id)===String(id));if(fila)mostrarEvidenciaAyb(fila,{nocturno});
+};

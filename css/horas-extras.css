@@ -26,3 +26,10 @@ body{background:var(--he-bg)}.he-main{min-height:100vh}.he-hero{background:linea
 .he-turno-state{background:transparent;color:var(--he-muted);padding:0;border:0;border-radius:0}
 .he-dia-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.he-dia-grid dt{font-size:.85rem;color:var(--he-muted)}.he-dia-grid dd{font-weight:600}
 @media(max-width:600px){.he-dia-grid{grid-template-columns:1fr}.he-kpi{flex-basis:45%}}
+
+/* Fase 7.6: lectura mas clara de revision */
+.he-table th{white-space:nowrap;vertical-align:middle}
+.he-table td{vertical-align:middle}
+.he-table tbody tr:hover{background:#f5f9ff}
+.he-table .small{line-height:1.25}
+@media (min-width:1200px){.he-main .he-content{max-width:1700px;margin:0 auto}.he-table{font-size:.9rem}}

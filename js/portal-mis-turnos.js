@@ -1,5 +1,5 @@
-import {TYPES,esc,todayBogota,addDays,dateText,timeText,daysBetween,requiredDocs,validateForm,validateFiles,resolveDay,stateInfo,receipt} from './portal-mis-turnos-core.js?v=6-2-1';
-import {supabase,call,uploadSupports,openSupport} from './portal-mis-turnos-api.js?v=6-2-1';
+import {TYPES,esc,todayBogota,addDays,dateText,timeText,daysBetween,requiredDocs,validateForm,validateFiles,resolveDay,stateInfo,receipt} from './portal-mis-turnos-core.js?v=chef-7-3';
+import {supabase,call,uploadSupports,openSupport} from './portal-mis-turnos-api.js?v=chef-7-3';
 const $=id=>document.getElementById(id);
 let user=null,bundle=null,today=todayBogota(),screen='home',step=1,kind='',files=[],requestId=null,uploaded=null,supplement=null,busy=false,uncertain=false,offset=0,inbox=null,inboxBusy=false,weekStart=today,weekMode=false,scheduleToken=0,refreshTimer=null;
 function say(s=''){$('live').textContent=s;}
@@ -42,7 +42,7 @@ function renderReview(){const d=formData();$('review').innerHTML=`<h2>${esc(TYPE
 function dayHTML(data,day,weekly=false){
  const r=resolveDay(data,day);
  if(r.title==='Hoy descansas'&&day!==today)r.title=day===addDays(today,1)?'Ma\u00f1ana descansas':'D\u00eda de descanso';
- const blocks=bs=>bs.map((b,i)=>`<div class="schedule-times"><div><span>${i?'Segunda entrada':'Entras a las'}</span><strong>${esc(timeText(b.start))}</strong></div><div><span>Sales a las</span><strong>${esc(timeText(b.end))}</strong>${b.overnight?'<small>Del d\u00eda siguiente</small>':''}</div></div><p class="location"><strong>Lugar:</strong> ${esc(b.place)}</p>`).join('');
+ const blocks=bs=>bs.map((b,i)=>`<div class="schedule-times"><div><span>${i?'Segunda entrada':'Entras a las'}</span><strong>${esc(timeText(b.start))}</strong>${b.startDayOffset?'<small>Del d\u00eda siguiente</small>':''}</div><div><span>Sales a las</span><strong>${esc(timeText(b.end))}</strong>${b.overnight?'<small>Del d\u00eda siguiente</small>':''}</div></div><p class="location"><strong>Lugar:</strong> ${esc(b.place)}</p>`).join('');
  return `<article class="shift ${r.status} ${weekly?'weekly':''}"><p class="hint">${esc(dateText(day))}</p>${r.status==='work'?`<h2>Este es tu turno</h2>${blocks(r.blocks)}`:r.status==='conflict'?`<h2>${esc(r.title)}</h2><p>Confirma con tu jefe antes de desplazarte. No elegimos un horario por ti.</p><details><summary>Ver horarios registrados</summary>${r.details.map(d=>`<p>${esc(d.source==='chef'?'Programaci\u00f3n Chef':d.source==='ayb'?'Programaci\u00f3n A&B':'Programaci\u00f3n general')}</p>${d.blocks.length?blocks(d.blocks):`<p>${esc(d.title||'Sin horario')}</p>`}`).join('')}</details>`:`<h2>${esc(r.title||'Tu turno a\u00fan no est\u00e1 publicado')}</h2>${r.until?`<p>Desde el ${esc(dateText(r.from))} hasta el ${esc(dateText(r.until))}.</p>`:''}${r.hasWorkConflict?'<p class="tip">Tambi\u00e9n hay un turno guardado. Pide a tu jefe confirmar la programaci\u00f3n.</p>':''}${r.status==='unknown'?'<p>Esto no significa que tengas el d\u00eda libre. Consulta con tu jefe.</p>':''}`}</article>`;
 }
 async function renderSchedule(day=today){

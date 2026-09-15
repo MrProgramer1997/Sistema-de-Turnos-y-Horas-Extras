@@ -4,7 +4,7 @@ export const FUENTES_NOMINA = Object.freeze([
   ['marcas','consultar_marcaciones_nomina_v3','Marcaciones'],
   ['general','consultar_jornadas_generales_nomina_v3','Programaci\u00f3n general'],
   ['ayb','consultar_jornadas_ayb_nomina_v4','Programaci\u00f3n A&B y Chef'],
-  ['inferidos','consultar_turnos_inferidos_nomina_v5','Turnos inferidos']
+  ['inferidos','consultar_turnos_inferidos_nomina_v6','Turnos inferidos']
 ]);
 const DIA = 86400000;
 export function diasEntre(desde,hasta) {
@@ -190,7 +190,8 @@ export async function recalcularPorDias(request,{desde,hasta,signal,onProgress=(
     const args={p_fecha_desde:fecha,p_fecha_hasta:fecha};
     for(const [nombre,etapa,params] of [
       ['preparar_conceptos_revision','A&B',{...args,p_grupo_codigo:null,p_proceso_codigo:null}],
-      ['preparar_conceptos_revision_generales_v2','General',args]
+      ['preparar_conceptos_revision_generales_v2','General',args],
+      ['preparar_dominicales_marcaciones_v1','Dominicales con marcación',args]
     ]) {
       cancelado(signal);onProgress({etapa,fecha,completadas,total:dias.length*2});
       try {

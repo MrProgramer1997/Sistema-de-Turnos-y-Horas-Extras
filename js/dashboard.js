@@ -1,3 +1,4 @@
+import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
 import { supabase } from "../supabase/supabaseClient.js";
 
 let sesionActiva = null;
@@ -330,11 +331,12 @@ async function cargarFuenteCocinaChefDashboard() {
 }
 
 function transformarRegistroCocinaChefDashboard(turno, persona, empleadoOficial, codigosPorCodigo) {
-  const codigo1 = codigosPorCodigo.get(String(turno.codigo_turno || ""));
-  const codigo2 = codigosPorCodigo.get(String(turno.codigo_turno_2 || ""));
+  const codigo1 = codigoAsignado(turno,codigosPorCodigo.get(String(turno.codigo_turno || "")),1);
+  const codigo2 = codigoAsignado(turno,codigosPorCodigo.get(String(turno.codigo_turno_2 || "")),2);
   const esOficial = Boolean(empleadoOficial);
 
   return {
+    horario_asignado: turno.horario_asignado || null,
     id: `chef_${turno.id}`,
     id_origen: turno.id,
     origen_datos: "cocina_chef",
@@ -677,7 +679,7 @@ function aplicarCalculoSemanal44Dashboard(registros) {
     items.forEach((registro) => {
       const segmentos = Array.isArray(registro._segmentos_netos_ayb) ? registro._segmentos_netos_ayb : [];
       const fechaRegistro = String(registro.fecha || "");
-      const jornadaDiaInfo = obtenerJornadaEsperadaPorFecha(fechaRegistro);
+      const jornadaDiaInfo = registro.horario_asignado?.flexible ? {horas:analizarHorario(registro.horario_asignado).netos/60,tipo:"Distribucion semanal acordada"} : obtenerJornadaEsperadaPorFecha(fechaRegistro);
       const limiteDiaMinutos = Math.max(0, Number(jornadaDiaInfo.horas || 0) * 60);
       let minutosDia = minutosAcumuladosDia.get(fechaRegistro) || 0;
       let extraDiurnaMin = 0;

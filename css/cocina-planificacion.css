@@ -1,0 +1,31 @@
+/* Fase 7.3: estilos aislados al planificador Chef. */
+.chef-edit-horas{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;padding:1rem;margin:.5rem 0 1rem;border:1px solid #88C3FF;border-radius:12px;background:#BBDFFF33}
+.chef-edit-horas label{display:block;font-weight:600;margin-bottom:.3rem}.chef-edit-horas button{grid-column:1/-1;justify-self:start}.chef-meta-semana{border-left:4px solid #004AA1;padding:.9rem 1rem;background:#BBDFFF44;color:#004AA1;font-weight:600;border-radius:5px}.chef-plan-button{background:#004AA1;color:#fff;border:0;border-radius:6px;padding:.4rem .65rem;font-size:.78rem;margin:.35rem 0;cursor:pointer}.chef-plan-button:hover{background:#003675}.chef-tabla-semana input[type=time]{min-width:112px}.chef-tabla-semana select{min-width:165px}#chefSemanaModal .modal-header{background:#004AA1;color:white}#chefSemanaModal .modal-header .btn-close{filter:invert(1)}#chefSemanaModal .modal-footer{gap:.5rem}#chefSemanaModal .btn-primary{background:#004AA1;border-color:#004AA1}#chefSemanaModal .form-check-input:checked{background-color:#004AA1;border-color:#004AA1}#chefSemanaError:empty{display:none}@media(max-width:600px){.chef-edit-horas{gap:.5rem}.chef-tabla-semana{font-size:.85rem}#chefSemanaModal .modal-footer>button{flex:1 0 45%;min-height:46px}}
+
+/* El editor semanal no depende de anchos de la tabla administrativa. */
+#chefSemanaModal{font-family:Arial,system-ui,sans-serif;color:#163457}
+#chefSemanaModal .modal-content{border:1px solid #BBDFFF;border-radius:14px;overflow:hidden}
+#chefSemanaModal .modal-title{font-size:1.2rem;margin:0 0 .3rem}
+#chefSemanaModal .modal-header,#chefSemanaModal .modal-body,#chefSemanaModal .modal-footer{padding:1rem 1.25rem}
+#chefSemanaModal .form-control,#chefSemanaModal .form-select{border:1px solid #88C3FF;border-radius:6px;padding:.45rem .6rem;font:inherit;max-width:100%;background:white}
+#chefSemanaModal p{line-height:1.5}
+#chefSemanaModal .table-responsive{overflow-x:auto}
+#chefSemanaModal .modal-footer{display:flex;flex-wrap:wrap;background:#BBDFFF33}
+#chefSemanaModal .btn{border-radius:6px;padding:.65rem .8rem;cursor:pointer}
+#chefSemanaModal .btn-primary{color:white}
+#chefSemanaAcuerdo{margin-right:.5rem}
+@media(max-width:600px){
+ #chefSemanaModal .modal-dialog{margin:.5rem}
+ #chefSemanaModal .modal-body{max-height:70vh;overflow-y:auto}
+ #chefSemanaModal .table-responsive{overflow:visible}
+ .chef-tabla-semana,.chef-tabla-semana tbody{display:block;width:100%}
+ .chef-tabla-semana thead{display:none}
+ .chef-tabla-semana tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.6rem;padding:.8rem;margin:.7rem 0;border:1px solid #BBDFFF;border-radius:9px}
+ .chef-tabla-semana td{display:block;min-width:0;padding:0!important;border:0!important}
+ .chef-tabla-semana td:nth-child(1),.chef-tabla-semana td:nth-child(2){grid-column:1/-1}
+ .chef-tabla-semana td:nth-child(3)::before{content:"Entrada";display:block;font-weight:600}
+ .chef-tabla-semana td:nth-child(4)::before{content:"Salida";display:block;font-weight:600}
+ .chef-tabla-semana td:nth-child(5)::before{content:"Horas netas";display:block;font-weight:600}
+ .chef-tabla-semana td:nth-child(6)::before{content:"Distribuir aqui";display:block;font-weight:600}
+ .chef-tabla-semana input[type=time],.chef-tabla-semana select{min-width:0;width:100%;box-sizing:border-box}
+}

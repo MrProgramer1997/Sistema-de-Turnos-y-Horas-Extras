@@ -1,5 +1,5 @@
 import { supabase } from '../supabase/supabaseClient.js';
-import { BUCKET } from './portal-mis-turnos-core.js?v=6-2-1';
+import { BUCKET } from './portal-mis-turnos-core.js?v=chef-7-3';
 export { supabase };
 export async function call(name,args={}){
  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),25000);
