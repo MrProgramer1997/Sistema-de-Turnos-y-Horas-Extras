@@ -26,3 +26,7 @@
 .rev-totales{background:#f4f9ff;border:1px solid #BBDFFF;border-radius:10px;padding:14px;margin:14px 0}.rev-totales p{margin:5px 0}
 .rev-check{display:flex;gap:10px;align-items:flex-start;line-height:1.5;margin:15px 0;font-size:.86rem}.rev-check input{margin-top:5px}
 @media(max-width:600px){.rev-dialog-body{padding:14px}.rev-dialog-header{padding:14px}.rev-dialog-grid{gap:10px}.rev-dialog .table{font-size:.75rem}}
+
+.rev-dia{display:block;font-weight:600;color:#004AA1}.rev-footer-actions{display:flex;flex-wrap:wrap;gap:.65rem;margin-top:1rem}.rev-dialog-body table td{vertical-align:top}.rev-dialog-body .rev-aviso{white-space:normal}
+
+.rev-dialog-body label[for]{display:block;margin:12px 0 6px;font-weight:600}.rev-dialog-body #revHoras{display:block;width:180px;padding:9px;border:1px solid #88C3FF;border-radius:6px}.rev-dialog-body #revMotivo{display:block;width:100%;padding:9px;border:1px solid #88C3FF;border-radius:6px;box-sizing:border-box}.rev-footer-actions button:disabled{opacity:.55;cursor:not-allowed}

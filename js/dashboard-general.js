@@ -1,6 +1,7 @@
+import { cargarDocumentados, contextoDocumentalCC } from './horarios-documentados-api.js?v=711';
 import { supabase } from '../supabase/supabaseClient.js';
 import { asegurarSesion, rpcConSesion, esErrorAcceso, mostrarErrorAcceso, observarSesion, ErrorSesion } from './sesion-protegida.js?v=sesion-6-2-1';
-import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,mergeNotices} from './centro-control-metricas.js?v=chef-7-3';
+import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,mergeNotices} from './centro-control-metricas.js?v=711';
 
 // Centro de Control: lectura operativa. No aprueba, liquida ni altera marcaciones.
 const $=id=>document.getElementById(id);
@@ -61,7 +62,11 @@ async function load(silent=false){
     await asegurarSesion();
     const [ctx,marks]=await Promise.all([rpc('consultar_centro_control_contexto_v2',{p_desde:from,p_hasta:to},signal),loadMarks(from,to,signal,token)]);
     if(token!==s.loadToken)return;
-    const model=buildModel(ctx,marks.rows,ctx.server_time?bogotaNow(new Date(ctx.server_time)):now);
+    const docs=await cargarDocumentados(rpcConSesion,{desde:from,hasta:to,signal});
+    if(token!==s.loadToken)return;
+    const conDoc=docs.disponible?contextoDocumentalCC(ctx,docs.resuelto):ctx;
+    txt('ccDocStatus',docs.disponible?'Horarios documentales desde 23/08/2026. La puntualidad oficial excluye las sugerencias semanales no confirmadas.':docs.motivo);
+    const model=buildModel(conDoc,marks.rows,ctx.server_time?bogotaNow(new Date(ctx.server_time)):now);
     if(model.diagnostic.invalid)throw new Error('Hay marcas con fecha inválida; revisa la fuente antes de calcular indicadores.');
     s.model=model;s.range=requested;s.loaded={from,to,total:marks.total,ceiling:marks.ceiling};s.lastLoaded=Date.now();
     populateAreas();render();clearError();realtime();

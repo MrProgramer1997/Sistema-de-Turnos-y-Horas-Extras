@@ -1,5 +1,5 @@
 import {TYPES,esc,todayBogota,addDays,dateText,timeText,daysBetween,requiredDocs,validateForm,validateFiles,resolveDay,stateInfo,receipt} from './portal-mis-turnos-core.js?v=chef-7-3';
-import {supabase,call,uploadSupports,openSupport} from './portal-mis-turnos-api.js?v=chef-7-3';
+import {supabase,call,uploadSupports,openSupport} from './portal-mis-turnos-api.js?v=711';
 const $=id=>document.getElementById(id);
 let user=null,bundle=null,today=todayBogota(),screen='home',step=1,kind='',files=[],requestId=null,uploaded=null,supplement=null,busy=false,uncertain=false,offset=0,inbox=null,inboxBusy=false,weekStart=today,weekMode=false,scheduleToken=0,refreshTimer=null;
 function say(s=''){$('live').textContent=s;}

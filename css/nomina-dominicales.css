@@ -1,0 +1,11 @@
+.dom712-dialog{box-sizing:border-box;width:min(780px,96vw);max-width:96vw;max-height:94dvh;padding:0;border:1px solid #BBDFFF;border-radius:16px;color:#102f50;background:#fff;box-shadow:0 16px 64px #0003;font:inherit}
+.dom712-dialog *{box-sizing:border-box}.dom712-dialog::backdrop{background:#0008}.dom712-form{margin:0}
+.dom712-form header,.dom712-form footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;background:#fff}
+.dom712-form header{border-bottom:1px solid #BBDFFF}.dom712-form footer{border-top:1px solid #BBDFFF;justify-content:flex-end;position:sticky;bottom:0}
+.dom712-form h2{font-size:1.3rem;color:#004AA1;margin:0}.dom712-form h3{font-size:1.1rem;margin:0 0 8px;overflow-wrap:anywhere}.dom712-body{padding:20px 22px}
+.dom712-form button{border:1px solid #004AA1;border-radius:7px;padding:10px 14px;min-height:44px;color:#004AA1;background:#fff;cursor:pointer}.dom712-form .dom712-aprobar{background:#004AA1;color:#fff}
+.dom712-intervalo{background:#f1f8ff;border:1px solid #BBDFFF;border-radius:9px;display:grid;gap:6px;padding:14px;margin:12px 0}.dom712-intervalo span{font-size:1.35rem;font-weight:700}.dom712-intervalo small{font-size:.85rem}
+.dom712-tabla{overflow:auto;margin:12px 0}.dom712-tabla table{width:100%;border-collapse:collapse;font-size:.9rem}.dom712-tabla th,.dom712-tabla td{padding:9px 7px;border-bottom:1px solid #E3E3E3;text-align:left}.dom712-tabla th{background:#004AA1;color:#fff}
+.dom712-form label{display:block;font-weight:600;margin-top:16px}.dom712-form input[type=text],.dom712-form textarea{width:100%;border:1px solid #88C3FF;border-radius:7px;padding:10px;margin-top:5px;color:#102f50;background:#fff;font:inherit}
+.dom712-check{display:flex!important;align-items:flex-start;gap:9px;font-size:.9rem}.dom712-check input{margin-top:4px;accent-color:#004AA1}.dom712-aviso{font-size:.86rem;border-left:3px solid #F88906;background:#fff8f1;padding:10px 12px}.dom712-error{color:#b42318}.dom712-pendiente{color:#004AA1}.dom712-form :focus-visible{outline:3px solid #88C3FF;outline-offset:2px}
+@media(max-width:560px){.dom712-body{padding:14px}.dom712-form header,.dom712-form footer{padding:14px}.dom712-form footer{flex-wrap:wrap}.dom712-form h2{font-size:1.15rem}}

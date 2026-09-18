@@ -1,6 +1,6 @@
 import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
 /** Centro de Control V2. Motor de lectura: no guarda, liquida ni aprueba horas. */
-export const METRIC_START = '2026-08-27';
+export const METRIC_START = '2026-08-23';
 export const HISTORY_START = '2026-08-23';
 const DAY = 1440;
 export const norm = v => String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
@@ -88,7 +88,7 @@ export function buildModel(ctx={}, raw=[], now=bogotaNow()) {
  const schedules=new Map(),codes=new Map((ctx.chefCodes||[]).map(c=>[c.codigo,c])),chefPeople=new Map((ctx.chefPeople||[]).map(p=>[p.id,p]));
  function addSchedule(code,date,s){if(!code||!date)return;const k=`${doc(code)}|${date}`;if(!schedules.has(k))schedules.set(k,[]);schedules.get(k).push({...s,code:doc(code),date});}
  for(const r of ctx.legacy||[])addSchedule(r.cedula,r.fecha,{source:'Programaci\u00f3n A&B',priority:2,begin:r.hora_inicio,end:r.hora_fin,begin2:r.hora_inicio_2,end2:r.hora_fin_2,turn:r.turno,notice:r.novedad_codigo||(/novedad|descanso/.test(norm(r.tipo_registro))?r.turno:''),id:r.id,breakMin:30});
- for(const r of ctx.general||[]){if(/cancel|rechaz|borrador/.test(norm(r.estado)))continue;addSchedule(byId.get(r.empleado_id)?.cedula,r.fecha,{source:'Programaci\u00f3n general',priority:1,begin:r.hora_inicio,end:r.hora_fin,turn:proc.get(r.proceso_id)?.nombre||'Turno',notice:r.novedad_codigo||(norm(r.tipo_registro)==='descanso'?'D':''),id:r.id,breakMin:r.minutos_descanso||0,inferred:/infer/.test(norm(r.origen_programacion))});}
+ for(const r of ctx.general||[]){if(/cancel|rechaz|borrador/.test(norm(r.estado)))continue;addSchedule(byId.get(r.empleado_id)?.cedula,r.fecha,{source:r.documental_711?(r.documental_711.tipo==='deteccion_semanal'?'Detectado por semana':'Horario documental / asignacion'):'Programaci\u00f3n general',priority:1,begin:r.hora_inicio,end:r.hora_fin,begin2:r.documental_711?r.hora_inicio_2:null,end2:r.documental_711?r.hora_fin_2:null,turn:r.documental_711?(r.turno||'Por confirmar'):proc.get(r.proceso_id)?.nombre||'Turno',notice:r.novedad_codigo||(norm(r.tipo_registro)==='descanso'?'D':''),id:r.id,documental:r.documental_711,forceConflict:Boolean(r.documental_711&&r.conflicto_programacion),assignedNet:r.documental_711?r.horas_programadas_netas:null,breakMin:r.minutos_descanso||0,inferred:/infer/.test(norm(r.origen_programacion))});}
  for(const r of ctx.chef||[]){if(/cancel|rechaz|borrador/.test(norm(r.estado)))continue;const p=chefPeople.get(r.cronograma_personal_id);if(!p)continue;const code=doc(byId.get(p.empleado_id)?.cedula||p.documento),a=codigoAsignado(r,codes.get(r.codigo_turno),1),b=codigoAsignado(r,codes.get(r.codigo_turno_2),2);
   addSchedule(code,r.fecha,{source:'Programaci\u00f3n Chef',priority:3,begin:a?.hora_inicio,end:a?.hora_fin,begin2:b?.hora_inicio,end2:b?.hora_fin,turn:r.codigo_turno,notice:!a?.hora_inicio?r.codigo_turno:'',id:r.id,breakMin:30,assignedNet:r.horario_asignado?analizarHorario(r.horario_asignado).netos/60:null});}
  const notices=[];
@@ -105,7 +105,7 @@ export function buildModel(ctx={}, raw=[], now=bogotaNow()) {
  for(const [k,list] of schedules){const sorted=list.slice().sort((a,b)=>b.priority-a.priority),s=sorted[0],same=sorted.filter(x=>x.priority===s.priority),p=person(s.code,s.date),b=timeMin(s.begin),e=timeMin(s.end),n=getNotices(s.code,s.date),exempt=n.find(x=>x.full);
   let start=b===null?null:dayMinute(s.date)+b, end=e===null||start===null?null:dayMinute(s.date)+e;if(end!==null&&end<start)end+=DAY;
   const b2=timeMin(s.begin2),e2=timeMin(s.end2);if(b2!==null&&e2!==null&&start!==null){let end2=dayMinute(s.date)+e2;if(e2<b2)end2+=DAY;if(end2<start)end2+=DAY;end=Math.max(end??0,end2);}
-  const conflict=p.duplicate||same.some(x=>[x.begin,x.end,x.notice].join('|')!==[s.begin,s.end,s.notice].join('|'));
+  const conflict=Boolean(s.forceConflict)||p.duplicate||same.some(x=>[x.begin,x.end,x.notice].join('|')!==[s.begin,s.end,s.notice].join('|'));
   let status='sin_horario',entry=null,delta=null;
   if(exempt)status='justificada';
   else if(s.inferred)status='inferida';

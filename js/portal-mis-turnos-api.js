@@ -1,9 +1,22 @@
+import { cargarDocumentados } from './horarios-documentados-api.js?v=711';
 import { supabase } from '../supabase/supabaseClient.js';
 import { BUCKET } from './portal-mis-turnos-core.js?v=chef-7-3';
 export { supabase };
 export async function call(name,args={}){
  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),25000);
- try{const {data,error}=await supabase.rpc(name,args).abortSignal(ctrl.signal);if(error)throw Object.assign(new Error(error.message),{code:error.code});return data;}
+ try{const {data,error}=await supabase.rpc(name,args).abortSignal(ctrl.signal);if(error)throw Object.assign(new Error(error.message),{code:error.code});
+  if(name==='portal_mis_turnos_v1'){
+   const request=(n,a,o)=>supabase.rpc(n,a).abortSignal(o.signal);
+   const doc=await cargarDocumentados(request,{desde:args.p_desde,hasta:args.p_hasta,signal:ctrl.signal,propio:true});
+   if(doc.disponible){
+    if(doc.resuelto.rows.some(r=>r.empleado_id!==data.empleado?.id))throw new Error('La identidad del horario no coincide con la cuenta.');
+    const effective=doc.resuelto.rows.filter(r=>!['guardada','novedad'].includes(r.documental_711.tipo));
+    const keys=new Set(effective.map(r=>r.fecha));
+    return {...data,general:[...(data.general||[]).filter(r=>!keys.has(r.fecha)),...effective.map(r=>({...r,estado:'programado',origen_programacion:r.programacion_tipo.startsWith('inferida')?'inferida_semanal_documental':'documental_estipulada',lugar:r.area||'Confirma el lugar con tu jefe'}))],documental_711:doc.resuelto};
+   }
+   return {...data,aviso_documental:doc.motivo};
+  }
+  return data;}
  finally{clearTimeout(timer);}
 }
 export async function uploadSupports(userId,id,files,progress=()=>{}){

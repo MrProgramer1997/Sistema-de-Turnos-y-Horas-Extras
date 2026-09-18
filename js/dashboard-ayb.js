@@ -1,4 +1,7 @@
-import { modeloRevision, comparacionCelda, programacionCelda, marcadoCelda, advertenciaNocturna, requiereRevisionNocturna, crearVisorRevision, contextoComoJornada } from "./revision-evidencia.js?v=7-7";
+import { controlExtraVigente } from './nomina-control-pendientes.js?v=713';
+import { fechaDiaRevision, diaSemanaRevision, ordenCronologicoRevision } from './revision-punto.js?v=713';
+import { incorporarDomingos, esDomingoRevision, pedirValidacionDomingo } from './nomina-dominicales.js?v=713';
+import { calculadasCeldaRevision, columnasRevisionExcel, modeloRevision, comparacionCelda, programacionCelda, marcadoCelda, advertenciaNocturna, requiereRevisionNocturna, crearVisorRevision, contextoComoJornada } from "./revision-evidencia.js?v=713";
 import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
 import { supabase } from "../supabase/supabaseClient.js";
 
@@ -3702,43 +3705,15 @@ function resumirMarcacionesPorDia(marcaciones) {
   return mapa;
 }
 
-function detalleMarcacionesProgramacion(item, mapaMarcaciones) {
-  const eventos = mapaMarcaciones.get(claveMarcacionesExcel(item.cedula, item.fecha)) || [];
-  const primera = eventos[0] || null;
-  const entradaPorteria = eventos.find(esMarcacionPorteria) || null;
-  const llegadaPunto = eventos.find((evento) => !esMarcacionPorteria(evento)) || null;
-  const ultima = eventos[eventos.length - 1] || null;
-  const marcacionEntrada = llegadaPunto || entradaPorteria || primera;
-  const horaPunto = horaMarcacionExcel(marcacionEntrada);
-  const inicioProgramado = String(item.hora_inicio || "").slice(0, 5);
-  const finProgramado = String(item.hora_fin_2 || item.hora_fin || "").slice(0, 5);
-  const minutosProgramados = horaTextoAMinutos(inicioProgramado);
-  const minutosPunto = horaTextoAMinutos(horaPunto);
-  const minutosFinProgramado = horaTextoAMinutos(finProgramado);
-  const minutosUltima = horaTextoAMinutos(horaMarcacionExcel(ultima));
-  let diferencia = "", diferenciaSalida = "";
-  if (minutosProgramados != null && minutosPunto != null) {
-    diferencia = minutosPunto - minutosProgramados;
-    if (diferencia > 720) diferencia -= 1440;
-    if (diferencia < -720) diferencia += 1440;
-  }
-  if (minutosFinProgramado != null && minutosUltima != null) {
-    diferenciaSalida = minutosUltima - minutosFinProgramado;
-    if (diferenciaSalida > 720) diferenciaSalida -= 1440;
-    if (diferenciaSalida < -720) diferenciaSalida += 1440;
-  }
-  return {
-    eventos,
-    primera,
-    entradaPorteria,
-    llegadaPunto,
-    marcacionEntrada,
-    ultima,
-    horaPunto,
-    diferencia,
-    diferenciaSalida,
-    marcacionesTexto:eventos.map(horaMarcacionExcel).filter(Boolean).join(" · ")
-  };
+function detalleMarcacionesProgramacion(item,mapaMarcaciones){
+ const eventos=mapaMarcaciones.get(claveMarcacionesExcel(item.cedula,item.fecha))||[];
+ const m=modeloRevision({...item,programacion_tipo:'confirmada',total_marcaciones:eventos.length,recorrido:eventos.map(v=>({...v,hora:v.punch_time,punto:v.area_biometrico,terminal:v.terminal_alias}))});
+ const porId=new Map(eventos.map(v=>[String(v.biotime_id),v]));
+ const entrada=m.entrada===null?null:m.usadas[0],salida=m.salida===null?null:m.usadas.at(-1);
+ return {eventos,primera:eventos[0]||null,entradaPorteria:eventos.find(esMarcacionPorteria)||null,
+ llegadaPunto:m.seleccion.fuente==='punto'?entrada:null,marcacionEntrada:entrada,ultima:salida,
+ horaPunto:horaMarcacionExcel(entrada),diferencia:m.deltaEntrada===null?'':Math.trunc(m.deltaEntrada),diferenciaSalida:m.deltaSalida===null?'':Math.trunc(m.deltaSalida),
+ marcacionesTexto:eventos.map(horaMarcacionExcel).filter(Boolean).join(' · '),modelo:m};
 }
 
 function descripcionDiferenciaExcel(minutos, tipo) {
@@ -3758,10 +3733,10 @@ function configurarHojaExcel(hoja, anchos) {
 
 function exportarProgramacionComoCSV(registros, nombreBase, mapaMarcaciones = new Map()) {
   const columnas = [
-    "Fecha", "Empleado", "Cédula", "Área", "Subárea / punto",
+    "Fecha", "Dia", "Empleado", "Cédula", "Área", "Subárea / punto",
     "Tipo de registro", "Turno completo", "Inicio", "Fin", "Inicio bloque 2", "Fin bloque 2", "Novedad",
     "Entrada portería", "Primera marcación operativa", "Punto biométrico",
-    "Minutos llegada vs turno", "Estado de llegada", "Última marcación",
+    "Minutos llegada vs turno", "Estado de llegada", "Salida comparada",
     "Minutos salida vs turno", "Estado de salida", "Todas las marcaciones", "Total marcaciones",
     "Horas netas", "Horas nocturnas", "Extra candidata", "Estado extra"
   ];
@@ -3771,10 +3746,11 @@ function exportarProgramacionComoCSV(registros, nombreBase, mapaMarcaciones = ne
     return `"${texto}"`;
   };
 
-  const filas = registros.map((item) => {
+  const filas = registros.slice().sort(ordenCronologicoRevision).map((item) => {
     const detalle = detalleMarcacionesProgramacion(item, mapaMarcaciones);
     return [
     item.fecha,
+    diaSemanaRevision(item.fecha),
     obtenerNombreEmpleado(item),
     item.cedula,
     obtenerAreaAmigable(item),
@@ -3847,10 +3823,11 @@ async function exportarDashboardExcel() {
     }
 
     const workbook = window.XLSX.utils.book_new();
-    const programacion = registrosFiltrados.map((item) => {
+    const programacion = registrosFiltrados.slice().sort(ordenCronologicoRevision).map((item) => {
       const detalle = detalleMarcacionesProgramacion(item, mapaMarcaciones);
       return ({
       Fecha: valorExcelSeguro(item.fecha),
+      Dia:diaSemanaRevision(item.fecha),
       Empleado: valorExcelSeguro(obtenerNombreEmpleado(item)),
       Cédula: valorExcelSeguro(item.cedula),
       Área: valorExcelSeguro(obtenerAreaAmigable(item)),
@@ -3868,7 +3845,8 @@ async function exportarDashboardExcel() {
       "Terminal de llegada": valorExcelSeguro(detalle.marcacionEntrada?.terminal_alias),
       "Minutos llegada vs inicio programado": detalle.diferencia,
       "Estado de llegada": descripcionDiferenciaExcel(detalle.diferencia,"entrada"),
-      "Última marcación": valorExcelSeguro(horaMarcacionExcel(detalle.ultima)),
+      "Salida comparada": valorExcelSeguro(horaMarcacionExcel(detalle.ultima)),
+      "Base de comparacion":detalle.modelo.base,"Aclaracion del punto":detalle.modelo.seleccion.nota,
       "Minutos salida vs fin programado": detalle.diferenciaSalida,
       "Estado de salida": descripcionDiferenciaExcel(detalle.diferenciaSalida,"salida"),
       "Todas las marcaciones del día": valorExcelSeguro(detalle.marcacionesTexto),
@@ -3897,6 +3875,7 @@ async function exportarDashboardExcel() {
       });
       const dataMarcaciones = marcaciones.map((item) => ({
         Fecha: valorExcelSeguro(item.fecha),
+      Dia:diaSemanaRevision(item.fecha),
         Empleado: valorExcelSeguro(item.empleado),
         Cédula: valorExcelSeguro(item.cedula),
         Hora: valorExcelSeguro(horaMarcacionExcel(item)),
@@ -3919,6 +3898,7 @@ async function exportarDashboardExcel() {
     if (novedadesFiltradas.length) {
       const dataNovedades = novedadesFiltradas.map((item) => ({
         Fecha: valorExcelSeguro(item.fecha),
+      Dia:diaSemanaRevision(item.fecha),
         Empleado: valorExcelSeguro(obtenerNombreEmpleado(item)),
         Cédula: valorExcelSeguro(item.cedula),
         Área: valorExcelSeguro(obtenerAreaAmigable(item)),
@@ -3957,6 +3937,7 @@ async function exportarDashboardExcel() {
         Empleado: valorExcelSeguro(obtenerNombreEmpleado(item)),
         Cédula: valorExcelSeguro(item.cedula),
         Fecha: valorExcelSeguro(item.fecha),
+      Dia:diaSemanaRevision(item.fecha),
         "Horas aprobadas": Number(item.horas_extra_estimadas || 0),
         "Aprobado por": valorExcelSeguro(item.aprobado_por),
         "Fecha aprobación": valorExcelSeguro(formatearFechaHora(item.fecha_aprobacion)),
@@ -3969,6 +3950,10 @@ async function exportarDashboardExcel() {
       );
     }
 
+    if(revisionCargaInicialRealizada&&!revisionCargaEnCurso){
+      const detalle=registrosRevisionFiltrados().map(x=>({Empleado:x.empleado,Cedula:String(x.cedula||''),Fecha:String(x.fecha||'').slice(0,10),Dia:diaSemanaRevision(x.fecha),Concepto:x.concepto_codigo,Estado:x.estado_revision,'Horas calculadas guardadas':x.detalle?.calculo_pendiente?null:x.horas_calculadas,'Horas aprobadas':x.horas_aprobadas,'Observacion':x.observacion||'',...columnasRevisionExcel(x)}));
+      window.XLSX.utils.book_append_sheet(workbook,window.XLSX.utils.json_to_sheet(detalle),'Revision y evidencia');
+    }
     window.XLSX.writeFile(workbook, `${nombreBase}.xlsx`);
   } catch (error) {
     console.error("Error exportando Excel:", error);
@@ -4371,6 +4356,7 @@ async function confirmarReporteListoNomina(){
 let revisionCargaVersion = 0;
 let revisionCargaInicialRealizada = false;
 let revisionCargaEnCurso = false;
+let revisionLecturaIntegra713 = false;
 let revisionCalculoEnCurso = false;
 let revisionContextoActual = null;
 const revisionDecisionesConfirmadas = new Map();
@@ -4435,10 +4421,8 @@ async function leerRevisionesAyb(desde, hasta) {
   const pagina = 500;
   // Orden estable: no perder filas al pasar el limite de respuesta de Supabase.
   for (let offset = 0; ; offset += pagina) {
-    const { data } = await lecturaRevisionAcotada(supabase.from('turnos_conceptos_revision')
-      .select(COLUMNAS_REVISION_AYB).eq('grupo_codigo','ALIMENTOS_BEBIDAS')
-      .gte('fecha',desde).lte('fecha',hasta)
-      .order('fecha',{ascending:false}).order('id',{ascending:true})
+    const { data } = await lecturaRevisionAcotada(supabase.rpc('consultar_revisiones_ayb_v713',{p_desde:desde,p_hasta:hasta})
+      .order('fecha',{ascending:true}).order('id',{ascending:true})
       .range(offset,offset+pagina-1));
     const lote = data || [];
     filas.push(...lote);
@@ -4499,13 +4483,13 @@ function enriquecerFilaRevisionAyb(original, contexto) {
     comparacion_guardada: !j, comparacion_error: fallo,
     // Los observados permanecen consultables aun si posteriormente cambia el turno.
     ocultar_por_tolerancia: esExtra && !extraValida && !cerrado && estado !== 'observado' && Boolean(j),
-    permite_revision: !cerrado && extraValida && Number(r.horas_calculadas || 0) > 0
+    permite_revision: !cerrado && (esDomingoRevision(r)||requiereRevisionNocturna(r)||(extraValida && Number(r.horas_calculadas || 0) > 0))
   };
 }
 
 function publicarRevisionAyb(revisiones, contexto) {
   if (contexto.version !== revisionCargaVersion) return false;
-  revisionNominaRealBase = revisiones.map(r => enriquecerFilaRevisionAyb(r, contexto)).filter(r => !r.ocultar_por_tolerancia);
+  revisionNominaRealBase = revisiones.map(r => enriquecerFilaRevisionAyb(r, contexto));
   renderRevisionNominaReal();
   return true;
 }
@@ -4520,10 +4504,13 @@ async function cargarRevisionNominaReal(opciones = {}) {
   const contexto = nuevoContextoRevision(rango.desde, rango.hasta, version);
   revisionContextoActual = contexto;
   revisionCargaEnCurso = true;
+  revisionLecturaIntegra713 = false;
   if (revisionNominaRealBase.length) renderRevisionNominaReal();
   actualizarBotonesCargaRevision();
   mensajeRevisionAyb('Consultando decisiones guardadas...');
   try {
+    await incorporarDomingos((name,args)=>supabase.rpc(name,args),rango.desde,rango.hasta);
+    if(version!==revisionCargaVersion)return;
     const revisiones = await leerRevisionesAyb(rango.desde, rango.hasta);
     if (!publicarRevisionAyb(revisiones, contexto)) return;
     mensajeRevisionAyb('Decisiones disponibles. Verificando programaci\u00f3n y marcaciones; puedes consultar las observaciones.');
@@ -4533,6 +4520,7 @@ async function cargarRevisionNominaReal(opciones = {}) {
       ? 'Bandeja disponible. Algunas comparaciones no pudieron actualizarse; se conserva el detalle guardado. Usa Actualizar bandeja para reintentar.'
       : `Bandeja actualizada: ${revisionNominaRealBase.length} conceptos del per\u00edodo.`, contexto.fallidos.size ? 'warning' : 'success');
     revisionCargaInicialRealizada = true;
+    revisionLecturaIntegra713 = contexto.fallidos.size===0;
   } catch (e) {
     if (version !== revisionCargaVersion) return;
     console.error('Bandeja revisi\u00f3n:', e);
@@ -4542,6 +4530,7 @@ async function cargarRevisionNominaReal(opciones = {}) {
     if (version === revisionCargaVersion) {
       revisionCargaEnCurso = false;
       actualizarBotonesCargaRevision();
+      renderRevisionNominaReal();
     }
   }
   // Generacion inicial una sola vez, despues de mostrar las decisiones.
@@ -4575,7 +4564,7 @@ async function completarRevisionNominaAyb(revisiones, desde, hasta, contexto = n
     if (!contexto.porDia.has(clave)) mapaPares.set(clave,{cedula,fecha});
   }
   const pendientes=[...mapaPares.values()];
-  if (!pendientes.length) return revisiones.map(r => enriquecerFilaRevisionAyb(r,contexto)).filter(r => !r.ocultar_por_tolerancia);
+  if (!pendientes.length) return revisiones.map(r => enriquecerFilaRevisionAyb(r,contexto));
 
   const lotes=[];
   for(let i=0;i<pendientes.length;i+=200) lotes.push(pendientes.slice(i,i+200));
@@ -4606,7 +4595,7 @@ async function completarRevisionNominaAyb(revisiones, desde, hasta, contexto = n
   }
   // Dos peticiones simultáneas como máximo para no competir con otras lecturas del módulo.
   await Promise.all([trabajadorRapido(),trabajadorRapido()]);
-  return revisiones.map(r => enriquecerFilaRevisionAyb(r,contexto)).filter(r => !r.ocultar_por_tolerancia);
+  return revisiones.map(r => enriquecerFilaRevisionAyb(r,contexto));
 }
 
 async function consultarJornadasRevisionAyb(cedulas, desde, hasta, contexto) {
@@ -4723,14 +4712,7 @@ function registrosRevisionFiltrados() {
     if (buscar && !`${x.empleado||""} ${x.cedula||""} ${x.concepto_codigo||""} ${x.concepto_nombre||""} ${x.proceso_nombre||""} ${x.proceso_codigo||""} ${x.observacion||""}`.toLowerCase().includes(buscar)) return false;
     return true;
   });
-  const pesoEstado={observado:0,pendiente:1,aprobado:2,rechazado:3};
-  return filas.sort((a,b)=>{
-    const pa=pesoEstado[String(a.estado_revision||"").toLowerCase()]??9;
-    const pb=pesoEstado[String(b.estado_revision||"").toLowerCase()]??9;
-    if(pa!==pb)return pa-pb;
-    if(Boolean(a.permite_revision)!==Boolean(b.permite_revision))return a.permite_revision?-1:1;
-    return String(b.fecha||"").localeCompare(String(a.fecha||""));
-  });
+  return filas.sort(ordenCronologicoRevision);
 }
 
 function formatearHorasRevision(valor) {
@@ -4830,19 +4812,49 @@ function renderRevisionNominaReal() {
     const claseFila=cerrado?"ayb-row-cerrado":estado==="observado"?"ayb-row-observado":incidencia?"ayb-row-incidencia":"";
     return `<tr class="${claseFila}" data-revision-id="${escaparHtml(x.revision_id)}" aria-busy="${revisionGuardando.has(String(x.revision_id))}">
       <td><strong>${escaparHtml(x.empleado||"")}</strong><div class="small text-muted">${escaparHtml(x.codigo_erp||"Sin código ERP")} · ${escaparHtml(x.cedula||"")}</div></td>
-      <td>${escaparHtml(formatearFechaCorta(x.fecha)||x.fecha||"")}</td>
+      <td>${fechaDiaRevision(x.fecha)}</td>
       <td>${programacionCelda(modelo)}</td>
       <td>${marcadoCelda(modelo)}<button class="rev-detail-button" onclick="window.aybVerEvidencia('${x.revision_id}')">Ver todas las marcas</button>${estadoComparacionRevision(x)}</td>
       <td>${comparacionCelda(modelo,"entrada")}</td>
       <td>${comparacionCelda(modelo,"salida")}</td>
       <td><strong>${escaparHtml(x.concepto_codigo||"")}</strong><div class="small">${escaparHtml(x.concepto_nombre||"")}</div></td>
-      <td><strong>${formatearHorasRevision(horasCalculadas)}</strong><div class="small text-muted mt-1">${escaparHtml(descripcionCalculoRevision(x))}</div>${advertenciaNocturna(x)}</td>
+      <td>${calculadasCeldaRevision(x,modelo)}${advertenciaNocturna(x)}</td>
       <td>${x.horas_aprobadas==null?"-":`${formatearHorasRevision(x.horas_aprobadas)}${diferenciaAprobada?'<div class="small text-warning-emphasis mt-1">Difiere del cálculo actual</div>':""}`}</td>
       <td class="revision-estado-nota">${renderEstadoObservacionRevision(x)}</td>
-      <td>${revisionGuardando.has(String(x.revision_id))?'<button type="button" class="btn btn-outline-primary btn-sm" disabled>Guardando...</button>':!usuarioPuedeDecidirRevisionAyb()?'<span class="small text-muted">Solo lectura</span>':cerrado ? `<div class="d-flex flex-column align-items-start gap-1"><span class="small text-muted">Cerrado</span><button class="btn btn-outline-primary btn-sm" onclick="window.editarRevisionNomina('${x.revision_id}',${Number(x.horas_aprobadas||0)})">Editar</button></div>` : requiereRevisionNocturna(x) ? `<div class="rev-actions"><button class="btn btn-outline-primary btn-sm" onclick="window.aybVerEvidencia('${x.revision_id}',true)">Revisar cálculo</button><button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','rechazar')">Rechazar</button></div>` : !x.permite_revision ? `<span class="small text-muted">Solo seguimiento</span>` : `<div class="d-flex flex-wrap gap-1"><button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','aprobar')">Aprobar ${horasCalculadas.toFixed(2)} h</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','ajustar')">Ajustar</button><button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${x.revision_id}','rechazar')">Rechazar</button></div>`}</td>
+      <td>${accionesRevisionAyb713(x,cerrado)}</td>
     </tr>`;
   }).join("");
 }
+
+function accionesRevisionAyb713(x,cerrado){
+ const id=escaparHtml(String(x.revision_id));
+ if(!revisionLecturaIntegra713)return '<span class="small text-muted">Actualiza la lectura completa antes de decidir.</span>';
+ if(revisionCargaEnCurso||revisionGuardando.has(String(x.revision_id)))return '<button class="btn btn-outline-primary btn-sm" disabled>Verificando datos...</button>';
+ if(!usuarioPuedeDecidirRevisionAyb())return '<span class="small text-muted">Solo lectura</span>';
+ if(cerrado)return `<span>Cerrado</span><button class="btn btn-outline-primary btn-sm" onclick="window.editarRevisionNomina('${id}',${Number(x.horas_aprobadas||0)})">Editar</button>`;
+ const comentario=`<button class="btn btn-outline-warning btn-sm" onclick="window.resolverRevisionNomina('${id}','observar')">Observar</button><button class="btn btn-outline-danger btn-sm" onclick="window.resolverRevisionNomina('${id}','rechazar')">Rechazar</button>`;
+ let accion;
+ if(esDomingoRevision(x))accion=`<button class="btn btn-outline-primary btn-sm" onclick="window.validarEspecialAyb('${id}')">Revisar y aprobar</button>`;
+ else if(requiereRevisionNocturna(x))accion=`<button class="btn btn-outline-primary btn-sm" onclick="window.aybVerEvidencia('${id}',true)">Revisar y aprobar nocturno</button>`;
+ else if(x.permite_revision&&!x.ocultar_por_tolerancia&&!x.comparacion_error&&!controlExtraVigente(x,modeloRevision(x)))accion=`<button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${id}','aprobar')">Aprobar ${Number(x.horas_calculadas||0).toFixed(2)} h</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${id}','ajustar')">Ajustar</button>`;
+ else accion=`<button class="btn btn-outline-primary btn-sm" onclick="window.aybVerEvidencia('${id}')">Revisar horario y marcas</button>`;
+ return `<div class="rev-actions">${accion}${comentario}</div>`;
+}
+window.validarEspecialAyb=async function(id){
+ if(!revisionLecturaIntegra713||revisionCargaEnCurso||revisionGuardando.size||!usuarioPuedeDecidirRevisionAyb())return;
+ revisionGuardando.add(String(id));renderRevisionNominaReal();
+ try{
+  const {data:raw,error:er}=await supabase.from('turnos_conceptos_revision').select('*').eq('id',id).single();if(er)throw er;
+  const actual=revisionNominaRealBase.find(x=>String(x.revision_id)===String(id));if(!actual||!esDomingoRevision(raw))throw new Error('La revisión cambió; actualiza.');
+  const {data:ctx,error}=await supabase.rpc('consultar_evidencia_nomina_v77',{p_items:[{cedula:raw.cedula,fecha:raw.fecha}]});if(error)throw error;
+  const ev=ctx?.jornadas?.[0];if(!ev||!ev.completo)throw new Error('Falta la evidencia completa.');
+  const decision=await pedirValidacionDomingo({...actual,...raw},modeloRevision({...actual,...raw,evidencia_revision:ev}));if(!decision)return;
+  const rr=await supabase.rpc('resolver_domingo_revision_v712',{p_revision_id:id,p_horas:decision.horas,p_motivo:decision.motivo,p_version:raw.updated_at,p_huella:raw.detalle?.huella_marcaciones});if(rr.error)throw rr.error;
+  const saved=Array.isArray(rr.data)?rr.data[0]:rr.data;if(saved?.id!==id||saved.estado!=='aprobado')throw new Error('No se confirmó la aprobación.');
+  actualizarFilaConDecisionConfirmada(String(id),saved);mensajeRevisionAyb('Aprobación confirmada, con horas y comentario en auditoría.','success');
+ }catch(e){mensajeRevisionAyb('No se confirmó la decisión: '+(e.message||e)+'. Actualiza antes de reintentar; no se repite automáticamente.','error');}
+ finally{revisionGuardando.delete(String(id));renderRevisionNominaReal();}
+};
 
 function badgeEstadoRevisionAyb(estado) {
   const valor=String(estado||'pendiente').toLowerCase();
@@ -4955,12 +4967,14 @@ async function guardarDecisionRevisionAyb(id,funcion,parametros) {
 }
 
 window.resolverRevisionNomina=async function(id,accion){
-  if(revisionGuardando.has(id)||!usuarioPuedeDecidirRevisionAyb())return;
+  if(!revisionLecturaIntegra713||revisionCargaEnCurso||revisionGuardando.has(id)||!usuarioPuedeDecidirRevisionAyb())return;
   const usuario=usuarioRevisionActual(); if(!usuario){alert('No se pudo identificar el usuario de la sesi\u00f3n.');return;}
   const registro=revisionNominaRealBase.find(x=>String(x.revision_id||'')===String(id));
   if(!registro){alert('No fue posible localizar el concepto. Actualiza la bandeja.');return;}
-  if(!registro.permite_revision){alert('Este concepto no permite esta acci\u00f3n. Verifica su estado.');return;}
+  if(['aprobar','ajustar'].includes(accion)&&esDomingoRevision(registro)){await window.validarEspecialAyb(id);return;}
+  if(['aprobar','ajustar'].includes(accion)&&!registro.permite_revision){alert('Revisa el horario y el cálculo antes de aprobar.');return;}
   if(['aprobar','ajustar'].includes(accion)&&requiereRevisionNocturna(registro)){await mostrarEvidenciaAyb(registro,{nocturno:true});return;}
+  if(['aprobar','ajustar'].includes(accion)){const problema=controlExtraVigente(registro,modeloRevision(registro));if(problema){alert(problema);return;}}
   const calculadas=horasCalculadasRevision(registro);
   const descripcion=descripcionCalculoRevision(registro);
   let horas=null,obs=null;
@@ -4982,7 +4996,7 @@ window.resolverRevisionNomina=async function(id,accion){
 };
 
 window.editarRevisionNomina=async function(id,horasActuales){
-  if(revisionGuardando.has(id)||!usuarioPuedeDecidirRevisionAyb())return;
+  if(!revisionLecturaIntegra713||revisionCargaEnCurso||revisionGuardando.has(id)||!usuarioPuedeDecidirRevisionAyb())return;
   const usuario=usuarioRevisionActual(); if(!usuario){alert('No se pudo identificar el usuario de la sesi\u00f3n.');return;}
   const registro=revisionNominaRealBase.find(x=>String(x.revision_id)===id);
   if(!registro||!['aprobado','rechazado'].includes(registro.estado_revision))return;
@@ -5061,23 +5075,24 @@ function escribirFilasEnPlantillaProsof(libro,filas){
 async function generarPlantillaProsof(){
   try{
     const desde=document.getElementById("revisionFechaDesde")?.value; const hasta=document.getElementById("revisionFechaHasta")?.value;
-    let q=supabase.from("vw_prosof_exportacion_por_area").select('*').eq("grupo_codigo","ALIMENTOS_BEBIDAS").order("Fecha",{ascending:true});
-    if(desde)q=q.gte("Fecha",desde); if(hasta)q=q.lte("Fecha",hasta);
-    const {data,error}=await q; if(error)throw error;
-    if(!data?.length)return alert("No hay conceptos aprobados y elegibles para PROSOF en el período seleccionado.");
-    const filas=data.map(x=>({Empleado:String(x.Empleado||""),Concepto:x.Concepto||"",Fecha:x.Fecha||"",Horas:Number(x.Horas||0),LiquidarEnPrima:x.LiquidarEnPrima||"N"}));
+    if(!desde||!hasta)throw new Error('Selecciona desde y hasta para exportar el periodo.');
+    const data=(await leerRevisionesAyb(desde,hasta)).filter(x=>x.estado==='aprobado'&&x.elegible_erp&&Number(x.horas_aprobadas)>0);
+    if(!data.length)return alert("No hay conceptos aprobados y elegibles para PROSOF en el periodo seleccionado.");
+    const filas=data.map(x=>({Empleado:String(x.codigo_erp||""),Concepto:x.concepto_codigo||"",Fecha:x.fecha||"",Horas:Number(x.horas_aprobadas||0),LiquidarEnPrima:"N"}));
     const wb=escribirFilasEnPlantillaProsof(await cargarLibroPlantillaProsof(),filas);
     window.XLSX.writeFile(wb,`PROSOF_AYB_${desde||"inicio"}_${hasta||"fin"}.xls`,{bookType:"biff8",cellStyles:true});
   }catch(e){console.error("PROSOF:",e);alert("No fue posible generar la plantilla PROSOF: "+(e.message||e));}
 }
 
 const mostrarEvidenciaAyb=crearVisorRevision({
+ totalEntreMarcas:true,
+ canWrite:()=>revisionLecturaIntegra713&&usuarioPuedeDecidirRevisionAyb()&&!revisionCargaEnCurso,
  rpc:(name,args)=>supabase.rpc(name,args),
  onChanged:(fila,e)=>{
    if(revisionContextoActual)revisionContextoActual.porDia.set(`${fila.cedula}|${String(fila.fecha).slice(0,10)}`,contextoComoJornada(e));
    actualizarFilaConDecisionConfirmada(String(fila.id),fila);
    revisionNominaRealBase=revisionNominaRealBase.map(r=>r.revision_id===fila.id?{...r,evidencia_revision:e}:r);
-   renderRevisionNominaReal();mensajeRevisionAyb('Candidato actualizado con evidencia; no se aprobo ningun pago.','success');
+   renderRevisionNominaReal();mensajeRevisionAyb(fila.estado==='aprobado'?'Aprobación confirmada con evidencia y auditoría.':'Candidato actualizado; no se aprobó ningún pago.','success');
  }
 });
 window.aybVerEvidencia=(id,nocturno=false)=>{

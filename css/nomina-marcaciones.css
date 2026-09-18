@@ -1,0 +1,14 @@
+/* Scope: payroll attendance only. Preserve other modules and the login. */
+.he-marcacion-filtro{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;padding:14px 18px;border-bottom:1px solid #E3E3E3;background:#fff}
+.he-marcacion-filtro[hidden]{display:none!important}
+.he-marcacion-filtro label{display:block;font-size:.82rem;font-weight:700;margin-bottom:5px;color:#004AA1}
+.he-marcacion-filtro select{min-width:265px;max-width:100%}
+.he-marcacion-nota{flex:1 1 320px;font-size:.79rem;line-height:1.5;margin:0;color:#33465c}
+.he-total-intervalo{display:block;font-weight:700;white-space:nowrap}
+.he-total-criterio{display:block;font-size:.73rem;line-height:1.45;color:#44566b;margin-top:4px;max-width:170px}
+.he-marca-estado{display:block;font-size:.72rem;line-height:1.45;margin-top:6px;color:#004AA1}
+.he-marca-estado.alerta{color:#8c5000}
+.he-dia-total{padding:14px 16px;background:#BBDFFF;border-left:4px solid #004AA1;border-radius:8px;margin:12px 0 18px}
+.he-dia-total strong{display:block;font-size:1.35rem;color:#004AA1}
+.he-dia-total p{margin:5px 0 0;font-size:.82rem;color:#1d354e}
+@media(max-width:600px){.he-marcacion-filtro>div,.he-marcacion-filtro select{width:100%;min-width:0}.he-marcacion-filtro button{width:100%}.he-marcacion-nota{flex-basis:100%}}

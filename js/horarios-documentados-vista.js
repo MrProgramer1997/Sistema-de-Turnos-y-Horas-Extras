@@ -1,0 +1,18 @@
+import {rpcConSesion,asegurarSesion} from './sesion-protegida.js?v=sesion-6-2-1';
+import {cargarDocumentados} from './horarios-documentados-api.js?v=711';
+import {VIGENCIA_DOCUMENTAL} from './horarios-documentados-core.js?v=711';
+const root=document.querySelector('[data-horarios-documentados]');
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+if(root){
+ const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Bogota',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ root.innerHTML=`<h2>Horarios documentados y lectura semanal</h2><p>Los horarios fijos se obtienen de la plantilla estipulada. Las rotaciones se comparan con los dias completos de la semana, sin pedirle al empleado que cargue cada turno. Una sugerencia no es una aprobacion de horas.</p><form class="hd-controls"><label>Desde<input name="from" type="date" min="${VIGENCIA_DOCUMENTAL}" value="${VIGENCIA_DOCUMENTAL}" required></label><label>Hasta<input name="to" type="date" value="${today}" required></label><label>Buscar persona<input name="search" type="search" placeholder="Nombre o cedula"></label><button type="submit">Consultar horarios</button></form><p data-status role="status">Consulta para obtener los horarios de las personas vinculadas. No se modifica la base al consultar.</p><div class="hd-scroll" data-results></div>`;
+ const form=root.querySelector('form'),status=root.querySelector('[data-status]'),results=root.querySelector('[data-results]');let rows=[],ctrl=null,seq=0;
+ const paint=()=>{const q=form.elements.search.value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();let all=rows.filter(r=>root.dataset.horariosDocumentados==='campo'?r.documental_711.fuente.includes('campo.pdf'):!r.documental_711.fuente.includes('campo.pdf'));const match=r=>(r.empleado+' '+r.cedula).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().includes(q);all=all.filter(match);
+ results.innerHTML=all.length?`<table><thead><tr><th>Persona</th><th>Fecha</th><th>Horario</th><th>Neto programado</th><th>Origen</th></tr></thead><tbody>${all.map(r=>`<tr><td>${esc(r.empleado)}<small>${esc(r.cedula)}</small></td><td>${esc(r.fecha)}</td><td>${esc(r.hora_inicio||'Sin horario')}${r.hora_fin?' - '+esc(r.hora_fin):''}<small>${esc(r.turno||'')}</small></td><td>${r.horas_programadas_netas==null?'No definido':Math.floor(r.horas_programadas_netas)+' h '+Math.round(r.horas_programadas_netas%1*60)+' min'}</td><td>${esc(r.diagnostico_turno)}<small>${esc(r.documental_711.fuente)}</small></td></tr>`).join('')}</tbody></table>`:'<p>No hay filas para estos filtros.</p>';};
+ form.elements.search.addEventListener('input',paint);
+ form.addEventListener('submit',async e=>{e.preventDefault();ctrl?.abort();ctrl=new AbortController();const signal=ctrl.signal,n=++seq;form.querySelector('button').disabled=true;status.textContent='Consultando fuente documental y semanas completas...';
+ try{await asegurarSesion();const data=await cargarDocumentados(rpcConSesion,{desde:form.elements.from.value,hasta:form.elements.to.value,signal});if(n!==seq)return;if(!data.disponible){rows=[];results.replaceChildren();status.textContent=data.motivo;return;}rows=data.resuelto.rows;status.textContent=`Lectura completa. ${rows.length} persona/dia en el conjunto documental. Vigencia 23/08/2026. No se guardaron asignaciones ni pagos.`;paint();}
+ catch(error){if(n!==seq)return;rows=[];results.replaceChildren();status.textContent=error?.message||'No fue posible comprobar los horarios.';}
+ finally{if(n===seq)form.querySelector('button').disabled=false;}});
+ window.addEventListener('beforeunload',()=>ctrl?.abort());
+}
