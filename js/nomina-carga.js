@@ -36,9 +36,9 @@ function contextualizar(error, fuente, desde, hasta) {
   const e=new Error(String(error));e.fuenteNomina=fuente;return e;
 }
 
-// Only two independent sources may run at once. A&B has the smaller window;
-// a timeout reduces that window for the rest of THIS load, never forever.
-export const PLAN_LECTURA = Object.freeze({marcas:7, general:7, ayb:5, inferidos:7});
+// Two independent reads at most. Scalar blocks run the expensive SQL once,
+// without OFFSET pages or an additional exact-count execution.
+export const PLAN_LECTURA = Object.freeze({marcas:7, general:7, ayb:7, inferidos:7});
 const now = () => globalThis.performance?.now?.() ?? Date.now();
 function enteroPositivo(value, label, max) {
   if(!Number.isSafeInteger(value)||value<1||value>max) throw new Error(label+': valor no valido.');
@@ -115,8 +115,130 @@ export async function leerPorTramos(request,{
   }
   return result;
 }
+
+// The response is a scalar envelope, not a PostgREST result-set page. Its nested
+// rows and count are generated together. A small API row limit cannot silently
+// turn 1,500 employee/days into 1,000 accepted rows.
+export function validarBloqueNomina(data,fuente,desde,hasta) {
+  if(!data||data.version!=='716'||data.fuente!==fuente||data.desde!==desde||data.hasta!==hasta||
+     data.completa!==true||!Array.isArray(data.filas)||!Number.isSafeInteger(data.total)||data.total!==data.filas.length)
+    throw new Error('Bloque de '+fuente+' incompleto o de otro periodo. No se habilitan decisiones.');
+  for(const row of data.filas) {
+    if(!row||typeof row!=='object'||typeof row.fecha!=='string'||
+       !/^\d{4}-\d{2}-\d{2}$/.test(row.fecha)||row.fecha<desde||row.fecha>hasta||!String(row.cedula??'').trim())
+      throw new Error('Fila no valida en el bloque de '+fuente+'.');
+  }
+  return data.filas.map(jornada=>({jornada}));
+}
+export async function leerBloquesNomina(request,{
+  fuente,desde,hasta,signal,onProgress=()=>{},chunkDays=7,clock=now
+}) {
+  if(!FUENTES_NOMINA.some(([key])=>key===fuente))throw new Error('Fuente de nomina no valida.');
+  enteroPositivo(chunkDays,'Dias por bloque',7);
+  const dias=diasEntre(desde,hasta),nombre='consultar_fuente_nomina_v716';
+  let terminados=0,ancho=chunkDays;
+  const trozo=async fechas=>{
+    cancelado(signal);const a=fechas[0],b=fechas.at(-1),inicio=clock();
+    onProgress({nombre,desde:a,hasta:b,dias:terminados,totalDias:dias.length});
+    try {
+      const r=await request(nombre,{p_fuente:fuente,p_desde:a,p_hasta:b},{signal,read:true});
+      cancelado(signal);if(r?.error)throw r.error;
+      const rows=validarBloqueNomina(r?.data,fuente,a,b),ms=clock()-inicio;
+      if(ms>4500&&fechas.length>1)ancho=Math.min(ancho,Math.max(1,Math.floor(fechas.length/2)));
+      terminados+=fechas.length;
+      onProgress({nombre,desde:a,hasta:b,dias:terminados,totalDias:dias.length,filas:rows.length,ms});
+      return rows;
+    } catch(e) {
+      cancelado(signal);
+      // Only a confirmed SQL read timeout may be split. Do not replay writes,
+      // authentication failures or unknown network acknowledgements.
+      if(esTiempoAgotado(e)&&fechas.length>1) {
+        ancho=Math.min(ancho,Math.max(1,Math.floor(fechas.length/2)));
+        onProgress({nombre,desde:a,hasta:b,reducido:true,dias:terminados,totalDias:dias.length});
+        const mid=Math.ceil(fechas.length/2);
+        const left=await trozo(fechas.slice(0,mid));
+        return left.concat(await trozo(fechas.slice(mid)));
+      }
+      throw contextualizar(e,nombre+' ('+fuente+')',a,b);
+    }
+  };
+  const result=[];
+  for(let i=0;i<dias.length;) {
+    const fechas=dias.slice(i,i+ancho);result.push(...await trozo(fechas));i+=fechas.length;
+  }
+  return result;
+}
+
+export async function leerEvidenciasNomina(request,revisiones,{
+  signal,chunkSize=80,onProgress=()=>{}
+}={}) {
+  enteroPositivo(chunkSize,'Jornadas por lote de evidencia',200);
+  const clave=x=>String(x.cedula).trim()+'|'+String(x.fecha).slice(0,10);
+  const pares=[...new Map(revisiones.map(r=>[clave(r),{cedula:String(r.cedula).trim(),fecha:String(r.fecha).slice(0,10)}])).values()]
+    .sort((a,b)=>a.fecha.localeCompare(b.fecha)||a.cedula.localeCompare(b.cedula));
+  const mapa=new Map();let ancho=chunkSize,peticiones=0;
+  const nombre='consultar_evidencia_nomina_v716';
+  const leer=async items=>{
+    cancelado(signal);
+    try {
+      peticiones++;
+      const r=await request(nombre,{p_items:items},{read:true,signal});
+      cancelado(signal);if(r?.error)throw r.error;
+      const d=r?.data,esperados=new Set(items.map(clave)),vistos=new Set();
+      if(!d||!Array.isArray(d.jornadas)||d.total!==items.length||d.total!==d.jornadas.length)
+        throw new Error('La evidencia del corte no se recibio completa. No se habilitan decisiones.');
+      for(const x of d.jornadas) {
+        const k=clave(x);
+        if(!esperados.has(k)||vistos.has(k)||x.completo!==true||!Array.isArray(x.recorrido))
+          throw new Error('La evidencia contiene jornadas repetidas, inesperadas o incompletas.');
+        vistos.add(k);
+      }
+      // Commit the batch only after all its requested keys are validated.
+      for(const x of d.jornadas)mapa.set(clave(x),x);
+      onProgress({nombre,filas:mapa.size,total:pares.length,peticiones});
+    }catch(e) {
+      cancelado(signal);
+      if(esTiempoAgotado(e)&&items.length>1) {
+        ancho=Math.min(ancho,Math.max(1,Math.floor(items.length/2)));
+        const mid=Math.ceil(items.length/2);
+        await leer(items.slice(0,mid));await leer(items.slice(mid));return;
+      }
+      throw contextualizar(e,nombre,items[0]?.fecha,items.at(-1)?.fecha);
+    }
+  };
+  for(let i=0;i<pares.length;) {
+    const items=pares.slice(i,i+ancho);await leer(items);i+=items.length;
+  }
+  cancelado(signal);return mapa;
+}
+
+// Preparation already existed on opening the module. Bound the work to one
+// week per transaction, retaining the SAME generators and no automatic payment.
+// Never retry a write, even a timeout: earlier blocks may already be committed.
+export async function prepararCortePorTramos(preparar,desde,hasta,{signal,onProgress=()=>{}}={}) {
+  const dias=diasEntre(desde,hasta);
+  const result={desde,hasta,insertados:0,actualizados:0,cobertura:[],sin_aprobar:true,bloques:0};
+  for(let i=0;i<dias.length;i+=7) {
+    const fechas=dias.slice(i,i+7),a=fechas[0],b=fechas.at(-1);
+    cancelado(signal);onProgress({etapa:'Preparando el corte',desde:a,hasta:b});
+    try {
+      const d=await preparar(a,b,{signal});cancelado(signal);
+      if(!d||d.desde!==a||d.hasta!==b||d.sin_aprobar!==true||
+         !Number.isSafeInteger(d.insertados)||d.insertados<0||!Number.isSafeInteger(d.actualizados)||d.actualizados<0||
+         !Array.isArray(d.cobertura)||d.cobertura.some(x=>x.faltantes!==0))
+        throw new Error('No se confirmo la preparacion del corte. Actualiza antes de decidir.');
+      result.insertados+=d.insertados;result.actualizados+=d.actualizados;
+      result.cobertura.push(...d.cobertura);result.bloques++;
+    }catch(e) {
+      const error=contextualizar(e,'preparar_revision_general_v713',a,b);
+      error.operacionesCompletadas=result.bloques;throw error;
+    }
+  }
+  return result;
+}
+
 export async function cargarFuentesNomina({
-  request,readReviews,desde,hasta,signal,onProgress=()=>{},concurrency=2,clock=now
+  request,readReviews,desde,hasta,signal,onProgress=()=>{},concurrency=2,clock=now,extras=[]
 }) {
   diasEntre(desde,hasta);enteroPositivo(concurrency,'Consultas simultaneas',2);
   cancelado(signal);
@@ -125,6 +247,11 @@ export async function cargarFuentesNomina({
   const innerSignal=control.signal,result={},metrics=new Map(),inicio=clock();
   let firstError=null,next=0;
   const names=new Map([['empleados','Catalogo de empleados'],...FUENTES_NOMINA.map(([key,,label])=>[key,label]),['revisiones','Decisiones y observaciones']]);
+  for(const extra of extras) {
+    if(!extra||!/^extra_[a-z]+$/.test(extra.key)||names.has(extra.key)||typeof extra.run!=='function')
+      throw new Error('Fuente adicional no valida.');
+    names.set(extra.key,extra.label||extra.key);
+  }
   for(const [key,label] of names)metrics.set(key,{key,etapa:label,estado:'pendiente',filas:0,peticiones:0,ms:0});
   const publicar=(extra={})=>{
     const list=[...metrics.values()].map(x=>({...x,ms:x.inicio==null?x.ms:clock()-x.inicio}));
@@ -144,12 +271,13 @@ export async function cargarFuentesNomina({
     // Start the slow source first; the other worker handles the lighter ones.
     ...['ayb','marcas','general','inferidos'].map(key=>{
       const [,nombre,etapa]=FUENTES_NOMINA.find(x=>x[0]===key);
-      return {key,run:()=>leerPorTramos(tracked(key),{nombre,desde,hasta,signal:innerSignal,chunkDays:PLAN_LECTURA[key],pageSize:1000,clock,
+      return {key,run:()=>leerBloquesNomina(tracked(key),{fuente:key,desde,hasta,signal:innerSignal,chunkDays:PLAN_LECTURA[key],clock,
         onProgress:p=>{Object.assign(metrics.get(key),{dias:p.dias,totalDias:p.totalDias,desde:p.desde,hasta:p.hasta});publicar({...p,etapa});}})};
     }),
     {key:'revisiones',run:()=>readReviews(desde,hasta,innerSignal,p=>{
       metrics.get('revisiones').peticiones=p.paginas;publicar({etapa:names.get('revisiones')});
-    })}
+    })},
+    ...extras.map(extra=>({key:extra.key,run:async()=>[await extra.run(tracked(extra.key),innerSignal)]}))
   ];
   try {
     comenzar('empleados');
@@ -184,27 +312,52 @@ export async function cargarFuentesNomina({
   }
 }
 
-export async function recalcularPorDias(request,{desde,hasta,signal,onProgress=()=>{}}) {
+export async function recalcularPorDias(request,{desde,hasta,signal,onProgress=()=>{},chunkDays=7}) {
+  enteroPositivo(chunkDays,'Dias por bloque de recalculo',7);
   const dias=diasEntre(desde,hasta);let completadas=0;
-  for(const fecha of dias) {
-    const args={p_fecha_desde:fecha,p_fecha_hasta:fecha};
+  const total=Math.ceil(dias.length/chunkDays)*2;
+  for(let i=0;i<dias.length;i+=chunkDays) {
+    const fecha=dias[i],fin=dias[Math.min(i+chunkDays-1,dias.length-1)];
+    const args={p_fecha_desde:fecha,p_fecha_hasta:fin};
     for(const [nombre,etapa,params] of [
-      ['preparar_conceptos_revision','A&B',{...args,p_grupo_codigo:null,p_proceso_codigo:null}],
-      ['preparar_conceptos_revision_generales_v2','General',args],
-      ['preparar_dominicales_marcaciones_v1','Dominicales con marcación',args]
+      ['preparar_conceptos_revision_v717','A&B',{...args,p_grupo_codigo:null,p_proceso_codigo:null}],
+      ['preparar_conceptos_revision_generales_v2','General',args]
     ]) {
-      cancelado(signal);onProgress({etapa,fecha,completadas,total:dias.length*2});
+      cancelado(signal);onProgress({etapa,fecha,desde:fecha,hasta:fin,completadas,total});
       try {
         const r=await request(nombre,params,{read:false,signal});
         if(r?.error) throw r.error;
-        if(!Array.isArray(r?.data)) throw new Error('No se pudo confirmar el rec\u00e1lculo.');
+        if(!Array.isArray(r?.data)||r.data.length!==1||['insertados','actualizados'].some(k=>!Number.isSafeInteger(r.data[0]?.[k])||r.data[0][k]<0)) throw new Error('No se pudo confirmar el recalculo.');
         completadas++;
       } catch(e) {
         // Earlier days may have committed. Do not replay writes or declare
         // the whole range recalculated when a single operation failed.
-        e=contextualizar(e,nombre,fecha,fecha);e.operacionesCompletadas=completadas;throw e;
+        e=contextualizar(e,nombre,fecha,fin);e.operacionesCompletadas=completadas;throw e;
       }
     }
   }
+  // The current Sunday/holiday/nocturnal generator runs once in the following
+  // load. Do not call the legacy Sunday generator with its fixed 30 min pause.
   return {completadas};
+}
+
+// A preparation failure may not be reported as missing biometric data. Read
+// the persisted sources without repeating the failed write. Decisions remain
+// disabled until a subsequent explicit update confirms the preparation.
+export async function prepararOConsultarGuardado(preparar, {
+  soloConsulta = false, advertencia = '', esErrorSesion = () => false, signal
+} = {}) {
+  cancelado(signal);
+  if (soloConsulta) return {cobertura:null, error:null, completa:false,
+    aviso:advertencia || 'Consulta guardada; preparacion del corte pendiente.'};
+  try {
+    const cobertura = await preparar();
+    cancelado(signal);
+    return {cobertura, error:null, completa:true, aviso:''};
+  } catch(error) {
+    cancelado(signal);
+    if(esErrorSesion(error)) throw error;
+    return {cobertura:null, error, completa:false,
+      aviso:'Marcaciones consultadas; no se completo la preparacion del corte. Decisiones deshabilitadas.'};
+  }
 }

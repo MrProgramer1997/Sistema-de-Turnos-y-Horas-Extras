@@ -1,4 +1,4 @@
-import { modeloRevision } from './revision-evidencia.js?v=713';
+import { modeloNomina as modeloRevision, columnasNetoNomina } from './nomina-neto.js?v=714';
 import { diaSemanaRevision } from './revision-punto.js?v=713';
 /* Fase 7.9. Read-only daily intervals and attendance exceptions.
  * This module never writes to Supabase or creates/changes payroll concepts.
@@ -130,7 +130,8 @@ export function columnasIntervalo(x, modelo = null) {
     'Descuento aplicado al intervalo (min)': r.minutos === null ? null : 0,
     'Estado del total': r.estado,
     'Base del intervalo': r.base,
-    'Criterio del total': r.criterio
+    'Criterio del total': r.criterio,
+    ...columnasNetoNomina(x, modelo || modeloRevision(x))
   };
 }
 export function hojaIntervalos(XLSX, filas) {
@@ -152,6 +153,20 @@ export function hojaIntervalos(XLSX, filas) {
     const a = address(iStart, rr), b = address(iEnd, rr);
     for (const [c, formula, z] of [[iHoras, `(${b}-${a})*24`, '0.00'], [iDur, `${b}-${a}`, '[h]:mm:ss'], [iSeg, `ROUND((${b}-${a})*86400,0)`, '0']]) {
       if (c >= 0) ws[address(c, rr)] = { t: 'n', v: fila[headers[c]], f: formula, z };
+    }
+  });
+  // Net uses the raw interval minus the APPLIED break once. Cached results
+  // match the UI. PROSOF export is separate and uses only approved amounts.
+  const iNeto = col('Total neto (h)'), iNetoDur = col('Total neto (h:mm:ss)'), iPausa = col('Almuerzo descontado (min)');
+  filas.forEach((fila, i) => {
+    const rr = i + 1;
+    if (fila['Total neto (h)'] === null || fila['Total neto (h)'] === undefined) return;
+    const useFormula = iStart >= 0 && iEnd >= 0 && iPausa >= 0 && fila['Almuerzo descontado (min)'] !== null;
+    for (const [c, divisor, z] of [[iNeto, 60, '0.00'], [iNetoDur, 1440, '[h]:mm:ss']]) {
+      if (c < 0) continue;
+      const cell = { t: 'n', v: fila[headers[c]], z };
+      if (useFormula) cell.f = `((${address(iEnd, rr)}-${address(iStart, rr)})*1440-${address(iPausa, rr)})/${divisor}`;
+      ws[address(c, rr)] = cell;
     }
   });
   ws['!cols'] = headers.map(k => ({ wch: /Criterio|Detalle|Motivo/.test(k) ? 66 : /Empleado/.test(k) ? 34 : /fecha y hora/.test(k) ? 23 : 24 }));
