@@ -1,8 +1,12 @@
+import { crearCorreccionesNomina722 } from './nomina-correcciones.js?v=722';
+import { construirEvidenciasLocales721 } from './nomina-evidencia-local.js?v=721';
+import { modeloParaNomina721 as modeloRevision, agregarCandidatosAyB721, usaRevisionAyB721, esAyB721 } from './nomina-ayb-candidatos.js?v=721';
+import { exigirModulo } from "./permisos-modulos.js?v=720";
 import { aplicarCruces719, agregarSugerencias719, usaRevision719, sumarDia719 } from './nomina-candidatos.js?v=719';
-import { crearRevisionSugerida719 } from './nomina-revision-sugerida.js?v=719';
+import { crearRevisionSugerida719 } from './nomina-revision-sugerida.js?v=721';
 import { crearVisorComentariosNomina } from './nomina-comentarios.js?v=715';
-import { modeloNomina as modeloRevision, completarDescansosNomina, horasMinutosNomina, alertaAlmuerzoConcepto } from './nomina-neto.js?v=714';
-import { agruparAprobacionDiaria, pedirDecisionNomina, cerrarDialogosNomina, verDetalleDiario, hoyNomina, accionesConceptoDiario } from './nomina-aprobacion-diaria.js?v=719';
+import { completarDescansosNomina, horasMinutosNomina, alertaAlmuerzoConcepto } from './nomina-neto.js?v=714';
+import { agruparAprobacionDiaria, pedirDecisionNomina, cerrarDialogosNomina, verDetalleDiario, hoyNomina, accionesConceptoDiario } from './nomina-aprobacion-diaria.js?v=722';
 import { fechaDiaRevision, diaSemanaRevision, ordenCronologicoRevision } from './revision-punto.js?v=713';
 import { esDomingoRevision, textoCalculoDomingo, incorporarDomingos, pedirValidacionDomingo, cerrarDomingoRevision } from './nomina-dominicales.js?v=713';
 import { cargarDocumentados, fusionarEvidenciasDocumentales, resumenDocumento } from './horarios-documentados-api.js?v=711';
@@ -10,10 +14,10 @@ import { superponerDocumentados, columnasDocumentales } from './horarios-documen
 import { areaConsulta, coincideAreaConsulta, domingosSinConcepto, prepararDomingoSeleccionado, controlExtraVigente } from './nomina-control-pendientes.js?v=713';
 import { intervaloDiario, duracionMarcaciones, fechaHoraMarcacion, descansoReferencia, estadoMarcacion, coincideMarcacion, columnasIntervalo, hojaIntervalos, CRITERIO_INTERVALO } from './nomina-marcaciones.js?v=714';
 import { construirCalendario, calendarioDia, diagnosticoHorario, diagnosticoHorarioHtml, fechaHtml, resumenCalidad, filaCalidadExcel, filaControlExcel, controlConceptoHtml, revisarConcepto } from "./nomina-calidad.js?v=713";
-import { duracionRevision, nocturnoPosteriorRevision, calculadasCeldaRevision, comparacionCelda, programacionCelda, marcadoCelda, totalCelda, advertenciaNocturna, requiereRevisionNocturna, crearVisorRevision, columnasRevisionExcel } from "./revision-evidencia.js?v=715";
+import { duracionRevision, nocturnoPosteriorRevision, calculadasCeldaRevision, comparacionCelda, programacionCelda, marcadoCelda, totalCelda, advertenciaNocturna, requiereRevisionNocturna, crearVisorRevision, columnasRevisionExcel } from "./revision-evidencia.js?v=721";
 import { supabase } from "../supabase/supabaseClient.js";
 import { asegurarSesion, rpcConSesion, consultaConSesion, esErrorAcceso, mostrarErrorAcceso, observarSesion, ErrorSesion } from "./nomina-sesion.js?v=717";
-import { cargarFuentesNomina, leerPaginas, diasEntre, recalcularPorDias, prepararCortePorTramos, leerEvidenciasNomina, prepararOConsultarGuardado } from "./nomina-carga.js?v=717";
+import { cargarFuentesNomina, leerPaginas, diasEntre, recalcularPorDias, prepararCortePorTramos, leerEvidenciasNomina, prepararOConsultarGuardado } from "./nomina-carga.js?v=721";
 import { resumenTrabajoDia, duracionTexto, instanteLocal, explicarTurno, resumenConceptosNocturnos, coberturaPorArea } from "./nomina-detalle-jornada.js?v=7-1";
 let heCargando=false,heCargaId=0,heAbort=null,heDisponible=false;
 let heGuardando=false,heRecalculando=false,heLecturaValida=false,heRango=null,heErrorSesion=null;
@@ -43,11 +47,8 @@ const horasAprobadas=v=>v.horas_aprobadas==null?null:num(v.horas_aprobadas);
 
 document.addEventListener("DOMContentLoaded",iniciar);
 async function iniciar(){
-  try{sesion=JSON.parse(localStorage.getItem("ccp_sesion")||"null");}catch{sesion=null;}
-  if(!sesion){location.href="login.html";return}
-  const rol=texto(sesion.rol).toLowerCase(),modulos=Array.isArray(sesion.modulos_permitidos)?sesion.modulos_permitidos:[];
-  const permitido=sesion.puede_ver_todo===true||["admin","administrador","gerencia","nomina","auditor","aprobador","ayb","servicios_generales","direccion_financiera"].includes(rol)||modulos.includes("horas-extras");
-  if(!permitido){alert("No tienes autorización para ingresar al módulo de horas extras.");location.href="login.html";return}
+  sesion=await exigirModulo("horas-extras");
+  if(!sesion)return;
   $("heUsuario").textContent=sesion.nombre_completo||sesion.usuario||"Usuario";$("heRol").textContent=sesion.rol||"-";
   const hoy=new Date(),inicioBiometricos=new Date(2026,7,23);$("heDesde").value=iso(inicioBiometricos);$("heHasta").value=iso(hoy);
   $("heActualizar").addEventListener("click",cargar);
@@ -151,11 +152,12 @@ function limpiarNominaPorSesion(){
   heErrorSesion=true;
   cerrarDialogosNomina();
   visorSugerencias719.cerrar();
+  visorCorrecciones722.cerrar();
   visorComentariosNomina.cerrar();
   cerrarDomingoRevision();
   document.querySelectorAll('.rev-dialog').forEach(d=>{d.close();d.querySelector('[data-body]')?.replaceChildren();});
   if($("heDomingosPendientes"))$("heDomingosPendientes").hidden=true; if($("heDomingosBody"))$("heDomingosBody").replaceChildren();
-  heDiariasVisibles.clear();
+  heDiariasVisibles.clear();heConceptosElegidos.clear();
   heDocumentados=null;if($("heDocumentalEstado"))$("heDocumentalEstado").textContent="Inicia sesion para consultar las plantillas.";heCalendario=null; if($("heCalidadContenido"))$("heCalidadContenido").textContent="Inicia sesion para consultar el diagnostico.";
   heDisponible=false;heLecturaValida=false;heRango=null;heMarcasFuente=[];heEmpleadosDetalle=[];heEvidencias.clear();base=[];jornadas=[];catalogo=[];responsables=[];
   $('heAreasBody').replaceChildren();$('hePaginaInfo').textContent='';
@@ -167,6 +169,7 @@ function limpiarNominaPorSesion(){
 async function cargar({soloConsulta=false,advertencia=""}={}){
   if(heCargando||heGuardando||heRecalculando)return;
   visorSugerencias719.cerrar();
+  visorCorrecciones722.cerrar();
   heCargando=true;heLecturaValida=false;const cargaId=++heCargaId;heAbort=new AbortController();
   const signal=heAbort.signal;iniciarTiempoCarga();actualizarAcciones();
   if(!heDisponible){
@@ -177,31 +180,33 @@ async function cargar({soloConsulta=false,advertencia=""}={}){
   try{
     await asegurarSesion();heErrorSesion=null;
     const desde=$("heDesde").value,hasta=$("heHasta").value;diasEntre(desde,hasta);
-    avisoCarga("Incorporando domingos, festivos y marcas nocturnas que falten en revisión. No se liquidan ni aprueban pagos.");
-    const preparacion=await prepararOConsultarGuardado(
-      ()=>prepararCortePorTramos((a,b,opts)=>incorporarDomingos(rpcConSesion,a,b,opts),desde,hasta,
-        {signal,onProgress:p=>{if(cargaId===heCargaId)progresoCarga(p);}}),
-      {soloConsulta,advertencia,esErrorSesion:esErrorAcceso,signal});
+    // Consultation no longer performs any writes or waits for all-cut preparation.
+    // Missing special days remain visible and retain their on-demand preparation.
+    const preparacion={completa:!soloConsulta,cobertura:{insertados:0,actualizados:0},aviso:advertencia||'Consulta guardada despues de un recalculo incompleto.'};
     const coberturaDomingos=preparacion.cobertura;
-    if(!preparacion.completa)avisoCarga('Consultando las marcaciones guardadas, sin repetir el envio fallido.');
-    if(cargaId!==heCargaId)return;
     const r=await cargarFuentesNomina({request:lecturaRpc,readReviews:leerRevisiones,desde,hasta,signal,
       onProgress:p=>{if(cargaId===heCargaId)progresoCarga(p);},
       extras:[
         {key:'extra_cruces',label:'Extremos del corte',run:async(request,signal)=>{
-          const rows=[];
+          const rows=[];const horarios=[];
           for(const d of [sumarDia719(desde,-1),sumarDia719(hasta,1)]){
-            const r=await request('consultar_fuente_nomina_v716',{p_fuente:'marcas',p_desde:d,p_hasta:d},{signal});
+            const r=await request('consultar_fuente_nomina_v721',{p_fuente:'marcas',p_desde:d,p_hasta:d},{signal});
             if(r.error)throw r.error;
             if(!r.data?.completa||r.data.desde!==d||r.data.hasta!==d||r.data.total!==r.data.filas?.length)throw new Error('No se completo el contexto del extremo del corte.');
             rows.push(...r.data.filas);
+            const p=await request('consultar_fuente_nomina_v721',{p_fuente:'ayb',p_desde:d,p_hasta:d},{signal});
+            if(p.error)throw p.error;
+            if(!p.data?.completa||p.data.desde!==d||p.data.hasta!==d||p.data.total!==p.data.filas?.length)throw new Error('No se completo el horario del extremo del corte.');
+            horarios.push(...p.data.filas);
           }
-          return rows;
+          return {marcas:rows,horarios};
         }},
         {key:'extra_calendario',label:'Calendario',run:async(request,signal)=>{
-          const r=await request('consultar_calendario_nomina_v78',{p_desde:desde,p_hasta:hasta},{signal});
+          // Include the civil date of an overnight exit at the end of the cut.
+          const finCalendario=sumarDia719(hasta,1);
+          const r=await request('consultar_calendario_nomina_v78',{p_desde:desde,p_hasta:finCalendario},{signal});
           if(r.error)throw r.error;
-          if(r.data?.desde!==desde||r.data?.hasta!==hasta)throw new Error('El calendario no corresponde al corte.');
+          if(r.data?.desde!==desde||r.data?.hasta!==finCalendario)throw new Error('El calendario no corresponde al corte.');
           return construirCalendario(r.data);
         }},
         {key:'extra_documentos',label:'Horarios documentados',run:(request,signal)=>cargarDocumentados(request,{desde,hasta,signal})}
@@ -216,14 +221,15 @@ async function cargar({soloConsulta=false,advertencia=""}={}){
     const conDocumentacion=nuevaDocumentacion.disponible?superponerDocumentados(jornadasPrevias,nuevaDocumentacion.resuelto):jornadasPrevias;
     const jornadasCrudas=completarDescansosNomina(conDocumentacion,nuevaDocumentacion.paquete);
     verificarIntegridadMarcaciones(marcasFuente,jornadasCrudas);
-    const nuevasJornadas=aplicarCruces719(jornadasCrudas,[...marcasFuente,...(r.extra_cruces[0]||[])]);
+    const extremos=r.extra_cruces[0]||{marcas:[],horarios:[]};
+    const evidenciasLocales=construirEvidenciasLocales721(jornadasCrudas,[...marcasFuente,...extremos.marcas],
+      [...desenvolver(r.general),...desenvolver(r.ayb),...extremos.horarios]);
+    const nuevasJornadas=aplicarCruces719(jornadasCrudas.map(x=>({...x,evidencia_revision:evidenciasLocales.get(claveDia(x))})),[...marcasFuente,...extremos.marcas]);
     const conocidos=[...nuevoCatalogo,...marcasFuente.filter(e=>!nuevoCatalogo.some(c=>texto(c.cedula)===texto(e.cedula)))];
     const detalleEmpleados=await completarDatosEmpleados(r.revisiones,conocidos,signal);
-    avisoCarga('Contrastando programacion actual y evidencia de las revisiones...');
-    const evidenciasPrevias=await leerEvidenciasRevision(r.revisiones,signal);
-    let nuevasEvidencias=nuevaDocumentacion.disponible?fusionarEvidenciasDocumentales(evidenciasPrevias,nuevaDocumentacion.resuelto):evidenciasPrevias;
-    for(const j of nuevasJornadas)if(j.agrupacion_719)nuevasEvidencias.set(claveDia(j),j.evidencia_revision);
-    const nuevaBase=agregarSugerencias719(completarBandeja(r.revisiones,detalleEmpleados,marcasFuente,nuevasJornadas,nuevasEvidencias),nuevasJornadas,nuevoCalendario);
+    const nuevasEvidencias=new Map(nuevasJornadas.map(j=>[claveDia(j),j.evidencia_revision]));
+    const baseGeneral=agregarSugerencias719(completarBandeja(r.revisiones,detalleEmpleados,marcasFuente,nuevasJornadas,nuevasEvidencias),nuevasJornadas.filter(j=>!esAyB721(j)),nuevoCalendario);
+    const nuevaBase=agregarCandidatosAyB721(baseGeneral,nuevasJornadas,nuevoCalendario);
     let nuevosResponsables=[],avisoResponsables="";
     try{
       const rr=await consultaConSesion(()=>supabase.from("vw_turnos_responsables_activos").select("*"),{signal,read:true});
@@ -239,11 +245,11 @@ async function cargar({soloConsulta=false,advertencia=""}={}){
     catalogo=nuevoCatalogo;jornadas=nuevasJornadas.map(x=>({...x,evidencia_revision:nuevasEvidencias.get(claveDia(x))||x.evidencia_revision}));base=nuevaBase.sort(ordenCronologicoRevision);responsables=nuevosResponsables;
     heMarcasFuente=marcasFuente;heEmpleadosDetalle=detalleEmpleados;heEvidencias=nuevasEvidencias;
     heCalendario=nuevoCalendario;heDocumentados=nuevaDocumentacion;
-    mostrarEstadoDocumental();
+    if($("heOpcionesTecnicas").open)mostrarEstadoDocumental();
     heRango={desde,hasta};pagina=0;heDisponible=true;heLecturaValida=preparacion.completa;
     poblarAreas();render();
     if(preparacion.completa){
-      avisoCarga(`Lectura completa del ${fechaCorta(desde)} al ${fechaCorta(hasta)}. Domingos y festivos verificados: ${coberturaDomingos.insertados} pendientes incorporados y ${coberturaDomingos.actualizados} evidencias actualizadas. Sin aprobacion automatica.${avisoResponsables}${!nuevaDocumentacion.disponible?" "+nuevaDocumentacion.motivo:" Horarios documentales consultados; la deteccion semanal no aprueba pagos."}`,avisoResponsables||!nuevaDocumentacion.disponible?"warning":"success");
+      avisoCarga(`Lectura completa del ${fechaCorta(desde)} al ${fechaCorta(hasta)}. Lectura sin recalculos automaticos. Conceptos guardados y sugerencias independientes disponibles para revisar.${avisoResponsables}${!nuevaDocumentacion.disponible?" "+nuevaDocumentacion.motivo:" Horarios documentales consultados; la deteccion semanal no aprueba pagos."}`,avisoResponsables||!nuevaDocumentacion.disponible?"warning":"success");
     }else{
       avisoCarga(`${preparacion.aviso} ${preparacion.error?detalleError(preparacion.error):advertencia} No se repite el envio. Pulsa Actualizar para verificar el corte.`,"warning");
       $("heIntegridad").textContent='Marcaciones recibidas y verificadas. Preparacion de conceptos no confirmada: consulta solamente; decisiones y exportaciones deshabilitadas.';
@@ -279,6 +285,9 @@ async function recalcularCandidatos(){
     await recalcularPorDias(rpcConSesion,{desde,hasta,signal:heAbort.signal,onProgress:p=>{
       if(id===heCargaId)avisoCarga(`Recalculando ${p.etapa}: ${fechaCorta(p.desde)} - ${fechaCorta(p.hasta)} | ${p.completadas}/${p.total} operaciones completas. No se aprueban pagos automaticamente.`);
     }});
+    if(id!==heCargaId)return;
+    // Preparation is explicit, not repeated on every load or approval.
+    await prepararCortePorTramos((a,b,opts)=>incorporarDomingos(rpcConSesion,a,b,opts),desde,hasta,{signal:heAbort.signal});
     if(id!==heCargaId)return;
     completado=true;
   }catch(e){
@@ -416,14 +425,14 @@ function completarBandeja(revisiones,empleados,marcas,actuales=jornadas,evidenci
   });
 }
 const mostrarRevisionEvidencia=crearVisorRevision({
-  totalEntreMarcas:true,
+  totalEntreMarcas:true,confirmacionExplicita:false,
   canWrite:()=>datosUtilizables(),
   onBusy:valor=>{heGuardando=valor;actualizarAcciones();},
   onError:e=>{heLecturaValida=false;if(esErrorAcceso(e))limpiarNominaPorSesion();avisoCarga(`No se confirmo la decision: ${e.message||e}. Actualiza antes de reintentar.`,"danger");},
   rpc:(name,args)=>rpcConSesion(name,args,{read:!['actualizar_recargo_nocturno_v77','aprobar_recargo_nocturno_v713'].includes(name)}),
   onChanged:(fila,e)=>{heEvidencias.set(claveDia(fila),e);const nueva=completarBandeja([fila],heEmpleadosDetalle,heMarcasFuente)[0];base=base.map(r=>r.revision_id===fila.id?nueva:r);render();avisoCarga(fila.estado==='aprobado'?'Aprobación confirmada con evidencia y auditoría.':'Candidato actualizado con evidencia; no se aprobó ningún pago.','success');}
 });
-window.heVerRevision=(id,nocturno=false)=>{if(!datosUtilizables())return;const fila=base.find(r=>r.revision_id===id);if(usaRevision719(fila)&&nocturno){visorSugerencias719.mostrar(fila,'aprobar');return;}if(usaRevision719(fila)){verDetalleDiario(fila.jornada_actual||fila,modeloRevision(fila));return;}if(fila)mostrarRevisionEvidencia(fila,{nocturno});};
+window.heVerRevision=(id,nocturno=false)=>{if(!datosUtilizables())return;const fila=base.find(r=>r.revision_id===id);if((usaRevision719(fila)||usaRevisionAyB721(fila))&&nocturno){visorSugerencias719.mostrar(fila,'aprobar');return;}if(usaRevision719(fila)||usaRevisionAyB721(fila)){verDetalleDiario(fila.jornada_actual||fila,modeloRevision(fila));return;}if(fila)mostrarRevisionEvidencia(fila,{nocturno});};
 
 const visorSugerencias719=crearRevisionSugerida719({
   rpc:(name,args,opts)=>rpcConSesion(name,args,opts),canWrite:()=>datosUtilizables(),
@@ -432,8 +441,20 @@ const visorSugerencias719=crearRevisionSugerida719({
   onSaved:(fila,anterior,accion)=>{
     const actual=completarBandeja([fila],heEmpleadosDetalle,heMarcasFuente)[0];
     base=base.filter(x=>x.revision_id!==anterior.revision_id&&x.revision_id!==fila.id);
-    base.push(actual);base.sort(ordenCronologicoRevision);render();
+    base.push(actual);heConceptosElegidos.set(claveDia(fila),fila.id);base.sort(ordenCronologicoRevision);render();
     avisoCarga(accion==='comentar'?'Comentario guardado sin aprobar horas.':'Decision confirmada para el concepto seleccionado.','success');
+  }
+});
+
+const visorCorrecciones722=crearCorreccionesNomina722({
+  rpc:(name,args,opts)=>rpcConSesion(name,args,opts),canWrite:()=>datosUtilizables(),
+  onBusy:valor=>{heGuardando=valor;actualizarAcciones();},
+  onError:e=>{heLecturaValida=false;if(esErrorAcceso(e))limpiarNominaPorSesion();avisoCarga('No se confirmo la correccion. Actualiza antes de reintentar. '+(e.message||e),'warning');},
+  onSaved:(fila,anterior,accion)=>{
+    const actual=completarBandeja([fila],heEmpleadosDetalle,heMarcasFuente)[0];
+    base=base.map(x=>texto(x.revision_id)===texto(fila.id)?actual:x);
+    heConceptosElegidos.set(claveDia(fila),fila.id);render();
+    avisoCarga(accion==='recalcular'?'Concepto recalculado y pendiente de nueva aprobacion.':accion==='rechazar'?'Decision corregida: concepto rechazado.':'Decision corregida: horas aprobadas actualizadas.','success');
   }
 });
 
@@ -448,7 +469,7 @@ const visorComentariosNomina=crearVisorComentariosNomina({
 async function comentarConcepto(id){
   if(!datosUtilizables())return;
   const x=base.find(r=>texto(r.revision_id)===texto(id));
-  if(x?.sugerencia_719){await visorSugerencias719.mostrar(x,'comentar');return;}
+  if(x?.sugerencia_719||x?.sugerencia_721){await visorSugerencias719.mostrar(x,'comentar');return;}
   if(x)await visorComentariosNomina.mostrar(x);
 }
 
@@ -577,10 +598,11 @@ async function prepararDomingoDesdeBandeja(fecha){
 
 // One calendar row, with decisions attached by employee/date (not by row index).
 let heDiariasVisibles=new Map();
+const heConceptosElegidos=new Map();
 function conceptoDiarioTexto(c){
   const cerrado=estado(c)==='aprobado',h=cerrado?horasAprobadas(c):horasCalculadas(c);
   const cantidad=(esDomingoRevision(c)||c.detalle?.calculo_pendiente)&&!cerrado?'Por validar':horasMinutosNomina(Math.round(num(h)*60));
-  return `${concepto(c)} ${c.concepto_nombre||''} \u00b7 ${cantidad} \u00b7 ${c.sugerencia_719?'sugerido':estado(c)}`;
+  return `${concepto(c)} ${c.concepto_nombre||''} \u00b7 ${cantidad} \u00b7 ${c.sugerencia_719||c.sugerencia_721?'sugerido':estado(c)}`;
 }
 function horaDiariaCelda(t,fecha){
   const f=fechaHoraMarcacion(t);if(!f)return '\u2014';
@@ -595,7 +617,8 @@ function renderDiaria(rows){
   $('heBody').innerHTML=visibles.map((f,i)=>{
     const x=f.jornada,m=modeloRevision(x),cal=calendarioDia(texto(x.fecha).slice(0,10),heCalendario);
     const filtro=$('heEstado').value;
-    const preferido=f.conceptos.find(c=>filtro?estado(c)===filtro:!['aprobado','rechazado'].includes(estado(c)))||f.conceptos[0];
+    const elegido=heConceptosElegidos.get(f.clave);
+    const preferido=f.conceptos.find(c=>texto(c.revision_id)===elegido&&(!filtro||estado(c)===filtro))||f.conceptos.find(c=>filtro?estado(c)===filtro:!['aprobado','rechazado'].includes(estado(c)))||f.conceptos[0];
     const selector=f.conceptos.length?`<select class="form-select form-select-sm" data-nd-concepto aria-label="Concepto para ${html(empleado(x))} el ${html(fechaCorta(x.fecha))}">${f.conceptos.map(c=>`<option value="${html(c.revision_id)}" ${c===preferido?'selected':''}>${html(conceptoDiarioTexto(c))}</option>`).join('')}</select>`:
       `<span class="nd-small">${f.sinConceptoEspecial?'Domingo / festivo por revisar':num(x.total_marcaciones)?'Sin conceptos para aprobar':'Sin marcaciones'}</span>`;
     const prepara=f.sinConceptoEspecial&&!f.abierta?`<button type="button" class="btn btn-link btn-sm p-0" data-nd-action="preparar" data-fecha="${html(x.fecha)}">Preparar revisi\u00f3n</button>`:'';
@@ -609,10 +632,10 @@ function renderDiaria(rows){
       <td title="${html(m.criterio)}"><strong class="nd-neto nd-clock">${m.neto===null?(num(x.total_marcaciones)?'Por revisar':'\u2014'):horasMinutosNomina(m.neto)}</strong>${f.abierta?'<small class="nd-small">Jornada abierta</small>':m.neto===null&&num(x.total_marcaciones)===1?'<small class="nd-small">Una sola marca</small>':''}</td>
       <td><span class="nd-day ${html(cal.tipo)}" title="${html(cal.nombre||cal.texto)}">${html(cal.texto)}</span></td>
       <td class="nd-concepto">${selector}${f.conceptos.length?'<div class="nd-concepto-estado" data-nd-estado></div>':''}${f.conceptos.length>1?`<small class="nd-small">${f.conceptos.length} conceptos en este d\u00eda</small>`:''}${prepara}</td>
-      <td class="nd-acciones">${f.conceptos.length?'<div><button type="button" class="btn btn-success" data-nd-action="aprobar">Aprobar</button><button type="button" class="btn btn-outline-danger" data-nd-action="rechazar">Rechazar</button></div><button type="button" class="btn btn-outline-primary nd-comentar" data-nd-action="comentar">Comentar</button><small class="nd-small nd-accion-motivo" data-nd-motivo></small>':''}<button type="button" class="btn btn-link btn-sm nd-detalle" data-nd-action="detalle">Ver detalle</button></td>
+      <td class="nd-acciones">${f.conceptos.length?'<div><button type="button" class="btn btn-success" data-nd-action="aprobar">Aprobar</button><button type="button" class="btn btn-outline-primary" data-nd-action="revisar" hidden>Revisar</button><button type="button" class="btn btn-outline-danger" data-nd-action="rechazar">Rechazar</button><button type="button" class="btn btn-outline-primary" data-nd-action="recalcular" hidden>Recalcular</button></div><button type="button" class="btn btn-outline-primary nd-comentar" data-nd-action="comentar">Comentar</button><small class="nd-small nd-accion-motivo" data-nd-motivo></small>':''}<button type="button" class="btn btn-link btn-sm nd-detalle" data-nd-action="detalle">Ver detalle</button></td>
     </tr>`;
   }).join('')||'<tr><td colspan="10" class="text-center text-muted py-4">No hay jornadas para los filtros seleccionados.</td></tr>';
-  $('heBody').querySelectorAll('[data-nd-concepto]').forEach(el=>el.addEventListener('change',actualizarAccionesDiarias));
+  $('heBody').querySelectorAll('[data-nd-concepto]').forEach(el=>el.addEventListener('change',()=>{heConceptosElegidos.set(el.closest('[data-nd-row]').dataset.ndRow,el.value);actualizarAccionesDiarias();}));
   $('heBody').querySelectorAll('[data-nd-action]').forEach(b=>b.addEventListener('click',()=>accionDiaria(b)));
   $('hePaginacion').classList.remove('d-none');
   $('hePaginaInfo').textContent=`${rows.length?inicio+1:0}\u2013${Math.min(inicio+TAMANO_DIARIA,rows.length)} de ${rows.length} jornadas del corte`;
@@ -629,7 +652,7 @@ function actualizarAccionesDiarias(){
     if(c&&label){
       const e=estado(c),cantidad=e==='aprobado'?horasMinutosNomina(Math.round(num(horasAprobadas(c))*60)):
         e==='rechazado'?'':(esDomingoRevision(c)||c.detalle?.calculo_pendiente)?'Por validar':horasMinutosNomina(Math.round(horasCalculadas(c)*60));
-      label.innerHTML=badge(c.sugerencia_719?'sugerido':e)+(cantidad?`<span>${html(cantidad)}${e==='aprobado'?' aprobadas':''}</span>`:'');
+      label.innerHTML=badge(c.sugerencia_719||c.sugerencia_721?'sugerido':e)+(cantidad?`<span>${html(cantidad)}${e==='aprobado'?' aprobadas':''}</span>`:'');
       select.title=conceptoDiarioTexto(c);
     }
     const opciones=accionesConceptoDiario(c,{disponible:datosUtilizables(),abierta:f?.abierta});
@@ -637,8 +660,8 @@ function actualizarAccionesDiarias(){
     if(aviso){aviso.textContent=opciones.motivo;aviso.hidden=!opciones.motivo;}
     if(select)select.disabled=!datosUtilizables();
     tr.querySelectorAll('[data-nd-action]').forEach(b=>{
-      const action=b.dataset.ndAction,decision=['aprobar','rechazar'].includes(action);
-      b.hidden=decision&&!opciones.mostrarDecision;
+      const action=b.dataset.ndAction,decision=['aprobar','rechazar','revisar','recalcular'].includes(action);
+      b.hidden=action==='aprobar'?opciones.cerrado:action==='revisar'||action==='recalcular'?!opciones.cerrado:decision&&!opciones.mostrarDecision;
       b.disabled=decision?!opciones[action]:action==='comentar'?!opciones.comentar:!datosUtilizables();
       if(action==='aprobar')b.textContent=c&&requiereRevisionNocturna(c)?'Revisar y aprobar':'Aprobar';
       b.title=decision?opciones.motivo:action==='comentar'?'Agregar o consultar comentarios sin cambiar las horas ni el estado.':'';
@@ -666,10 +689,10 @@ function renderTabla(rows){
   const totalPaginas=Math.max(1,Math.ceil(rows.length/TAMANO_PAGINA));if(pagina>=totalPaginas)pagina=totalPaginas-1;
   const desde=pagina*TAMANO_PAGINA,visibles=rows.slice(desde,desde+TAMANO_PAGINA);
   $('heBody').innerHTML=visibles.map(x=>{
-    const m=modeloRevision(x),riesgo=requiereRevisionNocturna(x),desfase=riesgo||usaRevision719(x)?null:controlExtraVigente(x,m),abierta=puedeDecidir()&&x.permite_revision&&!['aprobado','rechazado'].includes(estado(x));
+    const m=modeloRevision(x),riesgo=requiereRevisionNocturna(x),desfase=riesgo||usaRevision719(x)||usaRevisionAyB721(x)?null:controlExtraVigente(x,m),abierta=puedeDecidir()&&x.permite_revision&&!['aprobado','rechazado'].includes(estado(x));
     const boton=(accion,nombre,estilo)=>`<button class="btn btn-${estilo} btn-sm" data-action="${accion}" data-id="${html(x.revision_id)}">${nombre}</button>`;
     const domingo=esDomingoRevision(x);
-    const acciones=abierta&&usaRevision719(x)?`<div class="rev-actions">${boton('aprobar','Revisar y aprobar','outline-primary')}${boton('rechazar','Rechazar','outline-danger')}</div>`:abierta?`<div class="rev-actions">${domingo?boton('validarDomingo','Revisar y aprobar','outline-primary'):desfase?`<button class="btn btn-outline-primary btn-sm" onclick="window.heVerRevision('${html(x.revision_id)}')">Revisar horario y calculo</button>`:riesgo?`<button class="btn btn-outline-primary btn-sm" onclick="window.heVerRevision('${html(x.revision_id)}',true)">Revisar y aprobar nocturno</button>`:boton('aprobar','Aprobar '+horasCalculadas(x).toFixed(2)+' h','success')+boton('ajustar','Ajustar','outline-primary')}${boton('rechazar','Rechazar','outline-danger')}</div>`:'<span class="text-muted small">'+(x.permite_revision?'Actualiza la consulta':'Cerrado')+'</span>';
+    const acciones=abierta&&(usaRevision719(x)||usaRevisionAyB721(x))?`<div class="rev-actions">${boton('aprobar','Revisar y aprobar','outline-primary')}${boton('rechazar','Rechazar','outline-danger')}</div>`:abierta?`<div class="rev-actions">${domingo?boton('validarDomingo','Revisar y aprobar','outline-primary'):desfase?`<button class="btn btn-outline-primary btn-sm" onclick="window.heVerRevision('${html(x.revision_id)}')">Revisar horario y calculo</button>`:riesgo?`<button class="btn btn-outline-primary btn-sm" onclick="window.heVerRevision('${html(x.revision_id)}',true)">Revisar y aprobar nocturno</button>`:boton('aprobar','Aprobar '+horasCalculadas(x).toFixed(2)+' h','success')+boton('ajustar','Ajustar','outline-primary')}${boton('rechazar','Rechazar','outline-danger')}</div>`:['aprobado','rechazado'].includes(estado(x))?`<div class="rev-actions">${boton('revisar','Revisar','outline-primary')}${boton('rechazar','Rechazar','outline-danger')}${boton('recalcular','Recalcular','outline-primary')}</div>`:'<span class="text-muted small">Actualiza la consulta</span>';
     return `<tr><td><strong>${html(empleado(x))}</strong><small class="rev-small">${html(codigoErp(x))} · ${html(x.cedula)}<br>${html(area(x))}</small></td><td>${fechaDiaRevision(x.fecha)}${fechaHtml(x,heCalendario)}</td><td>${programacionCelda(m)}${diagnosticoHorarioHtml(x)}</td><td>${marcadoCelda(m)}<button class="rev-detail-button" onclick="window.heVerRevision('${html(x.revision_id)}')">Ver todas las marcas</button></td><td>${comparacionCelda(m,'entrada')}</td><td>${comparacionCelda(m,'salida')}</td><td>${celdaNeto(x,m)}</td><td><strong>${html(concepto(x))}</strong><div class="rev-small">${html(x.concepto_nombre)}</div></td><td>${domingo?`<strong class="dom712-pendiente">${textoCalculoDomingo(x)}</strong><div class="rev-small">Validar trabajo y pausas. No significa cero trabajado.</div>`:calculadasCeldaRevision(x,m)}${advertenciaNocturna(x)}${desfase?`<div class="he-candidato-desfasado">${html(desfase)}</div>`:""}${controlConceptoHtml(x,heCalendario,m)}${texto(x.origen_calculo)==='dominical_marcaciones_v1'?'<div class="rev-small">Dominical estimado; revisar antes de aprobar</div>':''}</td><td>${horasAprobadas(x)===null?'—':horasAprobadas(x).toFixed(2)+' h'}</td><td>${badge(estado(x))}<div class="rev-small">${html(x.observacion||'Sin observación registrada')}</div></td><td>${acciones}<div class="rev-actions">${boton('comentar','Comentar','outline-primary')}</div></td></tr>`;
   }).join('')||'<tr><td colspan="12" class="text-center py-4">No hay conceptos para los filtros seleccionados.</td></tr>';
   $('heBody').querySelectorAll('button[data-action]').forEach(b=>b.addEventListener('click',()=>resolver(b.dataset.id,b.dataset.action)));
@@ -716,18 +739,23 @@ async function validarDomingoRevision(x){
   if(!datosUtilizables())return;
   heGuardando=true;actualizarAcciones();const id=texto(x.revision_id),carga=heCargaId;
   try{
-    const decision=await pedirDecisionNomina(x,{accion:"validarDomingo",modelo:modeloRevision(x)});
+    const preview=await rpcConSesion('previsualizar_especial_nomina_v721',{p_revision_id:id},{read:true});
+    if(preview.error)throw preview.error;
+    const actual=preview.data;
+    if(actual?.id!==id||!actual.evidencia||!actual.huella)throw new Error('No se recibio la revision actual.');
+    const filaActual={...x,evidencia_revision:actual.evidencia};
+    const decision=await pedirDecisionNomina(filaActual,{accion:"validarDomingo",modelo:modeloRevision(filaActual)});
     if(!decision||carga!==heCargaId)return;
     avisoCarga("Guardando las horas verificadas...");
-    const {data,error}=await rpcConSesion('resolver_domingo_revision_v712',{
-      p_revision_id:id,p_horas:decision.horas,p_motivo:decision.motivo,
-      p_version:x.updated_at,p_huella:x.detalle?.huella_marcaciones
+    const {data,error}=await rpcConSesion('resolver_especial_nomina_v721',{
+      p_revision_id:id,p_horas:decision.horas,p_comentario:decision.motivo||null,
+      p_version:actual.version,p_huella:actual.huella
     },{read:false});
     if(error)throw error;if(carga!==heCargaId)return;
     const fila=Array.isArray(data)?data[0]:data;
     if(!fila||texto(fila.id)!==id||fila.estado!=='aprobado')throw new Error('No se pudo confirmar la aprobacion. Actualiza antes de reintentar.');
     const actualizado=completarBandeja([fila],heEmpleadosDetalle,heMarcasFuente)[0];
-    base=base.map(r=>texto(r.revision_id)===id?actualizado:r);
+    base=base.map(r=>texto(r.revision_id)===id?actualizado:r);heConceptosElegidos.set(claveDia(fila),fila.id);
     avisoCarga('Aprobacion confirmada por Supabase y registrada en auditoria.','success');
   }catch(e){
     if(carga!==heCargaId)return;
@@ -741,8 +769,10 @@ async function resolver(id,accion){
   if(!datosUtilizables())return;
   if(accion==='comentar'){await comentarConcepto(id);return;}
   const x=base.find(v=>texto(v.revision_id)===texto(id));if(!x)return;
-  if(['aprobado','rechazado'].includes(estado(x)))return;
-  if(usaRevision719(x)){await visorSugerencias719.mostrar(x,accion);return;}
+  if(['aprobado','rechazado'].includes(estado(x))||['revisar','recalcular'].includes(accion)||x.detalle?.correccion_reabierta_722){
+    await visorCorrecciones722.mostrar(x,['rechazar','recalcular'].includes(accion)?accion:'revisar');return;
+  }
+  if(usaRevision719(x)||usaRevisionAyB721(x)){await visorSugerencias719.mostrar(x,accion);return;}
   if(esDomingoRevision(x)&&['validarDomingo','aprobar','ajustar'].includes(accion)){await validarDomingoRevision(x);return;}
   if(['aprobar','ajustar'].includes(accion)&&requiereRevisionNocturna(x)){await mostrarRevisionEvidencia(x,{nocturno:true});return;}
   const desfase=controlExtraVigente(x,modeloRevision(x));
@@ -771,7 +801,7 @@ async function resolver(id,accion){
     const esperado=accion==='observar'?'observado':accion==='rechazar'?'rechazado':'aprobado';
     if(fila.estado!==esperado)throw new Error("El servidor devolvió un estado distinto al solicitado. Actualiza antes de reintentar.");
     const actualizado=completarBandeja([fila],heEmpleadosDetalle,heMarcasFuente)[0];
-    base=base.map(r=>texto(r.revision_id)===texto(id)?actualizado:r);
+    base=base.map(r=>texto(r.revision_id)===texto(id)?actualizado:r);heConceptosElegidos.set(claveDia(fila),fila.id);
     avisoCarga("Decision confirmada por Supabase. Se actualizo solo el registro afectado.","success");
   }catch(e){
     heLecturaValida=false;

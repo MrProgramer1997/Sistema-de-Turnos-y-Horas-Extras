@@ -21,8 +21,14 @@ export function agruparAprobacionDiaria(jornadas, conceptos, { estado = '', cale
     const k = claveAprobacionDia(concepto);
     if (!mapa.has(k)) mapa.set(k, { clave: k, jornada: concepto.jornada_actual || concepto, conceptos: [] });
     const fila = mapa.get(k);
-    const id = text(concepto.revision_id || concepto.id);
-    if (!fila.conceptos.some(c => text(c.revision_id || c.id) === id)) fila.conceptos.push(concepto);
+    // Each employee/date may have many distinct payroll concepts.
+    // A persisted decision wins over an unsaved suggestion of the same concept.
+    const cod = text(concepto.concepto_codigo || concepto.Concepto);
+    const found = fila.conceptos.findIndex(c => cod ? text(c.concepto_codigo || c.Concepto) === cod :
+      text(c.revision_id || c.id) === text(concepto.revision_id || concepto.id));
+    if (found < 0) fila.conceptos.push(concepto);
+    else if ((fila.conceptos[found].sugerencia_719 || fila.conceptos[found].sugerencia_721) &&
+      !concepto.sugerencia_719 && !concepto.sugerencia_721) fila.conceptos[found] = concepto;
   }
   return [...mapa.values()].map(f => {
     const fecha = text(f.jornada.fecha).slice(0, 10);
@@ -105,15 +111,16 @@ export function validarDecisionNomina({ x, m, accion, horas, motivo, confirmado,
   }
   if (text(x.fecha).slice(0, 10) >= hoy) throw new Error('La jornada actual o futura sigue abierta. No se aprueba antes de terminar el d\u00eda.');
   const minutos = minutosDecisionNomina(horas);
-  if (!confirmado) throw new Error('Confirma que revisaste las horas y las pausas.');
-  if (m.cantidad < 2 || m.brutos === null) throw new Error('Falta un intervalo completo del punto. Revisa las marcaciones antes de aprobar.');
+  // Sunday/holiday hours may be entered manually by the responsible user.
+  // The protected server RPC records the current evidence and actor.
+  if (accion !== 'validarDomingo' && (m.cantidad < 2 || m.brutos === null)) throw new Error('Falta un intervalo completo del punto. Revisa las marcaciones antes de aprobar.');
   if (m.neto !== null && minutos > m.neto + 0.6) throw new Error('Las horas del concepto no pueden superar el total neto de esta jornada.');
-  if (minutos > m.brutos + 0.6) throw new Error('Las horas superan el intervalo recibido.');
+  if (m.brutos !== null && minutos > m.brutos + 0.6) throw new Error('Las horas superan el intervalo recibido.');
   const aprobadas = Math.round(minutos / 60 * 100) / 100;
   const original = Number(x.horas_calculadas || 0);
   const especial = accion === 'validarDomingo';
   const ajuste = !especial && (accion === 'ajustar' || Math.abs(aprobadas - original) > 0.005);
-  // The checkbox, time limits and evidence stay mandatory; the comment does not.
+  // Submitting the approval is the confirmation; there is no extra checkbox.
   return { accion: especial ? accion : ajuste ? 'ajustar' : 'aprobar', horas: aprobadas, motivo };
 }
 
@@ -125,12 +132,11 @@ export function pedirDecisionNomina(x, { accion = 'aprobar', modelo = modeloNomi
   const sugerencia = especial ? '' : horasMinutosNomina(Math.round(Number(x.horas_calculadas || 0) * 60));
   const d = abrir(`<form novalidate><header><h2 id="ndDialogTitulo">${titulo}</h2><button type="button" class="btn btn-outline-secondary btn-sm" data-nd-cerrar>Cerrar</button></header>
     <div class="nd-dialog-body"><h3>${esc(nombre(x))}</h3><p>${fechaDiaRevision(x.fecha)} &middot; <strong>${esc(x.concepto_codigo)}</strong> ${esc(x.concepto_nombre)}</p>
-    ${resumenNetoHtml(modelo)}${aviso ? `<p class="nd-aviso" role="note">${esc(aviso)}</p>` : ''}
+    ${aviso ? `<p class="nd-aviso" role="note">${esc(aviso)}</p>` : ''}
     ${!rechazo ? `<label for="ndHoras">Horas a aprobar de este concepto (horas:minutos)</label><input class="form-control" id="ndHoras" name="horas" type="text" inputmode="text" maxlength="5" placeholder="01:30" value="${esc(sugerencia)}" autocomplete="off" required>
-    <p class="nd-aclaracion">${especial ? 'Escribe solo las horas dominicales o festivas que verificaste; no dupliques horas de otra fecha o concepto.' : 'Puedes corregir este valor. La modificacion queda registrada como ajuste; el comentario es opcional.'}</p>` : ''}
+` : ''}
     <label for="ndMotivo">${accion === 'observar' ? 'Observacion a registrar' : 'Comentario (opcional)'}</label>
     <textarea class="form-control" id="ndMotivo" name="motivo" rows="3" maxlength="2000" placeholder="Puedes dejarlo en blanco al aprobar o rechazar"></textarea>
-    ${!rechazo ? '<label class="nd-confirmar"><input name="confirmado" type="checkbox"> Revis\u00e9 el punto, las pausas y el concepto. Confirmo las horas que voy a aprobar.</label>' : ''}
     <p class="nd-error" role="alert"></p>${evidenciaHtml(x, modelo)}</div>
     <footer><button type="button" class="btn btn-outline-secondary" data-nd-cerrar>Cancelar</button><button type="submit" class="btn ${rechazo ? 'btn-outline-danger' : 'btn-success'}">${titulo}</button></footer></form>`);
   return new Promise(resolve => {
@@ -140,7 +146,7 @@ export function pedirDecisionNomina(x, { accion = 'aprobar', modelo = modeloNomi
       e.preventDefault();
       try {
         const value = validarDecisionNomina({ x, m: modelo, accion, horas: form.elements.horas?.value,
-          motivo: form.elements.motivo.value, confirmado: form.elements.confirmado?.checked });
+          motivo: form.elements.motivo.value });
         finalizar(value);
       } catch (err) { d.querySelector('[role="alert"]').textContent = err.message; }
     });
@@ -154,9 +160,11 @@ export function accionesConceptoDiario(c, { disponible = true, abierta = false }
   const revisable = existe && !cerrado && c.permite_revision !== false;
   const puedeDecidir = disponible && revisable && !abierta;
   return {
-    cerrado, mostrarDecision: existe && !cerrado,
-    aprobar: puedeDecidir, rechazar: puedeDecidir, comentar: disponible && existe,
-    motivo: !existe ? 'Sin concepto para decidir.' : cerrado ? 'Decision cerrada; puedes comentar sin cambiarla.' :
+    cerrado, mostrarDecision: existe,
+    aprobar: puedeDecidir, rechazar: disponible && existe && !abierta,
+    revisar: disponible && cerrado, recalcular: disponible && cerrado && !abierta,
+    comentar: disponible && existe,
+    motivo: !existe ? 'Sin concepto para decidir.' : cerrado ? '' :
       !disponible ? 'Actualiza el periodo completo antes de continuar.' : abierta ?
       'Jornada actual o futura: pendiente de cierre.' : !revisable ?
       'Este concepto no esta habilitado para revision.' : ''
