@@ -1,3 +1,5 @@
+import { MODULOS_ADMIN, tieneModulo, listaModulos, modulosFormulario } from "./permisos-core.js?v=720";
+import { exigirModulo, invalidarPermisos } from "./permisos-modulos.js?v=720";
 import { supabase } from "../supabase/supabaseClient.js";
 
 let sesionActiva = null;
@@ -20,19 +22,9 @@ const ROLES = {
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
-  sesionActiva = obtenerSesion();
-
-  if (!sesionActiva) {
-    window.location.href = "login.html";
-    return;
-  }
-
-  if (!["admin", "administrador"].includes(String(sesionActiva.rol || sesionActiva.rol_auth || "").toLowerCase())) {
-    alert("No tienes permisos para administrar usuarios.");
-    window.location.href = "dashboard.html";
-    return;
-  }
-
+  sesionActiva = await exigirModulo("usuarios-admin");
+  if (!sesionActiva) return;
+  dibujarModulos("crearModulos", []);
   const modalEl = document.getElementById("modalEditarUsuario");
   if (modalEl && window.bootstrap) {
     modalEditar = new bootstrap.Modal(modalEl);
@@ -73,20 +65,21 @@ function enlazarEventos() {
 async function invocarGestion(payload) {
   const { data: sesion, error: sesionError } = await supabase.auth.getSession();
   if (sesionError || !sesion?.session) throw new Error("La sesión de Supabase Auth venció. Cierre sesión e ingrese nuevamente.");
-  const { data, error } = await supabase.functions.invoke("gestionar-usuarios-auth", { body: payload });
-  if (error) throw new Error(error.message || "No fue posible administrar el usuario.");
+  const { data, error } = await supabase.functions.invoke("gestionar-usuarios-auth-v720", { body: payload });
+  if (error) {
+    let detalle;try{detalle=await error.context?.json();}catch{}
+    throw new Error(detalle?.error||error.message||"No fue posible administrar el usuario.");
+  }
   if (data?.error) throw new Error(data.error);
   return data;
 }
 
-function permisosPorRol(rol, area) {
-  const r = texto(rol).toLowerCase();
-  if (["admin", "administrador", "gerencia", "nomina", "auditor"].includes(r)) {
-    return { areas: ["*"], modulos: ["dashboard", "dashboard-ayb", "horas-extras", "programacion-ayb", "cocina-chef", "programacion-administrativo", "programacion-operaciones", "mis-turnos-ayb", "mis-turnos-administrativo", "empleados", ...(r === "admin" || r === "administrador" ? ["usuarios-admin"] : [])] };
-  }
-  const areas = texto(area).split("/").map((x) => x.trim()).filter(Boolean);
-  return { areas, modulos: ["dashboard", "dashboard-ayb", "horas-extras", "programacion-ayb", "cocina-chef"] };
+function areasCreacion(area) { return texto(area).split("/").map(x=>x.trim()).filter(Boolean); }
+function dibujarModulos(id, modulos=[]) {
+ const box=document.getElementById(id);if(!box)return;
+ box.innerHTML=MODULOS_ADMIN.map(([key,label])=>`<label class="form-check" style="margin:0"><input class="form-check-input" type="checkbox" value="${key}" ${tieneModulo({modulos_permitidos:modulos},key)?'checked':''}><span class="form-check-label">${escaparHtml(label)}</span></label>`).join("");
 }
+function leerModulos(id, previous=[], role="") { return modulosFormulario([...document.querySelectorAll(`#${id} input:checked`)].map(x=>x.value),previous,role); }
 
 function rolAuth(rol) {
   const r = texto(rol).toLowerCase();
@@ -117,6 +110,7 @@ async function importarUsuariosExcel(event) {
     const indiceNombre = new Map((empleados || []).map((e) => [normalizarBusqueda(nombreEmpleado(e)), e]));
     const indiceCedula = new Map((empleados || []).map((e) => [String(e.cedula || ""), e]));
     const resultados = [];
+    const actuales=(await invocarGestion({accion:"listar"})).usuarios||[];
 
     for (let i = 0; i < validas.length; i += 1) {
       const fila = validas[i];
@@ -143,10 +137,12 @@ async function importarUsuariosExcel(event) {
       if (correo === "yvalencia@turnos.club") area = "DEPORTES / GOLF";
       const rol = rolAuth(fila["Rol propuesto"]);
       const perfilAcceso = texto(fila["Rol propuesto"]).toLowerCase();
-      const permisos = permisosPorRol(rol, area);
+      const previo=actuales.find(u=>String(u.correo).toLowerCase()===correo);
+      const permisos={areas:previo?.areas_permitidas||areasCreacion(area),modulos:listaModulos(previo?.modulos_permitidos)};
       try {
         const r = await invocarGestion({
           accion: "guardar",
+          user_id: previo?.user_id,
           empleado_id: empleado.id,
           correo,
           password: texto(fila["Contraseña temporal"]),
@@ -469,7 +465,9 @@ async function crearUsuarioAdmin(event) {
   }
 
   try {
-    const permisos = permisosPorRol(rol, empleadoSeleccionado.centro_costos || empleadoSeleccionado.area);
+    const existente=usuariosAdmin.find(u=>u.empleado_id===empleadoSeleccionado.id||String(u.correo).toLowerCase()===`${usuario}@turnos.club`);
+    if(existente){abrirModalEdicion(existente.user_id);mostrarAlerta("info","La cuenta ya existe. Revisa sus módulos y guarda los cambios.");return;}
+    const permisos={areas:areasCreacion(empleadoSeleccionado.centro_costos||empleadoSeleccionado.area),modulos:leerModulos("crearModulos",[],rol)};
     const resultado = await invocarGestion({
       accion: "guardar",
       empleado_id: empleadoSeleccionado.id,
@@ -500,6 +498,7 @@ function limpiarFormularioCreacion(limpiarAlertaActiva = true) {
 
   const form = document.getElementById("formCrearUsuarioAdmin");
   if (form) form.reset();
+  dibujarModulos("crearModulos",[]);
 
   const inputCedula = document.getElementById("inputCedulaBuscar");
   if (inputCedula) inputCedula.value = "";
@@ -629,7 +628,9 @@ function abrirModalEdicion(id) {
 
   document.getElementById("editUsuarioId").value = usuario.user_id;
   document.getElementById("editUsuario").value = usuario.correo || "";
-  document.getElementById("editRol").value = usuario.perfil_acceso || usuario.rol || "";
+  const perfil=usuario.perfil_acceso||usuario.rol||"";
+  document.getElementById("editRol").value=perfil==="administrador"?"admin":perfil;
+  dibujarModulos("editarModulos",usuario.modulos_permitidos||[]);
   document.getElementById("editPassword").value = "";
 
   if (modalEditar) modalEditar.show();
@@ -669,10 +670,7 @@ async function guardarEdicionUsuario() {
       botonGuardar.textContent = "Guardando...";
     }
     const empleado = usuarioActual.empleado || empleadosIndex[usuarioActual.empleado_id] || {};
-    const perfilAnterior = texto(usuarioActual.perfil_acceso || usuarioActual.rol).toLowerCase();
-    const permisosNuevos = perfilAnterior === rol
-      ? { areas: usuarioActual.areas_permitidas || [], modulos: usuarioActual.modulos_permitidos || [] }
-      : permisosPorRol(rol, empleado.centro_costos || empleado.area);
+    const permisosNuevos={areas:usuarioActual.areas_permitidas||[],modulos:leerModulos("editarModulos",usuarioActual.modulos_permitidos,rol)};
     await invocarGestion({
       accion: "guardar",
       user_id: id,
@@ -686,6 +684,7 @@ async function guardarEdicionUsuario() {
       modulos_permitidos: permisosNuevos.modulos
     });
 
+    invalidarPermisos();
     if (modalEditar) modalEditar.hide();
 
     const mensajePassword = password

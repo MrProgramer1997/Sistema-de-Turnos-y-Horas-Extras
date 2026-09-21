@@ -1,3 +1,4 @@
+import { exigirModulo,tieneModulo,filtrarEnlaces,moduloDeRuta } from "./permisos-modulos.js?v=720";
 import { controlExtraVigente } from './nomina-control-pendientes.js?v=713';
 import { fechaDiaRevision, diaSemanaRevision, ordenCronologicoRevision } from './revision-punto.js?v=713';
 import { incorporarDomingos, esDomingoRevision, pedirValidacionDomingo } from './nomina-dominicales.js?v=713';
@@ -164,33 +165,7 @@ function obtenerModulosPermitidosDashboard(sesion) {
     : [];
 }
 
-function usuarioPuedeAccederDashboard(sesion) {
-  if (!sesion) return false;
-
-  const cedula = String(sesion.cedula || sesion.usuario || sesion.username || "").trim();
-  const nombre = String(sesion.nombre_completo || `${sesion.nombres || ""} ${sesion.apellidos || ""}`)
-    .trim()
-    .toLowerCase();
-  const rol = obtenerRolSeguroDashboard(sesion);
-  const modulos = obtenerModulosPermitidosDashboard(sesion);
-
-  const rolesDashboard = [
-    "admin",
-    "administrador",
-    "gerencia",
-    "ayb",
-    "ayb_admin"
-  ];
-
-  return (
-    sesion.puede_ver_todo === true ||
-    String(sesion.puede_ver_todo).toLowerCase() === "true" ||
-    cedula === "1088029438" ||
-    nombre.includes("jhonnier") ||
-    rolesDashboard.includes(rol) ||
-    modulos.includes("dashboard") || modulos.includes("dashboard-ayb")
-  );
-}
+function usuarioPuedeAccederDashboard(sesion){return tieneModulo(sesion,"dashboard-ayb");}
 
 function redirigirEmpleadoASusTurnos() {
   window.location.href = "mis-turnos-ayb.html";
@@ -198,12 +173,8 @@ function redirigirEmpleadoASusTurnos() {
 
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const sesion = JSON.parse(localStorage.getItem("ccp_sesion") || "null");
-
-  if (!sesion) {
-    window.location.href = "login.html";
-    return;
-  }
+  const sesion=await exigirModulo("dashboard-ayb");
+  if (!sesion) return;
 
   if (!usuarioPuedeAccederDashboard(sesion)) {
     alert("No tienes permisos para acceder al Dashboard.");
@@ -4052,36 +4023,9 @@ function traducirRol(rol) {
   return mapa[String(rol || "").trim().toLowerCase()] || rol || "Sin rol";
 }
 
-function aplicarPermisosNavegacion(sesion) {
-  const links = document.querySelectorAll(".nav-link");
+function aplicarPermisosNavegacion(sesion){filtrarEnlaces(sesion);}
 
-  links.forEach((link) => {
-    const href = link.getAttribute("href") || "";
-
-    if (href.includes("login.html")) return;
-    if (sesion.puede_ver_todo === true) return;
-
-    const modulo = obtenerClaveModulo(href);
-
-    if (!tieneAccesoModulo(sesion, modulo)) {
-      link.style.display = "none";
-    }
-  });
-}
-
-function aplicarPermisosAccesosRapidos(sesion) {
-  const accesos = document.querySelectorAll(".acceso-rapido");
-
-  accesos.forEach((acceso) => {
-    const modulo = acceso.dataset.modulo;
-
-    if (sesion.puede_ver_todo === true) return;
-
-    if (!tieneAccesoModulo(sesion, modulo)) {
-      acceso.style.display = "none";
-    }
-  });
-}
+function aplicarPermisosAccesosRapidos(sesion){filtrarEnlaces(sesion);}
 
 function protegerPaginaActual(sesion) {
   const paginaActual = window.location.pathname.split("/").pop() || "";
@@ -4101,24 +4045,9 @@ function protegerPaginaActual(sesion) {
   }
 }
 
-function tieneAccesoModulo(sesion, modulo) {
-  if (modulo === "mis-turnos-ayb") return true;
-  if (modulo === "dashboard") return usuarioPuedeAccederDashboard(sesion);
-  if (sesion.puede_ver_todo === true) return true;
-  if (!Array.isArray(sesion.modulos_permitidos)) return false;
-  return sesion.modulos_permitidos.includes(modulo);
-}
+function tieneAccesoModulo(sesion,modulo){return tieneModulo(sesion,modulo);}
 
-function obtenerClaveModulo(href) {
-  if (href.includes("dashboard")) return "dashboard";
-  if (href.includes("solicitudes-bienestar")) return "solicitudes-bienestar";
-  if (href.includes("programacion-ayb")) return "programacion-ayb";
-  if (href.includes("programacion-administrativo")) return "programacion-administrativo";
-  if (href.includes("programacion-operaciones")) return "programacion-operaciones";
-  if (href.includes("mis-turnos-ayb")) return "mis-turnos-ayb";
-  if (href.includes("mis-turnos-administrativo")) return "mis-turnos-administrativo";
-  return href;
-}
+function obtenerClaveModulo(href){return moduloDeRuta(href);}
 
 function obtenerInicioSemanaOperativa(fechaBase) {
   const fecha = new Date(fechaBase);

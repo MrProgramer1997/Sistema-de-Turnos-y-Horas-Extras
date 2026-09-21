@@ -1,3 +1,4 @@
+import { exigirModulo } from "./permisos-modulos.js?v=720";
 import { supabase } from '../supabase/supabaseClient.js';
 
 const $ = (id) => document.getElementById(id);
@@ -90,7 +91,8 @@ function exportPunctuality(){if(!window.XLSX){alert('No está disponible la libr
 export function activateAybControl(panel){state.active=panel;if(panel==='tendencias'||panel==='puntualidad')load();}
 window.activateAybControl=activateAybControl;
 
-document.addEventListener('DOMContentLoaded',()=>{
+document.addEventListener('DOMContentLoaded',async()=>{
+  if(!await exigirModulo('dashboard-ayb'))return;
   $('aybControlDialogClose')?.addEventListener('click',()=>dialog().close());
   $('aybExportPunctuality')?.addEventListener('click',exportPunctuality);
   for(const id of ['filtroFechaInicio','filtroFechaFin','filtroArea','filtroSubarea','filtroEmpleado'])$(id)?.addEventListener('change',()=>{state.key='';if(['tendencias','puntualidad'].includes(state.active))load();});

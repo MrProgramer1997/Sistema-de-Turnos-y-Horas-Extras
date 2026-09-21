@@ -38,7 +38,7 @@ function contextualizar(error, fuente, desde, hasta) {
 
 // Two independent reads at most. Scalar blocks run the expensive SQL once,
 // without OFFSET pages or an additional exact-count execution.
-export const PLAN_LECTURA = Object.freeze({marcas:7, general:7, ayb:7, inferidos:7});
+export const PLAN_LECTURA = Object.freeze({marcas:28, general:28, ayb:28, inferidos:7});
 const now = () => globalThis.performance?.now?.() ?? Date.now();
 function enteroPositivo(value, label, max) {
   if(!Number.isSafeInteger(value)||value<1||value>max) throw new Error(label+': valor no valido.');
@@ -120,7 +120,7 @@ export async function leerPorTramos(request,{
 // rows and count are generated together. A small API row limit cannot silently
 // turn 1,500 employee/days into 1,000 accepted rows.
 export function validarBloqueNomina(data,fuente,desde,hasta) {
-  if(!data||data.version!=='716'||data.fuente!==fuente||data.desde!==desde||data.hasta!==hasta||
+  if(!data||data.version!=='721'||data.fuente!==fuente||data.desde!==desde||data.hasta!==hasta||
      data.completa!==true||!Array.isArray(data.filas)||!Number.isSafeInteger(data.total)||data.total!==data.filas.length)
     throw new Error('Bloque de '+fuente+' incompleto o de otro periodo. No se habilitan decisiones.');
   for(const row of data.filas) {
@@ -134,8 +134,8 @@ export async function leerBloquesNomina(request,{
   fuente,desde,hasta,signal,onProgress=()=>{},chunkDays=7,clock=now
 }) {
   if(!FUENTES_NOMINA.some(([key])=>key===fuente))throw new Error('Fuente de nomina no valida.');
-  enteroPositivo(chunkDays,'Dias por bloque',7);
-  const dias=diasEntre(desde,hasta),nombre='consultar_fuente_nomina_v716';
+  enteroPositivo(chunkDays,'Dias por bloque',fuente==='inferidos'?7:32);
+  const dias=diasEntre(desde,hasta),nombre='consultar_fuente_nomina_v721';
   let terminados=0,ancho=chunkDays;
   const trozo=async fechas=>{
     cancelado(signal);const a=fechas[0],b=fechas.at(-1),inicio=clock();

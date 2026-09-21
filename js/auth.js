@@ -1,3 +1,4 @@
+import { destinoPermitido } from "./permisos-core.js?v=720";
 import { supabase } from "../supabase/supabaseClient.js";
 
 window.mostrarAdmin = function () {
@@ -235,6 +236,13 @@ window.loginAdmin = async function () {
         return false;
       }
 
+      const {data:acceso,error:errorAcceso}=await supabase.rpc("consultar_mis_modulos_v720");
+      if(errorAcceso||!acceso?.activo||acceso.user_id!==authUser.id){
+        await supabase.auth.signOut({scope:"local"});
+        if(typeof ocultarLoader==="function")ocultarLoader();
+        if(typeof mostrarMensaje==="function")mostrarMensaje("error","No se pudieron verificar los permisos. Contacta a Sistemas.");
+        return false;
+      }
       const permisos = obtenerPermisosPorRol(perfilAcceso);
       const rolCompatible = perfilAcceso;
 
@@ -257,12 +265,10 @@ window.loginAdmin = async function () {
         rol: rolCompatible,
         rol_auth: rolAuth,
         puede_ver_todo: permisos.puede_ver_todo,
-        areas_permitidas: Array.isArray(metadata.areas_permitidas)
-          ? metadata.areas_permitidas
-          : permisos.areas_permitidas,
-        modulos_permitidos: Array.isArray(metadata.modulos_permitidos) && metadata.modulos_permitidos.length
-          ? metadata.modulos_permitidos
-          : permisos.modulos_permitidos,
+        areas_permitidas: acceso.areas_permitidas,
+        modulos_permitidos: acceso.modulos_permitidos,
+        puede_administrar: acceso.puede_administrar,
+        activo: true,
         tipo_ingreso: "admin_auth"
       };
 
@@ -272,17 +278,17 @@ window.loginAdmin = async function () {
         mostrarMensaje("success", `Ingreso correcto como ${rolAuth}. Redirigiendo...`);
       }
 
-      const areasAuth=Array.isArray(metadata.areas_permitidas)?metadata.areas_permitidas:[];
-      const esAyb=areasAuth.some(a=>normalizarTexto(a).includes("alimentos")||normalizarTexto(a).includes("ayb"));
-      window.location.href = (requiereAuthVerificada && retornoSeguro) ? retornoSeguro : ["ayb", "ayb_admin"].includes(perfilAcceso)
-        ? "dashboard-ayb.html"
-        : perfilAcceso === "bienestar" ? "solicitudes-bienestar.html"
-        : rolAuth === "aprobador" ? (esAyb ? "dashboard-ayb.html" : "horas-extras.html")
-        : rolAuth === "auditor" ? "horas-extras.html" : "dashboard.html";
+      const destino=destinoPermitido(sesion,retornoSeguro||"");
+      if(!destino){
+        if(typeof ocultarLoader==="function")ocultarLoader();
+        if(typeof mostrarMensaje==="function")mostrarMensaje("info","Tu cuenta está activa, pero no tiene módulos asignados. Solicita el acceso a Sistemas.");
+        return false;
+      }
+      window.location.href=destino;
       return true;
     }
 
-    if (requiereAuthVerificada) {
+    if (authError || requiereAuthVerificada) {
       if (typeof ocultarLoader === "function") ocultarLoader();
       if (typeof mostrarMensaje === "function") mostrarMensaje("error", "No se pudo iniciar la sesion segura. Usa la contrasena de tu cuenta Supabase Auth. El acceso anterior no habilita Centro de Control ni Nomina; no se cambio tu contrasena.");
       return false;

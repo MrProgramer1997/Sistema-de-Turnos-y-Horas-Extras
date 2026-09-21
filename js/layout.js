@@ -1,5 +1,18 @@
+let controlPermisos720=null;
 document.addEventListener("DOMContentLoaded", async () => {
   if (esPaginaLoginSidebar()) return;
+  try {
+    controlPermisos720=await import("./permisos-modulos.js?v=720");
+    const modulo=controlPermisos720.moduloDeRuta(location.pathname);
+    const actual=await controlPermisos720.exigirModulo(modulo);
+    if(!actual)return;
+    window.addEventListener("ccp-permisos-actualizados",event=>{aplicarPermisosSidebar();controlPermisos720.filtrarEnlaces(event.detail);});
+    let comprobando=false;
+    const validar=async()=>{if(comprobando||document.hidden)return;comprobando=true;try{const s=await controlPermisos720.exigirModulo(modulo,{force:true});if(s)controlPermisos720.filtrarEnlaces(s);}finally{comprobando=false;}};
+    window.addEventListener("focus",validar);
+    document.addEventListener("visibilitychange",validar);
+  }catch(e){console.error("No se pudieron verificar permisos",e);return;}
+
 
   let container = document.getElementById("sidebar-container");
 
@@ -20,6 +33,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     container.innerHTML = html;
 
     aplicarPermisosSidebar();
+    controlPermisos720.filtrarEnlaces(obtenerSesionActualSidebar());
     activarLinkActivo();
     configurarLogout();
     configurarToggleMobile();
@@ -37,9 +51,9 @@ function esPaginaLoginSidebar() {
 
 async function cargarHtmlSidebarSeguro() {
   const rutas = [
-    "../components/sidebar.html?v=portal-6-2-1",
-    "./components/sidebar.html?v=portal-6-2-1",
-    "/components/sidebar.html?v=portal-6-2-1"
+    "../components/sidebar.html?v=permisos-720",
+    "./components/sidebar.html?v=permisos-720",
+    "/components/sidebar.html?v=permisos-720"
   ];
 
   let ultimoError = null;
@@ -210,61 +224,7 @@ function obtenerClaveModuloSidebar(href) {
   return valor;
 }
 
-function usuarioPuedeVerModuloSidebar(sesion, modulo, rolesPermitidos = []) {
-  if (modulo === "login") return true;
-  if (!sesion) return false;
-
-  const rol = obtenerRolSidebar(sesion);
-  const modulos = obtenerModulosPermitidosSidebar(sesion);
-
-  /*
-    Regla dura:
-    Un empleado operativo no ve módulos administrativos en el menú.
-  */
-  if (rol === "empleado") {
-    return ["mis-turnos", "mis-turnos-ayb", "mis-turnos-administrativo", "login"].includes(modulo);
-  }
-
-  /*
-    Permisos explícitos para dashboards separados.
-    - Dashboard General: no lo ve A&B.
-    - Dashboard A&B: no lo ve Bienestar ni Dirección Financiera.
-  */
-  if (modulo === "dashboard") {
-    /*
-      Regla estricta:
-      A&B NO puede ver Dashboard General aunque tenga "dashboard" en modulos_permitidos.
-      Esto evita que el dashboard global se mezcle con el dashboard operativo A&B.
-    */
-    if (rol === "ayb") return false;
-    return usuarioEsAdminSidebar(sesion) || ["gerencia", "bienestar", "direccion_financiera"].includes(rol);
-  }
-
-  if (modulo === "dashboard-ayb") {
-    /*
-      Regla estricta:
-      Bienestar y Dirección Financiera NO ven Dashboard A&B por menú.
-      Admin y Gerencia sí pueden verlo para auditoría/seguimiento.
-    */
-    if (["bienestar", "direccion_financiera", "servicios_generales"].includes(rol)) return false;
-    return usuarioEsAdminSidebar(sesion) || ["gerencia", "ayb"].includes(rol) || modulos.includes("dashboard-ayb");
-  }
-
-  if (modulo === "horas-extras") {
-    return usuarioEsAdminSidebar(sesion) || ["gerencia", "nomina", "ayb", "servicios_generales", "direccion_financiera"].includes(rol) || modulos.includes("horas-extras");
-  }
-
-  if (modulo === "asistencia") {
-    return usuarioEsAdminSidebar(sesion) || ["gerencia", "bienestar", "direccion_financiera"].includes(rol) || modulos.includes("asistencia");
-  }
-
-  if (usuarioEsAdminSidebar(sesion)) return true;
-  if (modulo === "mis-turnos" || modulo === "mis-turnos-ayb") return true;
-  if (modulos.includes(modulo)) return true;
-  if (rolesPermitidos.includes(rol)) return true;
-
-  return usuarioEsAdministrativoSidebar(sesion) && rolesPermitidos.length === 0;
-}
+function usuarioPuedeVerModuloSidebar(sesion,modulo){return modulo==="login"||!!controlPermisos720?.tieneModulo(sesion,modulo);}
 
 function aplicarPermisosSidebar() {
   const sesion = obtenerSesionActualSidebar();
