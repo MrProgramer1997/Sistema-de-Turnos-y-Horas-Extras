@@ -1,8 +1,9 @@
+import { presentarEspecialNeto723 } from './nomina-descanso-especial.js?v=727';
 /* 7.19: suggestions are review evidence, never payment authorization.
  * Keep raw timestamps. Associate an early exit with the visit that started
  * the previous day only when the gate sequence corroborates that visit. */
 import { modeloNomina, esAyBChefNomina } from './nomina-neto.js?v=714';
-import { minutoCivil } from './revision-evidencia.js?v=715';
+import { minutoCivil } from './revision-evidencia.js?v=728';
 import { normalizarPunto, esPorteria, etiquetaPunto } from './revision-punto.js?v=713';
 const text=v=>String(v??'').trim();
 const key=x=>`${text(x.cedula)}|${text(x.fecha).slice(0,10)}`;
@@ -102,13 +103,14 @@ export function candidatosDeJornada719(x,calendario){
   const special=festivos.has(text(x.fecha).slice(0,10))||new Date(text(x.fecha).slice(0,10)+'T12:00:00Z').getUTCDay()===0;
   found=[{codigo:special?'P100':'P005',minutos:null,tramos:[]},{codigo:special?'P009':'P004',minutos:null,tramos:[]}];
  }
+ if(x.oficios_726&&!clear&&!night&&m.eventos.length>=2&&x.oficios_726.opciones?.length){found=[{codigo:'P003',minutos:null,tramos:[]}];}
  return found.map(c=>({...x,id:undefined,revision_id:`s719|${key(x)}|${c.codigo}`,concepto_codigo:c.codigo,
   concepto_nombre:NOMBRES719[c.codigo],estado:'pendiente',estado_revision:'pendiente',permite_revision:true,
   origen_calculo:'vista_sugerida_v719',sugerencia_719:true,horas_aprobadas:null,
   horas_calculadas:c.minutos===null?0:Math.round(c.minutos/60*100)/100,
   detalle:{calculo_pendiente:c.minutos===null,sugerencia_719:true,tramos_sugeridos:c.tramos,
    criterio:'Referencia para revisar; valida el turno, las pausas y cada concepto. No son horas aprobadas.'},
-  jornada_actual:x,evidencia_revision:x.evidencia_revision}));
+  jornada_actual:x,evidencia_revision:x.evidencia_revision})).map(c=>presentarEspecialNeto723(c,m));
 }
 export function agregarSugerencias719(base,jornadas,calendario){
  const stored=new Set(base.map(x=>key(x)+'|'+x.concepto_codigo)),nuevos=[];
@@ -117,4 +119,4 @@ export function agregarSugerencias719(base,jornadas,calendario){
  }
  return [...base,...nuevos];
 }
-export const usaRevision719=x=>Boolean(x?.sugerencia_719||x?.origen_calculo==='revision_sugerida_v719');
+export const usaRevision719=x=>Boolean(x?.oficios_726||x?.jornada_actual?.oficios_726||x?.sugerencia_719||x?.origen_calculo==='revision_sugerida_v719');

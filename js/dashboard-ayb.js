@@ -1,8 +1,9 @@
+import { textoHoras728, textoMinutos728, leerMinutos728, horasDesdeTexto728, horasTextoONaN728, enlazarTiempo728 } from './tiempo-aprobacion.js?v=728';
 import { exigirModulo,tieneModulo,filtrarEnlaces,moduloDeRuta } from "./permisos-modulos.js?v=720";
 import { controlExtraVigente } from './nomina-control-pendientes.js?v=713';
 import { fechaDiaRevision, diaSemanaRevision, ordenCronologicoRevision } from './revision-punto.js?v=713';
-import { incorporarDomingos, esDomingoRevision, pedirValidacionDomingo } from './nomina-dominicales.js?v=713';
-import { calculadasCeldaRevision, columnasRevisionExcel, modeloRevision, comparacionCelda, programacionCelda, marcadoCelda, advertenciaNocturna, requiereRevisionNocturna, crearVisorRevision, contextoComoJornada } from "./revision-evidencia.js?v=713";
+import { incorporarDomingos, esDomingoRevision, pedirValidacionDomingo } from './nomina-dominicales.js?v=728';
+import { calculadasCeldaRevision, columnasRevisionExcel, modeloRevision, comparacionCelda, programacionCelda, marcadoCelda, advertenciaNocturna, requiereRevisionNocturna, crearVisorRevision, contextoComoJornada } from "./revision-evidencia.js?v=728";
 import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
 import { supabase } from "../supabase/supabaseClient.js";
 
@@ -4615,7 +4616,7 @@ function actualizarResumenRevisionNomina() {
   setText("kpiRevisionObservados",observados);
   setText("kpiRevisionAccionables",accionables);
   setText("kpiRevisionIncidencias",incidencias);
-  setText("kpiRevisionHorasCandidatas",`${horas.toFixed(2)} h`);
+  setText("kpiRevisionHorasCandidatas",textoHoras728(horas));
 }
 
 function registrosRevisionFiltrados() {
@@ -4644,14 +4645,7 @@ function registrosRevisionFiltrados() {
   return filas.sort(ordenCronologicoRevision);
 }
 
-function formatearHorasRevision(valor) {
-  const decimal = Number(valor || 0);
-  if (!Number.isFinite(decimal)) return "0.00 h (0 h 00 min)";
-  let horas = Math.floor(decimal);
-  let minutos = Math.round((decimal - horas) * 60);
-  if (minutos === 60) { horas += 1; minutos = 0; }
-  return `${decimal.toFixed(2)} h (${horas} h ${String(minutos).padStart(2,"0")} min)`;
-}
+function formatearHorasRevision(valor) { return textoHoras728(valor); }
 
 function horasCalculadasRevision(registro) {
   return Number(registro?.horas_calculadas ?? registro?.horas_candidatas ?? 0);
@@ -4765,7 +4759,7 @@ function accionesRevisionAyb713(x,cerrado){
  let accion;
  if(esDomingoRevision(x))accion=`<button class="btn btn-outline-primary btn-sm" onclick="window.validarEspecialAyb('${id}')">Revisar y aprobar</button>`;
  else if(requiereRevisionNocturna(x))accion=`<button class="btn btn-outline-primary btn-sm" onclick="window.aybVerEvidencia('${id}',true)">Revisar y aprobar nocturno</button>`;
- else if(x.permite_revision&&!x.ocultar_por_tolerancia&&!x.comparacion_error&&!controlExtraVigente(x,modeloRevision(x)))accion=`<button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${id}','aprobar')">Aprobar ${Number(x.horas_calculadas||0).toFixed(2)} h</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${id}','ajustar')">Ajustar</button>`;
+ else if(x.permite_revision&&!x.ocultar_por_tolerancia&&!x.comparacion_error&&!controlExtraVigente(x,modeloRevision(x)))accion=`<button class="btn btn-success btn-sm" onclick="window.resolverRevisionNomina('${id}','aprobar')">Aprobar ${textoHoras728(x.horas_calculadas)}</button><button class="btn btn-outline-primary btn-sm" onclick="window.resolverRevisionNomina('${id}','ajustar')">Ajustar</button>`;
  else accion=`<button class="btn btn-outline-primary btn-sm" onclick="window.aybVerEvidencia('${id}')">Revisar horario y marcas</button>`;
  return `<div class="rev-actions">${accion}${comentario}</div>`;
 }
@@ -4908,7 +4902,7 @@ window.resolverRevisionNomina=async function(id,accion){
   const descripcion=descripcionCalculoRevision(registro);
   let horas=null,obs=null;
   if(accion==='ajustar'){
-    const raw=prompt(`Horas que se aprobar\u00e1n\n\n${descripcion}`,calculadas.toFixed(2)); if(raw===null)return; horas=Number(String(raw).replace(',','.'));
+    const raw=prompt(`Horas que se aprobar\u00e1n\n\n${descripcion}`,textoHoras728(calculadas)); if(raw===null)return; horas=horasTextoONaN728(raw);
     if(!Number.isFinite(horas)||horas<=0){alert('Ingresa una cantidad de horas v\u00e1lida.');return;}
     obs=prompt('Justificaci\u00f3n obligatoria del ajuste:'); if(obs===null)return; if(!obs.trim())return alert('El ajuste requiere justificaci\u00f3n.');
   }else if(['rechazar','observar'].includes(accion)){
@@ -4930,9 +4924,9 @@ window.editarRevisionNomina=async function(id,horasActuales){
   const registro=revisionNominaRealBase.find(x=>String(x.revision_id)===id);
   if(!registro||!['aprobado','rechazado'].includes(registro.estado_revision))return;
   const actual=Number(horasActuales||0);
-  const raw=prompt(`Horas aprobadas corregidas (actual: ${formatearHorasRevision(actual)}):`,actual.toFixed(2));
+  const raw=prompt(`Horas aprobadas corregidas (actual: ${formatearHorasRevision(actual)}):`,textoHoras728(actual));
   if(raw===null)return;
-  const horas=Number(String(raw).replace(',','.'));
+  const horas=horasTextoONaN728(raw,{allowZero:true});
   if(!Number.isFinite(horas)||horas<0){alert('Ingresa una cantidad de horas v\u00e1lida.');return;}
   const obs=prompt('Motivo obligatorio de la correcci\u00f3n. Este cambio quedar\u00e1 registrado en auditor\u00eda:');
   if(obs===null)return; if(!obs.trim())return alert('Debes registrar el motivo de la correcci\u00f3n.');

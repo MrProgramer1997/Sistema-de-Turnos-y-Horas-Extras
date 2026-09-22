@@ -1,6 +1,6 @@
 // 7.21: reuse the complete, authenticated raw read. The write dialogs still
 // obtain fresh evidence and a server fingerprint before every decision.
-import { minutoCivil } from './revision-evidencia.js?v=721';
+import { minutoCivil } from './revision-evidencia.js?v=728';
 const text=v=>String(v??'').trim(), key=x=>text(x.cedula)+'|'+text(x.fecha).slice(0,10);
 const day=(d,n=0)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
 const block=(d,a,b,offset=0)=>{

@@ -1,3 +1,5 @@
+import { textoHoras728, textoMinutos728, leerMinutos728, horasDesdeTexto728, horasTextoONaN728, enlazarTiempo728 } from './tiempo-aprobacion.js?v=728';
+import { referenciaEspecial723, textoDescansoEspecial723 } from './nomina-descanso-especial.js?v=727';
 import { modeloNomina, horasMinutosNomina } from './nomina-neto.js?v=714';
 import { fechaDiaRevision, recorridoRevisionHtml } from './revision-punto.js?v=713';
 
@@ -57,6 +59,7 @@ function nombre(x) { return text(x.empleado || x.nombre_completo || `${x.nombres
 function evidenciaHtml(x, m) {
   return `<details class="nd-evidencia"><summary>Ver turno, origen del almuerzo y marcaciones</summary>
     <p><strong>Turno:</strong> ${esc(m.p?.turno || 'Por confirmar')} &middot; ${esc(m.p?.hora_inicio || '\u2014')} a ${esc(m.p?.hora_fin || '\u2014')}</p>
+    ${referenciaEspecial723(x, m) ? `<p>${esc(textoDescansoEspecial723(referenciaEspecial723(x, m)))}</p>` : ''}
     <p><strong>Almuerzo:</strong> ${esc(m.fuenteAlmuerzo)}. Configurado: ${horasMinutosNomina(m.pausa)}.</p>
     <p>${esc(m.criterio)}</p><p>${esc(m.seleccion?.nota)}</p>
     <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha y hora</th><th>Punto</th><th>Huellero</th><th>Referencia</th></tr></thead>
@@ -90,13 +93,8 @@ export function verDetalleDiario(x, m = modeloNomina(x)) {
   dialogo.querySelector('details').open = true;
 }
 
-export function minutosDecisionNomina(valor) {
-  const a = /^(\d{1,2}):([0-5]\d)$/.exec(text(valor));
-  if (!a) throw new Error('Escribe horas y minutos, por ejemplo 01:30.');
-  const minutos = Number(a[1]) * 60 + Number(a[2]);
-  if (minutos <= 0 || minutos > 1440) throw new Error('Las horas deben estar entre 00:01 y 24:00.');
-  return minutos;
-}
+export function minutosDecisionNomina(valor) { return leerMinutos728(valor); }
+
 export function validarDecisionNomina({ x, m, accion, horas, motivo, confirmado, hoy = hoyNomina() }) {
   motivo = text(motivo);
   if (!['aprobar', 'ajustar', 'validarDomingo', 'rechazar', 'observar'].includes(accion))
@@ -129,11 +127,12 @@ export function pedirDecisionNomina(x, { accion = 'aprobar', modelo = modeloNomi
   const rechazo = accion === 'rechazar' || accion === 'observar';
   const especial = accion === 'validarDomingo';
   const titulo = rechazo ? (accion === 'rechazar' ? 'Rechazar concepto' : 'Observar concepto') : 'Aprobar horas verificadas';
-  const sugerencia = especial ? '' : horasMinutosNomina(Math.round(Number(x.horas_calculadas || 0) * 60));
+  const refEspecial = referenciaEspecial723(x, modelo);
+  const sugerencia = refEspecial ? textoMinutos728(refEspecial.neto) : especial ? '' : textoHoras728(x.horas_calculadas);
   const d = abrir(`<form novalidate><header><h2 id="ndDialogTitulo">${titulo}</h2><button type="button" class="btn btn-outline-secondary btn-sm" data-nd-cerrar>Cerrar</button></header>
     <div class="nd-dialog-body"><h3>${esc(nombre(x))}</h3><p>${fechaDiaRevision(x.fecha)} &middot; <strong>${esc(x.concepto_codigo)}</strong> ${esc(x.concepto_nombre)}</p>
     ${aviso ? `<p class="nd-aviso" role="note">${esc(aviso)}</p>` : ''}
-    ${!rechazo ? `<label for="ndHoras">Horas a aprobar de este concepto (horas:minutos)</label><input class="form-control" id="ndHoras" name="horas" type="text" inputmode="text" maxlength="5" placeholder="01:30" value="${esc(sugerencia)}" autocomplete="off" required>
+    ${!rechazo ? `<label for="ndHoras">Tiempo NETO a aprobar (horas y minutos)</label><input class="form-control" id="ndHoras" name="horas" type="text" inputmode="text" maxlength="30" placeholder="1 h 26 min" value="${esc(sugerencia)}" autocomplete="off" required>
 ` : ''}
     <label for="ndMotivo">${accion === 'observar' ? 'Observacion a registrar' : 'Comentario (opcional)'}</label>
     <textarea class="form-control" id="ndMotivo" name="motivo" rows="3" maxlength="2000" placeholder="Puedes dejarlo en blanco al aprobar o rechazar"></textarea>

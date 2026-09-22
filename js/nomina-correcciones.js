@@ -1,18 +1,15 @@
+import { textoHoras728, textoMinutos728, leerMinutos728, horasDesdeTexto728, horasTextoONaN728, enlazarTiempo728 } from './tiempo-aprobacion.js?v=728';
 // Revisar is read-only until submit. Every correction targets exactly one persisted concept.
-import { minutosDecisionNomina } from './nomina-aprobacion-diaria.js?v=722';
+import { minutosDecisionNomina } from './nomina-aprobacion-diaria.js?v=728';
 const text = value => String(value ?? '').trim();
 const esc = value => text(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export const horasCorreccion722 = value => {
-  if (value == null || !Number.isFinite(Number(value))) return '';
-  const minutes = Math.round(Number(value) * 60);
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
-};
+export const horasCorreccion722 = value => value == null || !Number.isFinite(Number(value)) ? '' : textoHoras728(value);
 const instant = value => value ? text(value).replace('T', ' ').slice(0, 19) : 'Sin extremo completo';
 const auditDate = value => {
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('es-CO', {timeZone:'America/Bogota',dateStyle:'short',timeStyle:'short'}).format(date) : '';
 };
-export function crearCorreccionesNomina722({rpc, canWrite, onBusy, onSaved, onError}) {
+export function crearCorreccionesNomina722({rpc, canWrite, onBusy, onSaved, onError, canManual = () => false, onManual = () => {}}) {
   let dialog = null, context = null, current = null, action = 'revisar', busy = false, ticket = 0, focus = null;
   function close(force = false) {
     if (busy && !force) return;
@@ -54,6 +51,7 @@ export function crearCorreccionesNomina722({rpc, canWrite, onBusy, onSaved, onEr
     const r = context, x = r.revision, body = dialog.querySelector('[data-body]');
     const changingHours = action === 'revisar';
     const canApprove = r.jornada_cerrada && (r.manual || Number.isFinite(r.referencia) && r.referencia > 0);
+    if (changingHours && canManual() && (!canApprove || x.detalle?.aprobacion_manual_728)) { const target = {...current, ...x, revision_id:x.id}; close(); void onManual(target); return; }
     const options = Array.isArray(r.opciones) ? r.opciones : [];
     dialog.querySelector('h2').textContent = action === 'rechazar' ? 'Rechazar concepto' : action === 'recalcular' ? 'Recalcular concepto' : 'Revisar concepto';
     body.innerHTML = `<form novalidate>
@@ -61,7 +59,7 @@ export function crearCorreccionesNomina722({rpc, canWrite, onBusy, onSaved, onEr
       <p>Estado: <strong>${esc(x.estado)}</strong> &middot; Horas aprobadas: <strong>${esc(horasCorreccion722(x.horas_aprobadas) || '00:00')}</strong></p>
       ${options.length > 1 && action !== 'rechazar' ? `<label for="nc722Opcion">Turno de referencia</label><select id="nc722Opcion" class="form-select"><option value="">Selecciona un turno</option>${options.map(o => `<option value="${esc(o.key)}" ${o.key === r.horario?.key ? 'selected' : ''}>${esc(o.codigo)} &middot; ${esc(o.inicio)} a ${esc(o.fin)}</option>`).join('')}</select>` : ''}
       ${action === 'recalcular' ? `<p>Referencia actual: <strong>${esc(horasCorreccion722(r.referencia) || 'Por revisar')}</strong>. Al confirmar, este concepto queda <strong>pendiente</strong> y deja de exportarse hasta aprobarlo de nuevo.</p>` : ''}
-      ${changingHours ? `<label for="nc722Horas">Horas del concepto (horas:minutos)</label><input class="form-control" id="nc722Horas" type="text" inputmode="text" maxlength="5" value="${esc(horasCorreccion722(x.estado === 'aprobado' ? x.horas_aprobadas : r.referencia))}" placeholder="01:30"><small class="nd-small">Referencia actual: ${esc(horasCorreccion722(r.referencia) || 'Por revisar')}. La decision solo cambia al guardar.</small>` : ''}
+      ${changingHours ? `<label for="nc722Horas">Tiempo NETO del concepto (horas y minutos)</label><input class="form-control" id="nc722Horas" type="text" inputmode="text" maxlength="30" value="${esc(horasCorreccion722(x.estado === 'aprobado' ? x.horas_aprobadas : r.referencia))}" placeholder="1 h 26 min"><small class="nd-small">Referencia actual: ${esc(horasCorreccion722(r.referencia) || 'Por revisar')}. La decision solo cambia al guardar.</small>` : ''}
       ${changingHours && !canApprove ? '<p class="nd-small">Revisa el turno o las marcaciones. Puedes cerrar sin cambios; rechazar y recalcular siguen disponibles en la tabla.</p>' : ''}
       ${action === 'rechazar' ? '<p>Se rechazara solamente este concepto. Los demas conceptos de la jornada no cambian.</p>' : ''}
       <label for="nc722Comentario">Comentario (opcional)</label><textarea id="nc722Comentario" class="form-control" rows="2" maxlength="2000"></textarea>

@@ -1,4 +1,4 @@
-import { modeloRevision as modeloOriginal } from './revision-evidencia.js?v=713';
+import { modeloRevision as modeloOriginal } from './revision-evidencia.js?v=728';
 import { esPorteria } from './revision-punto.js?v=713';
 
 // Payroll-only adapter. No writes, no new schedules, no hard-coded people/areas.
