@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="../css/nomina-dominicales.css?v=713">
   <link rel="stylesheet" href="../css/nomina-diaria.css?v=715">
 <style>.nd-concepto-aprobado{background-color:#B2FEE0!important;border-color:#1AC189!important;color:#064e3b!important;}</style>
+  <link rel="stylesheet" href="../css/nomina-porteria.css?v=731">
 </head>
 <body>
 <div id="sidebar-container"></div>
@@ -36,6 +37,7 @@
           <button type="button" class="btn btn-primary btn-sm active" data-he-vista="diaria" aria-pressed="true">Aprobación del corte</button>
           <button type="button" class="btn btn-outline-primary btn-sm" data-he-vista="jornadas" aria-pressed="false">Jornadas y marcaciones</button>
           <button type="button" class="btn btn-outline-primary btn-sm" data-he-vista="conceptos" aria-pressed="false">Revisión y aprobación</button>
+          <button type="button" class="btn btn-outline-primary btn-sm" id="heBotonAnterior" aria-haspopup="dialog">BOTON ANTERIOR</button>
         </div>
         <div class="nd-descargas">
           <button type="button" class="btn btn-outline-primary btn-sm" id="heXlsx" disabled>Descargar revisión .xlsx</button>
@@ -69,7 +71,7 @@
         <details class="nd-areas"><summary>Estado por área: <strong id="heKpiAreas">—</strong> sin cerrar</summary><div class="card he-card mb-3"><div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2"><div><strong>Estado de aprobación por área</strong><div class="he-note">Nómina puede identificar a quién llamar antes del cierre.</div></div><button class="btn btn-outline-secondary btn-sm" id="heConfigResponsables">Configurar responsables</button></div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Área</th><th>Responsable</th><th>Pendientes</th><th>Observados</th><th>Aprobados</th><th>Estado</th></tr></thead><tbody id="heAreasBody"></tbody></table></div></div></details>
       </div>
     </details>
-    <p class="nd-version">Aprobación del corte · versión 7.28</p>
+    <p class="nd-version">Aprobación del corte · versión 7.32</p>
   </section>
 </main>
 <div class="modal fade" id="heModalResponsables" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><div><h5 class="modal-title">Responsables de aprobación</h5><div class="small text-muted">Asignaciones administrables; no están escritas en el código.</div></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="alert alert-warning small">Esta pantalla se habilita al ejecutar la migración incluida y vincular los usuarios con Supabase Auth.</div><div class="small text-muted" id="heResponsablesBody">La primera entrega conserva los responsables existentes y prepara la administración segura.</div></div></div></div></div>
@@ -81,15 +83,30 @@
 // A missing module must not leave an unexplained empty screen. These messages
 // use existing status elements and do not request data without authentication.
 try {
-  await import("../js/horas-extras.js?v=728");
+  await import("../js/horas-extras.js?v=729");
 } catch (error) {
   console.error("No se pudo cargar el modulo de Nomina:", error);
-  const mensaje="No se pudieron cargar todos los archivos del modulo. Copia completos js y pages del parche 7.28, sin borrar las carpetas, y recarga con Ctrl + F5.";
+  const mensaje="No se pudieron cargar todos los archivos del modulo. Copia completos js y pages del parche 7.29, sin borrar las carpetas, y recarga con Ctrl + F5.";
   const resumen=document.getElementById("heEstadoResumen"),detalle=document.getElementById("heIntegridad"),body=document.getElementById("heBody");
   if(resumen){resumen.className="nd-estado danger";resumen.textContent="Faltan archivos o no se pudieron cargar. Ver auditoria.";}
   if(detalle){detalle.className="alert alert-danger py-2 small";detalle.textContent=mensaje+" Detalle: "+(error?.message||String(error));}
   if(body){body.replaceChildren();const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=12;td.className="text-center text-danger py-4";td.textContent=mensaje;tr.append(td);body.append(tr);}
   ["heActualizar","heRecalcular","heXlsx","heXls","heExportarIncidencias"].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=true;});
 }
+</script>
+<script type="module">
+// Independent entry point: failure of this optional report cannot stop payroll.
+const botonAnterior = document.getElementById("heBotonAnterior");
+botonAnterior.addEventListener("click", async () => {
+  if (botonAnterior.disabled) return;
+  botonAnterior.disabled = true;
+  try {
+    const reporte = await import("../js/nomina-porteria.js?v=732");
+    await reporte.abrirPorteria730();
+  } catch (error) {
+    console.error("Informe de Porteria:", error);
+    window.alert("No se pudo abrir BOTON ANTERIOR. Copia completos los archivos del parche 7.32 y recarga. " + (error?.message || ""));
+  } finally { botonAnterior.disabled = false; }
+});
 </script>
 </body></html>
