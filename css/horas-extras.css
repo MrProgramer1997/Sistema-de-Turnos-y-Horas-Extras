@@ -33,3 +33,31 @@ body{background:var(--he-bg)}.he-main{min-height:100vh}.he-hero{background:linea
 .he-table tbody tr:hover{background:#f5f9ff}
 .he-table .small{line-height:1.25}
 @media (min-width:1200px){.he-main .he-content{max-width:1700px;margin:0 auto}.he-table{font-size:.9rem}}
+
+/* Ajuste visual 7.33: aprovechar el ancho disponible del modulo de nomina.
+   Solo presentacion: no modifica tablas, calculos, consultas ni acciones. */
+@media (min-width: 1200px) {
+  .he-main .he-content {
+    max-width: none;
+    width: auto;
+    margin-left: 0;
+    margin-right: 0;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .he-main .he-content > .he-card,
+  .he-main .nd-bandeja,
+  .he-main .nd-avanzadas {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* En pantallas intermedias se conserva aire lateral sin desperdiciar espacio. */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .he-main .he-content {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
