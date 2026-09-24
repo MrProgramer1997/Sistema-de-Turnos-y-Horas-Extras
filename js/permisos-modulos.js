@@ -1,5 +1,5 @@
 import { supabase } from '../supabase/supabaseClient.js';
-import { tieneModulo, moduloDeRuta, destinoPermitido, MODULOS_ADMIN } from './permisos-core.js?v=720';
+import { tieneModulo, moduloDeRuta, destinoPermitido, MODULOS_ADMIN } from './permisos-core.js?v=735';
 export { tieneModulo, moduloDeRuta, destinoPermitido };
 let inflight=null,cached=null,blocked=false,linkSession=null,linkObserver=null;
 function local(){try{return JSON.parse(localStorage.getItem('ccp_sesion')||'null');}catch{return null;}}

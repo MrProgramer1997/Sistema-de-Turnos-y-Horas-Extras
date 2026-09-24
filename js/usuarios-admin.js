@@ -1,5 +1,5 @@
-import { MODULOS_ADMIN, tieneModulo, listaModulos, modulosFormulario } from "./permisos-core.js?v=720";
-import { exigirModulo, invalidarPermisos } from "./permisos-modulos.js?v=720";
+import { MODULOS_ADMIN, tieneModulo, listaModulos, modulosFormulario } from "./permisos-core.js?v=735";
+import { exigirModulo, invalidarPermisos } from "./permisos-modulos.js?v=735";
 import { supabase } from "../supabase/supabaseClient.js";
 
 let sesionActiva = null;

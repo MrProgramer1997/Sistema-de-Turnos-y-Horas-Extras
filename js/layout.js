@@ -2,7 +2,7 @@ let controlPermisos720=null;
 document.addEventListener("DOMContentLoaded", async () => {
   if (esPaginaLoginSidebar()) return;
   try {
-    controlPermisos720=await import("./permisos-modulos.js?v=720");
+    controlPermisos720=await import("./permisos-modulos.js?v=735");
     const modulo=controlPermisos720.moduloDeRuta(location.pathname);
     const actual=await controlPermisos720.exigirModulo(modulo);
     if(!actual)return;
@@ -51,9 +51,9 @@ function esPaginaLoginSidebar() {
 
 async function cargarHtmlSidebarSeguro() {
   const rutas = [
-    "../components/sidebar.html?v=permisos-720",
-    "./components/sidebar.html?v=permisos-720",
-    "/components/sidebar.html?v=permisos-720"
+    "../components/sidebar.html?v=permisos-735",
+    "./components/sidebar.html?v=permisos-735",
+    "/components/sidebar.html?v=permisos-735"
   ];
 
   let ultimoError = null;
@@ -216,6 +216,7 @@ function obtenerClaveModuloSidebar(href) {
   if (valor.includes("programacion-ayb")) return "programacion-ayb";
   if (valor.includes("programacion-administrativo")) return "programacion-administrativo";
   if (valor.includes("programacion-operaciones")) return "programacion-operaciones";
+  if (valor.includes("programacion-mantenimiento")) return "programacion-mantenimiento";
   if (valor.includes("mis-turnos.html")) return "mis-turnos";
   if (valor.includes("mis-turnos-ayb")) return "mis-turnos-ayb";
   if (valor.includes("mis-turnos-administrativo")) return "mis-turnos-administrativo";

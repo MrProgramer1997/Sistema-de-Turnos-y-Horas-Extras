@@ -1,7 +1,7 @@
 // Permisos de navegacion: el rol/cargo/nombre no agrega modulos.
 export const MODULOS_ADMIN = Object.freeze([
  ['horas-extras','Horas extras y n\u00f3mina'],['dashboard-ayb','Dashboard A&B'],['dashboard','Centro de Control'],
- ['programacion-ayb','Programaci\u00f3n A&B'],['cocina-chef','Programaci\u00f3n Chef'],
+ ['programacion-ayb','Programaci\u00f3n A&B'],['cocina-chef','Programaci\u00f3n Chef'],['programacion-mantenimiento','Programaci\u00f3n Mantenimiento'],
  ['programacion-administrativo','Programaci\u00f3n Administrativo'],['programacion-operaciones','Programaci\u00f3n Operaciones'],
  ['solicitudes-bienestar','Solicitudes Bienestar'],['empleados','Empleados'],['mis-turnos','Mis turnos'],['asistencia','Asistencia']
 ]);
