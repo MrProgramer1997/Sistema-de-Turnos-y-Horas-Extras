@@ -70,3 +70,26 @@
   .main-content{margin:0!important;padding:0!important}
   .ops-matrix-wrap{max-height:none!important;overflow:visible!important}
 }
+
+/* Only this page loads this stylesheet. Fixed positions do not change global layout. */
+.ops-matrix{--ops-slot-width:185px;--ops-person-width:240px;min-width:1440px;table-layout:fixed;width:100%}
+.ops-matrix .ops-fixed-slot{left:0;min-width:var(--ops-slot-width);width:var(--ops-slot-width);max-width:var(--ops-slot-width);white-space:normal}
+.ops-matrix .ops-person-column{left:var(--ops-slot-width);width:var(--ops-person-width);min-width:var(--ops-person-width);max-width:var(--ops-person-width);white-space:normal}
+.ops-matrix tbody td.ops-person-column{z-index:4;background:#fff}
+.ops-slot-name{font-size:.82rem;line-height:1.4;overflow-wrap:anywhere}
+.ops-slot-order{font-size:.69rem;color:#657889;margin-bottom:3px}
+.ops-assign-position{font-size:.78rem;max-width:100%;min-width:0}
+.ops-week-label{font-size:.71rem;font-weight:700;margin:6px 0 3px;color:#42627b}
+.ops-slot-empty{min-height:55px;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:#8694a0;font-weight:400}
+.ops-unassigned-heading th{background:#f5f8fb!important;font-size:.79rem;padding:10px!important;color:#385b76}
+#modalPuestosOps .ops-position-list{max-height:45vh;overflow:auto}
+#modalHorarioNuevoOps .form-text{font-size:.79rem}
+@media (max-width:900px){
+ .ops-matrix{--ops-slot-width:155px;--ops-person-width:205px;min-width:1335px}
+ .ops-matrix .ops-fixed-slot{min-width:var(--ops-slot-width)}
+ .ops-matrix .ops-person-column{min-width:var(--ops-person-width)}
+}
+@media print{
+ .ops-matrix .ops-sticky-col{position:static}
+ .ops-matrix{min-width:0;table-layout:auto}
+}
