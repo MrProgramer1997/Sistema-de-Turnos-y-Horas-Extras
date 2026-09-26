@@ -7,130 +7,325 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/estilos.css">
   <link rel="stylesheet" href="../css/layout.css">
-<link rel="stylesheet" href="../css/horarios-documentados.css?v=711">
+  <link rel="stylesheet" href="../css/programacion-operaciones.css?v=738">
 </head>
 <body>
   <div id="sidebar-container"></div>
 
-  <main class="main-content fondo-modulo">
-<section class="hd-panel" data-horarios-documentados="campo"></section>
-
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <main class="main-content fondo-modulo p-4">
+    <section class="ops-topbar d-flex justify-content-between align-items-center flex-wrap gap-3">
       <div>
+        <div class="ops-eyebrow">Sistema de Turnos y Horas Extras</div>
         <h2 class="mb-1">Programación de Operaciones</h2>
-        <p class="text-muted mb-0" id="subtituloProgramacionOperaciones">
-          Cronograma semanal del personal de aseo, apoyo y eventos.
-        </p>
+        <div class="text-muted" id="subtituloOperaciones">Servicios Generales · Vestier · Coordinación</div>
       </div>
-      <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-outline-primary" id="btnSemanaAnteriorOperaciones">Semana anterior</button>
-        <button class="btn btn-outline-primary" id="btnSemanaSiguienteOperaciones">Semana siguiente</button>
-        <button class="btn btn-primary" id="btnNuevaProgramacionOperaciones">Nueva programación</button>
-        <button class="btn btn-outline-success" id="btnGuardarProgramacionOperaciones">Guardar</button>
+      <div class="text-end">
+        <div class="small text-muted">Periodo visible</div>
+        <div class="fw-bold" id="textoPeriodoOperaciones">Cargando...</div>
+        <div class="small" id="textoUsuarioOperaciones"></div>
       </div>
-    </div>
+    </section>
 
-    <div class="row g-3 mb-4">
-      <div class="col-12 col-md-6 col-xl-3">
-        <div class="card resumen-operaciones card-op-1">
-          <div class="card-body">
-            <small>Personal programado</small>
-            <h3 id="kpiOperacionesPersonal">--</h3>
-            <p class="mb-0">Semana activa</p>
-          </div>
+    <div class="container-fluid px-0 mt-4">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-outline-primary" id="btnPeriodoAnteriorOps" type="button">Periodo anterior</button>
+          <button class="btn btn-outline-primary" id="btnPeriodoActualOps" type="button">Semana actual</button>
+          <button class="btn btn-outline-primary" id="btnPeriodoSiguienteOps" type="button">Periodo siguiente</button>
+          <button class="btn btn-primary" id="btnNuevaAsignacionOps" type="button">Nueva asignación</button>
+          <button class="btn btn-outline-success" id="btnGestionPersonalOps" type="button">Agregar / quitar personal</button>
+          <button class="btn btn-outline-dark" id="btnCopiarPeriodoOps" type="button">Copiar periodo anterior</button>
+          <button class="btn btn-outline-secondary" id="btnTurnosBaseOps" type="button">Turnos base</button>
+          <button class="btn btn-outline-secondary" id="btnPantallaCompletaOps" type="button">Visual semanal</button>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-outline-danger" id="btnPdfGeneralOps" type="button">PDF general</button>
+          <button class="btn btn-outline-danger" id="btnPdfCalendarioOps" type="button">PDF calendario</button>
+          <button class="btn btn-outline-danger" id="btnPdfOperativoOps" type="button">PDF operativo</button>
         </div>
       </div>
-      <div class="col-12 col-md-6 col-xl-3">
-        <div class="card resumen-operaciones card-op-2">
-          <div class="card-body">
-            <small>Subáreas activas</small>
-            <h3 id="kpiOperacionesSubareas">--</h3>
-            <p class="mb-0">Aseo, apoyo, eventos, servicios</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-12 col-md-6 col-xl-3">
-        <div class="card resumen-operaciones card-op-3">
-          <div class="card-body">
-            <small>Novedades</small>
-            <h3 id="kpiOperacionesNovedades">--</h3>
-            <p class="mb-0">Vacaciones, descansos, cambios</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-12 col-md-6 col-xl-3">
-        <div class="card resumen-operaciones card-op-4">
-          <div class="card-body">
-            <small>Actividades especiales</small>
-            <h3 id="kpiOperacionesEspeciales">--</h3>
-            <p class="mb-0">Montajes, desmontajes y apoyos</p>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <div class="card shadow-sm border-0 mb-4">
-      <div class="card-header bg-white fw-bold">Cronograma semanal de operaciones</div>
-      <div class="card-body">
-        <div class="table-responsive">
-          <table class="table table-bordered align-middle tabla-operaciones" id="tablaOperaciones">
-            <thead>
-              <tr>
-                <th>Empleado</th>
-                <th>Responsable base</th>
-                <th>Observación general</th>
-                <th>Martes</th>
-                <th>Miércoles</th>
-                <th>Jueves</th>
-                <th>Viernes</th>
-                <th>Sábado</th>
-                <th>Domingo</th>
-                <th>Lunes</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyOperaciones">
-              <tr>
-                <td>CESAR</td>
-                <td>Fijo Tenis y Camerino</td>
-                <td>Revisión de áreas con lista de chequeo</td>
-                <td>5:00 am a 12:30 pm</td>
-                <td>DESCANSO</td>
-                <td>5:00 am a 12:30 pm</td>
-                <td>5:00 am a 1:00 pm</td>
-                <td>5:00 am a 1:00 pm</td>
-                <td>5:00 am a 1:00 pm</td>
-                <td>6:00 am a 2:00 pm</td>
-              </tr>
-              <tr>
-                <td>JUAN CAMILO</td>
-                <td>Sopla y Agua</td>
-                <td>Hidrolavado de casetas y sanitarios</td>
-                <td>4:00 am a 11:45 am</td>
-                <td>4:00 am a 11:45 am</td>
-                <td>4:00 am a 11:30 am</td>
-                <td>4:00 am a 11:30 am</td>
-                <td>DESCANSO</td>
-                <td>DESCANSO</td>
-                <td>6:00 am a 2:00 pm</td>
-              </tr>
-            </tbody>
-          </table>
+      <section class="card ops-card mb-3">
+        <div class="card-header bg-white fw-semibold">Periodo operativo</div>
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-3">
+              <label class="form-label" for="fechaInicioOps">Fecha inicio</label>
+              <input class="form-control" type="date" id="fechaInicioOps">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label" for="fechaFinOps">Fecha fin</label>
+              <input class="form-control" type="date" id="fechaFinOps">
+            </div>
+            <div class="col-12 col-md-2">
+              <button class="btn btn-primary w-100" id="btnCargarPeriodoOps" type="button">Cargar periodo</button>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="ops-rule-box">
+                Oficios Varios conserva 30 min de alimentación y la prolongación de referencia de 30 min. Domingo y festivo toman automáticamente la columna especial. Gerardo conserva su horario de Coordinador de Operaciones de 42 h.
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <div class="card shadow-sm border-0">
-      <div class="card-header bg-white fw-bold">Estado del módulo</div>
-      <div class="card-body">
-        <div class="alert alert-info mb-0" id="mensajeOperacionesBase">
-          Este módulo ya quedó protegido por sesión y permisos. El siguiente paso será volver dinámica la programación de operaciones y servicios generales desde Supabase.
+      <div id="bannerCopiadoOps" class="ops-copy-banner d-none mb-3">
+        <div>
+          <div class="fw-semibold">Registro copiado</div>
+          <div class="small" id="textoCopiadoOps"></div>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" id="btnLimpiarCopiaOps" type="button">Limpiar copia</button>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card ops-kpi"><div class="card-body">
+            <div class="ops-kpi-label">Personal del módulo</div>
+            <div class="ops-kpi-value" id="kpiPersonalOps">0</div>
+            <div class="small text-muted">Coordinación, Servicios Generales y Vestier</div>
+          </div></div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card ops-kpi"><div class="card-body">
+            <div class="ops-kpi-label">Horas netas programadas</div>
+            <div class="ops-kpi-value" id="kpiHorasNetasOps">0 h</div>
+            <div class="small text-muted">Después del descanso descontable</div>
+          </div></div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card ops-kpi"><div class="card-body">
+            <div class="ops-kpi-label">Prolongación prevista</div>
+            <div class="ops-kpi-value" id="kpiProlongacionOps">0 h</div>
+            <div class="small text-muted">Separada de las horas ordinarias</div>
+          </div></div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card ops-kpi"><div class="card-body">
+            <div class="ops-kpi-label">Sin programación</div>
+            <div class="ops-kpi-value" id="kpiSinProgramacionOps">0</div>
+            <div class="small text-muted">En el periodo visible</div>
+          </div></div>
         </div>
       </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-xl-8">
+          <section class="card ops-card h-100">
+            <div class="card-header bg-white fw-semibold d-flex justify-content-between align-items-center gap-2 flex-wrap">
+              <span>Resumen de horas por colaborador</span>
+              <span class="small text-muted">Referencia semanal: 42 h</span>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive ops-summary-wrap">
+                <table class="table table-sm align-middle mb-0 ops-summary-table">
+                  <thead><tr><th>Empleado</th><th>Proceso</th><th>Días</th><th>Ordinarias</th><th>Prolongación</th><th>Total neto</th><th>Vs. 42 h</th></tr></thead>
+                  <tbody id="tbodyResumenOps"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+        <div class="col-12 col-xl-4">
+          <section class="card ops-card h-100">
+            <div class="card-header bg-white fw-semibold">Revisar / exportar empleado</div>
+            <div class="card-body">
+              <label class="form-label" for="selectEmpleadoRevisionOps">Empleado</label>
+              <select class="form-select mb-3" id="selectEmpleadoRevisionOps"><option value="">Seleccione</option></select>
+              <div id="detalleEmpleadoRevisionOps" class="ops-employee-detail mb-3 text-muted">Selecciona un colaborador para revisar su programación.</div>
+              <div class="d-grid gap-2">
+                <button class="btn btn-outline-danger" id="btnPdfEmpleadoOps" type="button">PDF empleado</button>
+                <button class="btn btn-danger" id="btnPdfFichaOps" type="button">PDF ficha semanal</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <section class="card ops-card mb-3">
+        <div class="card-header bg-white fw-semibold">Filtros de programación</div>
+        <div class="card-body">
+          <div class="row g-3 align-items-end">
+            <div class="col-12 col-lg-5">
+              <label class="form-label" for="filtroEmpleadoOps">Buscar empleado</label>
+              <input class="form-control" id="filtroEmpleadoOps" placeholder="Nombre, cédula, código o cargo">
+            </div>
+            <div class="col-12 col-md-4 col-lg-3">
+              <label class="form-label" for="filtroProcesoOps">Proceso</label>
+              <select class="form-select" id="filtroProcesoOps"><option value="">Todos</option></select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-3">
+              <label class="form-label" for="filtroEstadoOps">Mostrar</label>
+              <select class="form-select" id="filtroEstadoOps">
+                <option value="todos">Todos</option>
+                <option value="con-programacion">Con programación</option>
+                <option value="sin-programacion">Sin programación</option>
+                <option value="con-novedad">Con novedades</option>
+                <option value="sobre-meta">Sobre 42 h</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-4 col-lg-1">
+              <button class="btn btn-outline-secondary w-100" id="btnLimpiarFiltrosOps" type="button">Limpiar</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card ops-card" id="cardMatrizOperaciones">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center gap-2 flex-wrap">
+          <div>
+            <div class="fw-semibold">Matriz semanal de Operaciones</div>
+            <div class="small text-muted" id="textoResultadoOps">Cargando...</div>
+          </div>
+          <div class="small text-muted">Clic en una celda para programar · C = copiar · P = pegar</div>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive ops-matrix-wrap">
+            <table class="table table-bordered align-middle mb-0 ops-matrix">
+              <thead><tr id="trEncabezadoOps"><th class="ops-sticky-col">Empleado / cargo</th></tr></thead>
+              <tbody id="tbodyOperaciones"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
   </main>
 
-  <script src="../js/layout.js?v=permisos-720"></script>
-  <script src="../js/programacion-operaciones.js"></script>
-<script type="module" src="../js/horarios-documentados-vista.js?v=711"></script>
+  <div class="modal fade" id="modalAsignacionOps" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <form id="formAsignacionOps">
+          <div class="modal-header">
+            <div>
+              <h5 class="modal-title mb-0" id="tituloModalOps">Nueva asignación</h5>
+              <div class="small text-muted">La programación guardada tendrá prioridad en Horas Extras/Nómina.</div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-danger d-none" id="errorAsignacionOps"></div>
+            <input type="hidden" id="registroIdOps">
+            <div class="row g-3">
+              <div class="col-md-8">
+                <label class="form-label" for="empleadoAsignacionOps">Empleado</label>
+                <select class="form-select" id="empleadoAsignacionOps" required></select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="fechaAsignacionOps">Fecha</label>
+                <input class="form-control" type="date" id="fechaAsignacionOps" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="tipoRegistroOps">Tipo</label>
+                <select class="form-select" id="tipoRegistroOps">
+                  <option value="turno">Turno</option>
+                  <option value="descanso">Descanso</option>
+                  <option value="compensatorio">Compensatorio</option>
+                  <option value="novedad">Novedad</option>
+                </select>
+              </div>
+              <div class="col-md-8" id="bloqueTurnoBaseOps">
+                <label class="form-label" for="turnoBaseOps">Turno / puesto</label>
+                <select class="form-select" id="turnoBaseOps"></select>
+                <div class="form-text" id="previewTurnoOps">Seleccione un turno.</div>
+              </div>
+              <div class="col-12" id="bloquePersonalizadoOps">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="checkPersonalizadoOps">
+                  <label class="form-check-label" for="checkPersonalizadoOps">Horario personalizado por evento o necesidad operativa</label>
+                </div>
+              </div>
+              <div class="col-md-4 ops-custom-time d-none">
+                <label class="form-label" for="horaInicioOps">Entrada</label>
+                <input class="form-control" type="time" id="horaInicioOps">
+              </div>
+              <div class="col-md-4 ops-custom-time d-none">
+                <label class="form-label" for="horaFinOps">Salida</label>
+                <input class="form-control" type="time" id="horaFinOps">
+              </div>
+              <div class="col-md-4 ops-custom-time d-none">
+                <label class="form-label" for="descansoOps">Descanso descontable</label>
+                <select class="form-select" id="descansoOps">
+                  <option value="0">0 min</option>
+                  <option value="15">15 min</option>
+                  <option value="30" selected>30 min</option>
+                  <option value="60">60 min</option>
+                </select>
+              </div>
+              <div class="col-md-5 d-none" id="bloqueNovedadCodigoOps">
+                <label class="form-label" for="novedadCodigoOps">Novedad</label>
+                <select class="form-select" id="novedadCodigoOps">
+                  <option value="">Seleccione</option>
+                  <option value="VAC">VAC · Vacaciones</option>
+                  <option value="INC">INC · Incapacidad</option>
+                  <option value="F">F · Día de la familia</option>
+                  <option value="LR">LR · Licencia no remunerada</option>
+                  <option value="NC">NC · No compensatorio</option>
+                  <option value="SP">SP · Suspensión</option>
+                  <option value="CITA">CITA · Cita</option>
+                  <option value="COMP">COMP · Compensatorio</option>
+                  <option value="PASA">PASA · Pasa a otro puesto</option>
+                  <option value="NNJ">NNJ · Novedad no justificada</option>
+                </select>
+              </div>
+              <div class="col-md-7 d-none" id="bloqueNovedadDescripcionOps">
+                <label class="form-label" for="novedadDescripcionOps">Descripción</label>
+                <input class="form-control" id="novedadDescripcionOps" placeholder="Opcional">
+              </div>
+              <div class="col-12">
+                <label class="form-label" for="observacionOps">Observación</label>
+                <textarea class="form-control" id="observacionOps" rows="2" placeholder="Evento, ubicación, cambio de puesto, apoyo especial, etc."></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-danger me-auto d-none" id="btnEliminarAsignacionOps" type="button">Quitar programación</button>
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-primary" id="btnGuardarAsignacionOps" type="submit">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalPersonalOps" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div><h5 class="modal-title mb-0">Personal de Operaciones</h5><div class="small text-muted">Agrega colaboradores omitidos sin afectar A&B/Chef ni otras áreas.</div></div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input class="form-control mb-3" id="buscarPersonalOps" placeholder="Buscar por nombre, cédula, código o cargo">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead><tr><th>Empleado</th><th>Cargo</th><th>Centro costos</th><th>Proceso</th><th class="text-end">Acción</th></tr></thead>
+              <tbody id="tbodyPersonalOps"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modalTurnosBaseOps" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Turnos base aprobados de Operaciones</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <div class="alert alert-info py-2">Los domingos y festivos se guardan con el horario especial correspondiente. Aseo general del lunes no aplica en domingo/festivo.</div>
+          <div class="table-responsive mb-4">
+            <table class="table table-sm table-bordered align-middle"><thead><tr><th>Puesto</th><th>Entre semana</th><th>Domingo / festivo</th><th>Alimentación</th><th>Prolongación ref.</th></tr></thead><tbody id="tbodyTurnosBaseOps"></tbody></table>
+          </div>
+          <h6>Gerardo · Coordinador de Operaciones</h6>
+          <div class="table-responsive"><table class="table table-sm table-bordered align-middle"><thead><tr><th>Día</th><th>Horario</th><th>Descanso descontable</th><th>Tipo</th></tr></thead><tbody id="tbodyTurnoGerardoOps"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="../js/layout.js?v=permisos-735"></script>
+  <script type="module" src="../js/programacion-operaciones.js?v=738"></script>
 </body>
 </html>

@@ -1,0 +1,72 @@
+:root{
+  --ops-primary:#004AA1;
+  --ops-blue:#88C3FF;
+  --ops-blue-soft:#EAF5FF;
+  --ops-green:#1AC189;
+  --ops-green-soft:#E9FFF6;
+  --ops-orange:#F88906;
+  --ops-orange-soft:#FFF4E8;
+  --ops-cyan:#1CAFBF;
+  --ops-gray:#E3E3E3;
+  --ops-ink:#18212B;
+}
+
+.ops-topbar{
+  background:#fff;
+  border:1px solid #dfe7ef;
+  border-radius:16px;
+  padding:18px 20px;
+  box-shadow:0 8px 24px rgba(0,0,0,.05);
+}
+.ops-eyebrow{font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ops-primary)}
+.ops-card,.ops-kpi{border:1px solid #dde6ef;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.04)}
+.ops-kpi{height:100%}
+.ops-kpi-label{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:#66717d;font-weight:700}
+.ops-kpi-value{font-size:1.8rem;font-weight:800;color:var(--ops-primary);line-height:1.15;margin:.2rem 0}
+.ops-rule-box{background:#f7fbff;border:1px solid #cfe6ff;border-left:4px solid var(--ops-primary);border-radius:10px;padding:10px 12px;font-size:.85rem;color:#40505f}
+.ops-copy-banner{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff8e8;border:1px solid #ffd992;border-left:4px solid var(--ops-orange);border-radius:12px;padding:10px 14px}
+.ops-summary-wrap{max-height:330px}
+.ops-summary-table thead th{position:sticky;top:0;background:#f7f9fb;z-index:2;white-space:nowrap}
+.ops-employee-detail{min-height:105px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;font-size:.9rem}
+.ops-matrix-wrap{max-height:68vh;overflow:auto}
+.ops-matrix{min-width:1150px;font-size:.82rem}
+.ops-matrix thead th{position:sticky;top:0;background:#eef5fc;z-index:5;text-align:center;min-width:145px;vertical-align:middle}
+.ops-matrix .ops-sticky-col{position:sticky;left:0;z-index:7;min-width:245px;text-align:left;background:#eef5fc}
+.ops-matrix tbody th.ops-sticky-col{z-index:4;background:#fff}
+.ops-employee-name{font-weight:700;color:#1c2733}
+.ops-employee-meta{font-size:.73rem;color:#6c7784;line-height:1.25;margin-top:3px}
+.ops-hours-badge{display:inline-flex;align-items:center;border-radius:20px;padding:2px 7px;font-size:.7rem;font-weight:700;background:#e9f3ff;color:#0d5cab;margin-top:4px}
+.ops-cell{min-height:82px;position:relative;display:flex;flex-direction:column;gap:3px;padding:5px;border-radius:8px;background:#fbfcfd}
+.ops-cell-empty{align-items:center;justify-content:center;border:1px dashed #cad5df;background:#fff;cursor:pointer;color:#6c7784}
+.ops-cell-empty:hover{border-color:var(--ops-primary);background:#f3f9ff;color:var(--ops-primary)}
+.ops-cell-turno{background:var(--ops-blue-soft);border:1px solid #bddcff}
+.ops-cell-novedad{background:#fff5e9;border:1px solid #ffd4a0}
+.ops-cell-descanso{background:#f0f2f4;border:1px solid #d8dde2}
+.ops-cell-compensatorio{background:var(--ops-green-soft);border:1px solid #a7eed3}
+.ops-cell-code{font-weight:800;color:#173d68;line-height:1.1}
+.ops-cell-time{font-size:.77rem;font-weight:600;color:#34485b}
+.ops-cell-note{font-size:.7rem;color:#67717b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:132px}
+.ops-cell-actions{display:flex;gap:4px;margin-top:auto;justify-content:flex-end}
+.ops-cell-actions button{border:0;border-radius:5px;padding:2px 6px;font-size:.68rem;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.ops-paste-btn{background:#e8fff6!important;color:#0b7653!important}
+.ops-festivo-header{background:#fff1d7!important;color:#7b4a00!important}
+.ops-festivo-cell{background:#fffaf0!important}
+.ops-festivo-mark{display:block;font-size:.65rem;font-weight:800;color:#a66200;margin-top:2px}
+.ops-diff-ok{color:#16825e;font-weight:700}.ops-diff-over{color:#b65700;font-weight:700}.ops-diff-under{color:#6d7580;font-weight:700}
+.ops-process-pill{display:inline-block;padding:2px 7px;border-radius:999px;background:#eff4f8;color:#425466;font-size:.7rem;font-weight:700}
+.ops-loading{opacity:.55;pointer-events:none}
+.ops-fullscreen{background:#f4f7fa;padding:12px;overflow:auto}
+.ops-fullscreen .ops-matrix-wrap{max-height:calc(100vh - 80px)}
+
+@media (max-width:900px){
+  .main-content.fondo-modulo{padding:1rem!important}
+  .ops-topbar{padding:14px}
+  .ops-matrix .ops-sticky-col{min-width:190px}
+  .ops-matrix thead th{min-width:130px}
+}
+
+@media print{
+  #sidebar-container,.btn,.modal,.ops-copy-banner{display:none!important}
+  .main-content{margin:0!important;padding:0!important}
+  .ops-matrix-wrap{max-height:none!important;overflow:visible!important}
+}
