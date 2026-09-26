@@ -1,7 +1,7 @@
 import { supabase } from '../supabase/supabaseClient.js';
 import { exigirModulo, filtrarEnlaces } from './permisos-modulos.js?v=735';
 
-const VERSION = '738';
+const VERSION = '738.1';
 const STORAGE_COPIA = 'ccp_turno_copiado_operaciones_v738';
 const MAX_DIAS = 14;
 const META_HORAS = 42;
@@ -77,7 +77,7 @@ function configurarEventos(){
 
 function periodoActualOperaciones(){
   const hoy=new Date(); hoy.setHours(0,0,0,0);
-  const diff=(hoy.getDay()-2+7)%7; // martes = inicio operativo
+  const diff=(hoy.getDay()+6)%7; // lunes = inicio; domingo = cierre de semana
   const inicio=new Date(hoy); inicio.setDate(hoy.getDate()-diff);
   const fin=new Date(inicio); fin.setDate(inicio.getDate()+6);
   return {inicio:iso(inicio),fin:iso(fin)};
