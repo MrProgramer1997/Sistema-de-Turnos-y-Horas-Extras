@@ -1,7 +1,7 @@
 import { supabase } from '../supabase/supabaseClient.js';
 import { exigirModulo, filtrarEnlaces } from './permisos-modulos.js?v=735';
 
-const VERSION = '741';
+const VERSION = '7411';
 const STORAGE_COPIA = 'ccp_turno_copiado_operaciones_v738';
 const MAX_DIAS = 14;
 const META_HORAS = 42;
@@ -27,6 +27,8 @@ let modalPuestos = null;
 let modalHorario = null;
 let modalExterno = null;
 let guardandoExterno = false;
+// Visual context only: never changes the dates sent to Supabase.
+let periodoMostradoOps = null;
 
 const $ = (id) => document.getElementById(id);
 const texto = (v) => String(v ?? '').trim();
@@ -126,6 +128,7 @@ function sincronizarPeriodo(){ $('fechaInicioOps').value=periodo.inicio;$('fecha
 async function cargarDatos(){
   if(cargando || guardandoPuesto) return;
   cargando=true;document.body.classList.add('ops-loading');sincronizarPeriodo();
+  actualizarAvisoSemanaOps('cargando');
   const consulta={p_desde:periodo.inicio,p_hasta:periodo.fin};
   try{
     const [principal,org]=await Promise.all([
@@ -141,7 +144,7 @@ async function cargarDatos(){
     dias=rangoFechas(periodo.inicio,periodo.fin);
     actualizarCabeceraPeriodo();llenarFiltros();llenarSelectEmpleados();renderTodo();
     $('btnGestionPuestosOps').disabled=!organizacionLista;
-  }catch(e){console.error(e);alert(`No se pudo cargar Programacion Operaciones: ${e.message||e}`);}
+  }catch(e){actualizarAvisoSemanaOps('error');console.error(e);alert(`No se pudo cargar Programacion Operaciones: ${e.message||e}`);}
   finally{cargando=false;document.body.classList.remove('ops-loading');}
 }
 async function cargarOrganizacion(){
@@ -163,7 +166,45 @@ function actualizarCabeceraPeriodo(){
   const a=fechaLocal(periodo.inicio),b=fechaLocal(periodo.fin);
   $('textoPeriodoOperaciones').textContent=`${formatoFechaCorta(periodo.inicio)} al ${formatoFechaCorta(periodo.fin)}`;
   $('subtituloOperaciones').textContent=`Servicios Generales · Vestier · Coordinación | ${a.toLocaleDateString('es-CO',{month:'long'})}${a.getMonth()!==b.getMonth()?` – ${b.toLocaleDateString('es-CO',{month:'long'})}`:''}`;
+  periodoMostradoOps={...periodo};
+  actualizarAvisoSemanaOps();
 }
+
+// The label follows the loaded period, not unsaved changes in the date inputs.
+function contextoSemanaOps(inicio,fin,actual=periodoActualOperaciones()){
+  const completa=esLunes(inicio)&&fin===sumarDias(inicio,6);
+  if(!completa)return {tipo:'personalizado',etiqueta:'Periodo personalizado'};
+  if(inicio===actual.inicio)return {tipo:'actual',etiqueta:'Semana actual'};
+  if(inicio===sumarDias(actual.inicio,7))return {tipo:'siguiente',etiqueta:'Semana siguiente'};
+  if(inicio===sumarDias(actual.inicio,-7))return {tipo:'anterior',etiqueta:'Semana anterior'};
+  return inicio>actual.inicio
+    ?{tipo:'futuro',etiqueta:'Semana futura'}
+    :{tipo:'pasado',etiqueta:'Semana pasada'};
+}
+function rangoSemanaLegibleOps(inicio,fin){
+  const formato={weekday:'long',day:'numeric',month:'long',year:'numeric'};
+  const a=fechaLocal(inicio).toLocaleDateString('es-CO',formato);
+  const b=fechaLocal(fin).toLocaleDateString('es-CO',formato);
+  return inicio===fin?cap(a):`${cap(a)} al ${b}`;
+}
+function actualizarAvisoSemanaOps(situacion='listo'){
+  const aviso=$('avisoSemanaOps');
+  if(!aviso)return;
+  const destino=situacion==='cargando'?periodo:(periodoMostradoOps||periodo);
+  if(!destino.inicio||!destino.fin)return;
+  const contexto=contextoSemanaOps(destino.inicio,destino.fin);
+  aviso.dataset.periodo=situacion==='listo'?contexto.tipo:situacion;
+  $('accionSemanaOps').textContent=situacion==='cargando'?'Cargando planilla':situacion==='error'?'No se pudo cargar el periodo':'Estás programando';
+  $('tipoSemanaOps').textContent=situacion==='error'?'Consulta no actualizada':contexto.etiqueta;
+  $('rangoSemanaOps').textContent=situacion==='error'
+    ?(periodoMostradoOps?`Última planilla cargada: ${rangoSemanaLegibleOps(destino.inicio,destino.fin)}. Pulsa Cargar periodo para reintentar.`:'Pulsa Cargar periodo para reintentar.')
+    :rangoSemanaLegibleOps(destino.inicio,destino.fin);
+}
+// Reclassify current/next week after returning to the tab; no extra requests.
+window.addEventListener('focus',()=>{
+  if(!cargando&&periodoMostradoOps&&$('avisoSemanaOps')?.dataset.periodo!=='error')actualizarAvisoSemanaOps();
+});
+
 function formatoFechaCorta(s){const [y,m,d]=s.split('-');return `${d}/${m}/${y}`;}
 function nombreDia(s){return fechaLocal(s).toLocaleDateString('es-CO',{weekday:'short'}).replace('.','');}
 function esFestivo(s){return estado.festivos.some(f=>f.fecha===s);}

@@ -93,3 +93,98 @@
  .ops-matrix .ops-sticky-col{position:static}
  .ops-matrix{min-width:0;table-layout:auto}
 }
+
+/* 7.41.1: period context immediately above the programming grid. */
+#cardMatrizOperaciones .ops-planning-week{
+  position:sticky;top:0;z-index:10;
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;
+  padding:14px 18px;
+  border-radius:13px 13px 0 0;
+  border-left:5px solid var(--ops-primary);
+  border-bottom:1px solid #c5def5;
+  background:#eaf5ff;color:#123e69;
+}
+#cardMatrizOperaciones .ops-planning-week-context{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;flex-shrink:0;max-width:100%}
+#cardMatrizOperaciones .ops-planning-week-caption{font-size:.76rem;font-weight:800;letter-spacing:.045em;text-transform:uppercase}
+#cardMatrizOperaciones .ops-planning-week-badge{display:inline-block;border:1px solid currentColor;border-radius:6px;padding:4px 9px;font-size:.84rem;line-height:1.35;background:rgba(255,255,255,.7)}
+#cardMatrizOperaciones .ops-planning-week-range{font-weight:800;font-size:1.08rem;line-height:1.4;overflow-wrap:anywhere;flex:1 1 420px;min-width:0}
+#cardMatrizOperaciones .ops-planning-week[data-periodo="siguiente"],
+#cardMatrizOperaciones .ops-planning-week[data-periodo="futuro"]{border-left-color:var(--ops-orange);border-bottom-color:#edc797;background:#fff4e8;color:#713908}
+#cardMatrizOperaciones .ops-planning-week[data-periodo="anterior"],
+#cardMatrizOperaciones .ops-planning-week[data-periodo="pasado"]{border-left-color:#687c90;border-bottom-color:#d4dfe9;background:#eef2f6;color:#384c60}
+#cardMatrizOperaciones .ops-planning-week[data-periodo="personalizado"]{border-left-color:var(--ops-cyan);border-bottom-color:#b6e1e5;background:#eefafb;color:#16525a}
+#cardMatrizOperaciones .ops-planning-week[data-periodo="cargando"]{border-left-color:#687c90;background:#f4f7fa;color:#536678}
+#cardMatrizOperaciones .ops-planning-week[data-periodo="error"]{border-left-color:#b54708;border-bottom-color:#ecc3ae;background:#fff4ed;color:#83310b}
+@media (max-width:600px){
+  #cardMatrizOperaciones .ops-planning-week{padding:11px 12px;gap:6px}
+  #cardMatrizOperaciones .ops-planning-week-context{flex-shrink:1}
+  #cardMatrizOperaciones .ops-planning-week-range{flex-basis:100%;font-size:1rem}
+}
+@media print{
+  #cardMatrizOperaciones .ops-planning-week{position:static;break-inside:avoid}
+}
+
+/* 7.42 - Page-scoped visual contrast. No changes to grid ordering, sticky
+   positions, selected weeks, scheduling logic, external staff or PDF output. */
+@media screen {
+ .ops742 .ops-card,.ops742 .ops-kpi{border-color:#c3d2e5}
+ .ops742 .ops-card>.card-header{color:#172f54;font-weight:700!important;border-bottom-color:#b7c9e1}
+ .ops742 .ops-matrix{font-size:13px;--bs-table-color:#172a43;border-collapse:separate;border-spacing:0}
+ .ops742 .ops-matrix thead th,.ops742 .ops-summary-table thead th{
+  background:#24438f;--bs-table-bg:#24438f;--bs-table-color:#fff;color:#fff;
+  padding:14px 10px;font-size:13px;font-weight:700;border-right:1px solid #91a4cf;border-bottom:2px solid #18326f
+ }
+ .ops742 .ops-matrix thead th .small{color:#fff;font-size:12px;font-weight:600}
+ .ops742 .ops-matrix thead th.ops-festivo-header{background:#9f2835!important;--bs-table-bg:#9f2835;color:#fff!important}
+ .ops742 .ops-matrix .ops-festivo-mark{color:#fff;font-size:11px;font-weight:700}
+ .ops742 .ops-matrix tbody th.ops-fixed-slot{
+  background:#f0f5fb;--bs-table-bg:#f0f5fb;color:#11243b;
+  border-right:2px solid #b3c5dc;border-bottom:1px solid #bbcde1;padding:12px 9px
+ }
+ .ops742 .ops-matrix tbody td.ops-person-column{
+  background:#f7faff;--bs-table-bg:#f7faff;color:#172a43;
+  border-right:2px solid #b3c5dc;box-shadow:5px 0 8px -8px #183b6a
+ }
+ .ops742 .ops-matrix tbody td{padding:7px;--bs-table-bg:#fff;border-right:1px solid #d1deed;border-bottom:1px solid #bbcde1}
+ .ops742 .ops-matrix tbody tr:nth-child(even)>td:not(.ops-person-column):not(.ops-festivo-cell){--bs-table-bg:#f8fbff;background:#f8fbff}
+ .ops742 .ops-matrix .ops-festivo-cell{--bs-table-bg:#fff6f5;background:#fff6f5!important}
+ .ops742 .ops-slot-name{font-size:14px;font-weight:750;line-height:1.45;color:#11243b}
+ .ops742 .ops-slot-order{color:#465b75;font-size:12px;font-weight:600}
+ .ops742 .ops-employee-name{font-size:14px;color:#11243b;font-weight:750}
+ .ops742 .ops-employee-meta{font-size:12px;color:#45566b;line-height:1.45}
+ .ops742 .ops-assign-position{font-size:13px;font-weight:650;color:#172c49;border:1px solid #8ca7cb;background-color:#fff;min-height:35px}
+ .ops742 .ops-hours-badge{background:#dfebff;color:#073d83;border:1px solid #91b0dc;font-size:12px;padding:3px 8px}
+ .ops742 .ops-cell{min-height:88px;padding:9px;line-height:1.45;border-radius:8px}
+ .ops742 .ops-cell-turno{background:#e5efff;border:1px solid #92b6e8;border-left:4px solid #1764bb}
+ .ops742 .ops-cell-novedad{background:#fff1c5;border:1px solid #d2a64b;border-left:4px solid #ad6d00}
+ .ops742 .ops-cell-descanso{background:#e9edf2;border:1px solid #a3b1c4;border-left:4px solid #586b83}
+ .ops742 .ops-cell-compensatorio{background:#dff5e9;border:1px solid #72b598;border-left:4px solid #047857}
+ .ops742 .ops-cell-code{font-size:13px;line-height:1.4;color:#0c2c59;font-weight:750;overflow-wrap:anywhere}
+ .ops742 .ops-cell-time{font-size:13px;line-height:1.5;font-weight:700;color:#183d67}
+ .ops742 .ops-cell-note{font-size:12px;line-height:1.45;color:#41556f}
+ .ops742 .ops-cell-novedad .ops-cell-code,.ops742 .ops-cell-novedad .ops-cell-note{color:#64420a}
+ .ops742 .ops-cell-descanso .ops-cell-code{color:#334155}
+ .ops742 .ops-cell-compensatorio .ops-cell-code{color:#08543c}
+ .ops742 .ops-cell-empty{background:#fff;border:1px dashed #91a5bf;color:#45566b;font-size:13px;font-weight:500}
+ .ops742 .ops-cell-empty:hover{border-color:#245da2;background:#eff6ff;color:#143e78}
+ .ops742 .ops-cell-actions button{background:#fff;border:1px solid #7e9bc1;color:#164b90;font-size:12px;font-weight:650;min-width:29px;min-height:27px;box-shadow:none}
+ .ops742 .ops-cell-actions button:hover{background:#24438f;border-color:#24438f;color:#fff}
+ .ops742 .ops-paste-btn{border:1px solid #218467!important;background:#e7f7ee!important;color:#075c43!important;border-radius:5px;min-height:27px}
+ .ops742 .ops-slot-empty{color:#4d6077;font-size:13px;min-height:68px}
+ .ops742 .ops-unassigned-heading th{background:#e4eefc!important;color:#1a3d6d!important;border-top:2px solid #8eaad0;font-size:13px;font-weight:700}
+ .ops742 .ops-summary-table{font-size:13px;--bs-table-color:#192e47}
+ .ops742 .ops-summary-table td{padding:10px 9px;border-bottom:1px solid #c4d2e3}
+ .ops742 .ops-summary-table tbody tr:nth-child(even){--bs-table-bg:#f2f6fc}
+ .ops742 .ops-diff-under{color:#45566b}
+ .ops742 .ops-diff-over{color:#82450b}
+ .ops742 .ops-diff-ok{color:#096347}
+ .ops742 .ops-process-pill{background:#e8eef6;border:1px solid #b1c1d6;color:#263f60;font-size:11.5px}
+ .ops742 .ops-week-label{font-size:12px;color:#264a73}
+ .ops742 .ops-matrix select:focus-visible,.ops742 .ops-matrix button:focus-visible{outline:3px solid #1764bb;outline-offset:2px}
+}
+@media screen and (max-width:600px){
+ /* Keep the post visible, but let the person column scroll so it cannot
+    cover all seven day columns on a phone. */
+ .ops742 .ops-matrix thead th.ops-person-column{left:auto;z-index:5}
+ .ops742 .ops-matrix tbody td.ops-person-column{position:static;left:auto;box-shadow:none}
+}

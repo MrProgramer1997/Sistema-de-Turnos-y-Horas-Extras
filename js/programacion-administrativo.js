@@ -60,7 +60,7 @@ function events(){
  $('admNuevoCodigo').onclick=()=>editCode();$('admCancelarCodigo').onclick=()=>{$('admFormCodigo').hidden=true;};
  $('admListaCodigos').onclick=e=>{const b=e.target.closest('[data-edit-code]');if(b)editCode(app.data.turnos.find(t=>t.id===b.dataset.editCode));};
  $('admDiasCodigo').onchange=previewCode;$('admDiasCodigo').oninput=previewCode;$('admFormCodigo').onsubmit=saveCode;
- $('admPersonal').onclick=()=>{areaOptions('admAreaPersonal');if($('admArea').value)$('admAreaPersonal').value=$('admArea').value;renderPeople();modals.Personal.show();};
+ $('admPersonal').onclick=openPeople;
  $('admAreaPersonal').onchange=renderPeople;$('admBuscarPersonal').oninput=renderPeople;
  $('admListaPersonal').onclick=managePeople;
 }
@@ -90,7 +90,7 @@ function renderMatrix(){
 function cell(e,f){const r=row(e,f),n=notice(e,f),ts=turns(e),ref=ts.length===1?resolveTemplate(ts[0],f,app.data.festivos):null;const key=esc(rowKey(e));
  let text=r?dayText(r):n?(NOVEDADES[n.codigo]||n.codigo)+' · Bienestar':'Sin asignación';
  let sub=r?.tipo_registro==='turno'?`${r.turno_codigo||'Personalizado'} · ${duration(planned(r).net)} netas`:r?.tipo_registro==='novedad'?'Novedad registrada':!r&&!n?(ref?.tipo==='laboral'?'Sin programación manual':'Referencia vigente en nómina'):'';
- return `<td><button type="button" class="adm-cell ${!r?'adm-empty':r.tipo_registro==='turno'?'':r.tipo_registro==='novedad'?'adm-nov':'adm-rest'}" data-cell="${key}" data-date="${f}">${esc(text)}<small>${esc(sub)}</small></button><div class="adm-cell-actions">${r?`<button type="button" data-copy="${r.id}">Copiar</button>`:''}${app.copy?`<button type="button" data-paste="${key}" data-date="${f}">Pegar</button>`:''}</div></td>`;
+ return `<td><button type="button" class="adm-cell ${!r?(n?'adm-nov':'adm-empty'):r.tipo_registro==='turno'?'':r.tipo_registro==='novedad'?(r.novedad_codigo==='INC'?'adm-nov adm-inc':'adm-nov'):r.tipo_registro==='compensatorio'?'adm-comp':'adm-rest'}" data-cell="${key}" data-date="${f}">${esc(text)}<small>${esc(sub)}</small></button><div class="adm-cell-actions">${r?`<button type="button" data-copy="${r.id}">Copiar</button>`:''}${app.copy?`<button type="button" data-paste="${key}" data-date="${f}">Pegar</button>`:''}</div></td>`;
 }
 function renderSummary(){
  $('admResumen').innerHTML=areaPeople().map(e=>{const s=summary(e,app.data.programacion,app.days,app.data.turnos);let state=!s.saved?'Sin programación manual':s.nov?'Con novedades':s.saved<app.days.length?'Programación parcial':s.diff===null?'Periodo programado':s.diff===0?'En referencia':`${s.diff>0?'+':'−'}${duration(Math.abs(s.diff))} programadas`;
@@ -143,8 +143,52 @@ function editCode(t=null){app.code=t?structuredClone(t):null;$('admFormCodigo').
 function readCodeDays(){return [...$('admDiasCodigo').querySelectorAll('[data-day]')].map(tr=>{const type=tr.querySelector('[data-field=tipo]').value;return {dia:+tr.dataset.day,tipo:type,inicio:type==='laboral'?tr.querySelector('[data-field=inicio]').value:null,fin:type==='laboral'?tr.querySelector('[data-field=fin]').value:null,descanso:type==='laboral'?Number(tr.querySelector('[data-field=descanso]').value):0};});}
 function previewCode(){let total=0;for(const d of readCodeDays()){const tr=$('admDiasCodigo').querySelector(`[data-day="${d.dia}"]`);tr.querySelectorAll('input').forEach(i=>{i.disabled=d.tipo!=='laboral';i.required=d.tipo==='laboral';});try{const n=d.tipo==='laboral'?net(d.inicio,d.fin,d.descanso).net:0;tr.querySelector('[data-net]').textContent=d.tipo==='confirmar'?'Por definir':duration(n);if(d.dia<=7)total+=n;}catch{tr.querySelector('[data-net]').textContent='Revisar horas';}}$('admTotalCodigo').textContent=`Neto semanal de esta plantilla: ${duration(total)}. No se fuerza un total fijo ni se cambia la programación guardada.`;}
 async function saveCode(ev){ev.preventDefault();errorBox('admErrorCodigo');try{const ds=readCodeDays();for(const d of ds)if(d.tipo==='laboral')net(d.inicio,d.fin,d.descanso);const payload={id:app.code?.id||null,revision:app.code?.revision||null,proceso_id:app.code?.proceso_id||$('admAreaCodigos').value,codigo:$('admCodigo').value.toUpperCase().trim(),nombre:$('admNombreCodigo').value.trim(),descripcion:$('admDescripcionCodigo').value.trim(),activo:$('admCodigoActivo').checked,dias:ds.slice(0,7),festivo:ds[7]};if(app.code&&!confirm('¿Guardar los cambios de esta plantilla? Las jornadas existentes no se reescribirán. La referencia vigente de esta área se actualizará.'))return;await mutate(async()=>{$('admGuardarCodigo').disabled=true;try{await rpc('guardar_turno_administracion_v740',{p_payload:payload});const refreshed=await load();$('admFormCodigo').hidden=true;if(refreshed){listCodes();status('Turno guardado. No se modificaron jornadas existentes.');}}finally{$('admGuardarCodigo').disabled=false;}});}catch(e){errorBox('admErrorCodigo',e);}}
-function renderPeople(){const pid=$('admAreaPersonal').value,q=normalize($('admBuscarPersonal').value);const list=app.data.candidatos.filter(e=>normalize(`${name(e)} ${e.cedula} ${e.codigo} ${e.cargo}`).includes(q));$('admListaPersonal').innerHTML=list.map(e=>{const current=app.data.personal.find(p=>p.empleado_id===e.empleado_id);return `<div class="adm-person"><div class="adm-person-name"><strong>${esc(name(e))}</strong><small>${esc(e.codigo||e.cedula)} · ${esc(e.cargo||'')}</small>${current?`<small>${esc(current.proceso_nombre)}</small>`:''}</div>${!current?`<button type="button" class="btn btn-sm btn-outline-primary" data-person="${e.empleado_id}" data-action="agregar">Añadir</button>`:current.proceso_id===pid?`<button type="button" class="btn btn-sm btn-outline-secondary" data-person="${e.empleado_id}" data-action="retirar">Retirar de la vista</button>`:'<span class="adm-note">Ya vinculado</span>'}</div>`;}).join('')||'<p class="adm-note">No hay candidatos disponibles para ese filtro.</p>';}
-async function managePeople(ev){const b=ev.target.closest('[data-person]');if(!b)return;const action=b.dataset.action;if(action==='retirar'&&!confirm('Se retirará de la vista para periodos sin programación. No se borran jornadas ni marcaciones y se conserva su horario de referencia. ¿Continuar?'))return;try{await mutate(async()=>{await rpc('gestionar_personal_administracion_v740',{p_empleado_id:b.dataset.person,p_proceso_id:$('admAreaPersonal').value,p_accion:action});await load();renderPeople();});}catch(e){errorBox('admErrorPersonal',e);}}
+// Membership remains independent of schedules. This opens the existing safe RPC.
+function openPeople(){
+ if(!app.ready||app.busy)return;
+ errorBox('admErrorPersonal');$('admBuscarPersonal').value='';
+ setOptions($('admAreaPersonal'),app.data.procesos.map(p=>({value:p.id,label:p.nombre})),
+   '<option value="">Selecciona el área de destino</option>');
+ $('admAreaPersonal').value=$('admArea').value||'';
+ renderPeople();modals.Personal.show();
+}
+function renderPeople(){
+ const pid=$('admAreaPersonal').value,q=normalize($('admBuscarPersonal').value);
+ const linked=new Map(app.data.personal.map(p=>[p.empleado_id,p]));
+ const list=app.data.candidatos.filter(e=>normalize(`${name(e)} ${e.cedula} ${e.codigo} ${e.cargo}`).includes(q));
+ // Available employees first; do not reassign somebody already linked elsewhere.
+ list.sort((a,b)=>Number(linked.has(a.empleado_id))-Number(linked.has(b.empleado_id))||name(a).localeCompare(name(b),'es'));
+ $('admListaPersonal').innerHTML=list.map(e=>{
+  const current=linked.get(e.empleado_id);
+  const control=!current
+   ?`<button type="button" class="btn btn-sm btn-success" data-person="${esc(e.empleado_id)}" data-action="agregar" ${!pid?'disabled':''} aria-label="Añadir ${esc(name(e))}">Añadir</button>`
+   :current.proceso_id===pid
+    ?`<button type="button" class="btn btn-sm btn-outline-secondary" data-person="${esc(e.empleado_id)}" data-action="retirar">Retirar de la vista</button>`
+    :'<span class="adm-state">Ya vinculado</span>';
+  return `<div class="adm-person"><div class="adm-person-name"><strong>${esc(name(e))}</strong><small>${esc(e.codigo||e.cedula)} · ${esc(e.cargo||'')}</small>${current?`<small>${esc(current.proceso_nombre)}</small>`:'<small>Disponible para agregar</small>'}</div>${control}</div>`;
+ }).join('')||'<p class="adm-note">No hay candidatos disponibles para ese filtro.</p>';
+}
+async function managePeople(ev){
+ const b=ev.target.closest('[data-person]');if(!b||b.disabled||app.busy||!app.ready)return;
+ const action=b.dataset.action,pid=$('admAreaPersonal').value;
+ errorBox('admErrorPersonal');
+ if(!pid){errorBox('admErrorPersonal',Error('Selecciona el área de destino antes de añadir personal.'));return;}
+ if(action==='retirar'&&!confirm('Se retirará de la vista para periodos sin programación. No se borran jornadas ni marcaciones y se conserva su horario de referencia. ¿Continuar?'))return;
+ const employee=app.data.candidatos.find(e=>e.empleado_id===b.dataset.person);
+ const area=app.data.procesos.find(p=>p.id===pid);
+ try{
+  await mutate(async()=>{
+   b.disabled=true;$('admAreaPersonal').disabled=true;
+   const result=await rpc('gestionar_personal_administracion_v740',{p_empleado_id:b.dataset.person,p_proceso_id:pid,p_accion:action});
+   if(result?.ok!==true)throw Error('No se pudo verificar el cambio. Recarga antes de repetir.');
+   if(await load()){
+    renderPeople();
+    status(action==='agregar'?`${name(employee||{})} añadido a ${area?.nombre||'Administración'}. No se crearon ni cambiaron jornadas.`:'Colaborador retirado de la vista. Se conserva su programación.');
+   }
+  });
+ }catch(e){errorBox('admErrorPersonal',e);}
+ finally{$('admAreaPersonal').disabled=false;if(app.ready)renderPeople();}
+}
 
 function calendarPdf(){
  if(!app.ready)return;const people=visiblePeople();if(!people.length)return status('No hay colaboradores visibles para exportar.',true);if(!window.jspdf?.jsPDF)return printCalendar(people);
