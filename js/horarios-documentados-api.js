@@ -1,4 +1,4 @@
-import {VERSION_DOCUMENTAL,fechaDoc,sumarDiaDoc,validarPaqueteDoc,resolverDocumentados} from './horarios-documentados-core.js?v=711';
+import {VERSION_DOCUMENTAL,fechaDoc,sumarDiaDoc,validarPaqueteDoc,resolverDocumentados} from './horarios-documentados-core.js?v=740';
 const key=(name,x)=>name==='marcas'?String(x.id):name==='plantillas'?x.codigo:name==='guardadas'?String(x.id):name==='personas'?[x.id,x.vigente_desde,x.vigente_hasta].join('|'):JSON.stringify(x);
 const arrays=['plantillas','personas','guardadas','protegidas','marcas','novedades','casos_confirmados','festivos','pendientes_vinculo'];
 export async function cargarDocumentados(request,{desde,hasta,signal,propio=false}){

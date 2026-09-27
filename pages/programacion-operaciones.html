@@ -34,6 +34,7 @@
           <button class="btn btn-outline-primary" id="btnPeriodoSiguienteOps" type="button">Periodo siguiente</button>
           <button class="btn btn-primary" id="btnNuevaAsignacionOps" type="button">Nueva asignación</button>
           <button class="btn btn-outline-success" id="btnGestionPersonalOps" type="button">Agregar / quitar personal</button>
+          <button class="btn btn-outline-success" id="btnAgregarExternoOps" type="button">Añadir personal externo</button>
           <button class="btn btn-outline-dark" id="btnCopiarPeriodoOps" type="button">Copiar periodo anterior</button>
           <button class="btn btn-outline-secondary" id="btnGestionPuestosOps" type="button">Turnos fijos</button>
           <button class="btn btn-outline-secondary" id="btnTurnosBaseOps" type="button">Turnos base</button>
@@ -162,6 +163,7 @@
                 <option value="sin-programacion">Sin programación</option>
                 <option value="con-novedad">Con novedades</option>
                 <option value="sobre-meta">Sobre 42 h</option>
+                <option value="externos">Personal externo</option>
               </select>
             </div>
             <div class="col-12 col-md-4 col-lg-1">
@@ -366,10 +368,32 @@
     </div></div>
   </div>
 
+
+  <div class="modal fade" id="modalExternoOps" tabindex="-1" aria-hidden="true" aria-labelledby="tituloExternoOps">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <form id="formExternoOps" class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="tituloExternoOps">Añadir personal externo a Operaciones</h5><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body">
+          <div class="alert alert-info py-2" id="estadoExternoOps" role="status"></div>
+          <div class="row g-3">
+            <div class="col-12"><label class="form-label" for="extNombreOps">Nombre completo *</label><input class="form-control text-uppercase" id="extNombreOps" required minlength="2" maxlength="160" autocomplete="off"></div>
+            <div class="col-md-6"><label class="form-label" for="extDocumentoOps">Documento / cédula *</label><input class="form-control" id="extDocumentoOps" required minlength="3" maxlength="24" pattern="[0-9A-Za-z-]{3,24}" autocomplete="off" inputmode="numeric"></div>
+            <div class="col-md-6"><label class="form-label" for="extTelefonoOps">Teléfono (opcional)</label><input class="form-control" id="extTelefonoOps" type="tel" maxlength="40"></div>
+            <div class="col-md-6"><label class="form-label" for="extTipoOps">Tipo de personal</label><select class="form-select" id="extTipoOps"><option value="externo">Externo</option><option value="medio_tiempo">Medio tiempo</option><option value="pendiente">Pendiente</option></select></div>
+            <div class="col-md-6"><label class="form-label" for="extProcesoOps">Área operativa *</label><select class="form-select" id="extProcesoOps" required></select></div>
+            <div class="col-12"><label class="form-label" for="extObservacionOps">Observación (opcional)</label><textarea class="form-control" id="extObservacionOps" rows="2" maxlength="2000"></textarea></div>
+          </div>
+          <div class="form-text mt-3">La ficha queda como externa, no como empleado de planta. Después de añadirla puedes asignarle un puesto fijo y sus horarios. El enrolamiento de huella o rostro se realiza en el biométrico.</div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Cancelar</button><button class="btn btn-success" type="submit" id="btnGuardarExternoOps">Añadir externo</button></div>
+      </form>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="../js/layout.js?v=permisos-735"></script>
-  <script type="module" src="../js/programacion-operaciones.js?v=739"></script>
+  <script type="module" src="../js/programacion-operaciones.js?v=741"></script>
 </body>
 </html>

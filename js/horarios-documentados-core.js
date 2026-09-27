@@ -95,6 +95,12 @@ function normalizarGuardada(r){
  let gross=a===null||b===null||a===b?null:(b-a+1440)%1440;
  if(c!==null||d!==null){if(gross===null||c===null||d===null||c===d)gross=null;else{const start2=c+(c<a?1440:0),end2=start2+(d-c+1440)%1440;if(start2<a+gross||end2-a>=1440)gross=null;else gross+=(d-c+1440)%1440;}}
  out.horas_programadas_netas=gross===null||!Number.isFinite(pausa)||pausa<0||pausa>=gross?null:(gross-pausa)/60;
+ // Only the authenticated Administration read model supplies this marker.
+ if(r.admin_prioridad_v740===true && ['novedad','descanso','compensatorio'].includes(r.tipo_registro)){
+  out.horas_programadas_netas=0;
+  out.novedad_codigo=r.novedad_codigo||(r.tipo_registro==='compensatorio'?'COMP':r.tipo_registro==='descanso'?'D':null);
+  out.turno=out.novedad_codigo||r.tipo_registro;
+ }
  return out;
 }
 export function resolverDocumentados(p){
@@ -109,29 +115,37 @@ export function resolverDocumentados(p){
    const planKey=[week,member.plantillas.join('|'),member.vigente_desde,member.vigente_hasta||''].join('::');
    if(!plans.has(planKey)){const s=detectarSemana(member,week,p);plans.set(planKey,s);semanas.push({...s,cedula,nombre:member.nombre,vigente_desde:member.vigente_desde,vigente_hasta:member.vigente_hasta});}
    const plan=plans.get(planKey),caseRows=p.casos_confirmados.filter(r=>text(r.cedula)===cedula&&r.fecha===fecha),saved=p.guardadas.filter(r=>text(r.cedula)===cedula&&r.fecha===fecha&&noCancelada(r)),notices=p.novedades.filter(n=>text(n.cedula)===cedula&&n.fecha_inicio<=fecha&&n.fecha_fin>=fecha&&avisoCompleto(n));
+   const adminGuardada=saved.some(r=>r.admin_prioridad_v740===true);
    const base={cedula,empleado_id:member.id,empleado:member.nombre,cargo:member.cargo,area:member.area||member.centro_costos,centro_costos:member.centro_costos,fecha};
    const meta={version:p.version,semana:week,fuente:member.fuente,desde:member.vigente_desde,horario_en_bd:saved,plan,solo_lectura:true};
    let r;
    if(conflicting){r={...base,programacion_tipo:'Sin programacion',estado_comparacion:'programacion_a_revisar',conflicto_programacion:true,diagnostico_turno:'Varios vinculos documentales para la misma fecha. No se elige una identidad o plantilla arbitraria.'};meta.tipo='conflicto';}
    else if(notices.length){r={...base,programacion_tipo:'confirmada',tipo_registro:'novedad',novedad_codigo:notices[0].codigo,turno:notices[0].codigo,diagnostico_turno:'Novedad registrada: prevalece sobre el horario automatico.'};meta.tipo='novedad';}
-   else if(caseRows.length===1){const c=caseRows[0];r={...base,turno:c.plantilla,hora_inicio:c.entrada,hora_fin:c.salida,minutos_descanso:c.descanso_descontable_minutos,horas_programadas_netas:((minutosDoc(c.salida)-minutosDoc(c.entrada)+1440)%1440-c.descanso_descontable_minutos)/60,programacion_tipo:'confirmada',tipo_registro:'turno',diagnostico_turno:c.fuente};meta.tipo='confirmacion_usuario';meta.fuente=c.fuente;meta.reconciliar_guardado=saved.some(s=>text(s.hora_inicio).slice(0,5)!==c.entrada||text(s.hora_fin).slice(0,5)!==c.salida);}
+   else if(caseRows.length===1&&!adminGuardada){const c=caseRows[0];r={...base,turno:c.plantilla,hora_inicio:c.entrada,hora_fin:c.salida,minutos_descanso:c.descanso_descontable_minutos,horas_programadas_netas:((minutosDoc(c.salida)-minutosDoc(c.entrada)+1440)%1440-c.descanso_descontable_minutos)/60,programacion_tipo:'confirmada',tipo_registro:'turno',diagnostico_turno:c.fuente};meta.tipo='confirmacion_usuario';meta.fuente=c.fuente;meta.reconciliar_guardado=saved.some(s=>text(s.hora_inicio).slice(0,5)!==c.entrada||text(s.hora_fin).slice(0,5)!==c.salida);}
    else if(saved.length){const uniq=new Set(saved.map(s=>[s.hora_inicio,s.hora_fin,s.hora_inicio_2,s.hora_fin_2,s.minutos_descanso,s.novedad_codigo].join('|')));r={...base,...normalizarGuardada(saved[0])};if(uniq.size>1){r.conflicto_programacion=true;r.estado_comparacion='programacion_a_revisar';r.programacion_tipo='Sin programacion';meta.tipo='conflicto';}else meta.tipo='guardada';r.diagnostico_turno=uniq.size>1?'Asignaciones guardadas incompatibles; se requiere revision.':'Asignacion guardada: no se reemplaza por una inferencia semanal.';
     const authorizedDays=member.plantillas.map(code=>p.plantillas.find(t=>t.codigo===code)?.dias.find(d=>d.dia===diaDoc(fecha))).filter(Boolean),expected=member.plantillas.length===1?authorizedDays[0]:null;
     const matchingDays=authorizedDays.filter(d=>d.tipo==='laboral'&&d.entrada===r.hora_inicio&&d.salida===r.hora_fin),paid15=matchingDays.length>0&&matchingDays.every(d=>d.pausa_documentada_minutos===15&&d.descanso_descontable_minutos===0);
-    if(uniq.size===1&&!r.hora_inicio_2&&!r.hora_fin_2&&paid15&&Number(r.minutos_descanso)===15){
+    if(!adminGuardada&&uniq.size===1&&!r.hora_inicio_2&&!r.hora_fin_2&&paid15&&Number(r.minutos_descanso)===15){
       r.minutos_descanso=0;r.horas_programadas_netas=matchingDays[0].neto_programado_minutos/60;meta.pausa_remunerada_minutos=15;meta.reconciliar_guardado=true;r.diagnostico_turno='Break de 15 minutos incluido en la jornada por confirmacion del usuario. El registro antiguo requiere reconciliacion sin alterar marcaciones.';
-    } else if(uniq.size===1&&expected?.tipo==='laboral'&&(r.hora_inicio!==expected.entrada||r.hora_fin!==expected.salida)){
+    } else if(!adminGuardada&&uniq.size===1&&expected?.tipo==='laboral'&&(r.hora_inicio!==expected.entrada||r.hora_fin!==expected.salida)){
       meta.conflicto_documental=true;r.diagnostico_turno='El horario guardado difiere de la plantilla fija documentada. Se conserva la asignacion y se requiere comprobar si es una excepcion, no se sustituye a ciegas.';
     }}
-   else if(festivos.has(fecha)){r={...base,programacion_tipo:'Sin programacion',diagnostico_turno:'Festivo: los documentos no indican excepcion. Falta horario especifico, no se usa automaticamente el laboral.'};meta.tipo='festivo_sin_regla';}
+   else if(festivos.has(fecha)){
+    const t=p.plantillas.find(t=>t.codigo===plan.elegida),d=t?.admin_v740?t.festivo:null;
+    if(d?.tipo==='laboral'){
+     r={...base,turno:t.codigo_operativo||t.codigo,hora_inicio:d.inicio,hora_fin:d.fin,minutos_descanso:d.descanso,horas_programadas_netas:((minutosDoc(d.fin)-minutosDoc(d.inicio)+1440)%1440-d.descanso)/60,programacion_tipo:plan.tipo==='fija'?'confirmada':'inferida_alta',tipo_registro:'turno',diagnostico_turno:'Referencia festiva configurada en Administración; no aprueba trabajo ni pago.'};meta.tipo='documental_fija';
+    }else if(d&&['descanso','compensatorio'].includes(d.tipo)){
+     r={...base,programacion_tipo:'confirmada',tipo_registro:d.tipo,novedad_codigo:d.tipo==='compensatorio'?'COMP':'D',turno:d.tipo,horas_programadas_netas:0,diagnostico_turno:'Referencia de descanso configurada en Administración.'};meta.tipo='compensatorio_documental';
+    }else{r={...base,programacion_tipo:'Sin programacion',diagnostico_turno:'Festivo: los documentos no indican excepcion. Falta horario especifico, no se usa automaticamente el laboral.'};meta.tipo='festivo_sin_regla';}
+   }
    else {
     const t=p.plantillas.find(t=>t.codigo===plan.elegida),d=t?.dias.find(d=>d.dia===diaDoc(fecha));
-    if(t&&d?.tipo==='laboral'){r={...base,turno:t.codigo,hora_inicio:d.entrada,hora_fin:d.salida,minutos_descanso:d.descanso_descontable_minutos,horas_programadas_netas:d.neto_programado_minutos/60,programacion_tipo:plan.tipo==='fija'?'confirmada':'inferida_alta',confianza_turno:plan.tipo==='fija'?'documentada':'alta',tipo_registro:'turno',diagnostico_turno:plan.motivo};meta.tipo=plan.tipo==='fija'?'documental_fija':'deteccion_semanal';meta.pausa_remunerada_minutos=d.pausa_remunerada_minutos;meta.meta_semanal_minutos=t.neto_semanal_minutos;meta.plantilla=t.codigo;}
+    if(t&&d?.tipo==='laboral'){r={...base,turno:t.codigo_operativo||t.codigo,hora_inicio:d.entrada,hora_fin:d.salida,minutos_descanso:d.descanso_descontable_minutos,horas_programadas_netas:d.neto_programado_minutos/60,programacion_tipo:plan.tipo==='fija'?'confirmada':'inferida_alta',confianza_turno:plan.tipo==='fija'?'documentada':'alta',tipo_registro:'turno',diagnostico_turno:t.admin_v740?'Referencia vigente de Administración; no es una asignación semanal ni una aprobación de pago.':plan.motivo};meta.tipo=plan.tipo==='fija'?'documental_fija':'deteccion_semanal';meta.pausa_remunerada_minutos=d.pausa_remunerada_minutos;meta.meta_semanal_minutos=t.neto_semanal_minutos;meta.plantilla=t.codigo;}
     else if(t&&d?.tipo.startsWith('compensatorio')&&plan.tipo==='fija'){r={...base,programacion_tipo:'confirmada',tipo_registro:'novedad',novedad_codigo:'COMP',turno:'COMP',diagnostico_turno:'Compensatorio indicado en la plantilla documental; no se generan horas trabajadas.'};meta.tipo='compensatorio_documental';}
     else {r={...base,programacion_tipo:plan.tipo==='rotativa'?'inferida_ambigua':'Sin programacion',confianza_turno:plan.tipo==='rotativa'?'ambigua':null,estado_comparacion:plan.tipo==='rotativa'?'turno_ambiguo':'sin_programacion',diagnostico_turno:t?'Dia no laborable indicado para esta alternativa o dia no especificado. No se presume inasistencia.':plan.motivo};meta.tipo='pendiente';}
    }
    r.hora_inicio??=null;r.hora_fin??=null;r.hora_inicio_2??=null;r.hora_fin_2??=null;r.novedad_codigo??=null;r.origen='documental_v711';r.documental_711=meta;
-   r.alternativas_turno=plan.alternativas.slice(0,3).map(a=>{const t=p.plantillas.find(t=>t.codigo===a.codigo),d=t.dias.find(d=>d.dia===diaDoc(fecha));return {turno:a.codigo,inicio:d.entrada||'Sin horario',fin:d.salida||'Sin horario',puntaje:a.puntaje,codigos_equivalentes:a.equivalentes};});
+   r.alternativas_turno=plan.alternativas.slice(0,3).map(a=>{const t=p.plantillas.find(t=>t.codigo===a.codigo),d=t.dias.find(d=>d.dia===diaDoc(fecha));return {turno:t.codigo_operativo||a.codigo,inicio:d.entrada||'Sin horario',fin:d.salida||'Sin horario',puntaje:a.puntaje,codigos_equivalentes:a.equivalentes};});
    rows.push(r);
   }
  }

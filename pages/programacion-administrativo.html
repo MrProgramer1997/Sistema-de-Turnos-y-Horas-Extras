@@ -1,91 +1,48 @@
 <!DOCTYPE html>
 <html lang="es">
-
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Programación Administrativo</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="../css/estilos.css">
-  <link rel="stylesheet" href="../css/administrativo.css">
-  <link rel="stylesheet" href="../css/layout.css">
-<link rel="stylesheet" href="../css/horarios-documentados.css?v=711">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Programación Administración</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../css/layout.css"><link rel="stylesheet" href="../css/programacion-administracion.css?v=740">
 </head>
+<body class="adm740">
+<div id="sidebar-container"></div>
+<main class="main-content adm-page">
+<header class="adm-hero"><div><small>CLUB CAMPESTRE PEREIRA</small><h1>Programación Administración</h1><p>Horarios por área, ajustes semanales y novedades.</p></div><span id="admUsuario"></span></header>
+<section class="adm-panel adm-controls">
+<div class="adm-period"><label>Desde<input type="date" id="admDesde" class="form-control" min="2026-08-23"></label><label>Hasta<input type="date" id="admHasta" class="form-control" min="2026-08-23"></label><button id="admCargar" class="btn btn-primary">Cargar periodo</button><button id="admAnterior" class="btn btn-outline-primary" title="Periodo anterior">← Anterior</button><button id="admActual" class="btn btn-outline-primary">Semana actual</button><button id="admSiguiente" class="btn btn-outline-primary">Siguiente →</button></div>
+<div class="adm-filter"><label>Área<select id="admArea" class="form-select"><option value="">Todas las áreas</option></select></label><label>Buscar colaborador<input id="admBuscar" type="search" class="form-control" placeholder="Nombre, cédula, código o cargo"></label><button id="admLimpiar" class="btn btn-outline-secondary">Limpiar filtros</button></div>
+</section>
+<div id="admEstado" role="status" aria-live="polite">Verificando permisos…</div>
+<section class="adm-panel" id="admMatrizPanel">
+<div class="adm-actions"><button id="admNueva" class="btn btn-primary" disabled>Nueva asignación / novedad</button><button id="admGenerar" class="btn btn-outline-primary" disabled>Aplicar turno al periodo</button><button id="admCopiarPeriodo" class="btn btn-outline-primary" disabled>Copiar periodo anterior</button><button id="admCodigos" class="btn btn-outline-primary" disabled>Turnos / códigos</button><button id="admPersonal" class="btn btn-outline-primary" disabled>Colaboradores</button><button id="admVisual" class="btn btn-outline-secondary">Visual programación</button><button id="admPdf" class="btn btn-outline-danger ms-auto" disabled>PDF calendario</button></div>
+<div class="adm-note">Sin asignación aquí no significa ausencia: Nómina conserva la referencia vigente y las marcaciones. Lo guardado prevalece.</div>
+<div id="admCopia" class="adm-copy" hidden><span id="admCopiaTexto"></span><button id="admBorrarCopia" class="btn btn-sm btn-outline-secondary">Limpiar copia</button></div>
+<div class="adm-scroll"><table class="table adm-matrix" id="admTabla"><thead id="admHead"></thead><tbody id="admBody"><tr><td class="p-4">Cargando…</td></tr></tbody></table></div>
+<div id="admConteo" class="adm-note"></div>
+</section>
+<section class="adm-panel adm-summary"><h2>Resumen de horas por colaborador</h2><p class="adm-note">Todo el personal del área seleccionada, incluso sin asignación. Son horas programadas, no horas trabajadas ni pagos aprobados.</p><div class="adm-summary-scroll"><table class="table table-sm"><thead><tr><th>Colaborador / área</th><th>Días con turno</th><th>Descansos descontados</th><th>Neto programado</th><th>Incapacidad / novedades</th><th>Referencia semanal</th><th>Estado</th></tr></thead><tbody id="admResumen"></tbody></table></div></section>
+<footer class="adm-note text-end">Programación Administración · versión 7.40</footer>
+</main>
 
-<body>
-  <div id="sidebar-container"></div>
+<div class="modal fade" id="admModalAsignacion" tabindex="-1"><div class="modal-dialog modal-lg"><form class="modal-content" id="admFormAsignacion">
+<div class="modal-header"><h2 class="modal-title fs-5" id="admTituloAsignacion">Asignación</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+<div class="modal-body"><div id="admErrorAsignacion" class="alert alert-danger" hidden></div><div class="row g-3">
+<div class="col-12"><label for="admEmpleado">Colaborador</label><select id="admEmpleado" class="form-select" required></select></div>
+<div class="col-md-4"><label>Desde<input type="date" id="admFecha" class="form-control" required min="2026-08-23"></label></div><div class="col-md-4"><label>Hasta<input type="date" id="admFechaFin" class="form-control" required min="2026-08-23"></label></div><div class="col-md-4"><label>Tipo<select id="admTipo" class="form-select"><option value="turno">Turno</option><option value="descanso">Descanso</option><option value="compensatorio">Compensatorio</option><option value="novedad">Incapacidad / novedad</option></select></label></div>
+<div id="admCamposTurno" class="col-12"><label>Turno base<select id="admTurno" class="form-select"></select></label><label class="form-check mt-3"><input id="admCustom" type="checkbox" class="form-check-input"> Horario personalizado para estas fechas</label><div id="admHoras" class="row g-2 mt-1" hidden><div class="col-sm-4"><label>Entrada<input id="admEntrada" type="time" class="form-control"></label></div><div class="col-sm-4"><label>Salida<input id="admSalida" type="time" class="form-control"></label></div><div class="col-sm-4"><label>Almuerzo / descanso (min)<input id="admPausa" type="number" min="0" max="240" step="1" class="form-control" value="60"></label></div><p class="adm-note">Una salida menor que la entrada corresponde al día siguiente. El descanso se descuenta una sola vez.</p></div></div>
+<div class="col-12" id="admCamposNovedad" hidden><label>Novedad<select id="admNovedad" class="form-select"></select></label><p class="adm-note mt-2">Las fechas incluyen ambos días. No registres diagnósticos ni datos clínicos en la observación.</p></div>
+<div class="col-12"><label>Observación (opcional)<textarea id="admObservacion" class="form-control" rows="2" maxlength="1000"></textarea></label></div></div><div id="admPreview" class="adm-preview"></div></div>
+<div class="modal-footer"><button id="admQuitar" type="button" class="btn btn-outline-danger me-auto" hidden>Quitar asignación</button><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button id="admGuardar" type="submit" class="btn btn-primary">Guardar programación</button></div>
+</form></div></div>
 
-  <main class="main-content fondo-modulo">
-<section class="hd-panel" data-horarios-documentados="administrativo"></section>
+<div class="modal fade" id="admModalGenerar" tabindex="-1"><div class="modal-dialog modal-lg"><form class="modal-content" id="admFormGenerar"><div class="modal-header"><h2 class="modal-title fs-5">Aplicar turno al periodo</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Cerrar"></button></div><div class="modal-body"><div id="admErrorGenerar" class="alert alert-danger" hidden></div><div class="row g-3"><div class="col-md-6"><label>Área<select id="admAreaGenerar" class="form-select"></select></label></div><div class="col-md-6"><label>Turno semanal<select id="admTurnoGenerar" class="form-select" required></select></label></div><div class="col-md-6"><label>Desde<input id="admDesdeGenerar" type="date" class="form-control" required></label></div><div class="col-md-6"><label>Hasta<input id="admHastaGenerar" type="date" class="form-control" required></label></div></div><div class="adm-note mt-3">Selecciona los colaboradores. Solo se completarán días vacíos; la programación existente y las novedades de Bienestar se conservan.</div><label class="form-check mt-2"><input id="admTodosGenerar" type="checkbox" class="form-check-input"> Seleccionar todos los del área</label><div id="admPersonasGenerar" class="adm-person-list"></div><div id="admPreviewGenerar" class="adm-preview"></div></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary" id="admGuardarGenerar">Completar días vacíos</button></div></form></div></div>
 
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-      <div>
-        <h2 class="mb-1">Programación Administrativo</h2>
-        <p class="text-muted mb-0" id="subtituloProgramacionAdmin">
-          Módulo base para horarios fijos, rotativos y vista calendario.
-        </p>
-      </div>
-      <div class="d-flex gap-2 flex-wrap">
-        <button class="btn btn-outline-primary" id="btnSemanaAnteriorAdmin">Semana anterior</button>
-        <button class="btn btn-outline-primary" id="btnSemanaSiguienteAdmin">Semana siguiente</button>
-        <button class="btn btn-primary" id="btnNuevaAsignacionAdmin">Nueva asignación</button>
-        <button class="btn btn-outline-success" id="btnGuardarProgramacionAdmin">Guardar programación</button>
-      </div>
-    </div>
+<div class="modal fade" id="admModalCodigos" tabindex="-1"><div class="modal-dialog modal-xl"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5">Turnos y códigos de Administración</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Cerrar"></button></div><div class="modal-body"><div class="d-flex gap-3 align-items-end mb-3"><label class="flex-grow-1">Área<select id="admAreaCodigos" class="form-select"></select></label><button type="button" id="admNuevoCodigo" class="btn btn-primary">Crear turno</button></div><div class="adm-note">Editar la plantilla cambia su referencia; no modifica las jornadas que ya están guardadas. Los turnos inactivos se conservan como historial.</div><div id="admListaCodigos" class="table-responsive mt-2"></div><form id="admFormCodigo" hidden class="adm-code-form"><h3 id="admTituloCodigo" class="fs-5">Crear turno</h3><div id="admErrorCodigo" class="alert alert-danger" hidden></div><div class="row g-2"><div class="col-md-3"><label>Código<input id="admCodigo" class="form-control" maxlength="45" pattern="[A-Za-z0-9_-]+" required></label></div><div class="col-md-6"><label>Nombre<input id="admNombreCodigo" class="form-control" maxlength="120" required></label></div><div class="col-md-3"><label class="form-check mt-4"><input id="admCodigoActivo" type="checkbox" class="form-check-input" checked> Disponible</label></div><div class="col-12"><label>Descripción (opcional)<input id="admDescripcionCodigo" class="form-control" maxlength="400"></label></div></div><div class="table-responsive mt-3"><table class="table table-sm adm-code-days"><thead><tr><th>Día</th><th>Tipo</th><th>Entrada</th><th>Salida</th><th>Descanso (min)</th><th>Neto</th></tr></thead><tbody id="admDiasCodigo"></tbody></table></div><div id="admTotalCodigo" class="adm-preview"></div><div class="d-flex justify-content-end gap-2"><button type="button" id="admCancelarCodigo" class="btn btn-outline-secondary">Cerrar editor</button><button type="submit" id="admGuardarCodigo" class="btn btn-primary">Guardar turno</button></div></form></div></div></div></div>
 
-    <div class="row g-3 mb-4">
-      <div class="col-12 col-md-6 col-xl-3">
-        <div class="card shadow-sm border-0">
-          <div class="card-body">
-            <small>Empleados administrativos</small>
-            <h3 id="kpiAdminEmpleados">0</h3>
-            <p class="mb-0">Programados en la semana</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-12 col-md-6 col-xl-3">
-        <div class="card shadow-sm border-0">
-          <div class="card-body">
-            <small>Áreas activas</small>
-            <h3 id="kpiAdminAreas">0</h3>
-            <p class="mb-0">Direcciones y procesos</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-12 col-md-6 col-xl-3">
-        <div class="card shadow-sm border-0">
-          <div class="card-body">
-            <small>Novedades</small>
-            <h3 id="kpiAdminNovedades">0</h3>
-            <p class="mb-0">Vacaciones, citas, permisos</p>
-          </div>
-        </div>
-      </div>
-      <div class="col-12 col-md-6 col-xl-3">
-        <div class="card shadow-sm border-0">
-          <div class="card-body">
-            <small>Validaciones</small>
-            <h3 id="kpiAdminValidaciones">0</h3>
-            <p class="mb-0">Pendientes por revisar</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card shadow-sm border-0">
-      <div class="card-header bg-white fw-bold">Vista base de programación administrativa</div>
-      <div class="card-body">
-        <div class="alert alert-info mb-0" id="mensajeAdminBase">
-          Este módulo ya quedó protegido por sesión y permisos. El siguiente paso será volver dinámica la
-          programación administrativa desde Supabase.
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <script src="../js/layout.js?v=permisos-720"></script>
-  <script src="../js/programacion-administrativo.js"></script>
-<script type="module" src="../js/horarios-documentados-vista.js?v=711"></script>
-</body>
-
-</html>
+<div class="modal fade" id="admModalPersonal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h2 class="modal-title fs-5">Colaboradores del área administrativa</h2><button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Cerrar"></button></div><div class="modal-body"><div id="admErrorPersonal" class="alert alert-danger" hidden></div><div class="row g-2"><div class="col-md-6"><label>Área<select id="admAreaPersonal" class="form-select"></select></label></div><div class="col-md-6"><label>Buscar<input type="search" id="admBuscarPersonal" class="form-control" placeholder="Nombre o código"></label></div></div><p class="adm-note mt-3">Se usan fichas existentes de Empleados. No se reasigna personal de A&B, Chef, Operaciones o Mantenimiento.</p><div id="admListaPersonal" class="adm-person-list"></div></div></div></div></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="../js/layout.js?v=permisos-735"></script>
+<script type="module" src="../js/programacion-administrativo.js?v=740"></script>
+</body></html>
