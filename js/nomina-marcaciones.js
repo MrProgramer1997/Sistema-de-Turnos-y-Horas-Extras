@@ -1,4 +1,4 @@
-import { modeloNomina as modeloRevision, columnasNetoNomina } from './nomina-neto.js?v=714';
+import { modeloNomina as modeloRevision, columnasNetoNomina } from './nomina-neto.js?v=746';
 import { diaSemanaRevision } from './revision-punto.js?v=713';
 /* Fase 7.9. Read-only daily intervals and attendance exceptions.
  * This module never writes to Supabase or creates/changes payroll concepts.

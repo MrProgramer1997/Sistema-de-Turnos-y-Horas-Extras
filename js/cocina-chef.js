@@ -2599,8 +2599,8 @@ function estadoBiotimeChef(persona) {
   if (persona?.tipo_personal !== "externo" || !persona?.externo) return "";
   const estado = String(persona.externo.biotime_sync_estado || "pendiente").toLowerCase();
   const codigo = persona.externo.codigo_nomina ? ` · Cod. ${escaparHtmlCocina(persona.externo.codigo_nomina)}` : "";
-  if (estado === "sincronizado" || persona.externo.biotime_person_id) {
-    return `<span class="chef-chip-biotime chef-chip-biotime-ok" title="Usuario creado en BioTime/ZKTeco">✓ ZKTeco${codigo}</span>`;
+  if (estado === "sincronizado" && persona.externo.biotime_person_id) {
+    return `<span class="chef-chip-biotime chef-chip-biotime-ok" title="Solicitud procesada por el conector. El ID no certifica por si solo todos los campos del perfil.">✓ ZKTeco${codigo}</span>`;
   }
   if (estado === "error") {
     const detalle = escaparHtmlCocina(persona.externo.biotime_sync_error || "Error de sincronización");

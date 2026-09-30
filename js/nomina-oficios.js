@@ -40,6 +40,7 @@ export function aplicarHorariosOficios726(rows,config,calendario) {
  if(config?.version!=='726'||!Array.isArray(config.personas)||!Array.isArray(config.plantillas))throw new Error('No se obtuvo la configuracion vigente de Oficios Varios.');
  const festive=new Set(calendario?.festivos?.keys?.()||[]);
  return rows.map(x=>{
+  if(x.operaciones_746)return x; // Saved assignment, including explicit zero pause.
   const date=text(x.fecha).slice(0,10),tags=[x.grupo_codigo,x.centro_costos,x.origen,x.area,x.area_cocina].map(norm).join(' ');
   if(tags.includes('ALIMENTOS')||tags.includes('CHEF')||x.es_externo_chef)return x;
   const links=config.personas.filter(p=>text(p.cedula)===text(x.cedula)&&date>=p.desde&&(!p.hasta||date<=p.hasta));

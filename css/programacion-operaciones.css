@@ -188,3 +188,17 @@
  .ops742 .ops-matrix thead th.ops-person-column{left:auto;z-index:5}
  .ops742 .ops-matrix tbody td.ops-person-column{position:static;left:auto;box-shadow:none}
 }
+
+/* 7.44: observations and coverage are local to Operations. */
+.ops744 .ops-cell .ops-cell-note{white-space:normal;max-width:none;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.ops744 .ops-cell .ops-cell-observation{background:#ffdfa2;color:#682b00;border-left:4px solid #cc6600;border-radius:4px;padding:6px 8px;font-size:13px;font-weight:750;line-height:1.45}
+.ops744 .ops-cell-novedad .ops-cell-note:not(.ops-cell-observation){background:#f5d878;color:#493000;padding:4px 6px;font-weight:750}
+.ops744 .ops-coverage-alert{padding:10px 15px;border-bottom:1px solid #e3a3a8;background:#fff2f2;color:#86232c;font-size:13px}
+.ops744 .ops-coverage-alert summary{cursor:pointer;line-height:1.5}
+.ops744 .ops-coverage-explanation{font-size:12px;line-height:1.5;padding:7px 0;color:#70343a}
+.ops744 .ops-coverage-list{max-height:190px;overflow:auto;display:grid;gap:6px;padding:5px 0}
+.ops744 .ops-coverage-badge{display:inline-block;background:#ffe5e7;color:#861f2a;border:1px solid #d38a93;border-left:3px solid #b52a40;padding:3px 5px;border-radius:4px;font-size:11px;line-height:1.4;white-space:normal;font-weight:750;max-width:100%}
+.ops744 .ops-slot-empty{flex-direction:column}
+.ops744 .ops-cell-descanso .ops-coverage-badge,.ops744 .ops-cell-compensatorio .ops-coverage-badge,.ops744 .ops-cell-novedad .ops-coverage-badge{background:#fff2cc;border-color:#ca9a47;border-left-color:#a86508;color:#714300}
+.ops744 .ops-pause-note{color:#175438;font-weight:600;padding:6px 0}
+@media print{.ops744 .ops-cell-observation{-webkit-print-color-adjust:exact;print-color-adjust:exact}.ops744 .ops-coverage-list{max-height:none;overflow:visible}}

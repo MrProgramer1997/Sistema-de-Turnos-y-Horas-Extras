@@ -1,7 +1,8 @@
+import { textoAlimentacion742 } from './nomina-ajustes-pago.js?v=746';
 import { textoHoras728, textoMinutos728, leerMinutos728, horasDesdeTexto728, horasTextoONaN728, enlazarTiempo728 } from './tiempo-aprobacion.js?v=728';
-import { usaOficios726 } from './nomina-oficios.js?v=727';
-import {usaRevisionAyB721} from './nomina-ayb-candidatos.js?v=721';
-import {NOMBRES719} from './nomina-candidatos.js?v=727';
+import { usaOficios726 } from './nomina-oficios.js?v=746';
+import {usaRevisionAyB721} from './nomina-ayb-candidatos.js?v=746';
+import {NOMBRES719} from './nomina-candidatos.js?v=746';
 const text=v=>String(v??'').trim();
 const esc=v=>text(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const time=v=>v?text(v).slice(0,19).replace('T',' '):'Sin extremo confirmado';
@@ -36,14 +37,16 @@ export function crearRevisionSugerida719({rpc,canWrite,onBusy,onSaved,onError,ca
   const r=context,x=current,c=r.conceptos.find(z=>z.codigo===x.concepto_codigo),options=r.evidencia.opciones;
   const closed=r.existentes.some(z=>z.codigo===x.concepto_codigo&&['aprobado','rechazado'].includes(z.estado));
   const canApprove=Boolean(c&&Number.isFinite(c.horas_maximas)&&c.horas_maximas>0&&r.jornada_cerrada&&r.horario&&!r.evidencia.novedad&&!closed);
-  if(!canApprove && action==='aprobar' && !closed && canManual()){close();void onManual(x);return;}
+  if(!canApprove && action==='aprobar' && !closed && canManual(current)){close();void onManual(x);return;}
   const label=action==='aprobar'?'Aprobar este concepto':action==='rechazar'?'Rechazar este concepto':'Guardar comentario';
   const body=dlg.querySelector('[data-content]');
   body.innerHTML=`<form novalidate><h3>${esc(x.empleado||r.evidencia.empleado)}</h3>
    <p>${esc(x.fecha)} &middot; <strong>${esc(x.concepto_codigo)} ${esc(NOMBRES719[x.concepto_codigo])}</strong></p>
+   ${action==='aprobar'&&canManual(current)?'<button type="button" class="btn btn-link btn-sm p-0 mb-2" data-cambiar-concepto>Cambiar concepto</button>':''}
    <label for="ns719Turno">Turno para esta revision</label><select id="ns719Turno" class="form-select"><option value="">Selecciona el turno a validar</option>${options.map(o=>`<option value="${esc(o.key)}" ${r.horario?.key===o.key?'selected':''}>${esc(o.nombre||o.codigo)} &middot; ${esc(o.inicio)} a ${esc(o.fin)} &middot; descanso ${esc(o.pausa)} min</option>`).join('')}</select>
    
    <p><strong>Ingreso:</strong> ${esc(time(r.evidencia.entrada))}<br><strong>Salida:</strong> ${esc(time(r.evidencia.salida))}</p>
+   ${action==='aprobar'&&r.horario?`<p class="nd-small" data-alimentacion>${esc(textoAlimentacion742({brutos:r.total_neto_minutos==null?null:Number(r.total_neto_minutos)+Number(r.horario.pausa),neto:r.total_neto_minutos??null,pausa:r.horario.pausa,descuentoAplicado:r.total_neto_minutos==null?null:r.horario.pausa}))}</p>`:''}
    ${action==='aprobar'?`<label for="ns719Horas">Tiempo NETO de este concepto (referencia: ${esc(textoHoras728(c?.horas_maximas))})</label><input class="form-control" type="text" inputmode="text" maxlength="30" placeholder="1 h 26 min" id="ns719Horas" value="${esc(c?.horas_maximas == null ? '' : textoHoras728(c.horas_maximas))}" ${canApprove?'':'disabled'}>`:''}
    ${!canApprove&&action==='aprobar'?'<p class="nd-error">Falta seleccionar un turno con un tramo verificable, o la jornada sigue abierta. El caso permanece visible para revisar.</p>':''}
    <label for="ns719Comentario">Comentario ${action==='comentar'?'':'(opcional)'}</label><textarea class="form-control" id="ns719Comentario" maxlength="2000" rows="2"></textarea>
@@ -52,6 +55,11 @@ export function crearRevisionSugerida719({rpc,canWrite,onBusy,onSaved,onError,ca
    <p class="nd-error" role="alert"></p><footer><button class="btn ${action==='rechazar'?'btn-outline-danger':'btn-success'}" type="submit" ${closed||(action==='aprobar'&&!canApprove)?'disabled':''}>${label}</button></footer></form>`;
   body.querySelector('#ns719Turno').onchange=e=>load(e.target.value||null,false);
   body.querySelector('form').onsubmit=save;
+  body.querySelector('[data-cambiar-concepto]')?.addEventListener('click',()=>{
+    if(busy||!canWrite()||!canManual(current))return;
+    const target={...current,_tiempoInicial729:body.querySelector('#ns719Horas')?.value||'',_comentarioInicial729:body.querySelector('#ns719Comentario')?.value||''};
+    close();void onManual(target);
+  });
  }
  async function save(ev){
   ev.preventDefault();if(busy||!context||!canWrite())return;

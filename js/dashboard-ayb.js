@@ -1,9 +1,10 @@
+import { horasPagoProsof742 } from './nomina-ajustes-pago.js?v=746';
 import { textoHoras728, textoMinutos728, leerMinutos728, horasDesdeTexto728, horasTextoONaN728, enlazarTiempo728 } from './tiempo-aprobacion.js?v=728';
 import { exigirModulo,tieneModulo,filtrarEnlaces,moduloDeRuta } from "./permisos-modulos.js?v=720";
 import { controlExtraVigente } from './nomina-control-pendientes.js?v=713';
 import { fechaDiaRevision, diaSemanaRevision, ordenCronologicoRevision } from './revision-punto.js?v=713';
 import { incorporarDomingos, esDomingoRevision, pedirValidacionDomingo } from './nomina-dominicales.js?v=728';
-import { calculadasCeldaRevision, columnasRevisionExcel, modeloRevision, comparacionCelda, programacionCelda, marcadoCelda, advertenciaNocturna, requiereRevisionNocturna, crearVisorRevision, contextoComoJornada } from "./revision-evidencia.js?v=728";
+import { calculadasCeldaRevision, columnasRevisionExcel, modeloRevision, comparacionCelda, programacionCelda, marcadoCelda, advertenciaNocturna, requiereRevisionNocturna, crearVisorRevision, contextoComoJornada } from "./revision-evidencia.js?v=746";
 import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
 import { supabase } from "../supabase/supabaseClient.js";
 
@@ -5001,7 +5002,7 @@ async function generarPlantillaProsof(){
     if(!desde||!hasta)throw new Error('Selecciona desde y hasta para exportar el periodo.');
     const data=(await leerRevisionesAyb(desde,hasta)).filter(x=>x.estado==='aprobado'&&x.elegible_erp&&Number(x.horas_aprobadas)>0);
     if(!data.length)return alert("No hay conceptos aprobados y elegibles para PROSOF en el periodo seleccionado.");
-    const filas=data.map(x=>({Empleado:String(x.codigo_erp||""),Concepto:x.concepto_codigo||"",Fecha:x.fecha||"",Horas:Number(x.horas_aprobadas||0),LiquidarEnPrima:"N"}));
+    const filas=data.map(x=>({Empleado:String(x.codigo_erp||""),Concepto:x.concepto_codigo||"",Fecha:x.fecha||"",Horas:horasPagoProsof742(x),LiquidarEnPrima:"N"}));
     const wb=escribirFilasEnPlantillaProsof(await cargarLibroPlantillaProsof(),filas);
     window.XLSX.writeFile(wb,`PROSOF_AYB_${desde||"inicio"}_${hasta||"fin"}.xls`,{bookType:"biff8",cellStyles:true});
   }catch(e){console.error("PROSOF:",e);alert("No fue posible generar la plantilla PROSOF: "+(e.message||e));}

@@ -1,4 +1,4 @@
-import { modeloRevision as modeloOriginal } from './revision-evidencia.js?v=728';
+import { modeloRevision as modeloOriginal } from './revision-evidencia.js?v=746';
 import { esPorteria } from './revision-punto.js?v=713';
 
 // Payroll-only adapter. No writes, no new schedules, no hard-coded people/areas.
@@ -81,7 +81,21 @@ export function modeloNomina(x = {}) {
   m.brutos = m.entrada !== null && m.salida !== null && m.salida > m.entrada &&
     m.salida - m.entrada <= 1440 ? m.salida - m.entrada : null;
   const documental = m.p.almuerzo_documental_nomina || x.almuerzo_documental_nomina || x.jornada_actual?.almuerzo_documental_nomina;
-  const config = pausaExplicita(m.p) || documental || null;
+  const mismaReferencia = candidate => candidate &&
+    text(candidate.fecha).slice(0, 10) === text(m.fecha).slice(0, 10) &&
+    text(candidate.hora_inicio).slice(0, 5) === text(m.p.hora_inicio).slice(0, 5) &&
+    text(candidate.hora_fin).slice(0, 5) === text(m.p.hora_fin).slice(0, 5) &&
+    !candidate.conflicto_programacion;
+  const inherited = [x.jornada_actual, x].filter(mismaReferencia).map(pausaExplicita).find(Boolean);
+  let config = pausaExplicita(m.p) || inherited || documental || null;
+  // When the source supplies a net scheduled total but omits the pause field,
+  // recover that same configured difference, never an arbitrary 30/60 minutes.
+  if (!config && m.b1 && !m.b2) {
+    const scheduledNet = finite(m.p.horas_programadas_netas);
+    const difference = scheduledNet === null ? null : m.b1.end - m.b1.start - scheduledNet * 60;
+    if (difference !== null && difference >= 0 && difference <= m.b1.end - m.b1.start)
+      config = {minutos:difference, fuente:'Diferencia entre horario bruto y neto programado de la misma referencia'};
+  }
   m.pausa = config ? finite(config.minutos) : null;
   m.fuenteAlmuerzo = config?.fuente || 'No hay un descanso aplicable configurado para esta fecha';
   m.neto = null; m.descuentoAplicado = null;

@@ -1,7 +1,7 @@
 // A&B payroll review only. No changes to scheduling, the Dashboard or BioTime.
-import { modeloNomina } from './nomina-neto.js?v=714';
+import { modeloNomina } from './nomina-neto.js?v=746';
 import { seleccionarPuntoRevision } from './revision-punto.js?v=713';
-import { tramosCandidatos719, NOMBRES719 } from './nomina-candidatos.js?v=719';
+import { tramosCandidatos719, NOMBRES719 } from './nomina-candidatos.js?v=746';
 const text=v=>String(v??'').trim(),norm=v=>text(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
 const key=x=>text(x.cedula)+'|'+text(x.fecha).slice(0,10);
 const supported=['P003','P004','P005','P008','P009','P100'];

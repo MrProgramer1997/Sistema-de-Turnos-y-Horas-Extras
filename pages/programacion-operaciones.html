@@ -7,9 +7,9 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/estilos.css">
   <link rel="stylesheet" href="../css/layout.css">
-  <link rel="stylesheet" href="../css/programacion-operaciones.css?v=742">
+  <link rel="stylesheet" href="../css/programacion-operaciones.css?v=745">
 </head>
-<body class="ops742">
+<body class="ops742 ops744">
   <div id="sidebar-container"></div>
 
   <main class="main-content fondo-modulo p-4">
@@ -42,7 +42,7 @@
         </div>
         <div class="d-flex gap-2 flex-wrap">
           <button class="btn btn-outline-danger" id="btnPdfGeneralOps" type="button">PDF general</button>
-          <button class="btn btn-outline-danger" id="btnPdfCalendarioOps" type="button">PDF calendario</button>
+          <button class="btn btn-outline-danger" id="btnPdfCalendarioOps" type="button" title="Matriz semanal completa, sin cédulas ni códigos de nómina">PDF calendario</button>
           <button class="btn btn-outline-danger" id="btnPdfOperativoOps" type="button">PDF operativo</button>
         </div>
       </div>
@@ -64,13 +64,14 @@
             </div>
             <div class="col-12 col-md-4">
               <div class="ops-rule-box">
-                Oficios Varios conserva 30 min de alimentación y la prolongación de referencia de 30 min. Domingo y festivo toman automáticamente la columna especial. Gerardo conserva su horario de Coordinador de Operaciones de 42 h.
+                Oficios Varios conserva su pausa configurada. Solo en vestieres, los lunes no se descuenta desayuno ni comida. Los demás días y áreas conservan su pausa configurada. Domingo y festivo toman automáticamente la columna especial. Gerardo conserva su horario de Coordinador de Operaciones de 42 h.
               </div>
             </div>
           </div>
         </div>
       </section>
 
+      <div id="estadoInstalacionOps" class="alert alert-warning small" role="status" hidden></div>
       <div id="bannerCopiadoOps" class="ops-copy-banner d-none mb-3">
         <div>
           <div class="fw-semibold">Registro copiado</div>
@@ -149,7 +150,7 @@
           <div class="row g-3 align-items-end">
             <div class="col-12 col-lg-5">
               <label class="form-label" for="filtroEmpleadoOps">Buscar empleado</label>
-              <input class="form-control" id="filtroEmpleadoOps" placeholder="Puesto, nombre, cédula, código o cargo">
+              <input class="form-control" id="filtroEmpleadoOps" placeholder="Puesto, nombre o cargo">
             </div>
             <div class="col-12 col-md-4 col-lg-3">
               <label class="form-label" for="filtroProcesoOps">Proceso</label>
@@ -188,6 +189,7 @@
           </div>
           <div class="small text-muted">Cambia el colaborador para ubicar su semana en un puesto &#183; Clic en una celda para programar · C = copiar · P = pegar</div>
         </div>
+        <div id="alertasCoberturaOps" class="ops-coverage-alert" role="status" aria-live="polite" hidden></div>
         <div class="card-body p-0">
           <div class="table-responsive ops-matrix-wrap">
             <table class="table table-bordered align-middle mb-0 ops-matrix">
@@ -235,7 +237,7 @@
               <div class="col-md-8" id="bloqueTurnoBaseOps">
                 <label class="form-label" for="turnoBaseOps">Horario de programaci&#243;n</label>
                 <select class="form-select" id="turnoBaseOps"></select>
-                <div class="form-text" id="previewTurnoOps">Seleccione un turno.</div>
+                <div class="form-text" id="previewTurnoOps">Seleccione un turno.</div><div id="notaPausaVestierOps" class="form-text ops-pause-note" hidden></div>
               </div>
               <div class="col-12" id="bloquePersonalizadoOps">
                 <div class="form-check">
@@ -304,7 +306,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
-          <input class="form-control mb-3" id="buscarPersonalOps" placeholder="Buscar por nombre, cédula, código o cargo">
+          <input class="form-control mb-3" id="buscarPersonalOps" placeholder="Buscar por nombre o cargo">
           <div class="table-responsive">
             <table class="table table-hover align-middle">
               <thead><tr><th>Empleado</th><th>Cargo</th><th>Centro costos</th><th>Proceso</th><th class="text-end">Acción</th></tr></thead>
@@ -397,10 +399,11 @@
     </div>
   </div>
 
+  <div class="text-end small text-muted px-4 pb-3">Programación Operaciones · versión 7.45</div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="../js/layout.js?v=permisos-735"></script>
-  <script type="module" src="../js/programacion-operaciones.js?v=7411"></script>
+  <script type="module" src="../js/programacion-operaciones.js?v=745"></script>
 </body>
 </html>

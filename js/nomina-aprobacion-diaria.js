@@ -1,6 +1,7 @@
+import { presentarExtraNeta742, textoAlimentacion742 } from './nomina-ajustes-pago.js?v=746';
 import { textoHoras728, textoMinutos728, leerMinutos728, horasDesdeTexto728, horasTextoONaN728, enlazarTiempo728 } from './tiempo-aprobacion.js?v=728';
 import { referenciaEspecial723, textoDescansoEspecial723 } from './nomina-descanso-especial.js?v=727';
-import { modeloNomina, horasMinutosNomina } from './nomina-neto.js?v=714';
+import { modeloNomina, horasMinutosNomina } from './nomina-neto.js?v=746';
 import { fechaDiaRevision, recorridoRevisionHtml } from './revision-punto.js?v=713';
 
 const text = v => String(v ?? '').trim();
@@ -122,15 +123,18 @@ export function validarDecisionNomina({ x, m, accion, horas, motivo, confirmado,
   return { accion: especial ? accion : ajuste ? 'ajustar' : 'aprobar', horas: aprobadas, motivo };
 }
 
-export function pedirDecisionNomina(x, { accion = 'aprobar', modelo = modeloNomina(x), aviso = '' } = {}) {
+export function pedirDecisionNomina(x, { accion = 'aprobar', modelo = modeloNomina(x), aviso = '', canChangeConcept = false } = {}) {
   if (dialogo?.open) return Promise.resolve(null);
   const rechazo = accion === 'rechazar' || accion === 'observar';
   const especial = accion === 'validarDomingo';
   const titulo = rechazo ? (accion === 'rechazar' ? 'Rechazar concepto' : 'Observar concepto') : 'Aprobar horas verificadas';
+  x = presentarExtraNeta742(x, modelo);
   const refEspecial = referenciaEspecial723(x, modelo);
   const sugerencia = refEspecial ? textoMinutos728(refEspecial.neto) : especial ? '' : textoHoras728(x.horas_calculadas);
   const d = abrir(`<form novalidate><header><h2 id="ndDialogTitulo">${titulo}</h2><button type="button" class="btn btn-outline-secondary btn-sm" data-nd-cerrar>Cerrar</button></header>
     <div class="nd-dialog-body"><h3>${esc(nombre(x))}</h3><p>${fechaDiaRevision(x.fecha)} &middot; <strong>${esc(x.concepto_codigo)}</strong> ${esc(x.concepto_nombre)}</p>
+    ${!rechazo&&canChangeConcept?'<button type="button" class="btn btn-link btn-sm p-0 mb-2" data-cambiar-concepto>Cambiar concepto</button>':''}
+    ${!rechazo ? `<p class="nd-small" data-alimentacion>${esc(textoAlimentacion742(modelo))}</p>` : ''}
     ${aviso ? `<p class="nd-aviso" role="note">${esc(aviso)}</p>` : ''}
     ${!rechazo ? `<label for="ndHoras">Tiempo NETO a aprobar (horas y minutos)</label><input class="form-control" id="ndHoras" name="horas" type="text" inputmode="text" maxlength="30" placeholder="1 h 26 min" value="${esc(sugerencia)}" autocomplete="off" required>
 ` : ''}
@@ -141,6 +145,9 @@ export function pedirDecisionNomina(x, { accion = 'aprobar', modelo = modeloNomi
   return new Promise(resolve => {
     resolverDialogo = resolve;
     const form = d.querySelector('form');
+    d.querySelector('[data-cambiar-concepto]')?.addEventListener('click',()=>{
+      finalizar({accion:'cambiarConcepto',borradorTiempo:form.elements.horas?.value||'',borradorComentario:form.elements.motivo.value});
+    });
     form.addEventListener('submit', e => {
       e.preventDefault();
       try {

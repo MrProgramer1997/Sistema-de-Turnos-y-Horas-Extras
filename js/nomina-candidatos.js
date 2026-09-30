@@ -2,8 +2,8 @@ import { presentarEspecialNeto723 } from './nomina-descanso-especial.js?v=727';
 /* 7.19: suggestions are review evidence, never payment authorization.
  * Keep raw timestamps. Associate an early exit with the visit that started
  * the previous day only when the gate sequence corroborates that visit. */
-import { modeloNomina, esAyBChefNomina } from './nomina-neto.js?v=714';
-import { minutoCivil } from './revision-evidencia.js?v=728';
+import { modeloNomina, esAyBChefNomina } from './nomina-neto.js?v=746';
+import { minutoCivil } from './revision-evidencia.js?v=746';
 import { normalizarPunto, esPorteria, etiquetaPunto } from './revision-punto.js?v=713';
 const text=v=>String(v??'').trim();
 const key=x=>`${text(x.cedula)}|${text(x.fecha).slice(0,10)}`;
@@ -119,4 +119,4 @@ export function agregarSugerencias719(base,jornadas,calendario){
  }
  return [...base,...nuevos];
 }
-export const usaRevision719=x=>Boolean(x?.oficios_726||x?.jornada_actual?.oficios_726||x?.sugerencia_719||x?.origen_calculo==='revision_sugerida_v719');
+export const usaRevision719=x=>Boolean(x?.operaciones_746||x?.jornada_actual?.operaciones_746||x?.oficios_726||x?.jornada_actual?.oficios_726||x?.sugerencia_719||x?.origen_calculo==='revision_sugerida_v719');

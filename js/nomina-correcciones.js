@@ -1,6 +1,7 @@
+import { textoAlimentacion742 } from './nomina-ajustes-pago.js?v=746';
 import { textoHoras728, textoMinutos728, leerMinutos728, horasDesdeTexto728, horasTextoONaN728, enlazarTiempo728 } from './tiempo-aprobacion.js?v=728';
 // Revisar is read-only until submit. Every correction targets exactly one persisted concept.
-import { minutosDecisionNomina } from './nomina-aprobacion-diaria.js?v=728';
+import { minutosDecisionNomina } from './nomina-aprobacion-diaria.js?v=746';
 const text = value => String(value ?? '').trim();
 const esc = value => text(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export const horasCorreccion722 = value => value == null || !Number.isFinite(Number(value)) ? '' : textoHoras728(value);
@@ -51,14 +52,16 @@ export function crearCorreccionesNomina722({rpc, canWrite, onBusy, onSaved, onEr
     const r = context, x = r.revision, body = dialog.querySelector('[data-body]');
     const changingHours = action === 'revisar';
     const canApprove = r.jornada_cerrada && (r.manual || Number.isFinite(r.referencia) && r.referencia > 0);
-    if (changingHours && canManual() && (!canApprove || x.detalle?.aprobacion_manual_728)) { const target = {...current, ...x, revision_id:x.id}; close(); void onManual(target); return; }
+    if (changingHours && canManual(current) && (!canApprove || x.detalle?.aprobacion_manual_728)) { const target = {...current, ...x, revision_id:x.id}; close(); void onManual(target); return; }
     const options = Array.isArray(r.opciones) ? r.opciones : [];
     dialog.querySelector('h2').textContent = action === 'rechazar' ? 'Rechazar concepto' : action === 'recalcular' ? 'Recalcular concepto' : 'Revisar concepto';
     body.innerHTML = `<form novalidate>
       <h3>${esc(r.empleado || current.empleado)}</h3><p>${esc(x.fecha)} &middot; <strong>${esc(x.concepto_codigo)} ${esc(x.concepto_nombre)}</strong></p>
+      ${changingHours&&canManual(current)?'<button type="button" class="btn btn-link btn-sm p-0 mb-2" data-cambiar-concepto>Cambiar concepto</button>':''}
       <p>Estado: <strong>${esc(x.estado)}</strong> &middot; Horas aprobadas: <strong>${esc(horasCorreccion722(x.horas_aprobadas) || '00:00')}</strong></p>
       ${options.length > 1 && action !== 'rechazar' ? `<label for="nc722Opcion">Turno de referencia</label><select id="nc722Opcion" class="form-select"><option value="">Selecciona un turno</option>${options.map(o => `<option value="${esc(o.key)}" ${o.key === r.horario?.key ? 'selected' : ''}>${esc(o.codigo)} &middot; ${esc(o.inicio)} a ${esc(o.fin)}</option>`).join('')}</select>` : ''}
       ${action === 'recalcular' ? `<p>Referencia actual: <strong>${esc(horasCorreccion722(r.referencia) || 'Por revisar')}</strong>. Al confirmar, este concepto queda <strong>pendiente</strong> y deja de exportarse hasta aprobarlo de nuevo.</p>` : ''}
+      ${changingHours && r.horario ? `<p class="nd-small" data-alimentacion>${esc(textoAlimentacion742({brutos:r.total_neto_minutos==null?null:Number(r.total_neto_minutos)+Number(r.horario.pausa),neto:r.total_neto_minutos??null,pausa:r.horario.pausa,descuentoAplicado:r.total_neto_minutos==null?null:r.horario.pausa}))}</p>` : ''}
       ${changingHours ? `<label for="nc722Horas">Tiempo NETO del concepto (horas y minutos)</label><input class="form-control" id="nc722Horas" type="text" inputmode="text" maxlength="30" value="${esc(horasCorreccion722(x.estado === 'aprobado' ? x.horas_aprobadas : r.referencia))}" placeholder="1 h 26 min"><small class="nd-small">Referencia actual: ${esc(horasCorreccion722(r.referencia) || 'Por revisar')}. La decision solo cambia al guardar.</small>` : ''}
       ${changingHours && !canApprove ? '<p class="nd-small">Revisa el turno o las marcaciones. Puedes cerrar sin cambios; rechazar y recalcular siguen disponibles en la tabla.</p>' : ''}
       ${action === 'rechazar' ? '<p>Se rechazara solamente este concepto. Los demas conceptos de la jornada no cambian.</p>' : ''}
@@ -75,6 +78,11 @@ export function crearCorreccionesNomina722({rpc, canWrite, onBusy, onSaved, onEr
     body.querySelector('[data-cancel]').onclick = () => close();
     body.querySelector('#nc722Opcion')?.addEventListener('change', event => load(event.target.value || null));
     body.querySelector('form').onsubmit = save;
+    body.querySelector('[data-cambiar-concepto]')?.addEventListener('click',()=>{
+      if(busy||!canWrite()||!canManual(current))return;
+      const target={...current,...x,revision_id:x.id,_tiempoInicial729:body.querySelector('#nc722Horas')?.value||'',_comentarioInicial729:body.querySelector('#nc722Comentario')?.value||''};
+      close();void onManual(target);
+    });
   }
   async function save(event) {
     event.preventDefault(); if (busy || !context || !canWrite()) return;

@@ -1,7 +1,10 @@
 import { supabase } from '../supabase/supabaseClient.js';
 import { exigirModulo, filtrarEnlaces } from './permisos-modulos.js?v=735';
 
-const VERSION = '7411';
+import { identificaVestier, descansoVestier, revisarCobertura, personaPublicaOps } from './operaciones-reglas.js?v=745';
+import { crearPdfCalendarioOps } from './operaciones-pdf-calendario.js?v=745';
+
+const VERSION = '745';
 const STORAGE_COPIA = 'ccp_turno_copiado_operaciones_v738';
 const MAX_DIAS = 14;
 const META_HORAS = 42;
@@ -29,6 +32,10 @@ let modalExterno = null;
 let guardandoExterno = false;
 // Visual context only: never changes the dates sent to Supabase.
 let periodoMostradoOps = null;
+let lecturaValidaOps = false;
+let fechaConsultaOps = '';
+let coberturaOps = [];
+let coberturaPorCeldaOps = new Map();
 
 const $ = (id) => document.getElementById(id);
 const texto = (v) => String(v ?? '').trim();
@@ -54,6 +61,32 @@ async function iniciar(){
   await cargarDatos();
 }
 
+// Legacy reads remain available only when the new function has not been installed.
+// An authentication/permission failure is never retried through another endpoint.
+function faltaFuncionOps(error){return error?.code==='PGRST202'||error?.code==='42883';}
+function quitarIdentificadoresVistaOps(data){
+ const r={...data};
+ for(const k of ['personal','candidatos','programacion'])r[k]=(data?.[k]||[]).map(row=>{
+  const x={...row};for(const f of ['cedula','codigo','documento','codigo_nomina','telefono','correo','email','biotime_person_id'])delete x[f];return x;
+ });
+ return r;
+}
+async function leerProgramacionOps(args){
+ let r=await supabase.rpc('consultar_programacion_operaciones_v745',args);
+ if(faltaFuncionOps(r.error))r=await supabase.rpc('consultar_programacion_operaciones_v741',args);
+ if(r.data)r={...r,data:quitarIdentificadoresVistaOps({...r.data,regla_vestier_desde:r.data.version==='745'?r.data.regla_vestier_desde:null})};
+ return r;
+}
+async function leerOrganizacionOps(args){
+ let r=await supabase.rpc('consultar_organizacion_operaciones_v745',args);
+ if(faltaFuncionOps(r.error))r=await supabase.rpc('consultar_organizacion_operaciones_v741',args);
+ return r;
+}
+function avisoInstalacionOps(){
+ const el=$('estadoInstalacionOps');if(!el)return;
+ el.hidden=estado.version==='745';
+ if(!el.hidden)el.textContent='Pendiente activar el SQL 7.45 en Supabase: se mantienen las pausas guardadas hasta completar ese paso. PDF, privacidad visual y alertas ya están disponibles.';
+}
 function configurarEventos(){
   $('btnCargarPeriodoOps').addEventListener('click', async()=>{
     const inicio=$('fechaInicioOps').value,fin=$('fechaFinOps').value;
@@ -75,7 +108,8 @@ function configurarEventos(){
   $('btnEliminarAsignacionOps').addEventListener('click',eliminarAsignacionActual);
   $('empleadoAsignacionOps').addEventListener('change',()=>{renderTurnosSelect();actualizarPreviewTurno();});
   $('fechaAsignacionOps').addEventListener('change',()=>{renderTurnosSelect();actualizarPreviewTurno();});
-  $('tipoRegistroOps').addEventListener('change',actualizarFormularioTipo);
+  $('tipoRegistroOps').addEventListener('change',()=>{actualizarFormularioTipo();actualizarPreviewTurno();});
+  $('observacionOps').addEventListener('input',actualizarPreviewTurno);
   $('turnoBaseOps').addEventListener('change',actualizarPreviewTurno);
   $('checkPersonalizadoOps').addEventListener('change',actualizarPersonalizado);
   $('buscarPersonalOps').addEventListener('input',renderGestionPersonal);
@@ -127,13 +161,13 @@ function sincronizarPeriodo(){ $('fechaInicioOps').value=periodo.inicio;$('fecha
 
 async function cargarDatos(){
   if(cargando || guardandoPuesto) return;
-  cargando=true;document.body.classList.add('ops-loading');sincronizarPeriodo();
+  cargando=true;lecturaValidaOps=false;document.body.classList.add('ops-loading');sincronizarPeriodo();
   actualizarAvisoSemanaOps('cargando');
   const consulta={p_desde:periodo.inicio,p_hasta:periodo.fin};
   try{
     const [principal,org]=await Promise.all([
-      supabase.rpc('consultar_programacion_operaciones_v741',consulta),
-      Promise.resolve(supabase.rpc('consultar_organizacion_operaciones_v741',consulta)).catch(error=>({error}))
+      leerProgramacionOps(consulta),
+      Promise.resolve(leerOrganizacionOps(consulta)).catch(error=>({error}))
     ]);
     if(principal.error) throw principal.error;
     estado={...estado,...(principal.data||{})};
@@ -141,6 +175,8 @@ async function cargarDatos(){
     organizacion=organizacionLista?org.data:{puestos:[],asignaciones:[],semanas:[],horarios:[],horarios_aplicados:[]};
     if(org.error) console.warn('No se cargo la organizacion de puestos:',org.error);
     enriquecerHorarios();
+    lecturaValidaOps=true;
+    fechaConsultaOps=estado.consultado||new Date().toISOString();
     dias=rangoFechas(periodo.inicio,periodo.fin);
     actualizarCabeceraPeriodo();llenarFiltros();llenarSelectEmpleados();renderTodo();
     $('btnGestionPuestosOps').disabled=!organizacionLista;
@@ -148,7 +184,7 @@ async function cargarDatos(){
   finally{cargando=false;document.body.classList.remove('ops-loading');}
 }
 async function cargarOrganizacion(){
-  const {data,error}=await supabase.rpc('consultar_organizacion_operaciones_v741',{p_desde:periodo.inicio,p_hasta:periodo.fin});
+  const {data,error}=await leerOrganizacionOps({p_desde:periodo.inicio,p_hasta:periodo.fin});
   if(error) throw error;
   organizacion=data;organizacionLista=true;enriquecerHorarios();
 }
@@ -229,14 +265,32 @@ function empleadoPorId(id){return estado.personal.find(e=>e.empleado_id===id)||n
 function registroDe(empleadoId,fecha){return estado.programacion.find(r=>r.empleado_id===empleadoId&&r.fecha===fecha)||null;}
 function registrosEmpleado(id){return estado.programacion.filter(r=>r.empleado_id===id&&dias.includes(r.fecha));}
 
-function renderTodo(){renderMatriz();renderKPIs();renderResumen();renderDetalleEmpleado();renderBannerCopia();}
+function renderTodo(){
+  coberturaOps=organizacionLista?revisarCobertura({puestos:organizacion.puestos,asignaciones:organizacion.asignaciones,personal:estado.personal,programacion:estado.programacion,fechas:dias}):[];
+  coberturaPorCeldaOps=new Map(coberturaOps.map(a=>[`${a.puesto_id}|${a.fecha}`,a]));
+  renderMatriz();renderKPIs();renderResumen();renderDetalleEmpleado();renderBannerCopia();renderAlertasCoberturaOps();avisoInstalacionOps();
+}
+function renderAlertasCoberturaOps(){
+  const box=$('alertasCoberturaOps');
+  if(!box)return;
+  if(!organizacionLista){box.hidden=false;box.innerHTML='<strong>No se pudo verificar la cobertura de puestos.</strong> Recarga el periodo.';return;}
+  if(!coberturaOps.length){box.hidden=true;box.replaceChildren();return;}
+  const grupos=new Map();
+  for(const a of coberturaOps){if(!grupos.has(a.puesto_id))grupos.set(a.puesto_id,[]);grupos.get(a.puesto_id).push(a);}
+  box.hidden=false;
+  box.innerHTML=`<details><summary><strong>Cobertura por revisar: ${grupos.size} puestos, ${coberturaOps.length} días/puesto.</strong></summary><div class="ops-coverage-explanation">Periodo completo, sin ocultar alertas por filtros. Descansos y novedades requieren verificar el relevo; las observaciones no confirman automáticamente una sustitución.</div><div class="ops-coverage-list">${[...grupos.values()].map(xs=>`<div><strong>#${String(xs[0].orden).padStart(2,'0')} ${esc(xs[0].puesto)}</strong>: ${xs.map(a=>`${formatoFechaCorta(a.fecha).slice(0,5)} (${esc(a.etiqueta)})`).join('; ')}</div>`).join('')}</div></details>`;
+}
+function marcaCoberturaOps(puesto,fecha){
+ const a=puesto?coberturaPorCeldaOps.get(`${puesto.id}|${fecha}`):null;
+ return a?`<span class="ops-coverage-badge" title="${esc(a.etiqueta)}">${a.tipo==='relevo'?'Revisar relevo':'Sin cobertura confirmada'}</span>`:'';
+}
 
 function empleadosFiltrados(){
   const q=normalizar($('filtroEmpleadoOps').value),proc=$('filtroProcesoOps').value,st=$('filtroEstadoOps').value;
   return estado.personal.filter(e=>{
     if(proc&&e.proceso_codigo!==proc)return false;
     if(st==='externos'&&!e.es_externo)return false;
-    if(q&&!normalizar([nombreEmpleado(e),e.cedula,e.codigo,e.cargo].join(' ')).includes(q))return false;
+    if(q&&!normalizar([nombreEmpleado(e),e.cargo].join(' ')).includes(q))return false;
     const regs=registrosEmpleado(e.empleado_id);const resumen=resumenEmpleado(e.empleado_id);
     if(st==='con-programacion'&&!regs.length)return false;
     if(st==='sin-programacion'&&regs.length)return false;
@@ -265,12 +319,13 @@ function coincideEstado(e){
  if(st==='sobre-meta')return !e.es_externo&&resumenEmpleado(e.empleado_id).netoMin>META_HORAS*60;
  return true;
 }
-function filasPlanilla(fechas=dias){
+function filasPlanilla(fechas=dias,completa=false){
   const permitidos=new Set(empleadosFiltrados().map(e=>e.empleado_id));
   const q=normalizar($('filtroEmpleadoOps').value),proc=$('filtroProcesoOps').value,st=$('filtroEstadoOps').value;
   const semanas=semanasDe(fechas);
   const filas=[...organizacion.puestos].sort((a,b)=>a.orden-b.orden||a.clave.localeCompare(b.clave)).map(puesto=>({puesto}));
   estado.personal.forEach(empleado=>{if(semanas.some(s=>!asignacionPersona(empleado.empleado_id,s)))filas.push({empleado});});
+  if(completa)return filas;
   return filas.filter(f=>{
     const ids=[...new Set(fechas.map(d=>personaEnFila(f,d)?.empleado_id).filter(Boolean))];
     if(!f.puesto)return permitidos.has(f.empleado.empleado_id);
@@ -292,13 +347,13 @@ function opcionesPersona(semana,seleccion){
 function selectorPersona(fila){
   if(!fila.puesto){
     const e=fila.empleado,res=resumenEmpleado(e.empleado_id);
-    return `<div class="ops-employee-name">${esc(nombreEmpleado(e))}</div><div class="ops-employee-meta">${esc(e.cargo||'')} &middot; ${esc(e.codigo||e.cedula||'')}${chipExterno(e)}</div><span class="ops-hours-badge">${fmtHoras(res.netoMin)} netas</span>`;
+    return `<div class="ops-employee-name">${esc(nombreEmpleado(e))}</div><div class="ops-employee-meta">${esc(e.cargo||'')}${chipExterno(e)}</div><span class="ops-hours-badge">${fmtHoras(res.netoMin)} netas</span>`;
   }
   const semanas=semanasDe();
   return semanas.map(s=>{
     const a=asignacionPuesto(fila.puesto.id,s),id=a?.empleado_id||'',e=empleadoPorId(id);
     const etiqueta=semanas.length>1?`<div class="ops-week-label">Semana ${formatoFechaCorta(s)}</div>`:'';
-    return `${etiqueta}<select class="form-select form-select-sm ops-assign-position" data-puesto-select="${esc(fila.puesto.id)}" data-semana="${s}" aria-label="Colaborador para ${esc(fila.puesto.nombre)} ${s}">${opcionesPersona(s,id)}</select>${e?`<div class="ops-employee-meta">${esc(e.cargo||'')} &middot; ${esc(e.codigo||e.cedula||'')}${chipExterno(e)}</div><span class="ops-hours-badge">${fmtHoras(resumenEmpleado(e.empleado_id).netoMin)} netas</span>`:''}`;
+    return `${etiqueta}<select class="form-select form-select-sm ops-assign-position" data-puesto-select="${esc(fila.puesto.id)}" data-semana="${s}" aria-label="Colaborador para ${esc(fila.puesto.nombre)} ${s}">${opcionesPersona(s,id)}</select>${e?`<div class="ops-employee-meta">${esc(e.cargo||'')}${chipExterno(e)}</div><span class="ops-hours-badge">${fmtHoras(resumenEmpleado(e.empleado_id).netoMin)} netas</span>`:''}`;
   }).join('');
 }
 function renderMatriz(){
@@ -317,21 +372,21 @@ function renderMatriz(){
     const nota=f.puesto?`<div class="ops-slot-order">#${String(f.puesto.orden).padStart(2,'0')}</div>`:'';
     return prefijo+`<tr data-puesto-row="${f.puesto?.id||''}" data-empleado-row="${f.empleado?.empleado_id||''}"><th class="ops-sticky-col ops-fixed-slot">${nota}<div class="ops-slot-name">${nombre}</div></th><td class="ops-sticky-col ops-person-column">${selectorPersona(f)}</td>${dias.map(d=>{
       const e=personaEnFila(f,d);
-      if(e)return celda(e,d);
+      if(e)return celda(e,d,f.puesto);
       const msg=f.puesto?'Asigna un colaborador':'Ubicado en su turno fijo';
-      return `<td class="${esFestivo(d)||esDomingo(d)?'ops-festivo-cell':''}"><div class="ops-slot-empty" title="${msg}">&mdash;</div></td>`;
+      return `<td class="${esFestivo(d)||esDomingo(d)?'ops-festivo-cell':''}"><div class="ops-slot-empty" title="${msg}">${marcaCoberturaOps(f.puesto,d)||'&mdash;'}</div></td>`;
     }).join('')}</tr>`;
   }).join('')||`<tr><td colspan="${dias.length+2}" class="text-center text-muted py-4">No hay filas para los filtros seleccionados.</td></tr>`;
 }
 
-function celda(e,fecha){
+function celda(e,fecha,puesto=null){
   const r=registroDe(e.empleado_id,fecha),especial=esFestivo(fecha)||esDomingo(fecha);
-  if(!r){return `<td class="${especial?'ops-festivo-cell':''}"><div class="ops-cell ops-cell-empty" onclick="window.opsNuevaCelda('${e.empleado_id}','${fecha}')"><span>+ Programar</span>${copia?`<button class="ops-paste-btn" type="button" onclick="event.stopPropagation();window.opsPegarCelda('${e.empleado_id}','${fecha}')">Pegar</button>`:''}</div></td>`;}
+  if(!r){return `<td class="${especial?'ops-festivo-cell':''}"><div class="ops-cell ops-cell-empty" onclick="window.opsNuevaCelda('${e.empleado_id}','${fecha}')"><span>+ Programar</span>${marcaCoberturaOps(puesto,fecha)}${copia?`<button class="ops-paste-btn" type="button" onclick="event.stopPropagation();window.opsPegarCelda('${e.empleado_id}','${fecha}')">Pegar</button>`:''}</div></td>`;}
   const clase=r.tipo_registro==='turno'?'ops-cell-turno':r.tipo_registro==='novedad'?'ops-cell-novedad':r.tipo_registro==='compensatorio'?'ops-cell-compensatorio':'ops-cell-descanso';
   const titulo=r.tipo_registro==='turno'?(r.turno_codigo||r.horario_nombre||'Personalizado'):r.tipo_registro==='novedad'?(r.novedad_codigo||'Novedad'):cap(r.tipo_registro);
   const horario=r.tipo_registro==='turno'?`${hh(r.hora_inicio)}–${hh(r.hora_fin)}${r.cruza_medianoche?' +1':''}`:'';
   const n=netoRegistro(r);
-  return `<td class="${especial?'ops-festivo-cell':''}"><div class="ops-cell ${clase}" onclick="window.opsEditarCelda('${r.id}')"><div class="ops-cell-code">${esc(titulo)}</div>${horario?`<div class="ops-cell-time">${esc(horario)} · ${fmtHoras(n.netoMin)}</div>`:''}${r.novedad_descripcion?`<div class="ops-cell-note">${esc(r.novedad_descripcion)}</div>`:''}${r.observacion?`<div class="ops-cell-note">${esc(r.observacion)}</div>`:''}<div class="ops-cell-actions"><button type="button" onclick="event.stopPropagation();window.opsCopiarCelda('${r.id}')">C</button>${copia?`<button class="ops-paste-btn" type="button" onclick="event.stopPropagation();window.opsPegarCelda('${e.empleado_id}','${fecha}')">P</button>`:''}</div></div></td>`;
+  return `<td class="${especial?'ops-festivo-cell':''}"><div class="ops-cell ${clase}" onclick="window.opsEditarCelda('${r.id}')"><div class="ops-cell-code">${esc(titulo)}</div>${horario?`<div class="ops-cell-time">${esc(horario)} · ${fmtHoras(n.netoMin)}</div>`:''}${r.novedad_descripcion?`<div class="ops-cell-note">${esc(r.novedad_descripcion)}</div>`:''}${r.observacion?`<div class="ops-cell-note ops-cell-observation">${esc(r.observacion)}</div>`:''}${marcaCoberturaOps(puesto,fecha)}<div class="ops-cell-actions"><button type="button" onclick="event.stopPropagation();window.opsCopiarCelda('${r.id}')">C</button>${copia?`<button class="ops-paste-btn" type="button" onclick="event.stopPropagation();window.opsPegarCelda('${e.empleado_id}','${fecha}')">P</button>`:''}</div></div></td>`;
 }
 
 function renderKPIs(){
@@ -381,7 +436,7 @@ function renderDetalleEmpleado(){
 }
 
 function abrirAsignacion(empleadoId='',fecha='',registro=null){
-  $('formAsignacionOps').reset();$('errorAsignacionOps').classList.add('d-none');$('registroIdOps').value=registro?.id||'';
+  $('formAsignacionOps').reset();delete $('descansoOps').dataset.pausaLibre;$('descansoOps').disabled=false;$('errorAsignacionOps').classList.add('d-none');$('registroIdOps').value=registro?.id||'';
   $('tituloModalOps').textContent=registro?'Editar asignación':'Nueva asignación';
   $('btnEliminarAsignacionOps').classList.toggle('d-none',!registro);
   $('empleadoAsignacionOps').value=empleadoId||registro?.empleado_id||estado.personal[0]?.empleado_id||'';
@@ -421,12 +476,13 @@ function previewTurnoTexto(t,fecha,persona=null){
     return d?.tipo==='laboral'?`${d.inicio}–${d.fin} · descanso ${d.descanso} min`:(d?.tipo||'No aplica');
   }
   const esp=fecha&&(esDomingo(fecha)||esFestivo(fecha)),a=esp?t.inicio_especial:t.inicio,b=esp?t.fin_especial:t.fin;
-  return a&&b?`${a}–${b} · alimentación ${esp?(t.pausa_especial??t.pausa):t.pausa} min${t.prolongacion&&!persona?.es_externo?` · prolongación ref. ${t.prolongacion} min`:''}`:'No aplica';
+  return a&&b?`${a}–${b} · alimentación ${descansoVistaOps(persona,fecha,t.codigo,esp?(t.pausa_especial??t.pausa):t.pausa)} min${t.prolongacion&&!persona?.es_externo?` · prolongación ref. ${t.prolongacion} min`:''}`:'No aplica';
 }
 function actualizarPreviewTurno(){
   const e=empleadoPorId($('empleadoAsignacionOps').value),fecha=$('fechaAsignacionOps').value,codigo=$('turnoBaseOps').value;
   const t=horariosDisponibles(e).find(x=>x.codigo===codigo);
   $('previewTurnoOps').textContent=t?previewTurnoTexto(t,fecha,e):'Selecciona un turno.';
+  actualizarDescansoFormularioOps();
 }
 function actualizarFormularioTipo(){
   const tipo=$('tipoRegistroOps').value,isTurno=tipo==='turno',isNov=tipo==='novedad';
@@ -434,7 +490,24 @@ function actualizarFormularioTipo(){
   $('bloqueNovedadCodigoOps').classList.toggle('d-none',!isNov);$('bloqueNovedadDescripcionOps').classList.toggle('d-none',!isNov);
   document.querySelectorAll('.ops-custom-time').forEach(el=>el.classList.toggle('d-none',!(isTurno&&$('checkPersonalizadoOps').checked)));
 }
-function actualizarPersonalizado(){actualizarFormularioTipo();$('turnoBaseOps').disabled=$('checkPersonalizadoOps').checked;}
+function actualizarPersonalizado(){actualizarFormularioTipo();$('turnoBaseOps').disabled=$('checkPersonalizadoOps').checked;actualizarDescansoFormularioOps();}
+
+
+function descansoVistaOps(persona,fecha,codigo,pausa,observacion=''){
+ const t=horariosDisponibles(persona).find(x=>x.codigo===codigo)||{};
+ const puesto=persona?puestoDePersona(persona.empleado_id,fecha):null;
+ const aplica=identificaVestier({persona:persona||{},puesto:puesto||{},registro:{turno_codigo:codigo,turno_nombre:t.nombre,observacion}});
+ return descansoVestier(fecha,pausa,aplica,estado.regla_vestier_desde);
+}
+function actualizarDescansoFormularioOps(){
+ const persona=empleadoPorId($('empleadoAsignacionOps').value),fecha=$('fechaAsignacionOps').value;
+ const codigo=$('checkPersonalizadoOps').checked?'':$('turnoBaseOps').value;
+ const el=$('descansoOps'),info=$('notaPausaVestierOps');
+ const aplica=$('tipoRegistroOps').value==='turno'&&descansoVistaOps(persona,fecha,codigo,30,texto($('observacionOps').value))===0;
+ if(aplica){if(!el.disabled)el.dataset.pausaLibre=el.value;el.value='0';el.disabled=true;}
+ else{if(el.disabled&&el.dataset.pausaLibre!==undefined)el.value=el.dataset.pausaLibre;el.disabled=false;}
+ if(info){info.hidden=!aplica;info.textContent='Vestier: solo los lunes sin descuento de desayuno ni comida. Los demás días conservan su pausa configurada.';}
+}
 
 async function guardarAsignacion(ev){
   ev.preventDefault();
@@ -454,7 +527,7 @@ async function guardarAsignacion(ev){
   if(tipo==='novedad'){payload.novedad_codigo=$('novedadCodigoOps').value;payload.novedad_descripcion=texto($('novedadDescripcionOps').value)||null;if(!payload.novedad_codigo)return mostrarError('Selecciona la novedad.');}
   try{
     $('btnGuardarAsignacionOps').disabled=true;
-    const {error}=await supabase.rpc('guardar_programacion_operaciones_v741',{p_payload:payload});if(error)throw error;
+    const {error}=await supabase.rpc(estado.version==='745'?'guardar_programacion_operaciones_v745':'guardar_programacion_operaciones_v741',{p_payload:payload});if(error)throw error;
     modalAsignacion.hide();await cargarDatos();
   }catch(e){mostrarError(e.message||String(e));}
   finally{$('btnGuardarAsignacionOps').disabled=false;}
@@ -473,7 +546,7 @@ async function pegarCopia(empleadoId,fecha){
   if(!copia)return alert('Primero copia un registro.');const emp=empleadoPorId(empleadoId);if(!emp)return;
   if(registroDe(empleadoId,fecha)&&!confirm('Esta celda ya tiene programacion. Reemplazarla con la copia?'))return;
   const payload={...copia,empleado_id:emp.empleado_id,proceso_id:emp.proceso_id,fecha};delete payload.nombre;
-  try{const {error}=await supabase.rpc('guardar_programacion_operaciones_v741',{p_payload:payload});if(error)throw error;await cargarDatos();}catch(e){alert(`No se pudo pegar: ${e.message||e}`);}
+  try{const {error}=await supabase.rpc(estado.version==='745'?'guardar_programacion_operaciones_v745':'guardar_programacion_operaciones_v741',{p_payload:payload});if(error)throw error;await cargarDatos();}catch(e){alert(`No se pudo pegar: ${e.message||e}`);}
 }
 window.opsNuevaCelda=(id,fecha)=>abrirAsignacion(id,fecha);
 window.opsEditarCelda=(id)=>{const r=estado.programacion.find(x=>x.id===id);if(r)abrirAsignacion(r.empleado_id,r.fecha,r);};
@@ -485,8 +558,8 @@ async function copiarPeriodoAnterior(){
   if(!confirm(`¿Copiar la programación de ${formatoFechaCorta(srcInicio)}–${formatoFechaCorta(srcFin)} al periodo actual? Solo se completaran celdas vacias; lo ya guardado no se reemplaza.`))return;
   try{
     const [lectura,extra]=await Promise.all([
-      supabase.rpc('consultar_programacion_operaciones_v741',{p_desde:srcInicio,p_hasta:srcFin}),
-      supabase.rpc('consultar_organizacion_operaciones_v741',{p_desde:srcInicio,p_hasta:srcFin})
+      leerProgramacionOps({p_desde:srcInicio,p_hasta:srcFin}),
+      leerOrganizacionOps({p_desde:srcInicio,p_hasta:srcFin})
     ]);
     if(lectura.error)throw lectura.error;if(extra.error)throw extra.error;
     const data=lectura.data;
@@ -498,7 +571,7 @@ async function copiarPeriodoAnterior(){
       return {empleado_id:r.empleado_id,proceso_id:r.proceso_id,fecha,solo_vacias:true,tipo_registro:r.tipo_registro,turno_codigo:r.turno_codigo||null,personalizado:r.tipo_registro==='turno'&&!r.turno_codigo,horario_reutilizable_id:r.horario_reutilizable_id||null,hora_inicio:r.hora_inicio,hora_fin:r.hora_fin,minutos_descanso:r.minutos_descanso,novedad_codigo:r.novedad_codigo,novedad_descripcion:r.novedad_descripcion,observacion:r.observacion};
     }).filter(x=>dias.includes(x.fecha)&&!registroDe(x.empleado_id,x.fecha));
     if(!payload.length)return alert('No hay celdas vacias para copiar. Lo ya guardado permanece intacto.');
-    const {error:saveError}=await supabase.rpc('guardar_programacion_operaciones_v741',{p_payload:payload});if(saveError)throw saveError;
+    const {error:saveError}=await supabase.rpc(estado.version==='745'?'guardar_programacion_operaciones_v745':'guardar_programacion_operaciones_v741',{p_payload:payload});if(saveError)throw saveError;
     await cargarDatos();alert(`${payload.length} registros copiados al periodo actual.`);
   }catch(e){alert(`No se pudo copiar el periodo: ${e.message||e}`);}
 }
@@ -507,12 +580,12 @@ function renderGestionPersonal(){
   const q=normalizar($('buscarPersonalOps').value),procesosAsignables=estado.procesos.filter(p=>['OPS_SERVICIOS_GENERALES','OPS_AUX_VESTIER'].includes(p.codigo));
   const actuales=estado.personal.filter(e=>e.proceso_codigo!=='OPS_COORDINADOR').map(e=>({...e,actual:true}));
   const candidatos=estado.candidatos.filter(c=>!c.ya_asignado).map(c=>({...c,actual:false}));
-  const lista=[...actuales,...candidatos].filter(e=>!q||normalizar([nombreEmpleado(e),e.cedula,e.codigo,e.cargo,e.centro_costos].join(' ')).includes(q));
+  const lista=[...actuales,...candidatos].filter(e=>!q||normalizar([nombreEmpleado(e),e.cargo,e.centro_costos].join(' ')).includes(q));
   $('tbodyPersonalOps').innerHTML=lista.length?lista.map(e=>{
-    if(e.es_externo)return `<tr><td><strong>${esc(nombreEmpleado(e))}</strong>${chipExterno(e)}<div class="small text-muted">${esc(e.cedula||'')}</div></td><td>${esc(e.cargo||'')}</td><td>BioTime: ${esc(estadoBioExterno(e))}</td><td>${esc(e.proceso_nombre||'')}</td><td class="text-end">${e.disponible===false?'<span class="text-muted">Retirado</span>':`<button class="btn btn-sm btn-outline-danger" type="button" onclick="window.opsRetirarExterno('${e.empleado_id}')">Quitar de Operaciones</button>`}</td></tr>`;
-    if(e.actual)return `<tr><td><strong>${esc(nombreEmpleado(e))}</strong><div class="small text-muted">${esc(e.cedula||'')}</div></td><td>${esc(e.cargo||'')}</td><td>${esc(e.centro_costos||'')}</td><td>${esc(e.proceso_nombre||'')}</td><td class="text-end"><button class="btn btn-sm btn-outline-danger" type="button" onclick="window.opsQuitarPersonal('${e.vinculacion_id}')">Quitar</button></td></tr>`;
+    if(e.es_externo)return `<tr><td><strong>${esc(nombreEmpleado(e))}</strong>${chipExterno(e)}</td><td>${esc(e.cargo||'')}</td><td>BioTime: ${esc(estadoBioExterno(e))}</td><td>${esc(e.proceso_nombre||'')}</td><td class="text-end">${e.disponible===false?'<span class="text-muted">Retirado</span>':`<button class="btn btn-sm btn-outline-danger" type="button" onclick="window.opsRetirarExterno('${e.empleado_id}')">Quitar de Operaciones</button>`}</td></tr>`;
+    if(e.actual)return `<tr><td><strong>${esc(nombreEmpleado(e))}</strong></td><td>${esc(e.cargo||'')}</td><td>${esc(e.centro_costos||'')}</td><td>${esc(e.proceso_nombre||'')}</td><td class="text-end"><button class="btn btn-sm btn-outline-danger" type="button" onclick="window.opsQuitarPersonal('${e.vinculacion_id}')">Quitar</button></td></tr>`;
     const def=String(e.cargo||'').toUpperCase().includes('VESTIER')?'OPS_AUX_VESTIER':'OPS_SERVICIOS_GENERALES';
-    return `<tr><td><strong>${esc(nombreEmpleado(e))}</strong><div class="small text-muted">${esc(e.cedula||'')}</div></td><td>${esc(e.cargo||'')}</td><td>${esc(e.centro_costos||'')}</td><td><select class="form-select form-select-sm" id="proc_${e.empleado_id}">${procesosAsignables.map(p=>`<option value="${p.id}" ${p.codigo===def?'selected':''}>${esc(p.nombre)}</option>`).join('')}</select></td><td class="text-end"><button class="btn btn-sm btn-primary" type="button" onclick="window.opsAgregarPersonal('${e.empleado_id}')">Agregar</button></td></tr>`;
+    return `<tr><td><strong>${esc(nombreEmpleado(e))}</strong></td><td>${esc(e.cargo||'')}</td><td>${esc(e.centro_costos||'')}</td><td><select class="form-select form-select-sm" id="proc_${e.empleado_id}">${procesosAsignables.map(p=>`<option value="${p.id}" ${p.codigo===def?'selected':''}>${esc(p.nombre)}</option>`).join('')}</select></td><td class="text-end"><button class="btn btn-sm btn-primary" type="button" onclick="window.opsAgregarPersonal('${e.empleado_id}')">Agregar</button></td></tr>`;
   }).join(''):'<tr><td colspan="5" class="text-center text-muted py-4">Sin resultados.</td></tr>';
 }
 window.opsAgregarPersonal=async(id)=>{const proceso=$(`proc_${id}`)?.value;if(!proceso)return;try{const {error}=await supabase.rpc('asignar_personal_operaciones_v738',{p_empleado_id:id,p_proceso_id:proceso});if(error)throw error;await cargarDatos();renderGestionPersonal();}catch(e){alert(e.message||e);}};
@@ -531,34 +604,35 @@ document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement
 function pdfDoc(orientation='landscape'){if(!window.jspdf?.jsPDF){alert('La librería PDF no está disponible.');return null;}return new window.jspdf.jsPDF({orientation,unit:'mm',format:'a4'});}
 function encabezadoPdf(doc,titulo,sub=''){doc.setFontSize(15);doc.text(titulo,14,14);doc.setFontSize(9);doc.text(`Club Campestre de Pereira · ${formatoFechaCorta(periodo.inicio)} al ${formatoFechaCorta(periodo.fin)}`,14,20);if(sub)doc.text(sub,14,25);}
 function textoRegistroPdf(r){if(!r)return '';if(r.tipo_registro==='turno')return `${r.turno_codigo||r.horario_nombre||'Personalizado'} ${hh(r.hora_inicio)}-${hh(r.hora_fin)}`;if(r.tipo_registro==='novedad')return `${r.novedad_codigo||'NOV'} ${r.novedad_descripcion||''}`;return cap(r.tipo_registro);}
-function pdfGeneral(){
-  const doc=pdfDoc('landscape');if(!doc)return;
-  // One section per week: readable day columns and a single collaborator per position.
-  semanasDe().forEach((s,i)=>{
-    if(i)doc.addPage();
-    const ds=dias.filter(d=>semanaDe(d)===s),filas=filasPlanilla(ds);
-    encabezadoPdf(doc,'Programacion general de Operaciones',`Semana ${formatoFechaCorta(s)}`);
-    doc.autoTable({startY:29,head:[['Turno fijo / puesto','Colaborador',...ds.map(d=>`${cap(nombreDia(d))} ${formatoFechaCorta(d).slice(0,5)}`)]],
-      body:filas.map(f=>[f.puesto?`${f.puesto.nombre}\n#${String(f.puesto.orden).padStart(2,'0')}`:'Sin puesto asignado',
-        [...new Set(ds.map(d=>{const e=personaEnFila(f,d);return e?nombreVisible(e):'Sin asignar';}))].join('\n'),
-        ...ds.map(d=>{const e=personaEnFila(f,d);return e?textoRegistroPdf(registroDe(e.empleado_id,d)):'';})]),
-      styles:{fontSize:6.7,cellPadding:1.5,valign:'middle',overflow:'linebreak'},headStyles:{fontSize:7},columnStyles:{0:{cellWidth:31},1:{cellWidth:39}},margin:{left:10,right:10},rowPageBreak:'avoid'});
+function seccionesPdfOps(completa){
+ return semanasDe().map(s=>{
+  const ds=dias.filter(d=>semanaDe(d)===s),filas=filasPlanilla(ds,completa);
+  let adicional=0;
+  const salida=filas.map((f,i)=>{
+   const e=personaEnFila(f,ds[0]);
+   return {numero:f.puesto?`#${String(f.puesto.orden).padStart(2,'0')}`:`Adicional ${++adicional}`,puesto:f.puesto?.nombre||'SIN PUESTO ASIGNADO',persona:personaPublicaOps(e),sinPuesto:!f.puesto,
+    registros:ds.map(d=>{
+     const empleado=personaEnFila(f,d),r=empleado?registroDe(empleado.empleado_id,d):null;
+     if(!r)return null;
+     return {tipo_registro:r.tipo_registro,turno_codigo:r.turno_codigo,horario_nombre:r.horario_nombre,hora_inicio:r.hora_inicio,hora_fin:r.hora_fin,minutos_descanso:r.minutos_descanso,cruza_medianoche:r.cruza_medianoche,novedad_codigo:r.novedad_codigo,novedad_descripcion:r.novedad_descripcion,observacion:r.observacion};
+    }),alertas:ds.map(d=>f.puesto?coberturaPorCeldaOps.get(`${f.puesto.id}|${d}`):null)};
   });
-  doc.save(`programacion_operaciones_general_${periodo.inicio}.pdf`);
+  return {fechas:ds,filas:salida,puestos:filas.filter(f=>f.puesto).length,sinPuesto:filas.filter(f=>!f.puesto).length,festivos:estado.festivos,alertas:new Set(coberturaOps.filter(a=>ds.includes(a.fecha)).map(a=>a.puesto_id)).size};
+ });
 }
-function pdfCalendario(){
- const doc=pdfDoc('portrait');if(!doc)return;
- dias.forEach((d,i)=>{
-  if(i)doc.addPage();encabezadoPdf(doc,`Operaciones - ${cap(nombreDia(d))} ${formatoFechaCorta(d)}`,festivoDe(d)?.nombre||'');
-  const rows=filasPlanilla([d]).map(f=>({f,e:personaEnFila(f,d)})).filter(x=>x.e&&registroDe(x.e.empleado_id,d)).map(x=>{
-   const r=registroDe(x.e.empleado_id,d);return [x.f.puesto?.nombre||'Sin puesto asignado',`${nombreVisible(x.e)}\n${x.e.cargo||''}`,textoRegistroPdf(r),r.observacion||''];
-  });
-  doc.autoTable({startY:30,head:[['Turno fijo','Colaborador','Programacion','Observacion']],body:rows,styles:{fontSize:8,overflow:'linebreak'},rowPageBreak:'avoid'});
- });doc.save(`programacion_operaciones_calendario_${periodo.inicio}.pdf`);
+function exportarMatrizPdfOps(completa){
+ if(cargando||!lecturaValidaOps||!organizacionLista)return alert('Carga la programación y los puestos completos antes de exportar.');
+ try{
+  const consulta=new Date(fechaConsultaOps).toLocaleString('es-CO',{timeZone:'America/Bogota',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false});
+  const doc=crearPdfCalendarioOps(window.jspdf?.jsPDF,seccionesPdfOps(completa),{consulta,etiqueta:completa?'Calendario completo':'Vista según filtros'});
+  doc.save(`programacion_operaciones_${completa?'calendario':'general'}_${periodo.inicio}_${periodo.fin}.pdf`);
+ }catch(e){console.error('Exportación PDF',e);alert(e.message||'No fue posible exportar el calendario.');}
 }
+function pdfGeneral(){exportarMatrizPdfOps(false);}
+function pdfCalendario(){exportarMatrizPdfOps(true);}
 
 function pdfOperativo(){const doc=pdfDoc('landscape');if(!doc)return;encabezadoPdf(doc,'Plan operativo de turnos','Agrupado por fecha y puesto');let y=30;dias.forEach(d=>{const regs=estado.programacion.filter(r=>r.fecha===d&&r.tipo_registro==='turno');if(!regs.length)return;const grupos=new Map();regs.forEach(r=>{const fijo=puestoDePersona(r.empleado_id,r.fecha);const k=`${fijo?fijo.nombre+' (#'+fijo.orden+')':r.turno_codigo||r.horario_nombre||'Personalizado'}|${hh(r.hora_inicio)}-${hh(r.hora_fin)}`;if(!grupos.has(k))grupos.set(k,[]);grupos.get(k).push(r);});const rows=[...grupos.entries()].map(([k,arr])=>{const [puesto,horario]=k.split('|');return [puesto,horario,String(arr.length),arr.map(r=>`${r.nombres} ${r.apellidos}${r.es_externo?' [Externo]':''}`).join(', ')];});if(y>170){doc.addPage();y=18;}doc.setFontSize(10);doc.text(`${cap(nombreDia(d))} ${formatoFechaCorta(d)}${festivoDe(d)?` · ${festivoDe(d).nombre}`:''}`,14,y);doc.autoTable({startY:y+3,head:[['Puesto/turno','Horario','Cantidad','Colaboradores']],body:rows,styles:{fontSize:7},columnStyles:{3:{cellWidth:125}}});y=doc.lastAutoTable.finalY+8;});doc.save(`programacion_operaciones_operativa_${periodo.inicio}.pdf`);}
-function pdfEmpleado(mejorado=false){const id=$('selectEmpleadoRevisionOps').value,e=empleadoPorId(id);if(!e)return alert('Selecciona un empleado.');const doc=pdfDoc('portrait');if(!doc)return;encabezadoPdf(doc,mejorado?'Ficha semanal de Operaciones':'Programación individual',`${nombreVisible(e)} · ${e.cargo||''}`);const regs=dias.map(d=>registroDe(id,d));doc.autoTable({startY:31,head:[['Fecha','Día','Programación','Neto','Observación']],body:dias.map((d,i)=>{const r=regs[i],n=r?netoRegistro(r):{netoMin:0};return [formatoFechaCorta(d),cap(nombreDia(d)),textoRegistroPdf(r)||'Sin programación',r?.tipo_registro==='turno'?fmtHoras(n.netoMin):'',r?.observacion||r?.novedad_descripcion||''];}),styles:{fontSize:8},columnStyles:{4:{cellWidth:55}}});if(mejorado){const res=resumenEmpleado(id),y=doc.lastAutoTable.finalY+10;doc.setFontSize(11);doc.text(`Total neto: ${fmtHoras(res.netoMin)}`,14,y);if(!e.es_externo){doc.text(`Horas ordinarias de referencia: ${fmtHoras(res.ordinariasMin)}`,14,y+6);doc.text(`Prolongación prevista: ${fmtHoras(res.prolongacionMin)}`,14,y+12);doc.text(`Diferencia frente a 42 h: ${res.netoMin-META_HORAS*60>=0?'+':'-'}${fmtHoras(Math.abs(res.netoMin-META_HORAS*60))}`,14,y+18);}else{doc.text('Personal externo - horas programadas por servicio',14,y+6);}}doc.save(`${mejorado?'ficha':'programacion'}_operaciones_${e.cedula}_${periodo.inicio}.pdf`);}
+function pdfEmpleado(mejorado=false){const id=$('selectEmpleadoRevisionOps').value,e=empleadoPorId(id);if(!e)return alert('Selecciona un empleado.');const doc=pdfDoc('portrait');if(!doc)return;encabezadoPdf(doc,mejorado?'Ficha semanal de Operaciones':'Programación individual',`${nombreVisible(e)} · ${e.cargo||''}`);const regs=dias.map(d=>registroDe(id,d));doc.autoTable({startY:31,head:[['Fecha','Día','Programación','Neto','Observación']],body:dias.map((d,i)=>{const r=regs[i],n=r?netoRegistro(r):{netoMin:0};return [formatoFechaCorta(d),cap(nombreDia(d)),textoRegistroPdf(r)||'Sin programación',r?.tipo_registro==='turno'?fmtHoras(n.netoMin):'',r?.observacion||r?.novedad_descripcion||''];}),styles:{fontSize:8},columnStyles:{4:{cellWidth:55}}});if(mejorado){const res=resumenEmpleado(id),y=doc.lastAutoTable.finalY+10;doc.setFontSize(11);doc.text(`Total neto: ${fmtHoras(res.netoMin)}`,14,y);if(!e.es_externo){doc.text(`Horas ordinarias de referencia: ${fmtHoras(res.ordinariasMin)}`,14,y+6);doc.text(`Prolongación prevista: ${fmtHoras(res.prolongacionMin)}`,14,y+12);doc.text(`Diferencia frente a 42 h: ${res.netoMin-META_HORAS*60>=0?'+':'-'}${fmtHoras(Math.abs(res.netoMin-META_HORAS*60))}`,14,y+18);}else{doc.text('Personal externo - horas programadas por servicio',14,y+6);}}doc.save(`${mejorado?'ficha':'programacion'}_operaciones_${normalizar(nombreEmpleado(e)).replace(/[^a-z0-9]+/g,'_')}_${periodo.inicio}.pdf`);}
 
 function normalizar(v){return texto(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
 function esc(v){return texto(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
@@ -582,9 +656,12 @@ async function cambiarPersonaPuesto(el){
   document.querySelectorAll('.ops-assign-position').forEach(x=>x.disabled=true);
   try{
     const revision=Number(organizacion.semanas.find(s=>s.semana===semana)?.revision||0);
-    const {error}=await supabase.rpc('asignar_puesto_operaciones_v741',{p_semana:semana,p_puesto_id:puestoId,p_empleado_id:nuevo,p_revision:revision});
+    const {error}=await supabase.rpc(estado.version==='745'?'asignar_puesto_operaciones_v745':'asignar_puesto_operaciones_v741',{p_semana:semana,p_puesto_id:puestoId,p_empleado_id:nuevo,p_revision:revision});
     if(error)throw error;
-    guardado=true;await cargarOrganizacion();renderTodo();
+    guardado=true;await cargarOrganizacion();
+    const lectura=await leerProgramacionOps({p_desde:periodo.inicio,p_hasta:periodo.fin});
+    if(lectura.error)throw lectura.error;
+    estado={...estado,...lectura.data};enriquecerHorarios();renderTodo();
   }catch(e){
     el.value=previo||'';
     alert(guardado?'El puesto se guardo, pero no se pudo refrescar la planilla. Pulsa Cargar periodo.':(e.message||String(e)));
@@ -687,7 +764,7 @@ async function guardarExternoOps(ev){
     if(data?.ok!==true)throw new Error('No se pudo verificar el alta del externo.');
     resultado=data;
     aviso.className='alert alert-success py-2';
-    aviso.textContent=`${data.mensaje} Código: ${data.codigo_nomina||'pendiente'}. BioTime: ${estadoBioExterno({biotime_estado:data.biotime_estado})}.`;
+    aviso.textContent=`${data.mensaje} BioTime: ${estadoBioExterno({biotime_estado:data.biotime_estado})}.`;
     await cargarDatos();
     if(!empleadoPorId(data.externo_id))throw new Error('El alta se guardó, pero falta refrescar el listado. Pulsa Cargar periodo; no necesitas crearlo otra vez.');
     $('selectEmpleadoRevisionOps').value=data.externo_id;renderDetalleEmpleado();
