@@ -3,12 +3,17 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Login - Club Campestre Turnos</title>
+  <title>Mis Turnos | Club Campestre Pereira</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href="../assets/img/club campestre logo negro.png" />
 
 <link rel="stylesheet" href="../css/login-buscador.css?v=7-7">
 <link rel="stylesheet" href="../css/login-corporativo.css?v=7-8">
+<meta name="theme-color" content="#004AA1">
+<link rel="manifest" href="mis-turnos.webmanifest">
+<link rel="apple-touch-icon" href="../assets/mis-turnos/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="../css/login-empleados.css?v=749">
 </head>
 
 <body>
@@ -28,11 +33,10 @@
 
         <span class="brand-badge animate-fade delay-2">Corporación Club Campestre de Pereira</span>
 
-        <h1 class="animate-fade delay-3">Gestión de Turnos y Horas Extras</h1>
+        <h1 class="animate-fade delay-3">Mis Turnos</h1>
 
         <p class="animate-fade delay-4">
-          Plataforma interna para administrar programación, consulta de turnos
-          y validación operativa del personal autorizado.
+          Consulta tus horarios, envía solicitudes a Bienestar y revisa tus avisos desde un solo lugar.
         </p>
 
         <div class="side-highlights">
@@ -58,25 +62,18 @@
 
       <!-- PANEL DERECHO -->
       <section class="login-card animate-slide-right">
-        <div class="login-mobile-brand"><img src="../assets/img/club campestre logo negro.png" alt=""><span>CLUB CAMPESTRE PEREIRA<br>TURNOS Y ASISTENCIA</span></div>
+        <div class="login-mobile-brand"><img src="../assets/img/club campestre logo negro.png" alt=""><span>CLUB CAMPESTRE PEREIRA<br>MIS TURNOS</span></div>
         <div class="card-top">
-          <h2>Ingreso al Sistema</h2>
-          <p>Seleccione si ingresa como administrador o como empleado para consultar sus turnos.</p>
+          <h2 id="loginTitle" tabindex="-1">Mis Turnos</h2>
+          <p id="loginDescription">Ingresa con tu cédula y tu contraseña personal.</p>
         </div>
 
         <div id="mensajeLogin" class="mensaje-login hidden"></div>
 
-        <div class="tabs">
-          <button type="button" class="tab-btn active" id="tabAdmin" onclick="mostrarAdmin()">
-            Administradores
-          </button>
-          <button type="button" class="tab-btn tab-empleado-destacado" id="tabEmpleado" onclick="mostrarEmpleado()">
-            Empleados
-          </button>
-        </div>
+
 
         <!-- FORMULARIO ADMIN -->
-        <form id="adminLogin" class="form-panel" onsubmit="loginAdminConUI(); return false;">
+        <form id="adminLogin" class="form-panel" style="display:none" onsubmit="loginAdminConUI(); return false;">
           <div class="input-group" style="display:none">
             <label for="usuario">Cuenta</label>
             <select id="usuario" aria-label="Cuenta administrativa">
@@ -129,10 +126,10 @@
         </form>
 
         <!-- Acceso personal, independiente de las cuentas administrativas. -->
-        <form id="empleadoLogin" class="form-panel" style="display:none" onsubmit="consultarTurnosConUI(); return false;">
-          <div class="empleado-help-box"><strong>Mi acceso personal</strong><span>Consulta tus turnos y las respuestas de Bienestar.</span></div>
-          <div class="input-group"><label for="cedula">Usuario: tu cédula</label><div class="input-wrapper empleado-input-wrapper"><input type="text" id="cedula" placeholder="Escribe tu cédula" inputmode="numeric" autocomplete="username" maxlength="15" required></div><small class="field-error" id="errorCedula"></small></div>
-          <div class="input-group"><label for="passwordEmpleado">Contraseña</label><div class="input-wrapper"><input type="password" id="passwordEmpleado" placeholder="Tu contraseña" autocomplete="current-password" maxlength="128" required></div><small class="field-error" id="errorPasswordEmpleado"></small></div>
+        <form id="empleadoLogin" class="form-panel" onsubmit="consultarTurnosConUI(); return false;">
+          
+          <div class="input-group"><label for="cedula">Cédula</label><div class="input-wrapper empleado-input-wrapper"><input type="text" id="cedula" placeholder="Escribe tu cédula" inputmode="numeric" autocomplete="username" maxlength="15" required></div><small class="field-error" id="errorCedula"></small></div>
+          <div class="input-group"><label for="passwordEmpleado">Contraseña</label><div class="input-wrapper"><input type="password" id="passwordEmpleado" placeholder="Tu contraseña" autocomplete="current-password" maxlength="128" required><button type="button" id="verClaveEmpleado" class="ver-clave" aria-label="Mostrar contraseña" aria-pressed="false">Ver</button></div><small class="field-error" id="errorPasswordEmpleado"></small></div>
           <button type="submit" id="btnIngresoEmpleado" class="btn-primary btn-empleado-principal">Entrar a Mis turnos</button>
           <small>En tu primer ingreso debes crear una contraseña personal. Para recuperar el acceso, comunícate con Sistemas.</small>
         </form>
@@ -145,6 +142,15 @@
           <button type="button" id="cancelarClavePersonal" class="login-otra-cuenta">Salir sin activar</button>
         </form>
 
+        <div class="login-secondary" id="loginSecondary">
+          <a id="accesoAdmin" href="login.html?admin=1">Acceso administrativo</a>
+          <a id="volverEmpleado" href="login.html?empleado=1" hidden>← Volver a Mis Turnos</a>
+        </div>
+        <aside id="loginInstall" class="login-install">
+          <button type="button" id="instalarLogin">Instalar Mis Turnos</button>
+          <p id="instalarAyuda" role="status" hidden></p>
+        </aside>
+        <noscript>Activa JavaScript para ingresar a Mis Turnos.</noscript>
         <div class="login-footer">
           <small>Acceso restringido para personal autorizado</small>
         </div>
@@ -161,35 +167,6 @@
   </div>
 
   <script>
-    function mostrarAdmin() {
-      document.getElementById("clavePersonal").style.display="none";
-      document.getElementById("adminLogin").style.display = "flex";
-      document.getElementById("empleadoLogin").style.display = "none";
-
-      document.getElementById("tabAdmin").classList.add("active");
-      document.getElementById("tabEmpleado").classList.remove("active");
-      document.querySelector(".tabs")?.classList.remove("empleado-activo");
-
-      limpiarMensaje();
-      limpiarErrores();
-      ocultarLoader();
-    }
-
-    function mostrarEmpleado() {
-      document.getElementById("clavePersonal").style.display="none";
-      document.getElementById("adminLogin").style.display = "none";
-      document.getElementById("empleadoLogin").style.display = "flex";
-
-      document.getElementById("tabEmpleado").classList.add("active");
-      document.getElementById("tabAdmin").classList.remove("active");
-      document.querySelector(".tabs")?.classList.add("empleado-activo");
-      setTimeout(() => document.getElementById("cedula")?.focus(), 100);
-
-      limpiarMensaje();
-      limpiarErrores();
-      ocultarLoader();
-    }
-
     function togglePassword() {
       const passwordInput = document.getElementById("password");
       const toggleBtn = document.querySelector(".toggle-password");
@@ -494,7 +471,9 @@
   </script>
 
   <script type="module" src="../js/login-buscador.js?v=7-34"></script>
-  <script type="module" src="../js/auth.js?v=747"></script>
+  <script src="../js/login-vista.js?v=749"></script>
+  <script type="module" src="../js/login-pwa.js?v=749"></script>
+  <script type="module" src="../js/auth.js?v=749"></script>
 </body>
 
 </html>

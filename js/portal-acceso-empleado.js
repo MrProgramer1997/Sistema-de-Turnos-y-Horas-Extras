@@ -13,10 +13,10 @@ async function endpoint(body){
 function activationScreen(){
  window.ocultarLoader?.();window.limpiarMensaje?.();
  $('adminLogin').style.display='none';$('empleadoLogin').style.display='none';$('clavePersonal').style.display='flex';
- const tabs=document.querySelector('.tabs');if(tabs)tabs.hidden=true;
+ $('loginSecondary').hidden=true;$('loginTitle').textContent='Activa tu acceso';$('loginDescription').textContent='Crea una contraseña que solo tú conozcas.';
  $('passwordEmpleado').value='';$('claveNueva').focus();
 }
-function goPortal(){localStorage.removeItem('ccp_sesion');location.replace('mis-turnos.html#inicio');}
+function goPortal(){localStorage.removeItem('ccp_sesion');const route=new URLSearchParams(location.search).get('destino');location.replace('mis-turnos.html#'+(['avisos','turno'].includes(route)?route:'inicio'));}
 export async function loginEmpleadoSeguro(){
  if(busy)return false;
  const documento=String($('cedula')?.value||'').trim(),password=$('passwordEmpleado')?.value||'';
@@ -44,10 +44,10 @@ $('clavePersonal')?.addEventListener('submit',async event=>{
  catch(e){show('error',e.message);}
  finally{busy=false;$('btnGuardarClave').disabled=false;}
 });
-$('cancelarClavePersonal')?.addEventListener('click',async()=>{if(busy)return;await supabase.auth.signOut({scope:'local'});localStorage.removeItem('ccp_sesion');location.replace('login.html?empleado=1');});
+$('cancelarClavePersonal')?.addEventListener('click',async()=>{if(busy)return;const {cerrarSesionAplicacion}=await import('./sesion-app.js?v=749');await cerrarSesionAplicacion();location.replace('login.html?empleado=1');});
 setTimeout(async()=>{
  const args=new URLSearchParams(location.search);
- if(args.get('empleado')==='1')window.mostrarEmpleado?.();
+ 
  if(args.get('activar')==='1'){
   try{const {data,error}=await supabase.rpc('portal_mi_acceso_v747');if(!error&&data?.personal){if(data.cambiar_clave)activationScreen();else goPortal();}}
   catch{show('error','Ingresa nuevamente para activar tu contraseña.');}

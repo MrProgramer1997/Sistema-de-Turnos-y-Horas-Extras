@@ -187,8 +187,6 @@ export function mostrarErrorAcceso(container, error, retry) {
   row.append(btn,link);container.append(row);
 }
 export async function cerrarSesionSegura() {
-  const result = await limitada(supabase.auth.signOut({ scope: 'local' }), 12000);
-  if (result?.error) throw new Error('No se pudo cerrar la sesi\u00f3n segura. Reintenta antes de cambiar de usuario.');
-  for (const key of KEYS) { localStorage.removeItem(key); sessionStorage.removeItem(key); }
-  sessionStorage.removeItem('portal-envio-id');
+ const {cerrarSesionAplicacion}=await import('./sesion-app.js?v=749');
+ return await cerrarSesionAplicacion();
 }

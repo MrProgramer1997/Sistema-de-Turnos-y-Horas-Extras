@@ -1,3 +1,10 @@
+// Revalidate permissions before displaying a page restored from browser history.
+window.addEventListener('pageshow',event=>{
+ if(event.persisted&&!esPaginaLoginSidebar()){
+  document.querySelectorAll('main,.main-content,dialog,.modal').forEach(el=>{el.hidden=true;});
+  window.location.reload();
+ }
+});
 let controlPermisos720=null;
 document.addEventListener("DOMContentLoaded", async () => {
   if (esPaginaLoginSidebar()) return;
@@ -289,12 +296,13 @@ function configurarLogout() {
     if(btn.dataset.cerrando==='1')return;
     btn.dataset.cerrando='1';btn.setAttribute('aria-disabled','true');
     const label=btn.textContent;btn.textContent='Cerrando sesion...';
+    document.querySelectorAll('main,.main-content,dialog,.modal').forEach(el=>el.hidden=true);
     try {
       const script=Array.from(document.scripts).find(s=>/\/js\/layout\.js(?:\?|$)/.test(s.src));
       const base=script?.src||new URL('../js/layout.js',window.location.href).href;
-      const modulo=await import(new URL('./sesion-protegida.js?v=sesion-6-2-1',base).href);
-      await modulo.cerrarSesionSegura();
-      window.location.href='login.html';
+      const modulo=await import(new URL('./sesion-protegida.js?v=749',base).href);
+      const resultado=await modulo.cerrarSesionSegura();
+      window.location.replace('login.html?empleado=1&salida='+(resultado.servidorConfirmado?'ok':'local'));
     }catch(error){
       btn.dataset.cerrando='0';btn.removeAttribute('aria-disabled');btn.textContent=label;
       alert(error.message||'No se pudo cerrar la sesion. Reintenta antes de cambiar de cuenta.');

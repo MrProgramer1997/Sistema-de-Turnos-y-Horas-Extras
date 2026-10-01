@@ -2,8 +2,10 @@ import { cargarDocumentados } from './horarios-documentados-api.js?v=711';
 import { supabase } from '../supabase/supabaseClient.js';
 import { BUCKET } from './portal-mis-turnos-core.js?v=747';
 export { supabase };
+const solicitudes=new Set();
+export function cancelarConsultasPortal(){for(const c of solicitudes)c.abort();solicitudes.clear();}
 export async function call(name,args={}){
- const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),25000);
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),25000);solicitudes.add(ctrl);
  try{const preferred=name==='portal_mis_solicitudes_v1'?'portal_mis_solicitudes_v747':name;
   let {data,error}=await supabase.rpc(preferred,args).abortSignal(ctrl.signal);
   if(error?.code==='PGRST202'&&preferred!==name)({data,error}=await supabase.rpc(name,args).abortSignal(ctrl.signal));
@@ -27,7 +29,7 @@ export async function call(name,args={}){
    return {...data,aviso_documental:doc.motivo};
   }
   return data;}
- finally{clearTimeout(timer);}
+ finally{clearTimeout(timer);solicitudes.delete(ctrl);}
 }
 export async function uploadSupports(userId,id,files,progress=()=>{}){
  const out=[];

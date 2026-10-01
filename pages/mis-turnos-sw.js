@@ -1,6 +1,9 @@
-/* Mis Turnos PWA 7.48. No private data, API response, auth token or medical
+/* Mis Turnos PWA 7.49. No private data, API response, auth token or medical
    attachment is cached. No interception of payroll/administrative pages. */
-const VERSION='mis-turnos-public-748';
+const VERSION='mis-turnos-public-749';
+const PREFS='mis-turnos-device-preferences';
+const FLAG=new URL('push-enabled',self.location).href;
+const LOGIN=new URL('login.html',self.location);
 const OFFLINE=new URL('mis-turnos-offline.html',self.location).href;
 const APP=new URL('mis-turnos.html',self.location);
 const ICON=new URL('../assets/mis-turnos/icon-192.png',self.location).href;
@@ -15,12 +18,23 @@ self.addEventListener('activate',event=>event.waitUntil((async()=>{
 self.addEventListener('fetch',event=>{
  const req=event.request,u=new URL(req.url);
  if(req.method!=='GET'||u.origin!==APP.origin)return;
- if(req.mode==='navigate'&&u.pathname===APP.pathname){
+ if(req.mode==='navigate'&&[APP.pathname,LOGIN.pathname].includes(u.pathname)){
   event.respondWith(fetch(new Request(req,{cache:'no-store'})).catch(()=>caches.match(OFFLINE)));return;
  }
  if([OFFLINE,ICON,BADGE].includes(u.href))event.respondWith(caches.match(req).then(r=>r||fetch(req)));
 });
+self.addEventListener('message',event=>{
+ const url=event.source?.url;
+ if(!url||new URL(url).origin!==APP.origin)return;
+ if(!['cerrar-sesion','activar-avisos'].includes(event.data?.tipo))return;
+ event.waitUntil((async()=>{
+  const enabled=event.data.tipo==='activar-avisos';
+  const cache=await caches.open(PREFS);await cache.put(FLAG,new Response(enabled?'on':'off'));
+  if(!enabled){const notices=await self.registration.getNotifications();notices.forEach(n=>n.close());}
+ })());
+});
 self.addEventListener('push',event=>event.waitUntil((async()=>{
+ const flag=await caches.match(FLAG);if(flag&&await flag.text()==='off')return;
  let data={};try{data=event.data?.json()||{};}catch{}
  const known=['horario','bienestar','bienestar_equipo','prueba'];const clase=known.includes(data.clase)?data.clase:'bienestar';
  const messages={horario:'Tu programacion fue actualizada. Abre la app para consultar el cambio.',bienestar:'Tienes una novedad de Bienestar. Abre la app para verla.',bienestar_equipo:'Hay una solicitud o nuevos soportes para revisar en Bienestar.',prueba:'Las notificaciones de Mis Turnos funcionan en este dispositivo.'};

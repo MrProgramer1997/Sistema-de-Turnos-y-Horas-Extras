@@ -1,38 +1,6 @@
-import { loginEmpleadoSeguro } from "./portal-acceso-empleado.js?v=747";
+import { loginEmpleadoSeguro } from "./portal-acceso-empleado.js?v=749";
 import { destinoPermitido } from "./permisos-core.js?v=720";
 import { supabase } from "../supabase/supabaseClient.js";
-
-window.mostrarAdmin = function () {
-  document.getElementById("clavePersonal").style.display="none";
-  document.getElementById("adminLogin").style.display = "flex";
-  document.getElementById("empleadoLogin").style.display = "none";
-
-  const tabAdmin = document.getElementById("tabAdmin");
-  const tabEmpleado = document.getElementById("tabEmpleado");
-
-  if (tabAdmin) tabAdmin.classList.add("active");
-  if (tabEmpleado) tabEmpleado.classList.remove("active");
-
-  if (typeof limpiarMensaje === "function") limpiarMensaje();
-  if (typeof limpiarErrores === "function") limpiarErrores();
-  if (typeof ocultarLoader === "function") ocultarLoader();
-};
-
-window.mostrarEmpleado = function () {
-  document.getElementById("clavePersonal").style.display="none";
-  document.getElementById("adminLogin").style.display = "none";
-  document.getElementById("empleadoLogin").style.display = "flex";
-
-  const tabAdmin = document.getElementById("tabAdmin");
-  const tabEmpleado = document.getElementById("tabEmpleado");
-
-  if (tabEmpleado) tabEmpleado.classList.add("active");
-  if (tabAdmin) tabAdmin.classList.remove("active");
-
-  if (typeof limpiarMensaje === "function") limpiarMensaje();
-  if (typeof limpiarErrores === "function") limpiarErrores();
-  if (typeof ocultarLoader === "function") ocultarLoader();
-};
 
 function normalizarTexto(valor) {
   return String(valor || "").trim().toLowerCase();

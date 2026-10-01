@@ -1,114 +1,105 @@
 import {supabase} from '../supabase/supabaseClient.js';
+import {registrarPWA,instalada,ayudaInstalacion} from './pwa-registro.js?v=749';
 const $=id=>document.getElementById(id);
-let promptInstall=null,installed=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
-let registration=null,userId=null,config=null,pushBusy=false,lastNoticeCount=0;
+let promptInstall=null,registration=null,userId=null,config=null,pushBusy=false,epoch=0;
 const storageKey='ccp-push-748-owner';
 const localGet=()=>{try{return localStorage.getItem(storageKey);}catch{return null;}};
 const localSet=value=>{try{value?localStorage.setItem(storageKey,value):localStorage.removeItem(storageKey);}catch{}};
-export async function pushCall(accion,datos={}){
- const {data,error}=await supabase.functions.invoke('portal-push-v748',{body:{accion,datos}});
- if(error){let info;try{info=await error.context?.json();}catch{}throw new Error(info?.error||'No se pudo conectar con los avisos. Intenta de nuevo.');}
- if(!data?.ok)throw new Error(data?.error||'No se pudo confirmar la operación.');return data;
-}
-const isIOS=()=>/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const message=text=>{if($('pwaStatus'))$('pwaStatus').textContent=text;};
+const supported=()=>registration&&('PushManager' in window)&&('Notification' in window);
+const current=(e,id)=>e===epoch&&id===userId&&!!id;
+export async function pushCall(accion,datos={}){
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),12000);
+ try{
+  const {data,error}=await supabase.functions.invoke('portal-push-v748',{body:{accion,datos},signal:ctrl.signal});
+  if(error){let info;try{info=await error.context?.json();}catch{}throw new Error(info?.error||'No se pudo conectar con los avisos. Revisa la conexi\u00f3n e intenta de nuevo.');}
+  if(!data?.ok)throw new Error(data?.error||'No se pudo confirmar la operaci\u00f3n.');return data;
+ }finally{clearTimeout(timer);}
+}
 function renderInstall(){
- if(!$('pwaSetup'))return;
- $('pwaInstall').hidden=installed;
- $('pwaInstall').textContent=promptInstall?'Instalar app':'Cómo instalar';
- $('pwaInstallHelp').hidden=true;
- if(installed){$('pwaLead').textContent='Mis Turnos en tu celular';}
- else $('pwaLead').textContent='Abre Mis Turnos desde su icono';
+ $('pwaInstall').hidden=instalada();$('pwaInstall').textContent=promptInstall?'Instalar app':'C\u00f3mo instalar';
+ $('pwaInstallHelp').hidden=true;$('pwaLead').textContent=instalada()?'Mis Turnos en tu celular':'Abre Mis Turnos desde su icono';
 }
-async function setupWorker(){
- if(!window.isSecureContext||!('serviceWorker' in navigator)){message('Abre el enlace seguro del Club (HTTPS) para instalar la app.');return;}
- const url=new URL('../pages/mis-turnos-sw.js',import.meta.url);
- const scope=new URL('./',url).href;
- const current=await navigator.serviceWorker.getRegistration(scope);
- if(current?.scope===scope&&![current.active?.scriptURL,current.waiting?.scriptURL,current.installing?.scriptURL].filter(Boolean).some(s=>new URL(s).pathname===url.pathname)){
-  message('Sistemas debe revisar otra app instalada en esta ruta. Tus turnos siguen disponibles.');return;
- }
- registration=await navigator.serviceWorker.register(url.href,{scope,updateViaCache:'none'});
- if(!registration.active)await new Promise((resolve,reject)=>{
-  const timer=setTimeout(()=>reject(new Error('No se pudo preparar la app. Recarga e intenta de nuevo.')),12000);
-  const worker=registration.installing||registration.waiting;
-  if(!worker){clearTimeout(timer);resolve();return;}
-  const check=()=>{if(worker.state==='activated'){clearTimeout(timer);resolve();}else if(worker.state==='redundant'){clearTimeout(timer);reject(new Error('Vuelve a abrir la app.'));}};
-  worker.addEventListener('statechange',check);check();
- });
- navigator.serviceWorker.addEventListener('message',e=>{
-  if(e.data?.tipo==='push-recibido'){window.dispatchEvent(new Event('portal-nuevo-aviso'));if(e.data.clase==='prueba')message('Aviso de prueba recibido en este dispositivo.');}
-  if(e.data?.tipo==='abrir-aviso')window.dispatchEvent(new CustomEvent('portal-abrir-aviso',{detail:e.data}));
- });
-}
-const readyWorker=setupWorker().catch(e=>{message(e.message);return null;});
+const readyWorker=registrarPWA().then(r=>registration=r).catch(e=>{message(e.message);return null;});
+if('serviceWorker' in navigator)navigator.serviceWorker.addEventListener('message',e=>{
+ if(!userId)return;
+ if(e.data?.tipo==='push-recibido'){window.dispatchEvent(new Event('portal-nuevo-aviso'));if(e.data.clase==='prueba')message('Aviso de prueba recibido en este dispositivo.');}
+ if(e.data?.tipo==='abrir-aviso')window.dispatchEvent(new CustomEvent('portal-abrir-aviso',{detail:e.data}));
+});
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();promptInstall=e;renderInstall();});
-window.addEventListener('appinstalled',()=>{installed=true;promptInstall=null;renderInstall();message('App instalada. Ahora activa los avisos.');});
-window.matchMedia('(display-mode: standalone)').addEventListener?.('change',e=>{installed=e.matches;renderInstall();});
-$('pwaInstall')?.addEventListener('click',async()=>{
- if(promptInstall){const p=promptInstall;promptInstall=null;const choice=await p.prompt();if(choice?.outcome==='accepted')message('Confirma la instalación y abre el icono Mis Turnos.');renderInstall();}
- else {
-  $('pwaInstallHelp').hidden=false;
-  $('pwaInstallHelp').textContent=isIOS()?'En iPhone: abre esta pagina en Safari, pulsa Compartir y elige Añadir a pantalla de inicio. Luego abre el icono Mis Turnos.':'En Chrome: abre el menú de los tres puntos y elige Instalar aplicacion o Añadir a pantalla de inicio. Confirma Instalar. No necesitas guardarlo como marcador.';
- }
+window.addEventListener('appinstalled',()=>{promptInstall=null;renderInstall();message('App instalada. Activa los avisos en este dispositivo.');});
+window.matchMedia('(display-mode: standalone)').addEventListener?.('change',renderInstall);
+$('pwaInstall').addEventListener('click',async()=>{
+ if(promptInstall){const p=promptInstall;promptInstall=null;try{await p.prompt();}catch{}renderInstall();}
+ else{$('pwaInstallHelp').hidden=false;$('pwaInstallHelp').textContent=ayudaInstalacion();}
 });
 function setPushState(active){
  $('pwaPush').hidden=active;$('pwaOptions').hidden=!active;
- $('pwaPush').disabled=!userId||!config||!registration||pushBusy;
- if(active){message(config?.envio_automatico?'Avisos activados en este dispositivo.':'Permiso guardado. El envío automático de avisos aún no está habilitado.');$('pwaTest').hidden=!config?.envio_automatico;}
+ $('pwaPush').disabled=!userId||!config?.activo||!supported()||pushBusy;
+ $('pwaTest').hidden=!config?.envio_automatico;
+ if(active)message(config?.envio_automatico?'Avisos activados en este dispositivo.':'Permiso guardado. El env\u00edo autom\u00e1tico est\u00e1 pausado.');
 }
 function decodeKey(s){return Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));}
+function allowNotices(){registration?.active?.postMessage({tipo:'activar-avisos'});}
 export async function iniciarPWA(user){
- userId=user.id;renderInstall();
- try {
-  await readyWorker;
-  config=await pushCall('config');$('pwaRetry').hidden=true;
-  $('pwaPush').textContent=config.envio_automatico?'Activar avisos':'Preparar avisos';
-  if(!config.activo){message('Los avisos del celular están temporalmente pausados.');return;}
-  if(isIOS()&&!installed){message('En iPhone instala la app y abre su icono para activar las notificaciones.');$('pwaPush').disabled=true;return;}
-  if(!registration||!('PushManager' in window)||!('Notification' in window)){message('Este navegador no admite avisos. Prueba en Chrome o desde la app instalada.');return;}
-  let sub=await registration.pushManager.getSubscription();
-  if(sub&&localGet()!==userId){await sub.unsubscribe();sub=null;localSet(null);await clearVisibleNotices();}
+ const version=++epoch,id=user.id;userId=id;config=null;setPushState(false);renderInstall();
+ try{
+  await readyWorker;if(!current(version,id))return;
+  if(!registration)registration=await registrarPWA();if(!current(version,id))return;
+  const cfg=await pushCall('config');if(!current(version,id))return;config=cfg;$('pwaRetry').hidden=true;
+  if(!config.activo){message('Los avisos del celular est\u00e1n temporalmente pausados.');return;}
+  const ios=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(ios&&!instalada()){message('En iPhone instala la app y abre su icono para activar los avisos.');return;}
+  if(!supported()){message('Este navegador no admite avisos. Prueba desde la app instalada o Chrome.');return;}
+  let sub=await registration.pushManager.getSubscription();if(!current(version,id))return;
+  if(sub&&localGet()!==id){await sub.unsubscribe();sub=null;localSet(null);await clearVisibleNotices();}
+  if(!current(version,id))return;
   if(sub&&Notification.permission==='granted'){
-   await pushCall('guardar',sub.toJSON());localSet(userId);setPushState(true);
-  }else{
-   setPushState(false);
-   if(Notification.permission==='denied')message('Las notificaciones están bloqueadas. Permitelas en los ajustes del sitio para este celular.');
-   else message(config.envio_automatico?'Activa los avisos para enterarte de cambios de horario y respuestas de Bienestar.':'Puedes preparar el permiso. El envío automático de notificaciones está pendiente de activación.');
-  }
- }catch(e){message(e.message);$('pwaRetry').hidden=false;}
+   await pushCall('guardar',sub.toJSON());if(!current(version,id)){await sub.unsubscribe();return;}
+   localSet(id);allowNotices();setPushState(true);
+  }else{setPushState(false);message(Notification.permission==='denied'?'Las notificaciones est\u00e1n bloqueadas. Perm\u00edtelas en los ajustes del sitio.':config.envio_automatico?'Activa los avisos para recibir cambios de horario y respuestas de Bienestar.':'Puedes guardar el permiso; el env\u00edo autom\u00e1tico est\u00e1 pausado.');}
+ }catch(e){if(current(version,id)){message(e.message);$('pwaRetry').hidden=false;}}
 }
-$('pwaRetry')?.addEventListener('click',()=>{if(userId)iniciarPWA({id:userId});});
-$('pwaPush')?.addEventListener('click',async()=>{
- if(pushBusy||!userId||!registration||!config)return;
- // Request permission immediately within the user's gesture (required by iOS).
- const permissionPromise=Notification.requestPermission();pushBusy=true;$('pwaPush').disabled=true;
+$('pwaRetry').addEventListener('click',()=>{if(userId)iniciarPWA({id:userId});});
+$('pwaPush').addEventListener('click',async()=>{
+ if(pushBusy||!userId||!config?.activo||!supported())return;
+ const version=epoch,id=userId,cfg=config;
+ // Permission is requested directly inside the click gesture for mobile browsers.
+ const permission=Notification.requestPermission();pushBusy=true;$('pwaPush').disabled=true;
  let sub=null;
- try {
-  if(await permissionPromise!=='granted'){message('No se activaron los avisos. Puedes seguir consultando tus turnos.');return;}
-  sub=await registration.pushManager.getSubscription()||await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decodeKey(config.publicKey)});
-  await pushCall('guardar',sub.toJSON());localSet(userId);setPushState(true);
-  if(config.envio_automatico){try{await pushCall('prueba',{endpoint:sub.endpoint});message('Avisos activados. Enviaremos una prueba; puede tardar cerca de un minuto.');}catch(e){message('Avisos activados. '+e.message);}}
- }catch(e){if(sub&&!localGet())await sub.unsubscribe().catch(()=>{});message(e.message);$('pwaRetry').hidden=false;}
- finally{pushBusy=false;$('pwaPush').disabled=!config||!userId;}
+ try{
+  if(await permission!=='granted'){if(current(version,id))message('No se activaron los avisos. Puedes seguir consultando tus turnos.');return;}
+  if(!current(version,id))return;
+  sub=await registration.pushManager.getSubscription()||await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decodeKey(cfg.publicKey)});
+  if(!current(version,id)){await sub.unsubscribe();return;}
+  await pushCall('guardar',sub.toJSON());
+  if(!current(version,id)){await sub.unsubscribe();return;}
+  localSet(id);allowNotices();setPushState(true);
+  if(cfg.envio_automatico){await pushCall('prueba',{endpoint:sub.endpoint});if(current(version,id))message('Avisos activados. Prueba en cola; normalmente llega en el siguiente minuto.');}
+ }catch(e){if(sub&&!localGet())await sub.unsubscribe().catch(()=>{});if(current(version,id)){message(e.message);$('pwaRetry').hidden=false;}}
+ finally{if(current(version,id)){pushBusy=false;$('pwaPush').disabled=!config?.activo;}}
 });
-$('pwaTest')?.addEventListener('click',async()=>{
- if(pushBusy||!registration||!config?.envio_automatico)return;pushBusy=true;$('pwaTest').disabled=true;
- try{const sub=await registration.pushManager.getSubscription();if(!sub)throw new Error('Activa las notificaciones nuevamente.');await pushCall('prueba',{endpoint:sub.endpoint});message('Prueba solicitada al servidor. Espera aproximadamente un minuto.');}
- catch(e){message(e.message);}finally{pushBusy=false;$('pwaTest').disabled=false;}
+$('pwaTest').addEventListener('click',async()=>{
+ if(pushBusy||!userId||!registration||!config?.envio_automatico)return;
+ const version=epoch,id=userId;pushBusy=true;$('pwaTest').disabled=true;
+ try{const sub=await registration.pushManager.getSubscription();if(!sub)throw new Error('Activa los avisos nuevamente.');await pushCall('prueba',{endpoint:sub.endpoint});if(current(version,id))message('Prueba en cola. Puedes cerrar la app sin pulsar Salir y comprobar su llegada.');}
+ catch(e){if(current(version,id))message(e.message);}finally{pushBusy=false;$('pwaTest').disabled=false;}
 });
 async function clearVisibleNotices(){const all=await registration?.getNotifications();all?.forEach(n=>n.close());if(navigator.clearAppBadge)await navigator.clearAppBadge().catch(()=>{});}
 export async function detenerPWA({server=true}={}){
- try {
-  await readyWorker;const sub=await registration?.pushManager?.getSubscription();
-  if(sub){if(server&&userId)await pushCall('baja',{endpoint:sub.endpoint}).catch(()=>{});await sub.unsubscribe();}
- }catch{}finally{localSet(null);await clearVisibleNotices().catch(()=>{});config=null;userId=null;}
+ ++epoch;const previous=userId;userId=null;config=null;pushBusy=false;localSet(null);setPushState(false);
+ try{
+  await readyWorker;registration?.active?.postMessage({tipo:'cerrar-sesion'});
+  await clearVisibleNotices();const sub=await registration?.pushManager?.getSubscription();
+  if(sub){const endpoint=sub.endpoint;await sub.unsubscribe();if(server&&previous)await pushCall('baja',{endpoint}).catch(()=>{});}
+ }catch{}finally{await clearVisibleNotices().catch(()=>{});}
 }
-$('pwaOff')?.addEventListener('click',async()=>{
- const previous=userId;await detenerPWA();userId=previous;setPushState(false);message('Avisos desactivados en este dispositivo.');
- if(previous)try{config=await pushCall('config');$('pwaPush').disabled=false;}catch{}
+$('pwaOff').addEventListener('click',async()=>{
+ const id=userId;if(!id||pushBusy)return;const stop=detenerPWA(),stoppedEpoch=epoch;await stop;
+ if(epoch!==stoppedEpoch)return;await iniciarPWA({id});
+ if(epoch===stoppedEpoch+1&&userId===id)message('Avisos desactivados en este dispositivo. Puedes activarlos nuevamente.');
 });
 export async function avisosHorario(){return await pushCall('avisos');}
 export async function leerAvisoHorario(id){return await pushCall('leido',{id});}
-export function badgePWA(n){lastNoticeCount=Number(n)||0;if(navigator.setAppBadge){(lastNoticeCount?navigator.setAppBadge(lastNoticeCount):navigator.clearAppBadge()).catch(()=>{});}}
+export function badgePWA(n){if(navigator.setAppBadge)(Number(n)?navigator.setAppBadge(Number(n)):navigator.clearAppBadge()).catch(()=>{});}
 renderInstall();
