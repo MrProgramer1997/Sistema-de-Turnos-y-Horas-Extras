@@ -70,9 +70,9 @@ export function resolveDay(bundle,day){
    const individual=source==='chef'&&raw.horario_asignado?analizarHorario(raw.horario_asignado).bloques.find(b=>b.n===(suffix?2:1)):null;
    if(timeText(start)&&timeText(end)&&start!==end)blocks.push({start,end,startDayOffset:individual?.diaInicio||0,endDayOffset:individual?.diaFin||(end<start?1:0),overnight:individual?individual.diaFin>0:end<start,place:raw['lugar'+suffix]||raw['subarea'+suffix]||raw.lugar||raw.subarea||'Confirma el lugar con tu jefe'});
   }
-  const off=['descanso','novedad'].includes(type)||OFF[code];
+  const off=['descanso','compensatorio','novedad'].includes(type)||OFF[code];
   const inferred=String(raw.origen_programacion||'').includes('infer');
-  rows.push({source,status:inferred?'unknown':off?'notice':blocks.length?'work':'unknown',blocks:off||inferred?[]:blocks,title:off?(OFF[code]||raw.novedad_descripcion||'Tienes una novedad registrada'):'',code});
+  rows.push({source,status:inferred?'unknown':off?'notice':blocks.length?'work':'unknown',blocks:off||inferred?[]:blocks,title:off?(OFF[code]||(type==='compensatorio'?'Tienes un compensatorio':type==='descanso'?'Hoy descansas':raw.novedad_descripcion)||'Tienes una novedad registrada'):'',code});
  }
  const notices=(bundle.novedades||[]).filter(n=>n.fecha_inicio<=day&&n.fecha_fin>=day&&n.codigo!=='PASA');
  if(notices.length){const n=notices[0];return {status:'notice',title:OFF[n.codigo]||'Tienes una novedad registrada',blocks:[],until:n.fecha_fin,from:n.fecha_inicio,details:rows,hasWorkConflict:rows.some(r=>r.status==='work')};}

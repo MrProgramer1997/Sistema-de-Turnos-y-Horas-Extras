@@ -1,15 +1,23 @@
-import {TYPES,esc,todayBogota,addDays,dateText,timeText,daysBetween,requiredDocs,validateForm,validateFiles,resolveDay,stateInfo,receipt} from './portal-mis-turnos-core.js?v=chef-7-3';
-import {supabase,call,uploadSupports,openSupport} from './portal-mis-turnos-api.js?v=711';
+import {iniciarPWA,detenerPWA,avisosHorario,leerAvisoHorario,badgePWA} from './mis-turnos-pwa.js?v=748';
+import { destinoPermitido } from './permisos-core.js?v=720';
+import {TYPES,esc,todayBogota,addDays,dateText,timeText,daysBetween,requiredDocs,validateForm,validateFiles,resolveDay,stateInfo,receipt} from './portal-mis-turnos-core.js?v=747';
+import {supabase,call,uploadSupports,openSupport} from './portal-mis-turnos-api.js?v=747';
 const $=id=>document.getElementById(id);
+let avisosDeTurno={avisos:[],pendientes:0};
 let user=null,bundle=null,today=todayBogota(),screen='home',step=1,kind='',files=[],requestId=null,uploaded=null,supplement=null,busy=false,uncertain=false,offset=0,inbox=null,inboxBusy=false,weekStart=today,weekMode=false,scheduleToken=0,refreshTimer=null;
 function say(s=''){$('live').textContent=s;}
 function fail(e){$('error').hidden=false;$('error').textContent=e?.message||String(e);$('error').scrollIntoView({block:'nearest'});}
 function clearError(){$('error').hidden=true;$('error').textContent='';}
 function focusHeading(){requestAnimationFrame(()=>{const h=$(screen).querySelector('h1');if(h){h.tabIndex=-1;h.focus({preventScroll:true});}window.scrollTo({top:0,behavior:'auto'});});}
-function go(target){
+const hashes={home:'inicio',today:'turno',report:'solicitud',inbox:'avisos',success:'recibido'};
+const routeFromHash=()=>Object.keys(hashes).find(k=>hashes[k]===location.hash.slice(1))||'home';
+function go(target,{historyMode='push',day=today}={}){
+ if(!hashes[target])target='home';
  if(busy){say('Espera a que termine el env\u00edo.');return;}clearError();screen=target;
- document.querySelectorAll('[data-screen]').forEach(el=>el.hidden=el.id!==target);
- if(target==='today')renderSchedule(today);
+ if(target!=='today'){++scheduleToken;say('');}
+ const hash='#'+hashes[target];if(historyMode==='replace')history.replaceState({portal:true},'',hash);else if(historyMode==='push'&&location.hash!==hash)history.pushState({portal:true},'',hash);
+ document.querySelectorAll('[data-screen]').forEach(el=>el.hidden=el.id!==target);$('pwaSetup').hidden=target!=='home';
+ if(target==='today')renderSchedule(day);
  if(target==='report')setStep(!supplement&&!kind?1:step);
  if(target==='inbox')loadInbox().catch(fail);
  focusHeading();
@@ -55,8 +63,8 @@ async function renderSchedule(day=today){
  }catch(e){if(token===scheduleToken)fail(e);}finally{if(token===scheduleToken)say('');}
 }
 function renderInbox(){
- if(!inbox)return;const unread=inbox.avisos.filter(n=>!n.estado_lectura);$('badge').hidden=!unread.length;$('badge').textContent=unread.length;
- $('notices').innerHTML=unread.map(n=>`<article class="notice"><strong>${esc(n.titulo)}</strong><p>${esc(n.mensaje)}</p><button data-read="${esc(n.id)}">Entendido</button></article>`).join('');
+ if(!inbox)return;const unread=inbox.avisos.filter(n=>!n.estado_lectura),total=(inbox.pendientes??unread.length)+(avisosDeTurno.pendientes||0);badgePWA(total);$('badge').hidden=!total;$('badge').textContent=total;$('avisoRapido').hidden=!total;$('badgeTop').textContent=total;$('avisoRapido').setAttribute('aria-label',`${total} avisos pendientes`);
+ $('notices').innerHTML=(avisosDeTurno.avisos||[]).filter(n=>n.pendiente).map(n=>`<article class="notice schedule-update"><strong>Cambio en tu programación</strong><p>${esc(dateText(n.fecha))}${n.hasta!==n.fecha?' al '+esc(dateText(n.hasta)):''}. Consulta el horario actualizado.</p><button data-turno-fecha="${esc(n.fecha)}">Ver turno</button><button data-read-turno="${esc(n.id)}">Entendido</button></article>`).join('')+unread.map(n=>`<article class="notice"><strong>${esc(n.titulo)}</strong><p>${esc(n.mensaje)}</p><button data-read="${esc(n.id)}">Entendido</button></article>`).join('');
  $('requests').innerHTML=inbox.solicitudes.length?inbox.solicitudes.map((s,i)=>{
   const [title,hint,color]=stateInfo(s.estado),docs=s.documentos_cargados||[],responses=s.respuestas||[];
   return `<article class="request"><header><span class="subtle">${esc(receipt(s.id))}</span><span class="badge ${color}">${esc(title)}</span></header><h2>${esc(TYPES[s.tipo_solicitud]||s.tipo_solicitud)}</h2><p>${esc(dateText(s.fecha_inicio))}<br>Hasta ${esc(dateText(s.fecha_fin))}</p><p>${esc(hint)}</p>${s.observacion_revision?`<div class="response"><strong>Respuesta de Bienestar</strong><br>${esc(s.observacion_revision)}</div>`:''}${s.del_portal&&['pendiente','pendiente_documentos','fuera_de_tiempo'].includes(s.estado)?`<button class="btn secondary" data-add-docs="${i}">Agregar documentos</button>`:''}<details><summary>Ver detalle de mi solicitud</summary>${s.observacion_empleado?`<p>${esc(s.observacion_empleado)}</p>`:''}<h3>Documentos enviados</h3>${docs.map((d,j)=>`<button class="btn secondary document" data-open-doc="${i}:${j}">${esc(d.name||'Ver soporte')}</button>`).join('')||'<p>No hay archivos adjuntos.</p>'}${s.documentos_requeridos?.length?`<h3>Documentos solicitados</h3><ul>${s.documentos_requeridos.map(d=>`<li>${esc(d)}</li>`).join('')}</ul>`:''}${responses.length?`<h3>Respuestas anteriores</h3>${responses.map(r=>`<p><strong>${esc(stateInfo(r.estado)[0])}</strong> <span class="subtle">${esc(new Date(r.fecha).toLocaleString('es-CO',{timeZone:'America/Bogota'}))}</span><br>${esc(r.respuesta||'Cambio de estado')}</p>`).join('')}`:''}</details></article>`;
@@ -65,7 +73,8 @@ function renderInbox(){
 }
 async function loadInbox(quiet=false){
  if(inboxBusy||!user)return;inboxBusy=true;if(!quiet)say('Consultando tus solicitudes...');
- try{inbox=await call('portal_mis_solicitudes_v1',{p_offset:offset,p_limit:20});renderInbox();}
+ try{const result=await call('portal_mis_solicitudes_v1',{p_offset:offset,p_limit:20});if(!user)return;inbox=result;try{avisosDeTurno=await avisosHorario();}catch{ /* Existing Bienestar remains usable if Push is unavailable. */ }renderInbox();$('avisosEstado').textContent='Actualizado '+new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',timeZone:'America/Bogota'});}
+ catch(e){$('avisosEstado').textContent='No se pudo actualizar. Pulsa Actualizar para reintentar.';throw e;}
  finally{inboxBusy=false;if(!quiet)say('');}
 }
 function startSupplement(index){
@@ -97,14 +106,18 @@ async function send(event){
   else{clearPending();fail(e);}
  }finally{busy=false;$('send').disabled=false;$('backDates').disabled=uncertain;$('logout').disabled=false;say('');}
 }
-function lockAccess(title,text){user=null;inbox=null;bundle=null;clearInterval(refreshTimer);$('portal').hidden=true;$('access').hidden=false;$('access').innerHTML=`<h1>${esc(title)}</h1><p>${esc(text)}</p><a class="btn major" href="login.html">Ir al ingreso</a><p class="hint">Si solo ingresabas con tu c\u00e9dula, Sistemas debe habilitar tu acceso personal. No compartas tu contrase\u00f1a.</p>`;say('');}
+function lockAccess(title,text){detenerPWA({server:false}).catch(()=>{});avisosDeTurno={avisos:[],pendientes:0};user=null;inbox=null;bundle=null;clearInterval(refreshTimer);$('portal').hidden=true;$('pwaSetup').hidden=false;$('access').hidden=false;$('access').innerHTML=`<h1>${esc(title)}</h1><p>${esc(text)}</p><a class="btn major" href="login.html?empleado=1">Ir al ingreso</a><p class="hint">Ingresa con tu cédula y tu contraseña personal.</p>`;say('');}
 async function init(){
  try{
   const {data,error}=await supabase.auth.getUser();if(error||!data?.user){lockAccess('Necesitas tu acceso personal','Para proteger tus datos, este espacio requiere una sesi\u00f3n verificada.');return;}
-  user=data.user;const result=await call('portal_mis_turnos_v1',{p_desde:addDays(today,-1),p_hasta:addDays(today,13)});bundle=result;today=result.hoy;
+  user=data.user;
+  const access=await call('portal_mi_acceso_v747');if(access?.cambiar_clave){location.replace('login.html?empleado=1&activar=1');return;}
+  const result=await call('portal_mis_turnos_v1',{p_desde:addDays(today,-1),p_hasta:addDays(today,13)});if(result.user_id!==user.id)throw new Error('La identidad de la respuesta no coincide con tu sesi\u00f3n. Vuelve a ingresar.');bundle=result;today=result.hoy;
   let old=null;try{old=JSON.parse(localStorage.getItem('ccp_sesion')||'null');}catch{}
-  if(old?.cedula&&String(old.cedula)!==String(result.empleado.cedula)){lockAccess('La sesi\u00f3n corresponde a otra persona','Pulsa Salir y vuelve a ingresar con tu acceso personal.');return;}
+  if(old?.cedula&&String(old.cedula)!==String(result.empleado.cedula)){localStorage.removeItem('ccp_sesion');old=null;}
   $('hello').textContent='Hola, '+result.empleado.nombres;$('dateToday').textContent=dateText(today);const r=resolveDay(bundle,today);$('todayHint').textContent=r.status==='work'?`Entras a las ${timeText(r.blocks[0].start)}`:r.title||'Mira tu hora y lugar de trabajo';$('access').hidden=true;$('portal').hidden=false;
+  if(old&&old.tipo_ingreso!=='empleado'&&old.rol!=='empleado'){const dest=destinoPermitido(old);if(dest&&dest!=='mis-turnos.html'){$('adminReturn').href=dest;$('adminReturn').hidden=false;}}
+  go(routeFromHash()==='success'?'home':routeFromHash(),{historyMode:'replace'});
   await loadInbox(true).catch(()=>{});
   let pending=null;try{pending=JSON.parse(sessionStorage.getItem('portal-envio-id')||'null');}catch{}
   if(pending?.user===user.id){
@@ -112,12 +125,12 @@ async function init(){
    if(found?.id){go('inbox');say('Tu env\u00edo anterior aparece como '+stateInfo(found.estado)[0]+'. Revisa sus documentos antes de volver a enviar.');}
    else say('El env\u00edo anterior no se registr\u00f3. Puedes diligenciarlo nuevamente.');
   }
-  refreshTimer=setInterval(()=>{if(!document.hidden&&!busy)loadInbox(true).catch(()=>{});},60000);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!busy)loadInbox(true).catch(()=>{});});
+  startRefresh();iniciarPWA(user).catch(()=>{});
  }catch(e){lockAccess('No pudimos abrir tu espacio',e.message);}
 }
-$('logout').addEventListener('click',async()=>{if(busy)return;$('portal').hidden=true;try{await supabase.auth.signOut({scope:'local'});}finally{localStorage.removeItem('ccp_sesion');clearPending();location.href='login.html';}});
-document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
+$('logout').addEventListener('click',async()=>{if(busy)return;$('portal').hidden=true;try{await detenerPWA();await supabase.auth.signOut({scope:'local'});}finally{localStorage.removeItem('ccp_sesion');clearPending();location.href='login.html?empleado=1';}});
+document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();go(b.dataset.go);}));
+window.addEventListener('popstate',()=>{if(user)go(routeFromHash(),{historyMode:'none'});});
 document.querySelectorAll('[data-kind]').forEach(b=>b.addEventListener('click',()=>chooseKind(b.dataset.kind)));
 $('requestType').addEventListener('change',updateKindHelp);$('requestSubtype').addEventListener('change',()=>uploaded=null);
 $('toDates').addEventListener('click',()=>{if(!kind||!$('requestType').value){fail('Elige el motivo de tu solicitud.');return;}if(kind==='incapacidad'&&!$('requestSubtype').value){fail('Selecciona el tipo de incapacidad.');return;}clearError();setStep(2);focusHeading();});
@@ -130,7 +143,12 @@ $('toConfirm').addEventListener('click',()=>{const invalid=validateForm(formData
 $('dayToday').addEventListener('click',()=>{weekMode=false;renderSchedule(today);});$('dayTomorrow').addEventListener('click',()=>{weekMode=false;renderSchedule(addDays(today,1));});$('showWeek').addEventListener('click',()=>{weekMode=true;weekStart=today;renderSchedule();});$('prevWeek').addEventListener('click',()=>{weekStart=addDays(weekStart,-7);renderSchedule();});$('nextWeek').addEventListener('click',()=>{weekStart=addDays(weekStart,7);renderSchedule();});
 $('refreshInbox').addEventListener('click',()=>loadInbox().catch(fail));$('prevRequests').addEventListener('click',()=>{offset=Math.max(0,offset-20);loadInbox().catch(fail);});$('nextRequests').addEventListener('click',()=>{offset+=20;loadInbox().catch(fail);});
 $('requests').addEventListener('click',e=>{const docs=e.target.closest('[data-open-doc]');if(docs){const [i,j]=docs.dataset.openDoc.split(':').map(Number);openSupport(inbox.solicitudes[i].documentos_cargados[j]).catch(fail);}const add=e.target.closest('[data-add-docs]');if(add)startSupplement(Number(add.dataset.addDocs));});
-$('notices').addEventListener('click',async e=>{const b=e.target.closest('[data-read]');if(!b)return;b.disabled=true;try{await call('portal_leer_aviso_v1',{p_id:b.dataset.read});await loadInbox(true);}catch(err){b.disabled=false;fail(err);}});
+$('notices').addEventListener('click',async e=>{const date=e.target.closest('[data-turno-fecha]');if(date){weekMode=false;go('today',{day:date.dataset.turnoFecha});return;}const read=e.target.closest('[data-read-turno]');if(read){read.disabled=true;try{avisosDeTurno=await leerAvisoHorario(read.dataset.readTurno);renderInbox();}catch(err){read.disabled=false;fail(err);}return;}const b=e.target.closest('[data-read]');if(!b)return;b.disabled=true;try{await call('portal_leer_aviso_v1',{p_id:b.dataset.read});await loadInbox(true);}catch(err){b.disabled=false;fail(err);}});
 supabase.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'||(user&&session?.user&&user.id!==session.user.id))queueMicrotask(()=>lockAccess('Tu sesi\u00f3n cambi\u00f3','Vuelve a ingresar para consultar tu informaci\u00f3n.'));});
+function startRefresh(){clearInterval(refreshTimer);refreshTimer=setInterval(()=>{if(!document.hidden&&!busy&&user)loadInbox(true).catch(()=>{});},60000);}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!busy&&user){today=todayBogota();loadInbox(true).catch(()=>{});if(screen==='today')renderSchedule(weekMode?weekStart:today);}});
+window.addEventListener('pageshow',e=>{if(e.persisted&&user){startRefresh();loadInbox(true).catch(()=>{});}});
 window.addEventListener('pagehide',()=>clearInterval(refreshTimer));window.addEventListener('beforeunload',e=>{if(busy){e.preventDefault();e.returnValue='';}});
+window.addEventListener('portal-nuevo-aviso',()=>{if(user&&!busy)loadInbox(true).catch(()=>{});});
+window.addEventListener('portal-abrir-aviso',()=>{if(user)go('inbox');});
 init();

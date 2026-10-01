@@ -395,7 +395,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../js/bienestar-portal.js?v=6-2-1"></script><script src="../js/bienestar-ux.js?v=bw-20260910-6-1"></script><script>
+<script src="../js/bienestar-portal.js?v=747"></script><script src="../js/bienestar-ux.js?v=bw-20260910-6-1"></script><script>
     const SUPABASE_URL = "https://kzxveqrgvuchcgwrjwjb.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6eHZlcXJndnVjaGNnd3Jqd2piIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzYzMjUsImV4cCI6MjA4OTAxMjMyNX0.DhYtYlQdUN_r7AD-glgUIG7y-_wrGWqYqyA3MZBzPuw";
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -1565,6 +1565,7 @@
     async function crearNotificacionEmpleadoCambioEstado(solicitud, nuevoEstado, observacionRevision = "") {
       // El portal genera el aviso y su historial en la misma transaccion del servidor.
       if (solicitud?.origen_portal === true) return;
+      if (await window.BienestarPortal?.respuestaEnServidor?.()) return;
       if (!solicitud?.cedula) return;
 
       const tipoMap = {

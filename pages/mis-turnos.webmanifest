@@ -1,0 +1,22 @@
+{
+ "id":"./mis-turnos.html",
+ "name":"Mis Turnos - Club Campestre Pereira",
+ "short_name":"Mis Turnos",
+ "description":"Tu turno y tus solicitudes a Bienestar en el Club Campestre Pereira.",
+ "lang":"es-CO",
+ "start_url":"./mis-turnos.html?app=1#inicio",
+ "scope":"./",
+ "display":"standalone",
+ "background_color":"#f4f8fc",
+ "theme_color":"#004AA1",
+ "icons":[
+  {"src":"../assets/mis-turnos/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+  {"src":"../assets/mis-turnos/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+  {"src":"../assets/mis-turnos/maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+ ],
+ "shortcuts":[
+  {"name":"Mi turno de hoy","url":"./mis-turnos.html?app=1#turno"},
+  {"name":"Mis solicitudes y avisos","url":"./mis-turnos.html?app=1#avisos"}
+ ],
+ "prefer_related_applications":false
+}
