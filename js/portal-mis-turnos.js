@@ -1,8 +1,8 @@
-import {iniciarPWA,detenerPWA,avisosHorario,leerAvisoHorario,badgePWA} from './mis-turnos-pwa.js?v=749';
+import {iniciarPWA,detenerPWA,suspenderPWA,avisosHorario,leerAvisoHorario,badgePWA} from './mis-turnos-pwa.js?v=750';
 import { destinoPermitido } from './permisos-core.js?v=720';
 import {TYPES,esc,todayBogota,addDays,dateText,timeText,daysBetween,requiredDocs,validateForm,validateFiles,resolveDay,stateInfo,receipt} from './portal-mis-turnos-core.js?v=747';
-import {supabase,call,uploadSupports,openSupport,cancelarConsultasPortal} from './portal-mis-turnos-api.js?v=749';
-import {cerrarSesionAplicacion} from './sesion-app.js?v=749';
+import {supabase,call,uploadSupports,openSupport,cancelarConsultasPortal} from './portal-mis-turnos-api.js?v=750';
+import {cerrarSesionAplicacion} from './sesion-app.js?v=750';
 const $=id=>document.getElementById(id);
 let closing=false,sessionGeneration=0;
 let avisosDeTurno={avisos:[],pendientes:0};
@@ -118,7 +118,7 @@ function limpiarVista(){
  $('requestForm').reset();badgePWA(0);clearError();say('');
 }
 function ingreso(){const q=new URLSearchParams({empleado:'1'});const route=location.hash.slice(1);if(['avisos','turno'].includes(route))q.set('destino',route);location.replace('login.html?'+q);}
-function lockAccess(title,text){if(closing)return;limpiarVista();detenerPWA({server:false}).catch(()=>{});$('access').hidden=false;$('access').innerHTML=`<h1>${esc(title)}</h1><p>${esc(text)}</p><a class="btn major" href="login.html?empleado=1">Ir al ingreso</a>`;}
+function lockAccess(title,text){if(closing)return;limpiarVista();suspenderPWA();$('access').hidden=false;$('access').innerHTML=`<h1>${esc(title)}</h1><p>${esc(text)}</p><a class="btn major" href="login.html?empleado=1">Ir al ingreso</a>`;}
 async function init(){
  const generation=sessionGeneration;
  try{
@@ -143,8 +143,8 @@ async function init(){
 }
 $('logout').addEventListener('click',async()=>{
  if(busy||closing)return;closing=true;limpiarVista();$('access').hidden=false;
- $('access').innerHTML='<h1>Cerrando sesi\u00f3n</h1><p>Estamos cerrando tu acceso en este dispositivo.</p>';
- const result=await cerrarSesionAplicacion({antesDeSalir:()=>detenerPWA()});
+ $('access').innerHTML='<h1>Cerrando sesi\u00f3n</h1><p>Tu acceso se cerrar\u00e1. Los avisos que activaste seguir\u00e1n llegando a este dispositivo.</p>';
+ const result=await cerrarSesionAplicacion({antesDeSalir:()=>suspenderPWA()});
  location.replace('login.html?empleado=1&salida='+(result.servidorConfirmado?'ok':'local'));
 });
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();go(b.dataset.go);}));
@@ -164,7 +164,7 @@ $('requests').addEventListener('click',e=>{const docs=e.target.closest('[data-op
 $('notices').addEventListener('click',async e=>{const date=e.target.closest('[data-turno-fecha]');if(date){weekMode=false;go('today',{day:date.dataset.turnoFecha});return;}const read=e.target.closest('[data-read-turno]');if(read){read.disabled=true;try{avisosDeTurno=await leerAvisoHorario(read.dataset.readTurno);renderInbox();}catch(err){read.disabled=false;fail(err);}return;}const b=e.target.closest('[data-read]');if(!b)return;b.disabled=true;try{await call('portal_leer_aviso_v1',{p_id:b.dataset.read});await loadInbox(true);}catch(err){b.disabled=false;fail(err);}});
 supabase.auth.onAuthStateChange((event,session)=>{
  if(closing)return;
- if(event==='SIGNED_OUT')queueMicrotask(()=>{if(!closing){limpiarVista();detenerPWA({server:false}).catch(()=>{});ingreso();}});
+ if(event==='SIGNED_OUT')queueMicrotask(()=>{if(!closing){limpiarVista();suspenderPWA();ingreso();}});
  else if(user&&session?.user&&user.id!==session.user.id)queueMicrotask(()=>lockAccess('Tu sesi\u00f3n cambi\u00f3','Vuelve a ingresar para consultar tu informaci\u00f3n.'));
 });
 function startRefresh(){clearInterval(refreshTimer);refreshTimer=setInterval(()=>{if(!document.hidden&&!busy&&user)loadInbox(true).catch(()=>{});},60000);}

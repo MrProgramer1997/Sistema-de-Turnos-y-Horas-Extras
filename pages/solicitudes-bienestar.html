@@ -16,8 +16,12 @@
 <header class="bw-header">
 <div class="bw-heading"><p class="bw-eyebrow">CLUB CAMPESTRE PEREIRA <span aria-hidden="true">/</span> PERSONAS</p>
 <h1>Solicitudes Bienestar</h1><p>Revisa solicitudes, consulta soportes y responde al colaborador.</p></div>
-<div class="bw-header-actions"><button class="btn btn-outline-primary" id="btnRecargarTodo" type="button">Actualizar</button>
-<button class="btn btn-primary" data-bw-open="nueva" type="button">+ Radicar solicitud</button></div>
+<div class="bw-header-actions">
+<button class="btn btn-outline-success" id="btnPushBienestar" type="button" hidden>Activar notificaciones</button>
+<button class="btn btn-outline-primary" id="btnRecargarTodo" type="button">Actualizar</button>
+<button class="btn btn-primary" data-bw-open="nueva" type="button">+ Radicar solicitud</button>
+<div class="small text-muted w-100 text-end" id="pushBienestarEstado" aria-live="polite"></div>
+</div>
 </header>
 <div class="bw-session">
 <div class="bw-session-inner">
@@ -391,11 +395,11 @@
 </div>
 </div>
 </main>
-<script src="../js/layout.js?v=749"></script>
+<script src="../js/layout.js?v=750"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../js/bienestar-portal.js?v=747"></script><script src="../js/bienestar-ux.js?v=bw-20260910-6-1"></script><script>
+<script src="../js/bienestar-portal.js?v=747"></script><script src="../js/bienestar-ux.js?v=bw-20260910-6-1"></script><script type="module" src="../js/bienestar-push.js?v=751"></script><script>
     const SUPABASE_URL = "https://kzxveqrgvuchcgwrjwjb.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6eHZlcXJndnVjaGNnd3Jqd2piIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0MzYzMjUsImV4cCI6MjA4OTAxMjMyNX0.DhYtYlQdUN_r7AD-glgUIG7y-_wrGWqYqyA3MZBzPuw";
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

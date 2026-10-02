@@ -1,6 +1,6 @@
 import {supabase} from '../supabase/supabaseClient.js';
 const AUTH_KEY='sb-kzxveqrgvuchcgwrjwjb-auth-token';
-const VISUAL=['ccp_sesion','usuarioActual','empleadoActual','sessionUser','userData','authUser','usuarioLogueado','empleadoSesion','portal-envio-id','ccp-push-748-owner'];
+const VISUAL=['ccp_sesion','usuarioActual','empleadoActual','sessionUser','userData','authUser','usuarioLogueado','empleadoSesion','portal-envio-id'];
 export function limpiarDatosSesion(){
  for(const store of [localStorage,sessionStorage])for(const key of [...VISUAL,AUTH_KEY,AUTH_KEY+'-code-verifier',AUTH_KEY+'-user'])try{store.removeItem(key);}catch{}
 }
@@ -16,7 +16,7 @@ export async function desvincularDispositivo(){
  if(navigator.clearAppBadge)await navigator.clearAppBadge().catch(()=>{});
 }
 let cierre=null;
-export function cerrarSesionAplicacion({antesDeSalir=desvincularDispositivo}={}){
+export function cerrarSesionAplicacion({antesDeSalir=async()=>{}}={}){
  if(cierre)return cierre;
  cierre=(async()=>{
   let servidorConfirmado=false;

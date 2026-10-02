@@ -300,7 +300,7 @@ function configurarLogout() {
     try {
       const script=Array.from(document.scripts).find(s=>/\/js\/layout\.js(?:\?|$)/.test(s.src));
       const base=script?.src||new URL('../js/layout.js',window.location.href).href;
-      const modulo=await import(new URL('./sesion-protegida.js?v=749',base).href);
+      const modulo=await import(new URL('./sesion-protegida.js?v=750',base).href);
       const resultado=await modulo.cerrarSesionSegura();
       window.location.replace('login.html?empleado=1&salida='+(resultado.servidorConfirmado?'ok':'local'));
     }catch(error){

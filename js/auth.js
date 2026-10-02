@@ -1,4 +1,4 @@
-import { loginEmpleadoSeguro } from "./portal-acceso-empleado.js?v=749";
+import { loginEmpleadoSeguro } from "./portal-acceso-empleado.js?v=750";
 import { destinoPermitido } from "./permisos-core.js?v=720";
 import { supabase } from "../supabase/supabaseClient.js";
 

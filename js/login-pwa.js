@@ -1,4 +1,4 @@
-import {registrarPWA,instalada,ayudaInstalacion} from './pwa-registro.js?v=749';
+import {registrarPWA,instalada,ayudaInstalacion} from './pwa-registro.js?v=750';
 const box=document.getElementById('loginInstall'),button=document.getElementById('instalarLogin'),help=document.getElementById('instalarAyuda');
 let prompt=null;
 function render(){box.hidden=instalada();button.textContent=prompt?'Instalar Mis Turnos':'C\u00f3mo instalar la app';}

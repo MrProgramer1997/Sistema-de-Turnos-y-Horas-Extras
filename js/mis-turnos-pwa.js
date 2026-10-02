@@ -1,5 +1,5 @@
 import {supabase} from '../supabase/supabaseClient.js';
-import {registrarPWA,instalada,ayudaInstalacion} from './pwa-registro.js?v=749';
+import {registrarPWA,instalada,ayudaInstalacion} from './pwa-registro.js?v=750';
 const $=id=>document.getElementById(id);
 let promptInstall=null,registration=null,userId=null,config=null,pushBusy=false,epoch=0;
 const storageKey='ccp-push-748-owner';
@@ -52,10 +52,11 @@ export async function iniciarPWA(user){
   if(ios&&!instalada()){message('En iPhone instala la app y abre su icono para activar los avisos.');return;}
   if(!supported()){message('Este navegador no admite avisos. Prueba desde la app instalada o Chrome.');return;}
   let sub=await registration.pushManager.getSubscription();if(!current(version,id))return;
-  if(sub&&localGet()!==id){await sub.unsubscribe();sub=null;localSet(null);await clearVisibleNotices();}
-  if(!current(version,id))return;
+  // Una suscripcion pertenece al dispositivo, no a la sesion abierta.
+  // Al entrar otra persona en el mismo telefono el backend valida las claves
+  // de esa misma suscripcion y la reasigna al nuevo empleado sin dejar cruces.
   if(sub&&Notification.permission==='granted'){
-   await pushCall('guardar',sub.toJSON());if(!current(version,id)){await sub.unsubscribe();return;}
+   await pushCall('guardar',sub.toJSON());if(!current(version,id))return;
    localSet(id);allowNotices();setPushState(true);
   }else{setPushState(false);message(Notification.permission==='denied'?'Las notificaciones est\u00e1n bloqueadas. Perm\u00edtelas en los ajustes del sitio.':config.envio_automatico?'Activa los avisos para recibir cambios de horario y respuestas de Bienestar.':'Puedes guardar el permiso; el env\u00edo autom\u00e1tico est\u00e1 pausado.');}
  }catch(e){if(current(version,id)){message(e.message);$('pwaRetry').hidden=false;}}
@@ -82,10 +83,13 @@ $('pwaPush').addEventListener('click',async()=>{
 $('pwaTest').addEventListener('click',async()=>{
  if(pushBusy||!userId||!registration||!config?.envio_automatico)return;
  const version=epoch,id=userId;pushBusy=true;$('pwaTest').disabled=true;
- try{const sub=await registration.pushManager.getSubscription();if(!sub)throw new Error('Activa los avisos nuevamente.');await pushCall('prueba',{endpoint:sub.endpoint});if(current(version,id))message('Prueba en cola. Puedes cerrar la app sin pulsar Salir y comprobar su llegada.');}
+ try{const sub=await registration.pushManager.getSubscription();if(!sub)throw new Error('Activa los avisos nuevamente.');await pushCall('prueba',{endpoint:sub.endpoint});if(current(version,id))message('Prueba en cola. Puedes cerrar la app o salir de tu cuenta y comprobar su llegada.');}
  catch(e){if(current(version,id))message(e.message);}finally{pushBusy=false;$('pwaTest').disabled=false;}
 });
 async function clearVisibleNotices(){const all=await registration?.getNotifications();all?.forEach(n=>n.close());if(navigator.clearAppBadge)await navigator.clearAppBadge().catch(()=>{});}
+export function suspenderPWA(){
+ ++epoch;userId=null;config=null;pushBusy=false;setPushState(false);
+}
 export async function detenerPWA({server=true}={}){
  ++epoch;const previous=userId;userId=null;config=null;pushBusy=false;localSet(null);setPushState(false);
  try{

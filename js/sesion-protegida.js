@@ -187,6 +187,6 @@ export function mostrarErrorAcceso(container, error, retry) {
   row.append(btn,link);container.append(row);
 }
 export async function cerrarSesionSegura() {
- const {cerrarSesionAplicacion}=await import('./sesion-app.js?v=749');
+ const {cerrarSesionAplicacion}=await import('./sesion-app.js?v=750');
  return await cerrarSesionAplicacion();
 }

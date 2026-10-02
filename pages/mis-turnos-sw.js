@@ -1,6 +1,6 @@
-/* Mis Turnos PWA 7.49. No private data, API response, auth token or medical
+/* Mis Turnos PWA 7.50. No private data, API response, auth token or medical
    attachment is cached. No interception of payroll/administrative pages. */
-const VERSION='mis-turnos-public-749';
+const VERSION='mis-turnos-public-750';
 const PREFS='mis-turnos-device-preferences';
 const FLAG=new URL('push-enabled',self.location).href;
 const LOGIN=new URL('login.html',self.location);

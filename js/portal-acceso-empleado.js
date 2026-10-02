@@ -44,7 +44,7 @@ $('clavePersonal')?.addEventListener('submit',async event=>{
  catch(e){show('error',e.message);}
  finally{busy=false;$('btnGuardarClave').disabled=false;}
 });
-$('cancelarClavePersonal')?.addEventListener('click',async()=>{if(busy)return;const {cerrarSesionAplicacion}=await import('./sesion-app.js?v=749');await cerrarSesionAplicacion();location.replace('login.html?empleado=1');});
+$('cancelarClavePersonal')?.addEventListener('click',async()=>{if(busy)return;const {cerrarSesionAplicacion}=await import('./sesion-app.js?v=750');await cerrarSesionAplicacion();location.replace('login.html?empleado=1');});
 setTimeout(async()=>{
  const args=new URLSearchParams(location.search);
  
