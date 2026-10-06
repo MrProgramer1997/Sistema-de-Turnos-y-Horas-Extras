@@ -1,6 +1,6 @@
-/* Mis Turnos PWA 7.53. No private data, API response, auth token or medical
+/* Mis Turnos PWA 7.54. No private data, API response, auth token or medical
    attachment is cached. No interception of payroll/administrative pages. */
-const VERSION='mis-turnos-public-753';
+const VERSION='mis-turnos-public-754';
 const PREFS='mis-turnos-device-preferences';
 const FLAG=new URL('push-enabled',self.location).href;
 const DISABLED=new URL('push-disabled-explicit',self.location).href;
@@ -9,6 +9,16 @@ const OFFLINE=new URL('mis-turnos-offline.html',self.location).href;
 const APP=new URL('mis-turnos.html',self.location);
 const ICON=new URL('../assets/mis-turnos/icon-192.png',self.location).href;
 const BADGE=new URL('../assets/mis-turnos/badge-96.png',self.location).href;
+const RECEIPT='https://kzxveqrgvuchcgwrjwjb.supabase.co/functions/v1/portal-push-v748';
+const uuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
+async function confirmarRecepcion(data){
+ if(!uuid(data.envio)||!uuid(data.recibo))return;
+ // Este recibo solo confirma un envío: no es una sesión ni permite leer datos.
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),7000);
+ try{await fetch(RECEIPT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accion:'recibido',datos:{envio:data.envio,recibo:data.recibo}}),signal:ctrl.signal,credentials:'omit',cache:'no-store'});}catch{}
+ finally{clearTimeout(timer);}
+}
+async function marcarInsignia(){try{await self.navigator?.setAppBadge?.();}catch{}}
 self.addEventListener('install',event=>event.waitUntil((async()=>{
  const cache=await caches.open(VERSION);
  // Un icono ausente no debe impedir actualizar el receptor de notificaciones.
@@ -45,6 +55,7 @@ self.addEventListener('message',event=>{
    await cache.put(FLAG,new Response(enabled?'on':'off'));
   }
   if(tipo!=='activar-avisos'){const notices=await self.registration.getNotifications();notices.forEach(n=>n.close());}
+  if(tipo==='desactivar-avisos')try{await self.navigator?.clearAppBadge?.();}catch{}
  })());
 });
 self.addEventListener('pushsubscriptionchange',event=>event.waitUntil((async()=>{
@@ -54,13 +65,17 @@ self.addEventListener('pushsubscriptionchange',event=>event.waitUntil((async()=>
  windows.filter(c=>new URL(c.url).origin===APP.origin&&new URL(c.url).pathname.startsWith(new URL('./',APP).pathname)).forEach(c=>c.postMessage({tipo:'push-suscripcion-cambio'}));
 })()));
 self.addEventListener('push',event=>event.waitUntil((async()=>{
- const flag=await caches.match(FLAG);if(flag&&await flag.text()==='off')return;
+ // Una antigua salida de sesión no equivale a desactivar el dispositivo.
+ // Un fallo de caché tampoco debe impedir mostrar un envío válido del servidor.
+ try{const prefs=await caches.open(PREFS),disabled=await prefs.match(DISABLED);if(disabled&&await disabled.text()==='on')return;}catch{}
  let data={};try{data=event.data?.json()||{};}catch{}
  const known=['horario','bienestar','bienestar_equipo','prueba'];const clase=known.includes(data.clase)?data.clase:'bienestar';
  const messages={horario:'Tu programacion fue actualizada. Abre la app para consultar el cambio.',bienestar:'Tienes una novedad de Bienestar. Abre la app para verla.',bienestar_equipo:'Hay una solicitud o nuevos soportes para revisar en Bienestar.',prueba:'Las notificaciones de Mis Turnos funcionan en este dispositivo.'};
  const id=/^[a-f0-9-]{36}$/i.test(data.id||'')?data.id:'aviso';
  const fecha=/^\d{4}-\d{2}-\d{2}$/.test(data.fecha||'')?data.fecha:null;
  await self.registration.showNotification('Mis Turnos - Club Campestre',{body:messages[clase],icon:ICON,badge:BADGE,tag:'turnos-'+id,renotify:false,data:{clase,id,fecha}});
+ // Funciona sin ventanas abiertas. La insignia y el recibo no bloquean el aviso.
+ await Promise.allSettled([marcarInsignia(),confirmarRecepcion(data)]);
  const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
  windows.filter(c=>new URL(c.url).pathname===APP.pathname).forEach(c=>c.postMessage({tipo:'push-recibido',clase}));
 })()));

@@ -1,5 +1,5 @@
-import {registrarPWA,instalada,ayudaInstalacion} from './pwa-registro.js?v=753';
-import {pushCall,sincronizarAvisos,desactivarAvisos,avisosDesactivados} from './push-dispositivo.js?v=753';
+import {registrarPWA,instalada,ayudaInstalacion} from './pwa-registro.js?v=754';
+import {pushCall,sincronizarAvisos,desactivarAvisos,avisosDesactivados} from './push-dispositivo.js?v=754';
 export {pushCall};
 const $=id=>document.getElementById(id);
 let promptInstall=null,registration=null,userId=null,config=null,pushBusy=false,syncBusy=false,epoch=0,ultimoSync=0;

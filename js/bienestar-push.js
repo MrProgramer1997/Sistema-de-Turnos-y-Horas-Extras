@@ -1,6 +1,6 @@
 import {supabase} from '../supabase/supabaseClient.js';
-import {registrarPWA,instalada} from './pwa-registro.js?v=753';
-import {pushCall,sincronizarAvisos,desactivarAvisos,avisosDesactivados} from './push-dispositivo.js?v=753';
+import {registrarPWA,instalada} from './pwa-registro.js?v=754';
+import {pushCall,sincronizarAvisos,desactivarAvisos,avisosDesactivados} from './push-dispositivo.js?v=754';
 const btn=document.getElementById('btnPushBienestar'),status=document.getElementById('pushBienestarEstado');
 let reg=null,config=null,busy=false,sub=null,userId=null,epoch=0,ultimoSync=0,permitido=false,reintentar=false;
 const current=(e,id)=>e===epoch&&id===userId&&!!id;

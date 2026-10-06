@@ -1,4 +1,4 @@
-import {iniciarPWA,detenerPWA,suspenderPWA,avisosHorario,leerAvisoHorario,badgePWA} from './mis-turnos-pwa.js?v=753';
+import {iniciarPWA,detenerPWA,suspenderPWA,avisosHorario,leerAvisoHorario,badgePWA} from './mis-turnos-pwa.js?v=754';
 import { destinoPermitido } from './permisos-core.js?v=720';
 import {TYPES,esc,todayBogota,addDays,dateText,timeText,daysBetween,requiredDocs,validateForm,validateFiles,resolveDay,stateInfo,receipt} from './portal-mis-turnos-core.js?v=747';
 import {supabase,call,uploadSupports,openSupport,cancelarConsultasPortal} from './portal-mis-turnos-api.js?v=750';
