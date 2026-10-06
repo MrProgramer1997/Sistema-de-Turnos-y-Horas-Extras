@@ -1,38 +1,58 @@
-/* Mis Turnos PWA 7.50. No private data, API response, auth token or medical
+/* Mis Turnos PWA 7.53. No private data, API response, auth token or medical
    attachment is cached. No interception of payroll/administrative pages. */
-const VERSION='mis-turnos-public-750';
+const VERSION='mis-turnos-public-753';
 const PREFS='mis-turnos-device-preferences';
 const FLAG=new URL('push-enabled',self.location).href;
+const DISABLED=new URL('push-disabled-explicit',self.location).href;
 const LOGIN=new URL('login.html',self.location);
 const OFFLINE=new URL('mis-turnos-offline.html',self.location).href;
 const APP=new URL('mis-turnos.html',self.location);
 const ICON=new URL('../assets/mis-turnos/icon-192.png',self.location).href;
 const BADGE=new URL('../assets/mis-turnos/badge-96.png',self.location).href;
 self.addEventListener('install',event=>event.waitUntil((async()=>{
- const cache=await caches.open(VERSION);await cache.addAll([OFFLINE,ICON,BADGE]);
- // No skipWaiting: an update must not interrupt a support upload or form.
+ const cache=await caches.open(VERSION);
+ // Un icono ausente no debe impedir actualizar el receptor de notificaciones.
+ await Promise.allSettled([OFFLINE,ICON,BADGE].map(url=>cache.add(url)));
+ // Solo cambia el receptor Push y recursos públicos. No recarga ventanas ni
+ // intercepta peticiones de formularios, API o soportes que estén en curso.
+ await self.skipWaiting();
 })()));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{
  const keys=await caches.keys();await Promise.all(keys.filter(k=>k.startsWith('mis-turnos-public-')&&k!==VERSION).map(k=>caches.delete(k)));
+ // Migra el antiguo bloqueo por «cerrar-sesion» sin revertir una baja explícita.
+ const prefs=await caches.open(PREFS),disabled=await prefs.match(DISABLED);
+ if(!disabled||await disabled.text()!=='on')await prefs.put(FLAG,new Response('on'));
+ await self.clients.claim();
 })()));
 self.addEventListener('fetch',event=>{
  const req=event.request,u=new URL(req.url);
  if(req.method!=='GET'||u.origin!==APP.origin)return;
  if(req.mode==='navigate'&&[APP.pathname,LOGIN.pathname].includes(u.pathname)){
-  event.respondWith(fetch(new Request(req,{cache:'no-store'})).catch(()=>caches.match(OFFLINE)));return;
+  event.respondWith(fetch(new Request(req,{cache:'no-store'})).catch(async()=>await caches.match(OFFLINE)||new Response('Sin conexión. Vuelve a abrir Mis Turnos cuando tengas internet.',{status:503,headers:{'Content-Type':'text/plain; charset=utf-8'}})));return;
  }
  if([OFFLINE,ICON,BADGE].includes(u.href))event.respondWith(caches.match(req).then(r=>r||fetch(req)));
 });
 self.addEventListener('message',event=>{
  const url=event.source?.url;
  if(!url||new URL(url).origin!==APP.origin)return;
- if(!['cerrar-sesion','activar-avisos'].includes(event.data?.tipo))return;
+ if(!['cerrar-sesion','activar-avisos','desactivar-avisos'].includes(event.data?.tipo))return;
  event.waitUntil((async()=>{
-  const enabled=event.data.tipo==='activar-avisos';
-  const cache=await caches.open(PREFS);await cache.put(FLAG,new Response(enabled?'on':'off'));
-  if(!enabled){const notices=await self.registration.getNotifications();notices.forEach(n=>n.close());}
+  const tipo=event.data.tipo;
+  // «Salir» conserva el vínculo del dispositivo. Solo la baja explícita pausa.
+  if(tipo!=='cerrar-sesion'){
+   const enabled=tipo==='activar-avisos',cache=await caches.open(PREFS);
+   await cache.put(DISABLED,new Response(enabled?'off':'on'));
+   await cache.put(FLAG,new Response(enabled?'on':'off'));
+  }
+  if(tipo!=='activar-avisos'){const notices=await self.registration.getNotifications();notices.forEach(n=>n.close());}
  })());
 });
+self.addEventListener('pushsubscriptionchange',event=>event.waitUntil((async()=>{
+ // Las credenciales no se guardan en el worker. La ventana autenticada realiza
+ // el registro seguro de la nueva suscripción; al reabrir también se comprueba.
+ const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+ windows.filter(c=>new URL(c.url).origin===APP.origin&&new URL(c.url).pathname.startsWith(new URL('./',APP).pathname)).forEach(c=>c.postMessage({tipo:'push-suscripcion-cambio'}));
+})()));
 self.addEventListener('push',event=>event.waitUntil((async()=>{
  const flag=await caches.match(FLAG);if(flag&&await flag.text()==='off')return;
  let data={};try{data=event.data?.json()||{};}catch{}
