@@ -31,6 +31,7 @@ let organizacionLista = false;
 let guardandoPuesto = false;
 let modalPuestos = null;
 let modalHorario = null;
+let guardandoHorario = false;
 let modalExterno = null;
 let guardandoExterno = false;
 // Visual context only: never changes the dates sent to Supabase.
@@ -58,6 +59,8 @@ async function iniciar(){
   $('modalEditarTurnoBaseOps').addEventListener('hidden.bs.modal',()=>{renderTurnosBase();modalTurnos.show();});
   modalPuestos = new bootstrap.Modal($('modalPuestosOps'));
   modalHorario = new bootstrap.Modal($('modalHorarioNuevoOps'));
+  $('modalHorarioNuevoOps').addEventListener('hide.bs.modal',ev=>{if(guardandoHorario)ev.preventDefault();});
+  $('modalHorarioNuevoOps').addEventListener('hidden.bs.modal',()=>{renderTurnosBase();modalTurnos.show();});
   modalExterno = new bootstrap.Modal($('modalExternoOps'));
   $('modalExternoOps').addEventListener('hide.bs.modal',ev=>{if(guardandoExterno)ev.preventDefault();});
   cargarCopiaLocal();
@@ -86,7 +89,8 @@ async function leerProgramacionOps(args){
  return r;
 }
 async function leerOrganizacionOps(args){
- let r=await supabase.rpc('consultar_organizacion_operaciones_v745',args);
+ let r=await supabase.rpc('consultar_organizacion_operaciones_v757',args);
+ if(faltaFuncionOps(r.error))r=await supabase.rpc('consultar_organizacion_operaciones_v745',args);
  if(faltaFuncionOps(r.error))r=await supabase.rpc('consultar_organizacion_operaciones_v741',args);
  return r;
 }
@@ -135,8 +139,11 @@ function configurarEventos(){
   $('btnNuevoPuestoOps').addEventListener('click',limpiarFormularioPuesto);
   $('btnCrearHorarioOps').addEventListener('click',abrirCrearHorario);
   $('formHorarioNuevoOps').addEventListener('submit',crearHorario);
-  $('horarioMismoEspecialOps').addEventListener('change',()=>{
-    $('horarioEspecialCamposOps').classList.toggle('d-none',$('horarioMismoEspecialOps').checked);
+  $('horarioMismoEspecialOps').addEventListener('change',actualizarEspecialHorario);
+  $('listaHorariosCreadosOps').addEventListener('click',ev=>{
+    const editar=ev.target.closest('[data-editar-horario]'),eliminar=ev.target.closest('[data-eliminar-horario]');
+    if(editar)abrirEditarHorario(editar.dataset.editarHorario);
+    if(eliminar)eliminarHorario(eliminar.dataset.eliminarHorario);
   });
   $('tbodyOperaciones').addEventListener('change',async ev=>{
     const el=ev.target.closest('[data-puesto-select]');
@@ -469,6 +476,11 @@ function renderTurnosSelect(valor=''){
   const e=empleadoPorId($('empleadoAsignacionOps').value),fecha=$('fechaAsignacionOps').value;
   let list=horariosDisponibles(e,fecha);
   list=list.filter(t=>aplicaTurnoFecha(t,fecha));
+  const original=estado.programacion.find(r=>r.id===$('registroIdOps').value);
+  if(organizacion.gestion_horarios&&original?.tipo_registro==='turno'&&original.horario_reutilizable_id&&original.empleado_id===e?.empleado_id&&original.fecha===fecha){
+    const codigo=`reutilizable:${original.horario_reutilizable_id}`;
+    if(!list.some(t=>t.codigo===codigo))list.push({codigo,nombre:`${original.horario_nombre||original.turno_nombre||'Horario eliminado'} · jornada guardada`,inicio:hh(original.hora_inicio),fin:hh(original.hora_fin),inicio_especial:hh(original.hora_inicio),fin_especial:hh(original.hora_fin),pausa:original.minutos_descanso,pausa_especial:original.minutos_descanso});
+  }
   $('turnoBaseOps').innerHTML='<option value="">Seleccione</option>'+list.map(t=>`<option value="${esc(t.codigo)}">${esc(t.nombre)} · ${esc(previewTurnoTexto(t,fecha,e))}</option>`).join('');
   const objetivo=valor||$('turnoBaseOps').dataset.valor||'';
   if([...$('turnoBaseOps').options].some(o=>o.value===objetivo)) $('turnoBaseOps').value=objetivo;
@@ -494,7 +506,8 @@ function actualizarPreviewTurno(){
   const e=empleadoPorId($('empleadoAsignacionOps').value),fecha=$('fechaAsignacionOps').value,codigo=$('turnoBaseOps').value;
   const t=horariosDisponibles(e).find(x=>x.codigo===codigo);
   const original=estado.programacion.find(r=>r.id===$('registroIdOps').value);
-  const conserva=estado.edicion_turnos_base&&!$('checkPersonalizadoOps').checked&&original?.turno_codigo===codigo&&original.empleado_id===e?.empleado_id&&original.fecha===fecha;
+  const conserva=!$('checkPersonalizadoOps').checked&&original?.tipo_registro==='turno'&&original.empleado_id===e?.empleado_id&&original.fecha===fecha&&
+    ((estado.edicion_turnos_base&&original.turno_codigo===codigo)||(organizacion.gestion_horarios&&original.horario_reutilizable_id&&codigo===`reutilizable:${original.horario_reutilizable_id}`));
   $('previewTurnoOps').textContent=conserva?`Jornada guardada: ${hh(original.hora_inicio)}–${hh(original.hora_fin)} · alimentación ${original.minutos_descanso} min. Para cambiar estas horas utiliza Horario personalizado.`:t?previewTurnoTexto(t,fecha,e):'Selecciona un turno.';
   actualizarDescansoFormularioOps();
 }
@@ -542,7 +555,8 @@ async function guardarAsignacion(ev){
   try{
     $('btnGuardarAsignacionOps').disabled=true;
     const original=estado.programacion.find(r=>r.id===$('registroIdOps').value);
-    if(estado.edicion_turnos_base && !custom && tipo==='turno' && original?.turno_codigo===payload.turno_codigo && original.empleado_id===emp.empleado_id && original.fecha===payload.fecha){payload.conservar_horario=true;payload.esperado_updated_at=original.updated_at;}
+    if(!custom&&tipo==='turno'&&original?.tipo_registro==='turno'&&original.empleado_id===emp.empleado_id&&original.fecha===payload.fecha&&
+      ((estado.edicion_turnos_base&&original.turno_codigo&&original.turno_codigo===payload.turno_codigo)||(organizacion.gestion_horarios&&original.horario_reutilizable_id&&original.horario_reutilizable_id===payload.horario_reutilizable_id))){payload.conservar_horario=true;payload.esperado_updated_at=original.updated_at;}
     const {error}=await supabase.rpc(rpcGuardarProgramacionOps(),{p_payload:payload});if(error)throw error;
     modalAsignacion.hide();await cargarDatos();
   }catch(e){mostrarError(e.message||String(e));}
@@ -562,6 +576,7 @@ async function pegarCopia(empleadoId,fecha){
   if(!copia)return alert('Primero copia un registro.');const emp=empleadoPorId(empleadoId);if(!emp)return;
   if(registroDe(empleadoId,fecha)&&!confirm('Esta celda ya tiene programacion. Reemplazarla con la copia?'))return;
   const payload={...copia,empleado_id:emp.empleado_id,proceso_id:emp.proceso_id,fecha};delete payload.nombre;
+  conservarCopiaHorarioEliminadoOps(payload);
   try{const {error}=await supabase.rpc(rpcGuardarProgramacionOps(),{p_payload:payload});if(error)throw error;await cargarDatos();}catch(e){alert(`No se pudo pegar: ${e.message||e}`);}
 }
 window.opsNuevaCelda=(id,fecha)=>abrirAsignacion(id,fecha);
@@ -586,6 +601,7 @@ async function copiarPeriodoAnterior(){
       const offset=Math.round((fechaLocal(r.fecha)-fechaLocal(srcInicio))/86400000),fecha=sumarDias(periodo.inicio,offset);
       return {empleado_id:r.empleado_id,proceso_id:r.proceso_id,fecha,solo_vacias:true,tipo_registro:r.tipo_registro,turno_codigo:r.turno_codigo||null,personalizado:r.tipo_registro==='turno'&&!r.turno_codigo,horario_reutilizable_id:r.horario_reutilizable_id||null,hora_inicio:r.hora_inicio,hora_fin:r.hora_fin,minutos_descanso:r.minutos_descanso,novedad_codigo:r.novedad_codigo,novedad_descripcion:r.novedad_descripcion,observacion:r.observacion};
     }).filter(x=>dias.includes(x.fecha)&&!registroDe(x.empleado_id,x.fecha));
+    payload.forEach(conservarCopiaHorarioEliminadoOps);
     if(!payload.length)return alert('No hay celdas vacias para copiar. Lo ya guardado permanece intacto.');
     const {error:saveError}=await supabase.rpc(rpcGuardarProgramacionOps(),{p_payload:payload});if(saveError)throw saveError;
     await cargarDatos();alert(`${payload.length} registros copiados al periodo actual.`);
@@ -723,7 +739,12 @@ function horariosDisponibles(e,fecha=($('fechaAsignacionOps')?.value||periodo.in
     inicio:hh(h.inicio),fin:hh(h.fin),inicio_especial:hh(h.inicio_especial),fin_especial:hh(h.fin_especial),
     tipo_catalogo:'reutilizable',reutilizable_id:h.id,prolongacion:0}))];
 }
-function rpcGuardarProgramacionOps(){return estado.edicion_turnos_base?'guardar_programacion_operaciones_v755':estado.version==='745'?'guardar_programacion_operaciones_v745':'guardar_programacion_operaciones_v741';}
+function rpcGuardarProgramacionOps(){return organizacion.gestion_horarios?'guardar_programacion_operaciones_v757':estado.edicion_turnos_base?'guardar_programacion_operaciones_v755':estado.version==='745'?'guardar_programacion_operaciones_v745':'guardar_programacion_operaciones_v741';}
+function conservarCopiaHorarioEliminadoOps(payload){
+ if(organizacion.gestion_horarios&&payload.horario_reutilizable_id&&!organizacion.horarios.some(h=>h.id===payload.horario_reutilizable_id)){
+  payload.personalizado=true;payload.horario_reutilizable_id=null;
+ }
+}
 function hoyBogotaOps(){const partes=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Bogota',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const valor=k=>partes.find(p=>p.type===k).value;return `${valor('year')}-${valor('month')}-${valor('day')}`;}
 function ultimaVersionBaseOps(codigo,fecha='9999-12-31'){
  return (estado.versiones_turnos_base||[]).filter(v=>v.codigo===codigo&&v.desde<=fecha).sort((a,b)=>b.desde.localeCompare(a.desde)||Number(b.revision)-Number(a.revision))[0];
@@ -766,16 +787,51 @@ async function guardarTurnoBase(ev){
 }
 function renderHorariosCreados(){
  const box=$('listaHorariosCreadosOps');if(!box)return;
- box.innerHTML=organizacion.horarios.length?`<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Codigo / nombre</th><th>Entre semana</th><th>Domingo / festivo</th></tr></thead><tbody>${organizacion.horarios.map(h=>`<tr><td><strong>${esc(h.codigo)}</strong> ${esc(h.nombre)}</td><td>${hh(h.inicio)}-${hh(h.fin)}; ${h.pausa} min descanso</td><td>${hh(h.inicio_especial)}-${hh(h.fin_especial)}; ${h.pausa_especial} min descanso</td></tr>`).join('')}</tbody></table></div>`:'<div class="small text-muted">Puedes crear horarios reutilizables sin modificar los turnos base aprobados.</div>';
+ const acciones=organizacion.gestion_horarios;
+ box.innerHTML=organizacion.horarios.length?`<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Código / nombre</th><th>Entre semana</th><th>Domingo / festivo</th>${acciones?'<th class="text-end">Acciones</th>':''}</tr></thead><tbody>${organizacion.horarios.map(h=>`<tr><td><strong>${esc(h.codigo)}</strong> ${esc(h.nombre)}</td><td>${hh(h.inicio)}–${hh(h.fin)}; ${h.pausa} min descanso</td><td>${hh(h.inicio_especial)}–${hh(h.fin_especial)}; ${h.pausa_especial} min descanso</td>${acciones?`<td><div class="d-flex gap-1 justify-content-end"><button type="button" class="btn btn-sm btn-outline-primary" data-editar-horario="${esc(h.id)}" ${guardandoHorario?'disabled':''}>Modificar</button><button type="button" class="btn btn-sm btn-outline-danger" data-eliminar-horario="${esc(h.id)}" ${guardandoHorario?'disabled':''}>Eliminar</button></div></td>`:''}</tr>`).join('')}</tbody></table></div>`:'<div class="small text-muted">Puedes crear horarios reutilizables sin modificar los turnos base aprobados.</div>';
  $('btnCrearHorarioOps').disabled=!organizacionLista;
 }
+function actualizarEspecialHorario(){
+ const distinto=!$('horarioMismoEspecialOps').checked;
+ $('horarioEspecialCamposOps').classList.toggle('d-none',!distinto);
+ for(const id of ['horarioInicioEspecialOps','horarioFinEspecialOps']){$(id).required=distinto;$(id).disabled=!distinto;}
+ $('horarioPausaEspecialOps').disabled=!distinto;
+}
 function abrirCrearHorario(){
+ if(guardandoHorario)return;
  $('formHorarioNuevoOps').reset();$('errorHorarioNuevoOps').classList.add('d-none');
- $('horarioEspecialCamposOps').classList.add('d-none');
+ $('horarioIdOps').value='';$('horarioRevisionOps').value='';
+ $('tituloHorarioOps').textContent='Crear horario de programación';$('btnGuardarHorarioNuevoOps').textContent='Crear horario';
+ actualizarEspecialHorario();
  $('modalTurnosBaseOps').addEventListener('hidden.bs.modal',()=>modalHorario.show(),{once:true});modalTurnos.hide();
 }
+function abrirEditarHorario(id){
+ if(guardandoHorario||!organizacion.gestion_horarios)return;
+ const h=organizacion.horarios.find(x=>x.id===id);if(!h)return;
+ $('formHorarioNuevoOps').reset();$('errorHorarioNuevoOps').classList.add('d-none');
+ $('horarioIdOps').value=h.id;$('horarioRevisionOps').value=h.revision;
+ $('tituloHorarioOps').textContent='Modificar horario de programación';$('btnGuardarHorarioNuevoOps').textContent='Guardar cambios';
+ $('horarioCodigoOps').value=h.codigo;$('horarioNombreOps').value=h.nombre;
+ $('horarioInicioNuevoOps').value=hh(h.inicio);$('horarioFinNuevoOps').value=hh(h.fin);$('horarioPausaNuevaOps').value=h.pausa;
+ $('horarioInicioEspecialOps').value=hh(h.inicio_especial);$('horarioFinEspecialOps').value=hh(h.fin_especial);$('horarioPausaEspecialOps').value=h.pausa_especial;
+ $('horarioMismoEspecialOps').checked=hh(h.inicio)===hh(h.inicio_especial)&&hh(h.fin)===hh(h.fin_especial)&&Number(h.pausa)===Number(h.pausa_especial);
+ actualizarEspecialHorario();
+ $('modalTurnosBaseOps').addEventListener('hidden.bs.modal',()=>modalHorario.show(),{once:true});modalTurnos.hide();
+}
+async function eliminarHorario(id){
+ if(guardandoHorario||!organizacion.gestion_horarios)return;
+ const h=organizacion.horarios.find(x=>x.id===id);if(!h)return;
+ if(!confirm(`¿Eliminar ${h.codigo} - ${h.nombre} de los horarios disponibles? Las jornadas ya programadas conservarán sus horas y su historial.`))return;
+ guardandoHorario=true;renderHorariosCreados();
+ try{
+  const {data,error}=await supabase.rpc('eliminar_horario_operaciones_v757',{p_payload:{id:h.id,revision:h.revision}});if(error)throw error;
+  if(data?.ok!==true||!data.horario?.eliminado_at)throw new Error('No se pudo verificar la eliminación.');
+  organizacion.horarios=organizacion.horarios.filter(x=>x.id!==h.id);renderTurnosSelect();actualizarPreviewTurno();
+ }catch(e){alert(e.message||String(e));}
+ finally{guardandoHorario=false;renderHorariosCreados();}
+}
 async function crearHorario(ev){
- ev.preventDefault();$('errorHorarioNuevoOps').classList.add('d-none');
+ ev.preventDefault();if(guardandoHorario)return;$('errorHorarioNuevoOps').classList.add('d-none');
  const payload={codigo:texto($('horarioCodigoOps').value).toUpperCase(),nombre:texto($('horarioNombreOps').value),
    inicio:$('horarioInicioNuevoOps').value,fin:$('horarioFinNuevoOps').value,pausa:Number($('horarioPausaNuevaOps').value)};
  if(!$('horarioMismoEspecialOps').checked){
@@ -783,13 +839,16 @@ async function crearHorario(ev){
   payload.pausa_especial=Number($('horarioPausaEspecialOps').value);
   if(!payload.inicio_especial||!payload.fin_especial){$('errorHorarioNuevoOps').textContent='Completa entrada y salida de domingo / festivo.';$('errorHorarioNuevoOps').classList.remove('d-none');return;}
  }
- $('btnGuardarHorarioNuevoOps').disabled=true;
+ const id=$('horarioIdOps').value;
+ if(id){payload.id=id;payload.revision=Number($('horarioRevisionOps').value);}
+ guardandoHorario=true;$('btnGuardarHorarioNuevoOps').disabled=true;
  try{
-  const {error}=await supabase.rpc('crear_horario_operaciones_v739',{p_payload:payload});if(error)throw error;
-  await cargarOrganizacion();renderTurnosBase();
-  $('modalHorarioNuevoOps').addEventListener('hidden.bs.modal',()=>modalTurnos.show(),{once:true});modalHorario.hide();
+  const {data,error}=await supabase.rpc(id?'editar_horario_operaciones_v757':'crear_horario_operaciones_v739',{p_payload:payload});if(error)throw error;
+  if(data?.ok!==true||!data.horario)throw new Error('No se pudo verificar el guardado.');
+  const h=data.horario;organizacion.horarios=[...organizacion.horarios.filter(x=>x.id!==h.id),h].sort((a,b)=>a.nombre.localeCompare(b.nombre)||a.codigo.localeCompare(b.codigo));
+  renderTurnosSelect();actualizarPreviewTurno();guardandoHorario=false;modalHorario.hide();
  }catch(e){$('errorHorarioNuevoOps').textContent=e.message||String(e);$('errorHorarioNuevoOps').classList.remove('d-none');}
- finally{$('btnGuardarHorarioNuevoOps').disabled=false;}
+ finally{guardandoHorario=false;$('btnGuardarHorarioNuevoOps').disabled=false;}
 }
 
 
