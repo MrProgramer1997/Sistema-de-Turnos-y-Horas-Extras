@@ -3,7 +3,7 @@ import { exigirModulo, filtrarEnlaces } from './permisos-modulos.js?v=735';
 
 import { identificaVestier, descansoVestier, revisarCobertura, personaPublicaOps } from './operaciones-reglas.js?v=759';
 import { crearPdfCalendarioOps } from './operaciones-pdf-calendario.js?v=745';
-import { iniciarGeneradorOps } from './operaciones-generador-ui.js?v=759';
+import { iniciarGeneradorOps } from './operaciones-generador-ui.js?v=759.1';
 
 const VERSION = '745';
 const STORAGE_COPIA = 'ccp_turno_copiado_operaciones_v738';
@@ -322,7 +322,7 @@ function empleadosFiltrados(){
     if(st==='con-programacion'&&!regs.length)return false;
     if(st==='sin-programacion'&&regs.length)return false;
     if(st==='con-novedad'&&!regs.some(r=>r.tipo_registro==='novedad'))return false;
-    if(st==='sobre-meta'&&(e.es_externo||resumen.netoMin<=META_HORAS*60))return false;
+    if(st==='sobre-meta'&&(e.es_externo||resumen.netoMin+resumen.reconocidosMin<=META_HORAS*60))return false;
     return true;
   });
 }
@@ -343,7 +343,7 @@ function coincideEstado(e){
  if(st==='con-programacion')return regs.length>0;
  if(st==='sin-programacion')return !regs.length;
  if(st==='con-novedad')return regs.some(r=>r.tipo_registro==='novedad');
- if(st==='sobre-meta')return !e.es_externo&&resumenEmpleado(e.empleado_id).netoMin>META_HORAS*60;
+ if(st==='sobre-meta'){const r=resumenEmpleado(e.empleado_id);return !e.es_externo&&r.netoMin+r.reconocidosMin>META_HORAS*60;}
  return true;
 }
 function filasPlanilla(fechas=dias,completa=false){
@@ -417,6 +417,7 @@ function celda(e,fecha,puesto=null){
 }
 
 function relevoDeOps(puesto,fecha){return puesto?(organizacion.relevos||[]).find(r=>r.puesto_id===puesto.id&&r.fecha===fecha):null;}
+function puestoOperativoDePersonaOps(id,fecha){const relevo=(organizacion.relevos||[]).find(r=>r.empleado_id===id&&r.fecha===fecha);return (relevo&&organizacion.puestos.find(p=>p.id===relevo.puesto_id))||puestoDePersona(id,fecha);}
 function relevoCeldaOps(puesto,fecha){const a=relevoDeOps(puesto,fecha),p=a&&empleadoPorId(a.empleado_id),r=a&&registroDe(a.empleado_id,fecha);if(!p||!r||r.tipo_registro!=='turno')return '';return `<div class="ops-relevo" role="button" tabindex="0" onclick="event.stopPropagation();window.opsEditarCelda('${esc(r.id)}')" onkeydown="if(event.key==='Enter'){event.stopPropagation();window.opsEditarCelda('${esc(r.id)}')}">Relevo: ${esc(nombreVisible(p))}<br>${hh(r.hora_inicio)}–${hh(r.hora_fin)}</div>`;}
 
 function renderKPIs(){
@@ -457,13 +458,13 @@ function renderDetalleEmpleado(){
   const id=$('selectEmpleadoRevisionOps').value,e=empleadoPorId(id),box=$('detalleEmpleadoRevisionOps');
   if(!e){box.className='ops-employee-detail mb-3 text-muted';box.textContent='Selecciona un colaborador para revisar su programación.';return;}
   const r=resumenEmpleado(id),regs=registrosEmpleado(id).sort((a,b)=>a.fecha.localeCompare(b.fecha));
-  const diff=r.netoMin-META_HORAS*60;
+  const diff=r.netoMin+r.reconocidosMin-META_HORAS*60;
   box.className='ops-employee-detail mb-3';
   if(e.es_externo){
     box.innerHTML=`<strong>${esc(nombreEmpleado(e))}</strong>${chipExterno(e)}<div>${esc(e.proceso_nombre||'')}</div><hr class="my-2"><div><strong>${fmtHoras(r.netoMin)}</strong> netas programadas</div><div class="small text-muted">Personal externo; no se calcula diferencia contra 42 h ni se convierte en nómina de planta.</div><div class="small mt-2">BioTime: ${esc(estadoBioExterno(e))}</div>`;
     return;
   }
-  box.innerHTML=`<strong>${esc(nombreEmpleado(e))}</strong><div>${esc(e.cargo||'')} · ${esc(e.proceso_nombre||'')}</div><hr class="my-2"><div><strong>${fmtHoras(r.netoMin)}</strong> netas · ${fmtHoras(r.prolongacionMin)} prolongación</div><div>${diff===0?'Cumple referencia de 42 h':diff>0?`${fmtHoras(diff)} sobre la referencia`:`${fmtHoras(Math.abs(diff))} por debajo de la referencia`}</div><div class="small text-muted mt-1">${regs.length} registros en el periodo visible.</div>`;
+  box.innerHTML=`<strong>${esc(nombreEmpleado(e))}</strong><div>${esc(e.cargo||'')} · ${esc(e.proceso_nombre||'')}</div><hr class="my-2"><div><strong>${fmtHoras(r.netoMin)}</strong> netas${r.reconocidosMin?` + ${fmtHoras(r.reconocidosMin)} reconocidas`:''} · ${fmtHoras(r.prolongacionMin)} prolongación</div><div>${diff===0?'Cumple referencia de 42 h':diff>0?`${fmtHoras(diff)} sobre la referencia`:`${fmtHoras(Math.abs(diff))} por debajo de la referencia`}</div><div class="small text-muted mt-1">${regs.length} registros en el periodo visible.</div>`;
 }
 
 function abrirAsignacion(empleadoId='',fecha='',registro=null){
@@ -683,8 +684,8 @@ function exportarMatrizPdfOps(completa){
 function pdfGeneral(){exportarMatrizPdfOps(false);}
 function pdfCalendario(){exportarMatrizPdfOps(true);}
 
-function pdfOperativo(){const doc=pdfDoc('landscape');if(!doc)return;encabezadoPdf(doc,'Plan operativo de turnos','Agrupado por fecha y puesto');let y=30;dias.forEach(d=>{const regs=estado.programacion.filter(r=>r.fecha===d&&r.tipo_registro==='turno');if(!regs.length)return;const grupos=new Map();regs.forEach(r=>{const fijo=puestoDePersona(r.empleado_id,r.fecha);const k=`${fijo?fijo.nombre+' (#'+fijo.orden+')':r.turno_codigo||r.horario_nombre||'Personalizado'}|${hh(r.hora_inicio)}-${hh(r.hora_fin)}`;if(!grupos.has(k))grupos.set(k,[]);grupos.get(k).push(r);});const rows=[...grupos.entries()].map(([k,arr])=>{const [puesto,horario]=k.split('|');return [puesto,horario,String(arr.length),arr.map(r=>`${r.nombres} ${r.apellidos}${r.es_externo?' [Externo]':''}`).join(', ')];});if(y>170){doc.addPage();y=18;}doc.setFontSize(10);doc.text(`${cap(nombreDia(d))} ${formatoFechaCorta(d)}${festivoDe(d)?` · ${festivoDe(d).nombre}`:''}`,14,y);doc.autoTable({startY:y+3,head:[['Puesto/turno','Horario','Cantidad','Colaboradores']],body:rows,styles:{fontSize:7},columnStyles:{3:{cellWidth:125}}});y=doc.lastAutoTable.finalY+8;});doc.save(`programacion_operaciones_operativa_${periodo.inicio}.pdf`);}
-function pdfEmpleado(mejorado=false){const id=$('selectEmpleadoRevisionOps').value,e=empleadoPorId(id);if(!e)return alert('Selecciona un empleado.');const doc=pdfDoc('portrait');if(!doc)return;encabezadoPdf(doc,mejorado?'Ficha semanal de Operaciones':'Programación individual',`${nombreVisible(e)} · ${e.cargo||''}`);const regs=dias.map(d=>registroDe(id,d));doc.autoTable({startY:31,head:[['Fecha','Día','Programación','Neto','Observación']],body:dias.map((d,i)=>{const r=regs[i],n=r?netoRegistro(r):{netoMin:0};return [formatoFechaCorta(d),cap(nombreDia(d)),textoRegistroPdf(r)||'Sin programación',r?.tipo_registro==='turno'?fmtHoras(n.netoMin):'',r?.observacion||r?.novedad_descripcion||''];}),styles:{fontSize:8},columnStyles:{4:{cellWidth:55}}});if(mejorado){const res=resumenEmpleado(id),y=doc.lastAutoTable.finalY+10;doc.setFontSize(11);doc.text(`Total neto: ${fmtHoras(res.netoMin)}`,14,y);if(!e.es_externo){doc.text(`Horas ordinarias de referencia: ${fmtHoras(res.ordinariasMin)}`,14,y+6);doc.text(`Prolongación prevista: ${fmtHoras(res.prolongacionMin)}`,14,y+12);doc.text(`Diferencia frente a 42 h: ${res.netoMin-META_HORAS*60>=0?'+':'-'}${fmtHoras(Math.abs(res.netoMin-META_HORAS*60))}`,14,y+18);}else{doc.text('Personal externo - horas programadas por servicio',14,y+6);}}doc.save(`${mejorado?'ficha':'programacion'}_operaciones_${normalizar(nombreEmpleado(e)).replace(/[^a-z0-9]+/g,'_')}_${periodo.inicio}.pdf`);}
+function pdfOperativo(){const doc=pdfDoc('landscape');if(!doc)return;encabezadoPdf(doc,'Plan operativo de turnos','Agrupado por fecha y puesto');let y=30;dias.forEach(d=>{const regs=estado.programacion.filter(r=>r.fecha===d&&r.tipo_registro==='turno');if(!regs.length)return;const grupos=new Map();regs.forEach(r=>{const fijo=puestoOperativoDePersonaOps(r.empleado_id,r.fecha);const k=`${fijo?fijo.nombre+' (#'+fijo.orden+')':r.turno_codigo||r.horario_nombre||'Personalizado'}|${hh(r.hora_inicio)}-${hh(r.hora_fin)}`;if(!grupos.has(k))grupos.set(k,[]);grupos.get(k).push(r);});const rows=[...grupos.entries()].map(([k,arr])=>{const [puesto,horario]=k.split('|');return [puesto,horario,String(arr.length),arr.map(r=>`${r.nombres} ${r.apellidos}${r.es_externo?' [Externo]':''}`).join(', ')];});if(y>170){doc.addPage();y=18;}doc.setFontSize(10);doc.text(`${cap(nombreDia(d))} ${formatoFechaCorta(d)}${festivoDe(d)?` · ${festivoDe(d).nombre}`:''}`,14,y);doc.autoTable({startY:y+3,head:[['Puesto/turno','Horario','Cantidad','Colaboradores']],body:rows,styles:{fontSize:7},columnStyles:{3:{cellWidth:125}}});y=doc.lastAutoTable.finalY+8;});doc.save(`programacion_operaciones_operativa_${periodo.inicio}.pdf`);}
+function pdfEmpleado(mejorado=false){const id=$('selectEmpleadoRevisionOps').value,e=empleadoPorId(id);if(!e)return alert('Selecciona un empleado.');const doc=pdfDoc('portrait');if(!doc)return;encabezadoPdf(doc,mejorado?'Ficha semanal de Operaciones':'Programación individual',`${nombreVisible(e)} · ${e.cargo||''}`);const regs=dias.map(d=>registroDe(id,d));doc.autoTable({startY:31,head:[['Fecha','Día','Programación','Neto','Observación']],body:dias.map((d,i)=>{const r=regs[i],n=r?netoRegistro(r):{netoMin:0};return [formatoFechaCorta(d),cap(nombreDia(d)),textoRegistroPdf(r)||'Sin programación',r?.tipo_registro==='turno'?fmtHoras(n.netoMin):'',r?.observacion||r?.novedad_descripcion||''];}),styles:{fontSize:8},columnStyles:{4:{cellWidth:55}}});if(mejorado){const res=resumenEmpleado(id),y=doc.lastAutoTable.finalY+10;doc.setFontSize(11);doc.text(`Total neto: ${fmtHoras(res.netoMin)}`,14,y);if(!e.es_externo){doc.text(`Horas ordinarias de referencia: ${fmtHoras(res.ordinariasMin)}`,14,y+6);doc.text(`Prolongación prevista: ${fmtHoras(res.prolongacionMin)}`,14,y+12);doc.text(`Diferencia frente a 42 h: ${res.netoMin+res.reconocidosMin-META_HORAS*60>=0?'+':'-'}${fmtHoras(Math.abs(res.netoMin+res.reconocidosMin-META_HORAS*60))}`,14,y+18);if(res.reconocidosMin)doc.text(`Horas reconocidas: ${fmtHoras(res.reconocidosMin)} (aparte de las trabajadas)`,14,y+24);}else{doc.text('Personal externo - horas programadas por servicio',14,y+6);}}doc.save(`${mejorado?'ficha':'programacion'}_operaciones_${normalizar(nombreEmpleado(e)).replace(/[^a-z0-9]+/g,'_')}_${periodo.inicio}.pdf`);}
 
 function normalizar(v){return texto(v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
 function esc(v){return texto(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
