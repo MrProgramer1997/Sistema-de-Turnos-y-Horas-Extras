@@ -21,6 +21,7 @@ let copia = null;
 let modalAsignacion = null;
 let modalPersonal = null;
 let modalTurnos = null;
+let modalAvisos = null;
 let modalEditarBase = null;
 let guardandoBase = false;
 let cargando = false;
@@ -51,6 +52,7 @@ async function iniciar(){
   modalAsignacion = new bootstrap.Modal($('modalAsignacionOps'));
   modalPersonal = new bootstrap.Modal($('modalPersonalOps'));
   modalTurnos = new bootstrap.Modal($('modalTurnosBaseOps'));
+  modalAvisos = new bootstrap.Modal($('modalAvisosOps'));
   modalEditarBase = new bootstrap.Modal($('modalEditarTurnoBaseOps'));
   $('modalEditarTurnoBaseOps').addEventListener('hide.bs.modal',ev=>{if(guardandoBase)ev.preventDefault();});
   $('modalEditarTurnoBaseOps').addEventListener('hidden.bs.modal',()=>{renderTurnosBase();modalTurnos.show();});
@@ -107,6 +109,7 @@ function configurarEventos(){
   $('formExternoOps').addEventListener('submit',guardarExternoOps);
   $('btnGestionPersonalOps').addEventListener('click',()=>{renderGestionPersonal();modalPersonal.show();});
   $('btnTurnosBaseOps').addEventListener('click',()=>{renderTurnosBase();modalTurnos.show();});
+  $('btnAvisosOps').addEventListener('click',()=>modalAvisos.show());
   $('tbodyTurnosBaseOps').addEventListener('click',ev=>{const b=ev.target.closest('[data-editar-base]');if(b)abrirEditarTurnoBase(b.dataset.editarBase);});
   $('formEditarTurnoBaseOps').addEventListener('submit',guardarTurnoBase);
   $('especialEditarTurnoBaseOps').addEventListener('change',actualizarEspecialTurnoBase);
@@ -346,12 +349,12 @@ function filasPlanilla(fechas=dias,completa=false){
   });
 }
 function opcionesPersona(semana,seleccion){
+  // A saved occupant stays visible in their own row, including retired staff.
+  // Availability belongs to this week, independently of other weeks and filters.
   return '<option value="">Sin asignar</option>'+estado.personal.filter(e=>
-    (e.disponible!==false||e.empleado_id===seleccion)&&(!e.fecha_inicio||e.fecha_inicio<=sumarDias(semana,6))&&(!e.fecha_fin||e.fecha_fin>=semana)
-  ).map(e=>{
-    const a=asignacionPersona(e.empleado_id,semana),p=organizacion.puestos.find(p=>p.id===a?.puesto_id);
-    return `<option value="${esc(e.empleado_id)}" ${e.empleado_id===seleccion?'selected':''}>${esc(nombreVisible(e))}${p&&e.empleado_id!==seleccion?` [${esc(p.nombre)} #${p.orden}]`:''}</option>`;
-  }).join('');
+    e.empleado_id===seleccion||(e.disponible!==false&&!asignacionPersona(e.empleado_id,semana)
+      &&(!e.fecha_inicio||e.fecha_inicio<=sumarDias(semana,6))&&(!e.fecha_fin||e.fecha_fin>=semana))
+  ).map(e=>`<option value="${esc(e.empleado_id)}" ${e.empleado_id===seleccion?'selected':''}>${esc(nombreVisible(e))}</option>`).join('');
 }
 function selectorPersona(fila){
   if(!fila.puesto){

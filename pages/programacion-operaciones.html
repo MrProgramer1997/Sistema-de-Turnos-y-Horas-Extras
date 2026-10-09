@@ -39,6 +39,7 @@
           <button class="btn btn-outline-secondary" id="btnGestionPuestosOps" type="button">Turnos fijos</button>
           <button class="btn btn-outline-secondary" id="btnTurnosBaseOps" type="button">Turnos base</button>
           <button class="btn btn-outline-secondary" id="btnPantallaCompletaOps" type="button">Visual semanal</button>
+          <button class="btn btn-outline-secondary" id="btnAvisosOps" type="button" title="Ayuda de programación y avisos de cobertura">Avisos</button>
         </div>
         <div class="d-flex gap-2 flex-wrap">
           <button class="btn btn-outline-danger" id="btnPdfGeneralOps" type="button">PDF general</button>
@@ -182,17 +183,6 @@
           </div>
           <div class="ops-planning-week-range" id="rangoSemanaOps">Esperando las fechas de la planilla...</div>
         </div>
-        <div class="card-header bg-white d-flex justify-content-between align-items-center gap-2 flex-wrap">
-          <div>
-            <div class="fw-semibold">Matriz semanal de Operaciones</div>
-            <div class="small text-muted" id="textoResultadoOps">Cargando...</div>
-          </div>
-          <details class="ops-matrix-help small text-muted">
-            <summary>Ayuda de programación</summary>
-            <div>Cambia el colaborador para ubicar su semana en un puesto &#183; Clic en una celda para programar · C = copiar · P = pegar</div>
-          </details>
-        </div>
-        <div id="alertasCoberturaOps" class="ops-coverage-alert" role="status" aria-live="polite" hidden></div>
         <div class="card-body p-0">
           <div class="table-responsive ops-matrix-wrap">
             <table class="table table-bordered align-middle mb-0 ops-matrix">
@@ -204,6 +194,22 @@
       </section>
     </div>
   </main>
+
+  <div class="modal fade" id="modalAvisosOps" tabindex="-1" aria-hidden="true" aria-labelledby="tituloAvisosOps">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="tituloAvisosOps">Ayuda y avisos de Operaciones</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+      <div class="modal-body">
+        <div class="small text-muted mb-3" id="textoResultadoOps">Cargando...</div>
+        <p class="small">Los colaboradores asignados dejan de aparecer como disponibles en los demás puestos de esa semana. Para cambiar a alguien de puesto, selecciona «Sin asignar» en su puesto actual y luego asígnalo al nuevo. Su programación se conserva.</p>
+        <details class="ops-matrix-help small text-muted mb-3">
+          <summary>Ayuda de programación</summary>
+          <div>Cambia el colaborador para ubicar su semana en un puesto &#183; Clic en una celda para programar · C = copiar · P = pegar</div>
+        </details>
+        <div id="alertasCoberturaOps" class="ops-coverage-alert" role="status" aria-live="polite" hidden></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button></div>
+    </div></div>
+  </div>
 
   <div class="modal fade" id="modalAsignacionOps" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -429,11 +435,11 @@
     </div>
   </div>
 
-  <div class="text-end small text-muted px-4 pb-3">Programación Operaciones · versión 7.55</div>
+  <div class="text-end small text-muted px-4 pb-3">Programación Operaciones · versión 7.56</div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="../js/layout.js?v=750"></script>
-  <script type="module" src="../js/programacion-operaciones.js?v=755"></script>
+  <script type="module" src="../js/programacion-operaciones.js?v=756"></script>
 </body>
 </html>
