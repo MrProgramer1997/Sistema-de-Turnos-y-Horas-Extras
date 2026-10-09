@@ -268,3 +268,18 @@
  .ops-compact #cardMatrizOperaciones .ops-planning-week-range{flex-basis:100%;font-size:.82rem}
  .ops-compact .ops-matrix-help{max-width:100%}
 }
+.auto-settings{border:1px solid #d5e0e7;border-radius:6px;padding:9px;background:#fafcfe}
+.auto-settings summary{cursor:pointer;font-size:14px;font-weight:600}
+.auto-settings-table{min-width:1050px;font-size:12px}
+.auto-settings-table th{min-width:175px}
+.auto-settings-table td{min-width:170px;vertical-align:top}
+.auto-settings-table select{font-size:12px}
+.auto-cycle-row{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:12px}
+.auto-cycle-row span{flex:0 0 120px}
+.auto-preview-wrap{max-height:58vh}
+.auto-preview-table{min-width:1450px;font-size:12px}
+.auto-preview-table thead th{position:sticky;top:0;background:#edf4f9;z-index:1}
+.auto-preview-table th:first-child{min-width:215px}
+.auto-preview-table td{min-width:120px}
+.auto-preview-table small{display:block;margin-top:3px;color:#54616d}
+.ops-relevo{font-size:11px;line-height:1.3;background:#e6f4ef;padding:3px 5px;border-radius:4px;grid-column:1 / -1}
