@@ -6,7 +6,7 @@ const dias=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const tipos={normal:'Cobertura diaria',flexible:'Patín / recurso flexible',vestier_h_am:'Vestier Hombres AM',vestier_h_pm:'Vestier Hombres PM',damas_am:'Vestier Damas AM',damas_pm:'Vestier Damas PM',tenis_am:'Tenis mujeres AM',tenis_pm:'Tenis mujeres PM',porteria:'Portería',parqueadero:'Parqueadero'};
 export function iniciarGeneradorOps({supabase,fechaSugerida,alAplicar}){
  const $=id=>document.getElementById(id);if(!$('btnGenerarSemanaOps'))return;
- const modal=new bootstrap.Modal($('modalGeneradorOps'));let ctx=null,cfg=null,propuesta=null,ocupado=false,condiciones=[];
+ const modal=new bootstrap.Modal($('modalGeneradorOps'));let ctx=null,cfg=null,propuesta=null,ocupado=false,condiciones=[],permitirCerrar=false;
  const mensaje=(s,error=true)=>{$('autoMensajeOps').textContent=s;$('autoMensajeOps').className=`alert ${error?'alert-danger':'alert-success'} small`;$('autoMensajeOps').hidden=!s;};
  function bloquear(b){ocupado=b;$('modalGeneradorOps').querySelectorAll('input,select,button').forEach(el=>el.disabled=b);if(!b)actualizarCondicion();$('autoGenerarOps').disabled=b||!ctx||!!ctx.ocupada;$('autoAplicarOps').disabled=b||!propuesta||propuesta.errores.length>0;}
  function invalidar(){propuesta=null;$('autoAplicarOps').disabled=true;$('autoVistaOps').innerHTML='';$ ('autoErroresOps').innerHTML='';}
@@ -79,7 +79,7 @@ export function iniciarGeneradorOps({supabase,fechaSugerida,alAplicar}){
  $('autoAplicarOps').addEventListener('click',async()=>{
   if(ocupado||!propuesta||propuesta.errores.length)return;
   if(!window.confirm(`¿Aplicar la propuesta del ${propuesta.semana} con ${propuesta.registros.length} jornadas y ${propuesta.relevos.length} relevos?`))return;
-  bloquear(true);mensaje('');try{const {data,error}=await supabase.rpc('aplicar_semana_operaciones_v759',{p_propuesta:{semana:propuesta.semana,huella:propuesta.huella,asignaciones:propuesta.asignaciones,registros:propuesta.registros,relevos:propuesta.relevos,condiciones:propuesta.condiciones}});if(error)throw error;if(data?.ok!==true||data.registros!==propuesta.registros.length)throw new Error('No se pudo verificar el guardado completo.');const semana=propuesta.semana;invalidar();modal.hide();await alAplicar(semana);window.alert(`Semana aplicada: ${data.registros} jornadas y ${data.relevos} relevos.`);}catch(e){invalidar();mensaje(e.message||String(e));}finally{bloquear(false);}
+  bloquear(true);mensaje('');try{const {data,error}=await supabase.rpc('aplicar_semana_operaciones_v759',{p_propuesta:{semana:propuesta.semana,huella:propuesta.huella,asignaciones:propuesta.asignaciones,registros:propuesta.registros,relevos:propuesta.relevos,condiciones:propuesta.condiciones}});if(error)throw error;if(data?.ok!==true||data.registros!==propuesta.registros.length)throw new Error('No se pudo verificar el guardado completo.');const semana=propuesta.semana;invalidar();permitirCerrar=true;modal.hide();permitirCerrar=false;await alAplicar(semana);window.alert(`Semana aplicada: ${data.registros} jornadas y ${data.relevos} relevos.`);}catch(e){invalidar();const detalle=e.message||String(e);if(e.code==='40001'){await cargar({mantenerCondiciones:true});mensaje(`${detalle} El historial se recargó; revisa las condiciones y genera de nuevo.`);}else mensaje(detalle);}finally{bloquear(false);}
  });
- $('modalGeneradorOps').addEventListener('hide.bs.modal',ev=>{if(ocupado)ev.preventDefault();});
+ $('modalGeneradorOps').addEventListener('hide.bs.modal',ev=>{if(ocupado&&!permitirCerrar)ev.preventDefault();});
 }
