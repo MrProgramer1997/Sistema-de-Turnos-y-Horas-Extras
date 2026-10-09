@@ -1,8 +1,9 @@
 import { supabase } from '../supabase/supabaseClient.js';
 import { exigirModulo, filtrarEnlaces } from './permisos-modulos.js?v=735';
 
-import { identificaVestier, descansoVestier, revisarCobertura, personaPublicaOps } from './operaciones-reglas.js?v=745';
+import { identificaVestier, descansoVestier, revisarCobertura, personaPublicaOps } from './operaciones-reglas.js?v=759';
 import { crearPdfCalendarioOps } from './operaciones-pdf-calendario.js?v=745';
+import { iniciarGeneradorOps } from './operaciones-generador-ui.js?v=759';
 
 const VERSION = '745';
 const STORAGE_COPIA = 'ccp_turno_copiado_operaciones_v738';
@@ -10,7 +11,7 @@ const MAX_DIAS = 14;
 const META_HORAS = 42;
 const NOVEDADES_LABEL = {
   VAC:'Vacaciones',INC:'Incapacidad',F:'Día de la familia',LR:'Licencia no remunerada',NC:'No compensatorio',
-  SP:'Suspensión',CITA:'Cita',COMP:'Compensatorio',PASA:'Pasa a otro puesto',NNJ:'Novedad no justificada'
+  SP:'Suspensión',CITA:'Cita',COMP:'Compensatorio',PASA:'Pasa a otro puesto',NNJ:'Novedad no justificada',CUMPLE:'Cumpleaños',VOT:'Votaciones',DP:'Descanso pendiente',DF:'Descanso festivo'
 };
 
 let sesion = null;
@@ -67,6 +68,7 @@ async function iniciar(){
   periodo = periodoActualOperaciones();
   sincronizarPeriodo();
   configurarEventos();
+  iniciarGeneradorOps({supabase,fechaSugerida:()=>sumarDias(semanaDe(periodo.inicio),7),alAplicar:async semana=>{periodo={inicio:semana,fin:sumarDias(semana,6)};sincronizarPeriodo();await cargarDatos();}});
   $('textoUsuarioOperaciones').textContent = sesion.nombre_completo || sesion.correo || '';
   await cargarDatos();
 }
@@ -90,7 +92,8 @@ async function leerProgramacionOps(args){
  return r;
 }
 async function leerOrganizacionOps(args){
- let r=await supabase.rpc('consultar_organizacion_operaciones_v757',args);
+ let r=await supabase.rpc('consultar_organizacion_operaciones_v759',args);
+ if(faltaFuncionOps(r.error))r=await supabase.rpc('consultar_organizacion_operaciones_v757',args);
  if(faltaFuncionOps(r.error))r=await supabase.rpc('consultar_organizacion_operaciones_v745',args);
  if(faltaFuncionOps(r.error))r=await supabase.rpc('consultar_organizacion_operaciones_v741',args);
  return r;
@@ -290,7 +293,7 @@ function registroDe(empleadoId,fecha){return estado.programacion.find(r=>r.emple
 function registrosEmpleado(id){return estado.programacion.filter(r=>r.empleado_id===id&&dias.includes(r.fecha));}
 
 function renderTodo(){
-  coberturaOps=organizacionLista?revisarCobertura({puestos:organizacion.puestos,asignaciones:organizacion.asignaciones,personal:estado.personal,programacion:estado.programacion,fechas:dias}):[];
+  coberturaOps=organizacionLista?revisarCobertura({puestos:organizacion.puestos,asignaciones:organizacion.asignaciones,personal:estado.personal,programacion:estado.programacion,fechas:dias,relevos:organizacion.relevos||[],reglas_semanas:organizacion.reglas_semanas||[]}):[];
   coberturaPorCeldaOps=new Map(coberturaOps.map(a=>[`${a.puesto_id}|${a.fecha}`,a]));
   renderMatriz();renderKPIs();renderResumen();renderDetalleEmpleado();renderBannerCopia();renderAlertasCoberturaOps();avisoInstalacionOps();
 }
@@ -398,20 +401,23 @@ function renderMatriz(){
       const e=personaEnFila(f,d);
       if(e)return celda(e,d,f.puesto);
       const msg=f.puesto?'Asigna un colaborador':'Ubicado en su turno fijo';
-      return `<td class="${esFestivo(d)||esDomingo(d)?'ops-festivo-cell':''}"><div class="ops-slot-empty" title="${msg}">${marcaCoberturaOps(f.puesto,d)||'&mdash;'}</div></td>`;
+      return `<td class="${esFestivo(d)||esDomingo(d)?'ops-festivo-cell':''}"><div class="ops-slot-empty" title="${msg}">${relevoCeldaOps(f.puesto,d)||marcaCoberturaOps(f.puesto,d)||'&mdash;'}</div></td>`;
     }).join('')}</tr>`;
   }).join('')||`<tr><td colspan="${dias.length+2}" class="text-center text-muted py-4">No hay filas para los filtros seleccionados.</td></tr>`;
 }
 
 function celda(e,fecha,puesto=null){
   const r=registroDe(e.empleado_id,fecha),especial=esFestivo(fecha)||esDomingo(fecha);
-  if(!r){return `<td class="${especial?'ops-festivo-cell':''}"><div class="ops-cell ops-cell-empty" onclick="window.opsNuevaCelda('${e.empleado_id}','${fecha}')"><span>+ Programar</span>${marcaCoberturaOps(puesto,fecha)}${copia?`<button class="ops-paste-btn" type="button" onclick="event.stopPropagation();window.opsPegarCelda('${e.empleado_id}','${fecha}')">Pegar</button>`:''}</div></td>`;}
+  if(!r){return `<td class="${especial?'ops-festivo-cell':''}"><div class="ops-cell ops-cell-empty" onclick="window.opsNuevaCelda('${e.empleado_id}','${fecha}')"><span>+ Programar</span>${relevoCeldaOps(puesto,fecha)}${marcaCoberturaOps(puesto,fecha)}${copia?`<button class="ops-paste-btn" type="button" onclick="event.stopPropagation();window.opsPegarCelda('${e.empleado_id}','${fecha}')">Pegar</button>`:''}</div></td>`;}
   const clase=r.tipo_registro==='turno'?'ops-cell-turno':r.tipo_registro==='novedad'?'ops-cell-novedad':r.tipo_registro==='compensatorio'?'ops-cell-compensatorio':'ops-cell-descanso';
   const titulo=r.tipo_registro==='turno'?(r.turno_codigo||r.horario_nombre||'Personalizado'):r.tipo_registro==='novedad'?(r.novedad_codigo||'Novedad'):cap(r.tipo_registro);
   const horario=r.tipo_registro==='turno'?`${hh(r.hora_inicio)}–${hh(r.hora_fin)}${r.cruza_medianoche?' +1':''}`:'';
   const n=netoRegistro(r);
-  return `<td class="${especial?'ops-festivo-cell':''}"><div class="ops-cell ${clase}" onclick="window.opsEditarCelda('${r.id}')"><div class="ops-cell-code">${esc(titulo)}</div>${horario?`<div class="ops-cell-time">${esc(horario)} · ${fmtHoras(n.netoMin)}</div>`:''}${r.novedad_descripcion?`<div class="ops-cell-note">${esc(r.novedad_descripcion)}</div>`:''}${r.observacion?`<div class="ops-cell-note ops-cell-observation">${esc(r.observacion)}</div>`:''}${marcaCoberturaOps(puesto,fecha)}<div class="ops-cell-actions"><button type="button" onclick="event.stopPropagation();window.opsCopiarCelda('${r.id}')">C</button>${copia?`<button class="ops-paste-btn" type="button" onclick="event.stopPropagation();window.opsPegarCelda('${e.empleado_id}','${fecha}')">P</button>`:''}</div></div></td>`;
+  return `<td class="${especial?'ops-festivo-cell':''}"><div class="ops-cell ${clase}" onclick="window.opsEditarCelda('${r.id}')"><div class="ops-cell-code">${esc(titulo)}</div>${horario?`<div class="ops-cell-time">${esc(horario)} · ${fmtHoras(n.netoMin)}</div>`:''}${r.novedad_descripcion?`<div class="ops-cell-note">${esc(r.novedad_descripcion)}</div>`:''}${r.observacion?`<div class="ops-cell-note ops-cell-observation">${esc(r.observacion)}</div>`:''}${relevoCeldaOps(puesto,fecha)}${marcaCoberturaOps(puesto,fecha)}<div class="ops-cell-actions"><button type="button" onclick="event.stopPropagation();window.opsCopiarCelda('${r.id}')">C</button>${copia?`<button class="ops-paste-btn" type="button" onclick="event.stopPropagation();window.opsPegarCelda('${e.empleado_id}','${fecha}')">P</button>`:''}</div></div></td>`;
 }
+
+function relevoDeOps(puesto,fecha){return puesto?(organizacion.relevos||[]).find(r=>r.puesto_id===puesto.id&&r.fecha===fecha):null;}
+function relevoCeldaOps(puesto,fecha){const a=relevoDeOps(puesto,fecha),p=a&&empleadoPorId(a.empleado_id),r=a&&registroDe(a.empleado_id,fecha);if(!p||!r||r.tipo_registro!=='turno')return '';return `<div class="ops-relevo" role="button" tabindex="0" onclick="event.stopPropagation();window.opsEditarCelda('${esc(r.id)}')" onkeydown="if(event.key==='Enter'){event.stopPropagation();window.opsEditarCelda('${esc(r.id)}')}">Relevo: ${esc(nombreVisible(p))}<br>${hh(r.hora_inicio)}–${hh(r.hora_fin)}</div>`;}
 
 function renderKPIs(){
   let net=0,pro=0;
@@ -425,14 +431,15 @@ function renderKPIs(){
 function renderResumen(){
   const rows=estado.personal.map(e=>({e,...resumenEmpleado(e.empleado_id)}));
   $('tbodyResumenOps').innerHTML=rows.map(x=>{
-    const diff=x.netoMin-META_HORAS*60,cl=diff>0?'ops-diff-over':diff===0?'ops-diff-ok':'ops-diff-under';
-    return `<tr><td><strong>${esc(nombreEmpleado(x.e))}</strong>${chipExterno(x.e)}<div class="small text-muted">${esc(x.e.cargo||'')}</div></td><td>${esc(x.e.proceso_nombre||'')}</td><td>${x.diasProg}</td><td>${x.e.es_externo?'—':fmtHoras(x.ordinariasMin)}</td><td>${x.e.es_externo?'—':fmtHoras(x.prolongacionMin)}</td><td><strong>${fmtHoras(x.netoMin)}</strong></td><td class="${x.e.es_externo?'text-muted':cl}">${x.e.es_externo?'Por servicio':diff===0?'En meta':`${diff>0?'+':'−'}${fmtHoras(Math.abs(diff))}`}</td></tr>`;
+    const diff=x.netoMin+x.reconocidosMin-META_HORAS*60,cl=diff>0?'ops-diff-over':diff===0?'ops-diff-ok':'ops-diff-under';
+    return `<tr><td><strong>${esc(nombreEmpleado(x.e))}</strong>${chipExterno(x.e)}<div class="small text-muted">${esc(x.e.cargo||'')}</div></td><td>${esc(x.e.proceso_nombre||'')}</td><td>${x.diasProg}</td><td>${x.e.es_externo?'—':fmtHoras(x.ordinariasMin)}</td><td>${x.e.es_externo?'—':fmtHoras(x.prolongacionMin)}</td><td><strong>${fmtHoras(x.netoMin)}</strong>${x.reconocidosMin?`<div class="small text-muted">+ ${fmtHoras(x.reconocidosMin)} reconocidas</div>`:''}</td><td class="${x.e.es_externo?'text-muted':cl}">${x.e.es_externo?'Por servicio':diff===0?'En meta':`${diff>0?'+':'−'}${fmtHoras(Math.abs(diff))}`}</td></tr>`;
   }).join('');
 }
 function resumenEmpleado(id){
   let netoMin=0,prolongacionMin=0,diasProg=0;
   registrosEmpleado(id).forEach(r=>{if(r.tipo_registro==='turno'){const x=netoRegistro(r);netoMin+=x.netoMin;prolongacionMin+=x.prolongacionMin;diasProg++;}});
-  return {netoMin,prolongacionMin,ordinariasMin:Math.max(0,netoMin-prolongacionMin),diasProg};
+  const reconocidosMin=(organizacion.reconocimientos||[]).filter(r=>r.empleado_id===id&&dias.includes(r.fecha)).reduce((n,r)=>n+Number(r.minutos||0),0);
+  return {netoMin,prolongacionMin,ordinariasMin:Math.max(0,netoMin-prolongacionMin),diasProg,reconocidosMin};
 }
 function netoRegistro(r){
   if(r.tipo_registro!=='turno'||!r.hora_inicio||!r.hora_fin)return {netoMin:0,prolongacionMin:0};
@@ -656,8 +663,10 @@ function seccionesPdfOps(completa){
    return {numero:f.puesto?`#${String(f.puesto.orden).padStart(2,'0')}`:`Adicional ${++adicional}`,puesto:f.puesto?.nombre||'SIN PUESTO ASIGNADO',persona:personaPublicaOps(e),sinPuesto:!f.puesto,
     registros:ds.map(d=>{
      const empleado=personaEnFila(f,d),r=empleado?registroDe(empleado.empleado_id,d):null;
-     if(!r)return null;
-     return {tipo_registro:r.tipo_registro,turno_codigo:r.turno_codigo,horario_nombre:r.horario_nombre,hora_inicio:r.hora_inicio,hora_fin:r.hora_fin,minutos_descanso:r.minutos_descanso,cruza_medianoche:r.cruza_medianoche,novedad_codigo:r.novedad_codigo,novedad_descripcion:r.novedad_descripcion,observacion:r.observacion};
+     const relevo=relevoDeOps(f.puesto,d),rp=relevo&&empleadoPorId(relevo.empleado_id),rr=relevo&&registroDe(relevo.empleado_id,d);
+     if(!r&&!rr)return null;
+     const principal=r||rr,nota=rp&&rr?`Relevo: ${nombreVisible(rp)} ${hh(rr.hora_inicio)}–${hh(rr.hora_fin)}`:'';
+     return {tipo_registro:principal.tipo_registro,turno_codigo:principal.turno_codigo,horario_nombre:principal.horario_nombre,hora_inicio:principal.hora_inicio,hora_fin:principal.hora_fin,minutos_descanso:principal.minutos_descanso,cruza_medianoche:principal.cruza_medianoche,novedad_codigo:principal.novedad_codigo,novedad_descripcion:principal.novedad_descripcion,observacion:[principal.observacion,nota].filter(Boolean).join(' · ')};
     }),alertas:ds.map(d=>f.puesto?coberturaPorCeldaOps.get(`${f.puesto.id}|${d}`):null)};
   });
   return {fechas:ds,filas:salida,puestos:filas.filter(f=>f.puesto).length,sinPuesto:filas.filter(f=>!f.puesto).length,festivos:estado.festivos,alertas:new Set(coberturaOps.filter(a=>ds.includes(a.fecha)).map(a=>a.puesto_id)).size};

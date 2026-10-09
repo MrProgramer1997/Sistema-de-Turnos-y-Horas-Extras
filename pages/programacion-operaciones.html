@@ -7,7 +7,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../css/estilos.css">
   <link rel="stylesheet" href="../css/layout.css">
-  <link rel="stylesheet" href="../css/programacion-operaciones.css?v=754-compacta1">
+  <link rel="stylesheet" href="../css/programacion-operaciones.css?v=759">
 </head>
 <body class="ops742 ops744 ops-compact">
   <div id="sidebar-container"></div>
@@ -36,6 +36,7 @@
           <button class="btn btn-outline-success" id="btnGestionPersonalOps" type="button">Agregar / quitar personal</button>
           <button class="btn btn-outline-success" id="btnAgregarExternoOps" type="button">Añadir personal externo</button>
           <button class="btn btn-outline-dark" id="btnCopiarPeriodoOps" type="button">Copiar periodo anterior</button>
+          <button class="btn btn-outline-primary" id="btnGenerarSemanaOps" type="button">Generar semana</button>
           <button class="btn btn-outline-secondary" id="btnGestionPuestosOps" type="button">Turnos fijos</button>
           <button class="btn btn-outline-secondary" id="btnTurnosBaseOps" type="button">Turnos base</button>
           <button class="btn btn-outline-secondary" id="btnPantallaCompletaOps" type="button">Visual semanal</button>
@@ -278,6 +279,10 @@
                   <option value="VAC">VAC · Vacaciones</option>
                   <option value="INC">INC · Incapacidad</option>
                   <option value="F">F · Día de la familia</option>
+                  <option value="CUMPLE">CUMPLE · Cumpleaños</option>
+                  <option value="VOT">VOT · Votaciones</option>
+                  <option value="DP">DP · Descanso pendiente</option>
+                  <option value="DF">DF · Descanso festivo</option>
                   <option value="LR">LR · Licencia no remunerada</option>
                   <option value="NC">NC · No compensatorio</option>
                   <option value="SP">SP · Suspensión</option>
@@ -437,11 +442,36 @@
     </div>
   </div>
 
-  <div class="text-end small text-muted px-4 pb-3">Programación Operaciones · versión 7.58</div>
+  <div class="modal fade" id="modalGeneradorOps" tabindex="-1" aria-labelledby="autoTituloOps" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="autoTituloOps">Propuesta automática de la semana</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body auto-body">
+          <div class="row g-2 align-items-end mb-2"><div class="col-7 col-md-4"><label class="form-label" for="autoSemanaOps">Lunes de la semana</label><input class="form-control form-control-sm" type="date" id="autoSemanaOps"></div><div class="col-5 col-md-3"><button class="btn btn-sm btn-outline-primary w-100" id="autoCargarOps" type="button">Cargar historial</button></div></div>
+          <p class="small text-muted" id="autoContextoOps">Cargando historial…</p><div class="alert small" id="autoMensajeOps" role="status" hidden></div>
+          <details id="autoReglasPanelOps" class="auto-settings mb-3"><summary>Reglas de generación · grupos, rotación y horarios</summary>
+            <p class="small mt-2">Los grupos iniciales se sugieren por los puestos de las semanas recientes. Revisa y confirma el sexo de cobertura; no se toma de los nombres. Quita de la propuesta a quien haya salido y selecciona los apoyos de mañana y tarde. Esta configuración se comparte con Gerardo.</p>
+            <div class="table-responsive"><table class="table table-sm auto-settings-table"><thead><tr><th>Colaborador</th><th>Grupo</th><th>Sexo de cobertura</th><th>Puesto inicial / alternancia</th><th>Horario si es apoyo</th></tr></thead><tbody id="autoPersonasOps"></tbody></table></div>
+            <details class="mb-2"><summary>Secuencias de nueve posiciones</summary><div class="row g-3 mt-1" id="autoCiclosOps"></div></details>
+            <details class="mb-2"><summary>Horarios y cobertura de cada puesto</summary><p class="small mt-2">La referencia histórica usa el horario real del puesto: lunes ordinario, días normales y domingo/festivo por separado. También puedes elegir un turno creado. Revisa especialmente los horarios nuevos, Baños, Hoyo 19 y los dos puestos PM de Vestier Hombres.</p><div class="table-responsive"><table class="table table-sm auto-settings-table"><thead><tr><th>Puesto</th><th>Regla / cobertura</th><th>Sexo requerido</th><th>Día normal</th><th>Aseo general</th><th>Domingo / festivo</th><th>Referencia histórica</th></tr></thead><tbody id="autoPuestosOps"></tbody></table></div></details>
+            <label class="form-label small" for="autoAseoFestivoOps">Aseo general cuando el lunes es festivo</label><select class="form-select form-select-sm mb-2" id="autoAseoFestivoOps"><option value="revisar">Revisar antes de aplicar una semana con lunes festivo</option><option value="mantener">Mantener los horarios confirmados de cada día</option><option value="martes">Usar el horario de aseo general el martes</option></select>
+            <details class="mb-2"><summary>Horas reconocidas de las novedades</summary><p class="small mt-2">Referencia inicial: 7 horas. Ajusta estos minutos para coincidir con las fórmulas de tu archivo. Se contabilizan aparte de las horas trabajadas.</p><div class="row g-2" id="autoReconocidosOps"></div></details>
+            <label class="form-check small my-2"><input class="form-check-input" type="checkbox" id="autoConfirmarReglasOps"><span class="form-check-label">Revisé y confirmo los grupos, el sexo de cobertura, los apoyos y los horarios.</span></label>
+            <button class="btn btn-sm btn-primary" type="button" id="autoGuardarReglasOps">Guardar reglas compartidas</button>
+          </details>
+          <details class="auto-settings mb-3" open><summary>Descansos solicitados y novedades de esta semana</summary><div class="row g-2 mt-1"><div class="col-12 col-md-4"><label class="form-label small" for="autoPersonaCondicionOps">Colaborador</label><select class="form-select form-select-sm" id="autoPersonaCondicionOps"></select></div><div class="col-12 col-md-3"><label class="form-label small" for="autoCodigoCondicionOps">Condición</label><select class="form-select form-select-sm" id="autoCodigoCondicionOps"></select></div><div class="col-6 col-md-2"><label class="form-label small" for="autoDesdeCondicionOps">Desde</label><input class="form-control form-control-sm" type="date" id="autoDesdeCondicionOps"></div><div class="col-6 col-md-2"><label class="form-label small" for="autoHastaCondicionOps">Hasta</label><input class="form-control form-control-sm" type="date" id="autoHastaCondicionOps"></div><div class="col-12 col-md-1 d-flex align-items-end"><button type="button" class="btn btn-sm btn-outline-primary" id="autoAgregarCondicionOps">Añadir</button></div></div><div class="table-responsive mt-2"><table class="table table-sm"><tbody id="autoCondicionesOps"></tbody></table></div></details>
+          <div id="autoErroresOps" aria-live="polite"></div><div id="autoVistaOps"></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button><button type="button" class="btn btn-sm btn-primary" id="autoGenerarOps">Generar propuesta</button><button type="button" class="btn btn-sm btn-success" id="autoAplicarOps" disabled>Aplicar semana revisada</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="text-end small text-muted px-4 pb-3">Programación Operaciones · versión 7.59</div>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script src="../js/layout.js?v=750"></script>
-  <script type="module" src="../js/programacion-operaciones.js?v=758"></script>
+  <script type="module" src="../js/programacion-operaciones.js?v=759"></script>
 </body>
 </html>

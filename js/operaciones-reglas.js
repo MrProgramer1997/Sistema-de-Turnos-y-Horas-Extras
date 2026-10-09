@@ -29,13 +29,17 @@ export function horasTextoOps(minutos,ceroMinutos=false){
   const n=Math.max(0,Math.round(Number(minutos)||0)),h=Math.floor(n/60),m=n%60;
   return m||ceroMinutos?`${h} h ${String(m).padStart(2,'0')} min`:`${h} h`;
 }
-export function revisarCobertura({puestos=[],asignaciones=[],personal=[],programacion=[],fechas=[]}={}){
+export function revisarCobertura({puestos=[],asignaciones=[],personal=[],programacion=[],fechas=[],relevos=[],reglas_semanas=[]}={}){
   const personas=new Map(personal.map(p=>[p.empleado_id,p]));
   const puestosSemana=new Map(asignaciones.map(a=>[`${a.puesto_id}|${a.semana}`,a.empleado_id]));
   const registros=new Map();
   for(const r of programacion){if(r.estado==='cancelado')continue;const k=`${r.empleado_id}|${r.fecha}`;if(!registros.has(k))registros.set(k,[]);registros.get(k).push(r);}
   const avisos=[];
   for(const puesto of puestos){for(const fecha of fechas){
+    const reglas=reglas_semanas.find(s=>s.semana===lunesOps(fecha)),regla=reglas?.puestos?.find(p=>p.id===puesto.id);
+    if(regla&&(regla.tipo==='flexible'||regla.obligatorio===false||(['porteria','parqueadero'].includes(regla.tipo)&&reglas.descanso_porteria===fecha)))continue;
+    const relevo=relevos.find(r=>r.puesto_id===puesto.id&&r.fecha===fecha);
+    if(relevo&&(registros.get(`${relevo.empleado_id}|${fecha}`)||[]).some(r=>r.tipo_registro==='turno'&&minutosNetosOps(r)>0))continue;
     const id=puestosSemana.get(`${puesto.id}|${lunesOps(fecha)}`),persona=personas.get(id);
     const rs=id?registros.get(`${id}|${fecha}`)||[]:[];
     if(persona && rs.some(r=>r.tipo_registro==='turno'&&r.hora_inicio&&r.hora_fin&&r.hora_inicio!==r.hora_fin&&minutosNetosOps(r)>0))continue;
