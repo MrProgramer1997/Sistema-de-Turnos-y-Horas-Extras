@@ -64,16 +64,22 @@ export function normalizarTurnoCopiadoAyb(turnoCopiado, fechaDestinoISO, esFesti
   const normalizado = { ...turnoCopiado };
   const regla = obtenerReglaJornadaAyb(fechaDestinoISO, esFestivo);
   const codigoTurno = String(normalizado.turno || "");
-  const horarioEstandar = regla.catalogo[codigoTurno];
+  const horarioCorto = TURNOS_DIA_HABIL[codigoTurno];
+  const horarioLargo = TURNOS_FIN_SEMANA_FESTIVO[codigoTurno];
+  const horarioDestino = regla.catalogo[codigoTurno];
+  const esCodigoEstandar = Boolean(horarioCorto && horarioLargo);
   const tieneSegundoBloque = Boolean(normalizado.hora_inicio_2 && normalizado.hora_fin_2);
 
-  if (!tieneSegundoBloque && horarioEstandar) {
-    normalizado.hora_inicio = horarioEstandar.inicio;
-    normalizado.hora_fin = horarioEstandar.fin;
+  if (!esCodigoEstandar) return normalizado;
+
+  if (!tieneSegundoBloque) {
+    const coincideHorarioEstandar = normalizado.hora_inicio === horarioCorto.inicio
+      && [horarioCorto.fin, horarioLargo.fin].includes(normalizado.hora_fin);
+    if (!coincideHorarioEstandar) return normalizado;
+    normalizado.hora_inicio = horarioDestino.inicio;
+    normalizado.hora_fin = horarioDestino.fin;
     return normalizado;
   }
-
-  if (!tieneSegundoBloque) return normalizado;
 
   const totalActual = calcularDuracionBrutaMinutosAyb(normalizado.hora_inicio, normalizado.hora_fin)
     + calcularDuracionBrutaMinutosAyb(normalizado.hora_inicio_2, normalizado.hora_fin_2);
