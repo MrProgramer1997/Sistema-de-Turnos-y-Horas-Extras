@@ -504,36 +504,36 @@
                   <div class="section-title">🏢 Estructura organizacional ZKTeco</div>
                   <div class="row g-3">
                     <div class="col-md-4">
-                      <label class="form-label required">Nombre del departamento</label>
+                      <label class="form-label required">Departamento ZKTeco</label>
                       <select class="form-select" id="departamento" required></select>
+                      <div class="field-tip">Selecciona el departamento oficial. El código se asigna automáticamente.</div>
                     </div>
                     <div class="col-md-2">
                       <label class="form-label required">Código departamento</label>
-                      <input type="text" class="form-control text-uppercase" id="codigo_departamento" maxlength="20" required />
-                      <div class="field-tip">Se completa automáticamente cuando el código está documentado; si queda vacío, usa el código exacto de ZKTeco.</div>
+                      <input type="text" class="form-control text-uppercase" id="codigo_departamento" maxlength="20" required readonly />
+                      <div class="field-tip">Automático según el catálogo oficial.</div>
                     </div>
                     <div class="col-md-4">
-                      <label class="form-label required">Nombre centro de costos</label>
+                      <label class="form-label required">Centro de costos</label>
                       <select class="form-select" id="centro_costos" required></select>
+                      <div class="field-tip">Se muestran código y nombre. En Deportes existen varios centros con el mismo nombre.</div>
                     </div>
                     <div class="col-md-2">
-                      <label class="form-label">Código centro costos</label>
-                      <input type="text" class="form-control text-uppercase" id="codigo_centro_costos" maxlength="20" />
-                      <div class="field-tip">Opcional si ZKTeco no utiliza un código separado para este centro.</div>
+                      <label class="form-label required">Código centro costos</label>
+                      <input type="text" class="form-control text-uppercase" id="codigo_centro_costos" maxlength="20" required readonly />
+                      <div class="field-tip">Automático según el centro seleccionado.</div>
                     </div>
                     <div class="col-md-8">
                       <label class="form-label required">Cargo</label>
-                      <select class="form-select" id="cargo" required></select>
+                      <input type="text" class="form-control text-uppercase" id="cargo" list="cargosDisponibles" autocomplete="off" required />
+                      <datalist id="cargosDisponibles"></datalist>
+                      <div class="field-tip">Escribe para buscar un cargo existente. Si no aparece, escribe el nuevo cargo completo.</div>
+                      <input type="hidden" id="nombre_cargo" />
                     </div>
                     <div class="col-md-4">
-                      <label class="form-label">Nombre del cargo</label>
-                      <input type="text" class="form-control text-uppercase" id="nombre_cargo" readonly />
-                      <div class="field-tip">Se completa con el cargo seleccionado, como en la plantilla ZKTeco.</div>
-                    </div>
-                    <div class="col-md-6">
                       <label class="form-label">Área principal del sistema</label>
                       <select class="form-select" id="area"></select>
-                      <div class="field-tip">Clasificación interna del Club; no reemplaza el código de área biométrica.</div>
+                      <div class="field-tip">Se completa según el departamento y conserva la clasificación interna usada por los demás módulos.</div>
                     </div>
                     <div class="col-md-3">
                       <label class="form-label required">Estado laboral</label>
@@ -566,12 +566,19 @@
                       <input type="text" class="form-control" id="codigo_compania" value="1" readonly />
                     </div>
                     <div class="col-md-2">
-                      <label class="form-label">Código de área</label>
-                      <input type="text" class="form-control" id="codigo_area" value="3,4,5,6,7" readonly />
+                      <label class="form-label">Biométricos</label>
+                      <div class="form-control d-flex align-items-center"><strong>Todos</strong></div>
+                      <input type="hidden" id="codigo_area" value="3,4,5,6,7" />
                     </div>
                     <div class="col-12">
                       <div class="alert-info-soft mb-0">
-                        <strong>Habilitación biométrica:</strong> el colaborador se solicita para Portería, Piscina, Hoyo 19, Tenis y Bodega/Administración. La huella y el rostro se enrolan posteriormente.
+                        <strong>Puede marcar en:</strong>
+                        <span class="badge text-bg-light border ms-1">Portería</span>
+                        <span class="badge text-bg-light border ms-1">Piscina</span>
+                        <span class="badge text-bg-light border ms-1">Hoyo 19</span>
+                        <span class="badge text-bg-light border ms-1">Tenis</span>
+                        <span class="badge text-bg-light border ms-1">Bodega</span>
+                        <div class="mt-2">La huella y el rostro se enrolan posteriormente de forma presencial.</div>
                       </div>
                     </div>
                   </div>
@@ -587,6 +594,16 @@
                     <div class="col-md-6">
                       <label class="form-label">Correo electrónico</label>
                       <input type="email" class="form-control" id="correo" />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-section mb-3">
+                  <div class="section-title">📱 App del empleado</div>
+                  <div class="alert-info-soft mb-0">
+                    Después de guardar al colaborador puedes enviarle por WhatsApp el enlace de <strong>Mis Turnos</strong> para abrirla desde el celular, instalarla como app y activar sus notificaciones.
+                    <div class="mt-3">
+                      <button type="button" class="btn btn-success btn-sm" id="btnEnviarApp" hidden>Enviar enlace por WhatsApp</button>
                     </div>
                   </div>
                 </div>
@@ -721,28 +738,49 @@
       "Otros"
     ];
 
-    // Códigos documentados en la plantilla operativa suministrada por el Club.
-    // Para departamentos no incluidos en esa plantilla el código debe ser confirmado por Nómina/ZKTeco.
-    const CODIGOS_DEPARTAMENTO_ZKTECO = {
-      "DIRECCION ADMINISTRATIVA": "02",
-      "DIRECCION DEPORTES": "03",
-      "DIRECCION ALIMENTOS Y BEBIDAS": "05",
-      "COORDINACION MANTENIMIENTO": "07",
-      "SERVICIOS GENERALES": "09"
-    };
-
-    const CENTROS_BASE = [
-      "COMERCIAL Y MERCADEO",
-      "COORDINACION CAMPO",
-      "COORDINACION MANTENIMIENTO",
-      "DIRECCION ADMINISTRATIVA",
-      "DIRECCION ALIMENTOS Y BEBIDAS",
-      "DIRECCION DEPORTES",
-      "EVENTOS Y SERVICIOS",
-      "INFRAESTRUCTURA",
-      "JUBILADOS",
-      "SERVICIOS GENERALES"
+    // Catálogo oficial suministrado por Bienestar/Nómina el 06-oct-2026.
+    // Los códigos cortos corresponden a departamentos ZKTeco y los códigos largos a centros de costos.
+    const ESTRUCTURA_ZKTECO = [
+      { codigo: "01", departamento: "COMERCIAL Y MERCADEO", area: "Comercial y Mercadeo", centros: [
+        { codigo: "01001", nombre: "COMERCIAL Y MERCADEO" }
+      ]},
+      { codigo: "02", departamento: "DIRECCION ADMINISTRATIVA", area: "Dirección Administrativa", centros: [
+        { codigo: "02001", nombre: "DIRECCION ADMINISTRATIVA" }
+      ]},
+      { codigo: "03", departamento: "DIRECCION DEPORTES", area: "Deportes", centros: [
+        { codigo: "03002", nombre: "DIRECCION DEPORTES" },
+        { codigo: "03003", nombre: "DIRECCION DEPORTES" },
+        { codigo: "03004", nombre: "DIRECCION DEPORTES" },
+        { codigo: "03005", nombre: "DIRECCION DEPORTES" },
+        { codigo: "03009", nombre: "DIRECCION DEPORTES" },
+        { codigo: "03010", nombre: "DIRECCION DEPORTES" }
+      ]},
+      { codigo: "04", departamento: "EVENTOS Y SERVICIOS", area: "Eventos y Servicios", centros: [
+        { codigo: "04001", nombre: "EVENTOS Y SERVICIOS" }
+      ]},
+      { codigo: "05", departamento: "DIRECCION ALIMENTOS Y BEBIDAS", area: "Alimentos y Bebidas", centros: [
+        { codigo: "05001", nombre: "DIRECCION ALIMENTOS Y BEBIDAS" }
+      ]},
+      { codigo: "06", departamento: "COORDINACION CAMPO", area: "Campo", centros: [
+        { codigo: "06001", nombre: "COORDINACION CAMPO" }
+      ]},
+      { codigo: "07", departamento: "COORDINACION MANTENIMIENTO", area: "Mantenimiento", centros: [
+        { codigo: "07001", nombre: "COORDINACION MANTENIMIENTO" }
+      ]},
+      { codigo: "08", departamento: "INFRAESTRUCTURA", area: "Infraestructura", centros: [
+        { codigo: "08001", nombre: "INFRAESTRUCTURA" }
+      ]},
+      { codigo: "09", departamento: "SERVICIOS GENERALES", area: "Servicios Generales", centros: [
+        { codigo: "09001", nombre: "SERVICIOS GENERALES" }
+      ]},
+      { codigo: "019", departamento: "JUBILADOS", area: "Jubilados", centros: [
+        { codigo: "019001", nombre: "JUBILADOS" }
+      ]}
     ];
+
+    const CODIGOS_DEPARTAMENTO_ZKTECO = Object.fromEntries(
+      ESTRUCTURA_ZKTECO.map(item => [item.departamento, item.codigo])
+    );
 
     let usuarioActual = null;
     let empleadosMemoria = [];
@@ -859,45 +897,81 @@
     }
 
     function cargarCatalogosLaborales() {
-      const centros = valoresUnicosMayuscula([
-        ...CENTROS_BASE,
-        ...empleadosMemoria.map(e => e.centro_costos)
-      ]).filter(v => v !== "DEPARTAMENTO" && v !== "ALIMENTOS Y BEBIDAS");
-
+      const departamentoActual = texto(document.getElementById("departamento").value).toUpperCase();
+      const centroActual = texto(document.getElementById("centro_costos").value);
       const cargos = valoresUnicosMayuscula(empleadosMemoria.map(e => e.cargo));
-      const departamentos = valoresUnicosMayuscula([
-        ...centros,
-        ...Object.keys(CODIGOS_DEPARTAMENTO_ZKTECO)
-      ]);
 
-      const selectCentro = document.getElementById("centro_costos");
       const selectDepartamento = document.getElementById("departamento");
-      const selectCargo = document.getElementById("cargo");
+      const datalistCargos = document.getElementById("cargosDisponibles");
 
-      selectCentro.innerHTML = `<option value="">SELECCIONA CENTRO DE COSTOS</option>` +
-        centros.map(v => `<option value="${v}">${v}</option>`).join("");
       selectDepartamento.innerHTML = `<option value="">SELECCIONA DEPARTAMENTO</option>` +
-        departamentos.map(v => `<option value="${v}">${v}</option>`).join("");
-      selectCargo.innerHTML = `<option value="">SELECCIONA CARGO</option>` +
-        cargos.map(v => `<option value="${v}">${v}</option>`).join("");
+        ESTRUCTURA_ZKTECO.map(item =>
+          `<option value="${item.departamento}">${item.codigo} · ${item.departamento}</option>`
+        ).join("");
+
+      if (departamentoActual && ESTRUCTURA_ZKTECO.some(item => item.departamento === departamentoActual)) {
+        selectDepartamento.value = departamentoActual;
+      }
+
+      datalistCargos.innerHTML = cargos.map(v => `<option value="${v}"></option>`).join("");
+      cargarCentrosDepartamento(selectDepartamento.value, centroActual);
+      actualizarDepartamento(false);
     }
 
-    function actualizarDepartamento() {
-      const departamento = texto(document.getElementById("departamento").value).toUpperCase();
-      const codigo = CODIGOS_DEPARTAMENTO_ZKTECO[departamento] || "";
-      const inputCodigo = document.getElementById("codigo_departamento");
-      inputCodigo.value = codigo;
-      inputCodigo.readOnly = Boolean(codigo);
-      inputCodigo.placeholder = codigo ? "" : "INGRESA CÓDIGO ZKTECO";
+    function obtenerEstructuraDepartamento(departamento) {
+      const clave = texto(departamento).toUpperCase();
+      return ESTRUCTURA_ZKTECO.find(item => item.departamento === clave) || null;
+    }
 
-      const centro = document.getElementById("centro_costos");
-      if (!centro.value && [...centro.options].some(o => o.value === departamento)) {
-        centro.value = departamento;
+    function cargarCentrosDepartamento(departamento, centroPreferido = "") {
+      const selectCentro = document.getElementById("centro_costos");
+      const estructura = obtenerEstructuraDepartamento(departamento);
+      const centros = estructura?.centros || [];
+      const previo = texto(centroPreferido || selectCentro.value);
+
+      selectCentro.innerHTML = `<option value="">SELECCIONA CENTRO DE COSTOS</option>` +
+        centros.map(centro =>
+          `<option value="${centro.codigo}" data-nombre="${centro.nombre}">${centro.codigo} · ${centro.nombre}</option>`
+        ).join("");
+
+      if (previo && centros.some(centro => centro.codigo === previo)) {
+        selectCentro.value = previo;
+      } else if (centros.length === 1) {
+        selectCentro.value = centros[0].codigo;
       }
+
+      actualizarCentroCostos();
+    }
+
+    function actualizarDepartamento(actualizarCentros = true) {
+      const departamento = texto(document.getElementById("departamento").value).toUpperCase();
+      const estructura = obtenerEstructuraDepartamento(departamento);
+      const inputCodigo = document.getElementById("codigo_departamento");
+      inputCodigo.value = estructura?.codigo || "";
+      inputCodigo.readOnly = true;
+      inputCodigo.placeholder = estructura ? "" : "SELECCIONA DEPARTAMENTO";
+
+      if (estructura) {
+        const selectArea = document.getElementById("area");
+        if ([...selectArea.options].some(o => o.value === estructura.area)) {
+          selectArea.value = estructura.area;
+        }
+      }
+
+      if (actualizarCentros) cargarCentrosDepartamento(departamento);
+    }
+
+    function actualizarCentroCostos() {
+      const selectCentro = document.getElementById("centro_costos");
+      const inputCodigo = document.getElementById("codigo_centro_costos");
+      inputCodigo.value = texto(selectCentro.value);
+      inputCodigo.readOnly = true;
     }
 
     function actualizarNombreCargo() {
-      document.getElementById("nombre_cargo").value = texto(document.getElementById("cargo").value).toUpperCase();
+      const cargo = texto(document.getElementById("cargo").value).toUpperCase();
+      document.getElementById("cargo").value = cargo;
+      document.getElementById("nombre_cargo").value = cargo;
     }
 
     function actualizarModoCodigoNomina() {
@@ -939,8 +1013,10 @@
       const apellidos = texto(document.getElementById("apellidos").value).toUpperCase();
       const departamento = texto(document.getElementById("departamento").value).toUpperCase();
       const codigo_departamento = texto(document.getElementById("codigo_departamento").value).toUpperCase();
-      const centro_costos = texto(document.getElementById("centro_costos").value).toUpperCase();
-      const codigo_centro_costos = texto(document.getElementById("codigo_centro_costos").value).toUpperCase();
+      const selectCentro = document.getElementById("centro_costos");
+      const opcionCentro = selectCentro.options[selectCentro.selectedIndex];
+      const centro_costos = texto(opcionCentro?.dataset?.nombre).toUpperCase();
+      const codigo_centro_costos = texto(selectCentro.value).toUpperCase();
       const cargo = texto(document.getElementById("cargo").value).toUpperCase();
       const nombre_cargo = texto(document.getElementById("nombre_cargo").value).toUpperCase() || cargo;
       const telefono = texto(document.getElementById("telefono").value);
@@ -961,8 +1037,8 @@
       if (!apellidos) errores.push("Los apellidos son obligatorios.");
       if (!departamento) errores.push("Selecciona el departamento.");
       if (!codigo_departamento) errores.push("El código de departamento es obligatorio para ZKTeco.");
-      if (!centro_costos) errores.push("Selecciona el centro de costos.");
-      if (!cargo) errores.push("Selecciona el cargo.");
+      if (!centro_costos || !codigo_centro_costos) errores.push("Selecciona el centro de costos oficial.");
+      if (!cargo) errores.push("Selecciona o escribe el cargo.");
       if (!fecha_ingreso) errores.push("La fecha de contratación es obligatoria.");
       if (tipo_personal === "nomina" && !codigo) errores.push("El código de nómina es obligatorio para empleados de nómina.");
 
@@ -984,7 +1060,7 @@
           codigo_departamento,
           codigo_empresa,
           nombre_empresa,
-          codigo_centro_costos: codigo_centro_costos || null,
+          codigo_centro_costos,
           centro_costos,
           cargo,
           nombre_cargo,
@@ -1055,9 +1131,12 @@
         const data = await crearEmpleado(payload);
         console.log("Empleado y solicitud ZKTeco creados:", data);
         const codigoCreado = texto(data?.codigo_nomina || payload.codigo_nomina || "");
-        mostrarAlerta(`✓ Empleado creado correctamente.<br><strong>Código de nómina:</strong> ${codigoCreado || "generado"}<br><strong>ZKTeco:</strong> solicitud enviada; queda pendiente la sincronización y luego el registro presencial de huella/rostro.`, "success");
+        const telefonoCreado = payload.telefono;
+        const nombreCreado = `${payload.nombres} ${payload.apellidos}`.trim();
+        mostrarAlerta(`✓ Empleado creado correctamente.<br><strong>Código de nómina:</strong> ${codigoCreado || "generado"}<br><strong>ZKTeco:</strong> solicitud enviada; queda pendiente la sincronización y luego el registro presencial de huella/rostro.${telefonoCreado ? "<br><strong>App:</strong> ya puedes enviarle el enlace de Mis Turnos por WhatsApp." : "<br><strong>App:</strong> agrega un celular para poder enviar el enlace por WhatsApp."}`, "success");
         const cedulaCreada = payload.cedula;
         limpiarFormulario();
+        configurarEnvioApp(telefonoCreado, nombreCreado);
         await cargarEmpleados();
         document.getElementById("filtroBusqueda").value = cedulaCreada;
         aplicarFiltrosYRenderizar();
@@ -1222,11 +1301,46 @@
       document.getElementById("codigo_compania").value = "1";
       document.getElementById("codigo_area").value = "3,4,5,6,7";
       document.getElementById("codigo_departamento").value = "";
-      document.getElementById("codigo_departamento").readOnly = false;
+      document.getElementById("codigo_departamento").readOnly = true;
       document.getElementById("codigo_centro_costos").value = "";
+      document.getElementById("codigo_centro_costos").readOnly = true;
       document.getElementById("nombre_cargo").value = "";
       document.getElementById("area").value = "";
+      cargarCentrosDepartamento("", "");
+      const btnApp = document.getElementById("btnEnviarApp");
+      btnApp.hidden = true;
+      btnApp.dataset.telefono = "";
+      btnApp.dataset.nombre = "";
       actualizarModoCodigoNomina();
+    }
+
+    function normalizarTelefonoWhatsApp(valor) {
+      let digitos = texto(valor).replace(/\D/g, "");
+      if (!digitos) return "";
+      if (digitos.length === 10) digitos = "57" + digitos;
+      return /^57\d{10}$/.test(digitos) ? digitos : "";
+    }
+
+    function configurarEnvioApp(telefono, nombre) {
+      const btn = document.getElementById("btnEnviarApp");
+      const numero = normalizarTelefonoWhatsApp(telefono);
+      btn.dataset.telefono = numero;
+      btn.dataset.nombre = texto(nombre);
+      btn.hidden = !numero;
+    }
+
+    function enviarEnlaceApp() {
+      const btn = document.getElementById("btnEnviarApp");
+      const numero = texto(btn.dataset.telefono);
+      if (!numero) {
+        mostrarAlerta("El celular registrado no tiene un formato válido para WhatsApp.", "warning");
+        return;
+      }
+
+      const nombre = texto(btn.dataset.nombre) || "colaborador";
+      const urlApp = "https://turnos.campestrepereira.com/pages/login.html";
+      const mensaje = `Hola ${nombre}. Ya puedes ingresar a Mis Turnos del Club Campestre de Pereira. Abre este enlace desde tu celular: ${urlApp} . Desde allí puedes instalar la app y activar las notificaciones.`;
+      window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`, "_blank", "noopener,noreferrer");
     }
 
     function bindEventos() {
@@ -1237,9 +1351,12 @@
       document.getElementById("filtroArea").addEventListener("change", aplicarFiltrosYRenderizar);
       document.getElementById("filtroEstado").addEventListener("change", aplicarFiltrosYRenderizar);
       document.getElementById("tipo_personal").addEventListener("change", actualizarModoCodigoNomina);
-      document.getElementById("departamento").addEventListener("change", actualizarDepartamento);
+      document.getElementById("departamento").addEventListener("change", () => actualizarDepartamento(true));
+      document.getElementById("centro_costos").addEventListener("change", actualizarCentroCostos);
+      document.getElementById("cargo").addEventListener("input", actualizarNombreCargo);
       document.getElementById("cargo").addEventListener("change", actualizarNombreCargo);
-      ["nombres", "apellidos", "codigo_departamento", "codigo_centro_costos"].forEach(id => {
+      document.getElementById("btnEnviarApp").addEventListener("click", enviarEnlaceApp);
+      ["nombres", "apellidos"].forEach(id => {
         document.getElementById(id)?.addEventListener("input", () => forzarMayusculaInput(id));
       });
 
