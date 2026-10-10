@@ -14,7 +14,7 @@ function formato(valor) {
 
 function actualizarTextoPrincipal() {
   const bloque = document.querySelector(".periodo-operativo-ayb .small.text-muted");
-  if (bloque) bloque.textContent = TEXTO_REGLA;
+  if (bloque && bloque.textContent !== TEXTO_REGLA) bloque.textContent = TEXTO_REGLA;
 }
 
 function corregirEtiquetaGenerada(nodo) {
