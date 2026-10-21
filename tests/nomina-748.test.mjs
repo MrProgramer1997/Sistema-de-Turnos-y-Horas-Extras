@@ -76,3 +76,8 @@ test('detecta el conflicto de revision cerrada sin confundir otros errores', () 
     false
   );
 });
+
+test('no reemplaza el builder RPC del cliente Supabase', async () => {
+  const source = await readFile(new URL('../js/nomina-integridad-v748.js', import.meta.url), 'utf8');
+  assert.equal(/supabase\.rpc\s*=/.test(source), false);
+});
