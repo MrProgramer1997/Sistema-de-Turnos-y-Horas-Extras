@@ -54,7 +54,7 @@ function refreshWhenAvailable(documentRef, attempt = 0) {
     update.click();
     return;
   }
-  if (attempt < 12) setTimeout(() => refreshWhenAvailable(documentRef, attempt + 1), 150);
+  if (attempt < 40) setTimeout(() => refreshWhenAvailable(documentRef, attempt + 1), 150);
 }
 
 function repeatClick(button, attribute, action) {
