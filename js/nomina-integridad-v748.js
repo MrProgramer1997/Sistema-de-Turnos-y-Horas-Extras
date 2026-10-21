@@ -105,12 +105,20 @@ export function instalarNominaIntegridadV748(supabase, documentRef = globalThis.
       const route = rutaRechazoV748(localState, data?.estado);
       const attribute = button.dataset.ndAction !== undefined ? 'data-nd-action' : 'data-action';
       if (route === 'revisar') {
+        const dailyView = button.dataset.ndAction !== undefined;
         report(
           documentRef,
-          `El concepto ya esta ${lower(data?.estado) || 'cerrado'} en servidor. Se abre la correccion auditada.`,
+          dailyView
+            ? `El concepto ya esta ${lower(data?.estado) || 'cerrado'} en servidor. Se actualizara la bandeja para mostrar la correccion disponible.`
+            : `El concepto ya esta ${lower(data?.estado) || 'cerrado'} en servidor. Se abre la correccion auditada.`,
           'warning'
         );
-        repeatClick(button, attribute, 'revisar');
+        if (dailyView) {
+          button.disabled = false;
+          refreshWhenAvailable(documentRef);
+        } else {
+          repeatClick(button, attribute, 'revisar');
+        }
         return;
       }
       if (route === 'rechazar') {
@@ -133,22 +141,26 @@ export function instalarNominaIntegridadV748(supabase, documentRef = globalThis.
     }
   }, true);
 
-  const originalRpc = supabase.rpc.bind(supabase);
-  supabase.rpc = function rpcV748(functionName, args, options) {
-    const request = originalRpc(functionName, args, options);
-    if (functionName !== 'resolver_concepto_revision_general_v2' || !request?.then) return request;
-    return Promise.resolve(request).then(response => {
-      if (esConflictoCerradoV748(response?.error)) {
-        report(
-          documentRef,
-          'La decision ya habia cambiado en servidor. Se actualizara la bandeja sin repetir la operacion.',
-          'warning'
-        );
-        setTimeout(() => refreshWhenAvailable(documentRef), 0);
-      }
-      return response;
-    });
+  let refreshScheduled = false;
+  const watchClosedConflict = target => {
+    if (!target || typeof MutationObserver === 'undefined') return;
+    new MutationObserver(() => {
+      const message = text(target.textContent);
+      if (refreshScheduled || !/(revision|decision).*cerrad|ya esta cerrada/i.test(message)) return;
+      refreshScheduled = true;
+      report(
+        documentRef,
+        'La decision ya habia cambiado en servidor. Se actualizara la bandeja sin repetir la operacion.',
+        'warning'
+      );
+      setTimeout(() => {
+        refreshWhenAvailable(documentRef);
+        refreshScheduled = false;
+      }, 0);
+    }).observe(target, { childList: true, characterData: true, subtree: true });
   };
+  watchClosedConflict(documentRef.getElementById('heEstadoCarga'));
+  watchClosedConflict(documentRef.getElementById('heEstadoResumen'));
 
   return true;
 }
