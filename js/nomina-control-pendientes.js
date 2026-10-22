@@ -108,7 +108,73 @@ export function areaConsulta(row, journey = row.jornada_actual, employee = {}) {
   );
 }
 
+
+// 7.49: operational visibility, not a deletion or a payroll settlement rule.
+// Keep the complete source, approved decisions and special-day coverage intact.
+export const MINIMO_CANDIDATO_749 = 26;
+const CONCEPTOS_UMBRAL_749 = new Set(['P003', 'P004', 'P005', 'P008', 'P009', 'P100']);
+export function minutosReferencia749(row = {}) {
+  const d = row.detalle || {};
+  if (d.calculo_pendiente === true) return null;
+  const adjusted = finite(d.ajuste_almuerzo_742?.referencia_extra_minutos);
+  if (adjusted !== null && adjusted >= 0) return adjusted;
+  // Suggestions retain exact segment endpoints, including seconds. Do not
+  // round 25:59 to 26:00 when deciding whether to show a candidate.
+  if (Array.isArray(d.tramos_sugeridos) && d.tramos_sugeridos.length) {
+    let minutes = 0;
+    for (const segment of d.tramos_sugeridos) {
+      const start = finite(segment.inicio), end = finite(segment.fin);
+      if (start === null || end === null || end < start) return null;
+      minutes += end - start;
+    }
+    return minutes;
+  }
+  const hours = finite(row.horas_calculadas ?? row.horas_candidatas);
+  if (hours === null || hours < 0) return null;
+  // Legacy persisted hours have 2 decimal places (up to 0.3 min precision
+  // loss). A value straddling the boundary stays visible for validation;
+  // it is never treated as a confirmed amount below the threshold.
+  const minutes = hours * 60;
+  if (minutes < MINIMO_CANDIDATO_749 && minutes + 0.300001 >= MINIMO_CANDIDATO_749) return null;
+  return minutes;
+}
+export function esMenorUmbral749(row = {}) {
+  if (!CONCEPTOS_UMBRAL_749.has(text(row.concepto_codigo))) return false;
+  const state = text(row.estado_revision ?? row.estado ?? 'pendiente').toLowerCase();
+  if (!['pendiente', 'observado'].includes(state)) return false;
+  const minutes = minutosReferencia749(row);
+  return minutes !== null && minutes >= 0 && minutes < MINIMO_CANDIDATO_749 - 1e-8;
+}
+export function visibleEnBandeja749(row, { incluirMenores = false } = {}) {
+  return incluirMenores || !esMenorUmbral749(row);
+}
+function incluirMenoresEnAuditoria749() {
+  return typeof document !== 'undefined' && document.getElementById('heIncluirMenores749')?.checked === true;
+}
+function instalarControlUmbral749() {
+  if (typeof document === 'undefined' || document.getElementById('heIncluirMenores749')) return;
+  const target = document.querySelector('#heOpcionesTecnicas .nd-avanzadas-body');
+  if (!target) return;
+  const box = document.createElement('div');
+  box.className = 'alert alert-secondary py-2 small';
+  const label = document.createElement('label');
+  const check = document.createElement('input');
+  check.type = 'checkbox'; check.id = 'heIncluirMenores749'; check.className = 'form-check-input me-2';
+  label.append(check, document.createTextNode('Incluir conceptos menores de 26 minutos en la consulta de auditoria'));
+  box.append(label);
+  const note = document.createElement('p'); note.className = 'mb-0 mt-1';
+  note.textContent = 'La bandeja habitual muestra extras y recargos desde 26 minutos por concepto y dia. Los tiempos menores se conservan, sin rechazo ni eliminacion automatica. Los conceptos aprobados y el dominical/festivo base no cambian.';
+  box.append(note); target.prepend(box);
+  check.addEventListener('change', () => document.getElementById('heArea')?.dispatchEvent(new Event('change', { bubbles: true })));
+  const rule = target.querySelector('.alert-info');
+  if (rule) rule.textContent = 'Candidatos de extras y recargos: desde 26 minutos por concepto y dia. No se descuentan los primeros 25 minutos. No se aprueba ningun pago automaticamente.';
+  const version = document.querySelector('.nd-version');
+  if (version) version.textContent = 'Aprobacion del corte - version 7.49';
+}
+
 export function coincideAreaConsulta(row, selected) {
+  // Shared consultation predicate: used by both payroll approval views.
+  if (!visibleEnBandeja749(row, { incluirMenores: incluirMenoresEnAuditoria749() })) return false;
   if (!text(selected)) return true;
   const journey = row.jornada_actual;
   const selectedCode = codigoAreaPrincipal(selected);
@@ -132,6 +198,7 @@ function installMainAreaFilter() {
   if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
 
   const install = () => {
+    instalarControlUmbral749();
     const select = document.getElementById('heArea');
     if (!select || select.dataset.areasPrincipales748 === 'si') return;
     select.dataset.areasPrincipales748 = 'si';
