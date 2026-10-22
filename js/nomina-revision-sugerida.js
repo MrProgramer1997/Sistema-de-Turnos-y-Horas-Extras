@@ -79,6 +79,8 @@ export function crearRevisionSugerida719({rpc,canWrite,onBusy,onSaved,onError,ca
    if(ticket!==version)return;
    const expected=action==='aprobar'?'aprobado':action==='rechazar'?'rechazado':(context.existentes.find(z=>z.codigo===current.concepto_codigo)?.estado||'pendiente');
    if(!result.revision?.id||result.revision.estado!==expected||result.revision.concepto_codigo!==current.concepto_codigo||result.revision.cedula!==current.cedula||result.revision.fecha!==current.fecha.slice(0,10))throw new Error('El servidor no confirmo la decision esperada. Actualiza antes de reintentar.');
+   // The table must render after releasing the shared busy state.
+   onBusy(false);
    await onSaved(result.revision,current,action);busy=false;close();
   }catch(e){if(ticket===version){error.textContent='No se confirmo la operacion. No se repetira automaticamente. '+(e.message||e);context=null;onError(e);}}
   finally{busy=false;onBusy(false);dlg.querySelector('[data-close]').disabled=false;}
