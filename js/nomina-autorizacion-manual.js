@@ -7,9 +7,11 @@ const esc = v => text(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'
 // attendance, schedules and the independent concepts of the day are unchanged.
 export function crearAutorizacionManual728({rpc, canWrite, canManual, onBusy, onSaved, onError, modelo = () => null}) {
   let dialog, current, preview, busy = false, serial = 0, selectionSerial = 0, selecting = false, focus;
+  // 7.50: adding is independent from reclassification; never save the source implicitly.
+  let returnDraft = null;
   const close = (force = false) => {
     if (busy && !force) return;
-    serial++; selectionSerial++; selecting = false; preview = null; dialog?.close(); dialog?.querySelector('[data-body]')?.replaceChildren();
+    serial++; selectionSerial++; selecting = false; preview = null; returnDraft = null; dialog?.close(); dialog?.querySelector('[data-body]')?.replaceChildren();
     if (busy) {busy = false; onBusy(false);} focus?.focus?.();
   };
   async function call(name, args, read) {
@@ -22,9 +24,11 @@ export function crearAutorizacionManual728({rpc, canWrite, canManual, onBusy, on
     dialog.querySelector('[data-close]').onclick = () => close();
     dialog.addEventListener('cancel', e => {e.preventDefault(); close();}); document.body.appendChild(dialog);
   }
-  async function mostrar(x) {
-    if (busy || !canWrite() || !canManual(x) || !x) return;
-    ensure(); current = x; preview = null; focus = document.activeElement;
+  async function mostrar(x, keepDraft = false) {
+    if (!x || busy || !canWrite() || !canManual(x)) return;
+    if (!keepDraft) returnDraft = null;
+    ensure(); current = x; preview = null;
+    if (!dialog.open) focus = document.activeElement;
     const alta = x._nuevoConcepto743 === true; selecting = false;
     dialog.querySelector('#nm728Titulo').textContent = alta ? 'Añadir y aprobar concepto' : 'Aprobar concepto';
     const id = ++serial; dialog.querySelector('[data-close]').disabled = false;
@@ -48,10 +52,12 @@ export function crearAutorizacionManual728({rpc, canWrite, canManual, onBusy, on
       const initial = alta ? '' : x._tiempoInicial729 ?? (r.revision?.estado === 'aprobado' ? approvedInitial : special ? textoMinutos728(special.neto) : '');
       const choices = r.conceptos_disponibles.map(c => {
         const existing = (alta || c.codigo !== r.concepto_origen) && r.otros.find(o => o.codigo === c.codigo);
-        return `<option value="${esc(c.codigo)}" ${!alta && c.codigo === r.concepto_origen ? 'selected' : ''} ${existing ? 'disabled' : ''}>${esc(c.codigo)} — ${esc(c.nombre)}${existing ? ' (ya registrado: ' + esc(existing.estado) + ')' : ''}</option>`;
+        const retained = alta && c.codigo === x._conceptoConservar750;
+        return `<option value="${esc(c.codigo)}" ${!alta && c.codigo === r.concepto_origen ? 'selected' : ''} ${existing || retained ? 'disabled' : ''}>${esc(c.codigo)} — ${esc(c.nombre)}${existing ? ' (ya registrado: ' + esc(existing.estado) + ')' : retained ? ' (concepto actual; se conserva)' : ''}</option>`;
       }).join('');
       body.innerHTML = `<form novalidate><h3>${esc(r.empleado)}</h3><p>${esc(r.fecha)}${alta ? '' : ` &middot; <strong data-original>${esc(r.concepto_origen)} ${esc(r.concepto_nombre)}</strong>`}</p>
-        <label for="nm729Concepto">Concepto a aprobar</label><select id="nm729Concepto" class="form-select" aria-describedby="nm729Cambio">${alta ? '<option value="" selected>Selecciona el concepto</option>' : ''}${choices}</select>
+        ${alta ? '<p class="nd-small" role="note">Se añade un concepto independiente para esta persona y fecha. El concepto anterior conserva su estado; no se aprueba ni se rechaza al abrir esta opción.</p>' : ''}
+        <label for="nm729Concepto">${alta ? 'Nuevo concepto a añadir' : 'Concepto a aprobar'}</label><select id="nm729Concepto" class="form-select" aria-describedby="nm729Cambio">${alta ? '<option value="" selected>Selecciona el concepto</option>' : ''}${choices}</select>
         <p id="nm729Cambio" class="nd-small" aria-live="polite">Autorizacion del responsable. No necesitas seleccionar un turno.</p>
         ${m ? `<p class="nd-small" data-alimentacion>${esc(textoAlimentacion742(m))}</p>` : ''}
         <label for="nm728Horas">Tiempo NETO de este concepto (alimentacion ya descontada)</label><input id="nm728Horas" class="form-control" type="text" inputmode="text" maxlength="30" placeholder="1 h 26 min" value="${esc(initial)}" autocomplete="off" required>
@@ -60,10 +66,12 @@ export function crearAutorizacionManual728({rpc, canWrite, canManual, onBusy, on
         <details class="nd-evidencia"><summary>Ver marcaciones y otros conceptos</summary><p class="nd-small">Las horas ingresadas son netas; no se vuelve a descontar la alimentacion. Se conservan los registros originales, incluidos los dias contiguos como contexto, sin asignarlos automaticamente a esta jornada. Un concepto ya registrado se revisa desde su propia fila y no se sobrescribe al cambiar otro.</p>
         <p>${r.otros.map(o => `${esc(o.codigo)}: ${esc(o.estado)}${o.horas_aprobadas != null ? ' ' + esc(textoHoras728(o.horas_aprobadas)) : ''}`).join('<br>')}</p>
         <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha y hora original</th><th>Punto</th><th>Huellero</th></tr></thead><tbody>${r.marcaciones.map(m => `<tr><td>${esc(text(m.hora).replace('T',' '))}</td><td>${esc(m.punto)}</td><td>${esc(m.terminal)}</td></tr>`).join('') || '<tr><td colspan="3">Sin marcaciones recibidas en este contexto. No se crearan marcaciones.</td></tr>'}</tbody></table></div></details>
-        <p class="nd-error" role="alert"></p><footer><button class="btn btn-success" type="submit" ${alta ? 'disabled' : ''}>Aprobar este concepto</button></footer></form>`;
+        <p class="nd-error" role="alert"></p><footer class="flex-wrap">
+          ${!alta ? '<button class="btn btn-outline-primary" type="button" data-add-concept>Añadir otro concepto</button>' : returnDraft ? '<button class="btn btn-outline-secondary" type="button" data-back-concept>Volver al concepto anterior</button>' : ''}
+          <button class="btn btn-success" type="submit" ${alta ? 'disabled' : ''}>${alta ? 'Añadir y aprobar este concepto' : 'Aprobar este concepto'}</button></footer></form>`;
       enlazarTiempo728(body.querySelector('#nm728Horas'), body.querySelector('#nm728Tiempo'));
       body.querySelector('#nm728Horas').addEventListener('input', () => {body.querySelector('[role="alert"]').textContent = '';});
-      body.querySelector('#nm729Concepto').addEventListener('change', async () => {
+      const changeConcept = async () => {
         const destination = body.querySelector('#nm729Concepto').value;
         if (alta) {
           const selection = ++selectionSerial;
@@ -73,6 +81,7 @@ export function crearAutorizacionManual728({rpc, canWrite, canManual, onBusy, on
           body.querySelector('#nm729Cambio').textContent = 'Comprobando el concepto seleccionado...';
           try {
             if (!destination) {body.querySelector('#nm729Cambio').textContent='Selecciona el concepto que vas a autorizar.'; return;}
+            if (destination === x._conceptoConservar750) throw new Error('El concepto anterior se conserva. Selecciona otro tipo de concepto.');
             const next = await call('previsualizar_concepto_nomina_v729', {p_cedula:x.cedula,p_fecha:text(x.fecha).slice(0,10),p_concepto_origen:destination}, true);
             if (selection !== selectionSerial || id !== serial || !dialog.open) return;
             if (next?.version !== '729' || next.cedula !== x.cedula || next.fecha !== r.fecha || next.concepto_origen !== destination || !next.huella || !next.puede_aprobar_manual || !Array.isArray(next.otros) || !Array.isArray(next.conceptos_disponibles) || !next.conceptos_disponibles.some(c=>c.codigo===destination)) throw new Error('No se recibio la validacion completa.');
@@ -91,6 +100,25 @@ export function crearAutorizacionManual728({rpc, canWrite, canManual, onBusy, on
           : 'Autorizacion del responsable. No necesitas seleccionar un turno.';
         body.querySelector('[type="submit"]').textContent = changing ? 'Cambiar concepto y aprobar' : 'Aprobar este concepto';
         body.querySelector('[role="alert"]').textContent = '';
+      };
+      body.querySelector('#nm729Concepto').addEventListener('change', changeConcept);
+      // Restore an unsaved draft only when returning explicitly, never on a new addition.
+      if (!alta && x._conceptoInicial750 && r.conceptos_disponibles.some(c => c.codigo === x._conceptoInicial750) &&
+          (x._conceptoInicial750 === r.concepto_origen || !r.otros.some(o => o.codigo === x._conceptoInicial750))) {
+        body.querySelector('#nm729Concepto').value = x._conceptoInicial750;
+        await changeConcept();
+      }
+      body.querySelector('[data-add-concept]')?.addEventListener('click', async () => {
+        if (busy || selecting || !canWrite() || !canManual(current)) return;
+        returnDraft = {...x, _tiempoInicial729: body.querySelector('#nm728Horas').value,
+          _comentarioInicial729: body.querySelector('#nm728Comentario').value,
+          _conceptoInicial750: body.querySelector('#nm729Concepto').value};
+        await mostrar({...x, _nuevoConcepto743: true, _conceptoConservar750: r.concepto_origen,
+          _tiempoInicial729: undefined, _comentarioInicial729: undefined, _conceptoInicial750: undefined}, true);
+      });
+      body.querySelector('[data-back-concept]')?.addEventListener('click', async () => {
+        if (busy || !returnDraft || !canWrite() || !canManual(returnDraft)) return;
+        await mostrar(returnDraft);
       });
       body.querySelector('form').onsubmit = save;
     } catch(e) {
@@ -101,7 +129,7 @@ export function crearAutorizacionManual728({rpc, canWrite, canManual, onBusy, on
     event.preventDefault(); if (busy || selecting || !preview || !canWrite() || !canManual(current)) return;
     const body = dialog.querySelector('[data-body]'), error = body.querySelector('[role="alert"]'), r = preview;
     const destination = body.querySelector('#nm729Concepto').value;
-    if (current._nuevoConcepto743 && (destination !== r.concepto_origen || r.revision || r.otros.some(o=>o.codigo===destination))) {error.textContent='Selecciona un concepto nuevo y espera su validacion.';return;}
+    if (current._nuevoConcepto743 && (destination === current._conceptoConservar750 || destination !== r.concepto_origen || r.revision || r.otros.some(o=>o.codigo===destination))) {error.textContent='Selecciona un concepto nuevo y espera su validacion.';return;}
     if (!r.conceptos_disponibles.some(c => c.codigo === destination) ||
         destination !== r.concepto_origen && r.otros.some(o => o.codigo === destination)) {
       error.textContent = 'Elige un concepto disponible. Los ya registrados se revisan desde su propia fila.'; return;
@@ -128,6 +156,8 @@ export function crearAutorizacionManual728({rpc, canWrite, canManual, onBusy, on
             f.concepto_codigo === r.concepto_origen && f.estado === 'rechazado' && Number(f.horas_aprobadas) === 0 &&
             (!r.revision?.id || f.id === r.revision.id))))
         throw new Error('El servidor no confirmo el concepto y el tiempo solicitado. Actualiza antes de reintentar.');
+      // Rebuild the table only after releasing its shared busy state (same order as 7.49).
+      onBusy(false);
       await onSaved(saved, x, changing ? 'reclasificar' : 'aprobar', affected);
       busy = false; close();
     } catch(e) {
