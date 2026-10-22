@@ -31,7 +31,7 @@ test('No completa par interno con la salida de Porteria',()=>{const r=row({total
 test('Porteria unica permite referencia con mas de dos marcas',()=>{const m=modeloNomina(row({total_marcaciones:3,recorrido:['08:00','12:00','17:20'].map(h=>({hora:fecha+'T'+h,punto:'Porteria'}))}));assert.equal(m.neto,500);assert.equal(m.seleccion.fuente,'porteria_unica');});
 test('Una sola marca no inventa salida ni neto',()=>{const m=modeloNomina(row({total_marcaciones:1,recorrido:[row().recorrido[0]]}));assert.notEqual(m.entrada,null);assert.equal(m.salida,null);assert.equal(m.neto,null);});
 test('Recorrido parcial bloquea el calculo',()=>assert.equal(modeloNomina(row({total_marcaciones:3})).neto,null));
-test('Varios puntos no mezcla extremos de areas distintas',()=>assert.equal(modeloNomina(row({recorrido:[{hora:fecha+'T08:00',punto:'Tenis'},{hora:fecha+'T17:20',punto:'Golf'}]})).neto,null));
+test('v751: puntos distintos congruentes permiten referencia sin cambiar las marcas',()=>{const m=modeloNomina(row({recorrido:[{hora:fecha+'T08:00',punto:'Tenis'},{hora:fecha+'T17:20',punto:'Golf'}]}));assert.equal(m.neto,500);assert.equal(m.seleccion.fuente,'multipunto_horario');assert.equal(m.eventos.length,2);});
 test('Turno partido no suma pausa entre bloques como trabajo',()=>assert.equal(modeloNomina(row({hora_inicio_2:'18:00',hora_fin_2:'20:00'})).neto,null));
 test('Pausa mayor al intervalo queda por revisar',()=>assert.equal(modeloNomina(row({minutos_descanso:600})).neto,null));
 test('Intervalo igual a pausa da cero, no negativo',()=>assert.equal(modeloNomina(row({minutos_descanso:560})).neto,0));

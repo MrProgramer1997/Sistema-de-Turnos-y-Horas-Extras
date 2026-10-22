@@ -78,7 +78,7 @@
         <details class="nd-areas"><summary>Estado por área: <strong id="heKpiAreas">—</strong> sin cerrar</summary><div class="card he-card mb-3"><div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2"><div><strong>Estado de aprobación por área</strong><div class="he-note">Nómina puede identificar a quién llamar antes del cierre.</div></div><button class="btn btn-outline-secondary btn-sm" id="heConfigResponsables">Configurar responsables</button></div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Área</th><th>Responsable</th><th>Pendientes</th><th>Observados</th><th>Aprobados</th><th>Estado</th></tr></thead><tbody id="heAreasBody"></tbody></table></div></div></details>
       </div>
     </details>
-    <p class="nd-version">Aprobación del corte · versión 7.50</p>
+    <p class="nd-version">Aprobación del corte · versión 7.51</p>
   </section>
 </main>
 <div class="modal fade" id="heModalResponsables" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><div><h5 class="modal-title">Responsables de aprobación</h5><div class="small text-muted">Asignaciones administrables; no están escritas en el código.</div></div><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="alert alert-warning small">Esta pantalla se habilita al ejecutar la migración incluida y vincular los usuarios con Supabase Auth.</div><div class="small text-muted" id="heResponsablesBody">La primera entrega conserva los responsables existentes y prepara la administración segura.</div></div></div></div></div>
@@ -87,14 +87,20 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="../js/layout.js?v=750"></script>
 <script type="importmap">
-{"imports":{
-"../js/nomina-control-pendientes.js?v=713":"../js/nomina-control-pendientes.js?v=749",
-"../js/nomina-control-pendientes.js?v=748":"../js/nomina-control-pendientes.js?v=749",
-"../js/nomina-integridad-v748.js?v=748":"../js/nomina-integridad-v748.js?v=749",
-"../js/nomina-revision-sugerida.js?v=746":"../js/nomina-revision-sugerida.js?v=749",
-"../js/nomina-correcciones.js?v=746":"../js/nomina-correcciones.js?v=749",
-"../js/nomina-autorizacion-manual.js?v=746":"../js/nomina-autorizacion-manual.js?v=750"
-}}
+{
+  "imports": {
+    "../js/nomina-control-pendientes.js?v=713": "../js/nomina-control-pendientes.js?v=749",
+    "../js/nomina-control-pendientes.js?v=748": "../js/nomina-control-pendientes.js?v=749",
+    "../js/nomina-integridad-v748.js?v=748": "../js/nomina-integridad-v748.js?v=749",
+    "../js/nomina-revision-sugerida.js?v=746": "../js/nomina-revision-sugerida.js?v=749",
+    "../js/nomina-correcciones.js?v=746": "../js/nomina-correcciones.js?v=749",
+    "../js/nomina-autorizacion-manual.js?v=746": "../js/nomina-autorizacion-manual.js?v=750",
+    "../js/revision-punto.js?v=713": "../js/revision-punto.js?v=751",
+    "../js/revision-evidencia.js?v=746": "../js/revision-evidencia.js?v=751",
+    "../js/nomina-neto.js?v=746": "../js/nomina-neto.js?v=751",
+    "../js/nomina-ayb-candidatos.js?v=746": "../js/nomina-ayb-candidatos.js?v=751"
+  }
+}
 </script>
 <script type="module">
 // A missing module must not leave an unexplained empty screen. These messages
@@ -103,7 +109,7 @@ try {
   await import("../js/horas-extras.js?v=746");
 } catch (error) {
   console.error("No se pudo cargar el modulo de Nomina:", error);
-  const mensaje="No se pudieron cargar todos los archivos del modulo. Copia completos js y pages del parche 7.50, sin borrar las carpetas, y recarga con Ctrl + F5.";
+  const mensaje="No se pudieron cargar todos los archivos del modulo. Copia completos js y pages del parche 7.51, sin borrar las carpetas, y recarga con Ctrl + F5.";
   const resumen=document.getElementById("heEstadoResumen"),detalle=document.getElementById("heIntegridad"),body=document.getElementById("heBody");
   if(resumen){resumen.className="nd-estado danger";resumen.textContent="Faltan archivos o no se pudieron cargar. Ver auditoria.";}
   if(detalle){detalle.className="alert alert-danger py-2 small";detalle.textContent=mensaje+" Detalle: "+(error?.message||String(error));}

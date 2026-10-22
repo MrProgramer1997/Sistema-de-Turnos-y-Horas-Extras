@@ -1,4 +1,4 @@
-import {crearHorario,codigoAsignado,analizarHorario,resumenSemanal,proponerDistribucion,fechaMas,textoMinutos,esExternoChef} from './cocina-planificacion-core.js?v=chef-7-3';
+import {crearHorario,codigoAsignado,analizarHorario,resumenSemanal,proponerDistribucion,fechaMas,textoMinutos,esExternoChef,fechaMinimaEdicionChef751} from './cocina-planificacion-core.js?v=chef-7-3';
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const hoy=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Bogota',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -19,6 +19,7 @@ export function crearPlanificacionChef(cfg){
    $('chefRestaurar'+n).onclick=()=>{rellenar(n);dirty=true;cfg.resumen();};
    for(const id of ['chefHoraInicio'+n,'chefHoraFin'+n])$(id).addEventListener('input',()=>{dirty=true;cfg.resumen();});
   }
+  if(!$('chefAvisoRetro751'))$('resumenHorarioAsignacionChef')?.insertAdjacentHTML('afterend','<p id="chefAvisoRetro751" class="small text-muted">Se permite programar la semana anterior y la semana en curso, incluso con marcaciones. Los cambios quedan auditados; las jornadas con decisiones cerradas de Nomina siguen protegidas.</p>');
   if(!$('chefTotalSemanaModal'))$('resumenHorarioAsignacionChef')?.insertAdjacentHTML('afterend','<div id="chefTotalSemanaModal" class="chef-meta-semana" aria-live="polite"></div>');
  }
  function rellenar(n,registro=null){
@@ -50,6 +51,8 @@ export function crearPlanificacionChef(cfg){
  }
  async function guardarCambios(personaId,cambios,motivo){
   if(!ready&&!(await verificar()))throw Error('Falta activar el backend Chef 7.3. No se envi\u00f3 la programaci\u00f3n.');
+  const minimo=fechaMinimaEdicionChef751(hoy());
+  if(cambios.some(c=>c.fecha<minimo))throw Error('La edicion de Chef permite desde '+minimo+' (semana anterior). Las fechas mas antiguas requieren revision de Nomina.');
   const {data:auth,error:authError}=await cfg.sb.auth.getUser();
   if(authError||!auth?.user)throw Error('Inicia sesi\u00f3n con la cuenta autorizada de Chef o N\u00f3mina.');
   const {data,error}=await cfg.sb.rpc('guardar_programacion_chef_v3',{p_persona:personaId,p_cambios:cambios,p_motivo:motivo});
@@ -90,7 +93,7 @@ export function crearPlanificacionChef(cfg){
   await cfg.recargarCatalogo();persona=p;crearModalSemana();
   const {data,error}=await cfg.sb.from('cocina_programacion_turnos').select('*').eq('cronograma_personal_id',p.id).gte('fecha',week[0]).lte('fecha',week.at(-1));
   if(error){alert(error.message);return;}
-  filas=week.map(fecha=>{const r=(data||[]).find(x=>x.fecha===fecha),h=r?desdeRegistro(r):null;const bloqueado=fecha<hoy()||['aprobado','aprobada'].includes(r?.estado_extra);return {fecha,id:r?.id||null,updated_at:r?.updated_at||null,original:r||null,datos:datosBase(r,p),horario:h,bloqueado,ajustable:!bloqueado&&!!h?.inicio1&&!r?.codigo_turno_2&&![0,1,6].includes(new Date(fecha+'T00:00:00Z').getUTCDay())};});
+  filas=week.map(fecha=>{const r=(data||[]).find(x=>x.fecha===fecha),h=r?desdeRegistro(r):null;const bloqueado=fecha<fechaMinimaEdicionChef751(hoy())||['aprobado','aprobada'].includes(r?.estado_extra);return {fecha,id:r?.id||null,updated_at:r?.updated_at||null,original:r||null,datos:datosBase(r,p),horario:h,bloqueado,ajustable:!bloqueado&&!!h?.inicio1&&!r?.codigo_turno_2&&![0,1,6].includes(new Date(fecha+'T00:00:00Z').getUTCDay())};});
   $('chefSemanaPersona').textContent=`${p.nombre_visible} | ${week[0]} al ${week.at(-1)}`;$('chefSemanaModo').value='libre';$('chefSemanaError').textContent='';$('chefSemanaAcuerdo').checked=false;pintarSemana();bootstrap.Modal.getOrCreateInstance($('chefSemanaModal')).show();
  }
  function pintarSemana(){

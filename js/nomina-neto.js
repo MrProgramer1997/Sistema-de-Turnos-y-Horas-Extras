@@ -101,7 +101,7 @@ export function modeloNomina(x = {}) {
   m.neto = null; m.descuentoAplicado = null;
   m.criterio = 'Faltan marcaciones completas para calcular el total neto.';
   if (m.brutos !== null) {
-    if (m.b2) m.criterio = 'Turno partido: revisar los bloques; no se considera trabajada la pausa entre bloques.';
+    if (m.b2 && !m.contiguo) m.criterio = 'Turno partido: revisar los bloques; no se considera trabajada la pausa entre bloques.';
     else if (m.p.novedad_codigo || m.p.tipo_registro === 'novedad') m.criterio = 'Hay una novedad registrada; confirmar el horario y las pausas antes de liquidar.';
     else if (m.p.conflicto_programacion || (m.ev?.conflicto_horario && !m.p.documental_711)) m.criterio = 'Hay horarios incompatibles; revisar la base antes de calcular.';
     else if (!m.seleccion.completa) m.criterio = 'El recorrido no est\u00e1 completo; actualizar la lectura.';
