@@ -80,10 +80,11 @@ test('both dialog save callbacks render after releasing shared busy state', asyn
 test('page import map pins every changed module in payroll scope only', async () => {
   const html=await readFile(new URL('../pages/horas-extras.html',import.meta.url),'utf8');
   const map=JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]);
-  assert.equal(Object.keys(map.imports).length,10);
+  assert.equal(Object.keys(map.imports).length,11);
   for (const [key,value] of Object.entries(map.imports)) {
     const evidence = ['revision-punto','revision-evidencia','nomina-neto','nomina-ayb-candidatos'].some(name=>key.includes('/'+name+'.js'));
-    assert.ok(value.endsWith(evidence ? '?v=751' : key.includes('nomina-autorizacion-manual') ? '?v=750' : '?v=749'));
+    const scoped753=['nomina-control-pendientes','nomina-calidad','revision-evidencia'].some(name=>key.includes('/'+name+'.js'));
+    assert.ok(value.endsWith(scoped753?'?v=753':evidence ? '?v=751' : key.includes('nomina-autorizacion-manual') ? '?v=750' : '?v=749'));
   }
   assert.ok(html.indexOf('type="importmap"')<html.indexOf('type="module"'));
 });

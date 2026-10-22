@@ -168,8 +168,7 @@ function instalarControlUmbral749() {
   check.addEventListener('change', () => document.getElementById('heArea')?.dispatchEvent(new Event('change', { bubbles: true })));
   const rule = target.querySelector('.alert-info');
   if (rule) rule.textContent = 'Candidatos de extras y recargos: desde 26 minutos por concepto y dia. No se descuentan los primeros 25 minutos. No se aprueba ningun pago automaticamente.';
-  const version = document.querySelector('.nd-version');
-  if (version) version.textContent = 'Aprobacion del corte - version 7.49';
+  // The release label belongs to the page, not this historical threshold helper.
 }
 
 export function coincideAreaConsulta(row, selected) {

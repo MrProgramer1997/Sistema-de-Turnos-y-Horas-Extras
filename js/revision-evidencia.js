@@ -24,7 +24,7 @@ function bloque(fecha,a,b,offset=0){if(!/^\d{2}:\d{2}(:\d{2})?$/.test(str(a))||!
 export function requiereRevisionNocturna(x){return ['P005','P100','P004','P009'].includes(x.concepto_codigo)&&!['aprobado','rechazado'].includes(x.estado_revision||x.estado);}
 export function modeloRevision(x={}){
  const ev=x.evidencia_revision||null,fecha=str(x.fecha).slice(0,10),doc=x.jornada_actual?.documental_711?x.jornada_actual:ev?.horario_documental||(x.documental_711?x:null),p=doc||ev?.horario||x.jornada_actual||x;
- const confirmado=doc?doc.programacion_tipo==='confirmada':Boolean(ev?.horario)||p.programacion_tipo==='confirmada'||x.programacion_tipo==='confirmada';
+ const confirmado=!p.horario_propuesto&&(doc?doc.programacion_tipo==='confirmada':Boolean(ev?.horario)||p.programacion_tipo==='confirmada'||x.programacion_tipo==='confirmada');
  const sugerido=/inferida_(alta|media)/.test(p.programacion_tipo||'');
  const b1=bloque(fecha,p.hora_inicio,p.hora_fin),b2=bloque(fecha,p.hora_inicio_2,p.hora_fin_2,b1&&minutoCivil(p.hora_inicio_2,fecha)<b1.start?1:0);
  const hayNovedad=p.tipo_registro==='novedad'||Boolean(p.novedad_codigo);
@@ -50,7 +50,7 @@ export function modeloRevision(x={}){
  const comparable=seleccion.fuente!=='dos_sin_punto'&&horarioComparable&&entrada!==null&&salida!==null&&(!b2||contiguo);
  const deltaEntrada=comparable&&entrada!==null?entrada-b1.start:null,deltaSalida=comparable&&salida!==null?salida-(b2||b1).end:null;
  const nets=!b1||hayNovedad?null:finite(p.horas_programadas_netas)??(b1?Math.max(0,b1.end-b1.start+(b2?b2.end-b2.start:0)-(pausa??30))/60:null);
- return {seleccion,fecha,p,ev,eventos,usadas,cantidad,entrada,salida,base,punto,brutos,neto,pausa,criterio,comparable,sugerido,b1,b2,contiguo,netoProgramado:nets===null?null:nets*60,deltaEntrada,deltaSalida,fuente:doc?(doc.documental_711.tipo==='documental_fija'?'Plantilla estipulada por Bienestar':doc.documental_711.tipo==='confirmacion_usuario'?'Horario confirmado por el responsable; lectura documental':doc.documental_711.tipo==='guardada'?'Asignacion guardada':'Deteccion semanal; no asignacion confirmada'):ev?.horario?'Programaci\u00f3n actual':confirmado?'Programaci\u00f3n guardada':sugerido?'Horario sugerido':'Horario sin confirmar',requiereNocturno:requiereRevisionNocturna(x)};
+ return {seleccion,fecha,p,ev,eventos,usadas,cantidad,entrada,salida,base,punto,brutos,neto,pausa,criterio,comparable,sugerido,b1,b2,contiguo,netoProgramado:nets===null?null:nets*60,deltaEntrada,deltaSalida,fuente:p.horario_propuesto?'Propuesta Bodega; confirmar horario':doc?(doc.documental_711.tipo==='documental_fija'?'Plantilla estipulada por Bienestar':doc.documental_711.tipo==='confirmacion_usuario'?'Horario confirmado por el responsable; lectura documental':doc.documental_711.tipo==='guardada'?'Asignacion guardada':'Deteccion semanal; no asignacion confirmada'):ev?.horario?'Programaci\u00f3n actual':confirmado?'Programaci\u00f3n guardada':sugerido?'Horario sugerido':'Horario sin confirmar',requiereNocturno:requiereRevisionNocturna(x)};
 }
 export function comparacionCelda(m,lado){
  const ini=lado==='entrada',prog=ini?m.b1?.start:(m.b2||m.b1)?.end,real=ini?m.entrada:m.salida,delta=ini?m.deltaEntrada:m.deltaSalida;
@@ -68,6 +68,7 @@ export function advertenciaNocturna(x){
  return '<div class="rev-small">Revisar evidencia del punto, horario, pausas y concepto antes de aprobar.</div>';
 }
 export function calculadasCeldaRevision(x,m=modeloRevision(x)){
+ if(x.detalle?.bodega_753&&x.detalle.calculo_pendiente&&!['aprobado','rechazado'].includes(x.estado_revision||x.estado))return '<strong>Por confirmar</strong><small class="rev-small">Validar rotacion y marcaciones. No es cero trabajado.</small>';
  if(x.origen_calculo==='domingo_pendiente_revision_v712')return '<strong>Por validar</strong><small class="rev-small">Domingo o festivo con marcas, con o sin programación.</small>';
  if(requiereRevisionNocturna(x)){
   const bruto=m.brutos;
@@ -76,7 +77,7 @@ export function calculadasCeldaRevision(x,m=modeloRevision(x)){
  return `<strong>${textoHoras728(x.horas_calculadas)}</strong>`;
 }
 
-export function contextoComoJornada(e){return {...e.horario,cedula:e.cedula,fecha:e.fecha,evidencia_revision:e,recorrido:e.recorrido,total_marcaciones:e.total_marcaciones,primera_marcacion:e.primera_marcacion,ultima_marcacion:e.ultima_marcacion,horas_reales_pareadas:null,programacion_tipo:e.horario?'confirmada':'Sin programaci\u00f3n',estado_comparacion:e.conflicto_horario?'programacion_a_revisar':e.total_marcaciones===1?'marcaciones_incompletas':!e.total_marcaciones?'programado_sin_marcaciones':e.horario?'comparable':'marcado_sin_programacion'};}
+export function contextoComoJornada(e){return {...e.horario,cedula:e.cedula,fecha:e.fecha,evidencia_revision:e,recorrido:e.recorrido,total_marcaciones:e.total_marcaciones,primera_marcacion:e.primera_marcacion,ultima_marcacion:e.ultima_marcacion,horas_reales_pareadas:null,programacion_tipo:e.horario?.horario_propuesto?e.horario.programacion_tipo:e.horario?'confirmada':'Sin programaci\u00f3n',estado_comparacion:e.conflicto_horario?'programacion_a_revisar':e.total_marcaciones===1?'marcaciones_incompletas':!e.total_marcaciones?'programado_sin_marcaciones':e.horario?'comparable':'marcado_sin_programacion'};}
 export function columnasRevisionExcel(x){const m=modeloRevision(x);return {'Día':diaSemanaRevision(m.fecha),'Punto comparado':m.punto,'Aclaración del punto':m.seleccion.nota,'Inicio programado':m.p.hora_inicio||'','Salida programada':m.p.hora_fin||'','Entrada comparada':reloj(m.entrada,m.fecha,true),'Salida comparada':reloj(m.salida,m.fecha,true),'Criterio de comparacion':m.base,'Diferencia entrada (min)':m.deltaEntrada===null?null:Math.round(m.deltaEntrada*100)/100,'Diferencia salida (min)':m.deltaSalida===null?null:Math.round(m.deltaSalida*100)/100,'Intervalo observado (h)':m.brutos===null?null:Math.round(m.brutos/60*100)/100,'Total jornada estimado (h)':m.neto===null?null:Math.round(m.neto/60*100)/100,'Criterio del total':m.criterio,'Recargo solo programado':m.requiereNocturno?'SI - REVISAR':'NO'};}
 export function crearVisorRevision({rpc,onChanged=()=>{},onError=()=>{},onBusy=()=>{},totalEntreMarcas=false,canWrite=()=>true,confirmacionExplicita=true,canManual=()=>false,onManual=()=>{}}){
  let dlg=null,version=0,ocupado=false;
