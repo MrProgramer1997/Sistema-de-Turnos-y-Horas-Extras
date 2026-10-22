@@ -28,6 +28,10 @@ export function idRevisionDesdeBotonV748(button) {
   return '';
 }
 
+export function esRevisionPersistida749(id) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(text(id));
+}
+
 function estadoLocalDesdeBoton(button) {
   if (button.dataset.action === 'rechazar') {
     const row = button.closest('tr');
@@ -85,7 +89,9 @@ export function instalarNominaIntegridadV748(supabase, documentRef = globalThis.
     if (button.disabled) return;
 
     const revisionId = idRevisionDesdeBotonV748(button);
-    if (!revisionId) return;
+    // s719/s721 candidates exist only in the browser. Their existing review
+    // dialog resolves them by employee/date/concept, NOT by a UUID.
+    if (!esRevisionPersistida749(revisionId)) return;
     const localState = estadoLocalDesdeBoton(button);
     if (esEstadoCerradoV748(localState) || localState === 'cerrado') return;
 
@@ -94,12 +100,17 @@ export function instalarNominaIntegridadV748(supabase, documentRef = globalThis.
     button.disabled = true;
     report(documentRef, 'Verificando el estado actual antes de rechazar...');
 
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
     try {
-      const { data, error } = await supabase
+      // Load lazily after the shared client has initialized, avoiding cycles.
+      const { consultaConSesion } = await import('./nomina-sesion.js?v=717');
+      const { data, error } = await consultaConSesion(() => supabase
         .from('turnos_conceptos_revision')
         .select('id,estado,updated_at')
         .eq('id', revisionId)
-        .single();
+        .single(), { read: true, signal: controller.signal });
+      if (!button.isConnected || idRevisionDesdeBotonV748(button) !== revisionId) return;
       if (error) throw error;
 
       const route = rutaRechazoV748(localState, data?.estado);
@@ -133,11 +144,12 @@ export function instalarNominaIntegridadV748(supabase, documentRef = globalThis.
       console.error('Validacion previa de rechazo v7.48:', error);
       report(
         documentRef,
-        'No se pudo verificar el estado antes del rechazo. No se envio la decision; se actualizara la bandeja.',
+        'No se pudo verificar el estado antes del rechazo. No se envio la decision. Puedes volver a intentarlo sin recargar el corte.',
         'warning'
       );
       button.disabled = false;
-      refreshWhenAvailable(documentRef);
+    } finally {
+      clearTimeout(timer);
     }
   }, true);
 

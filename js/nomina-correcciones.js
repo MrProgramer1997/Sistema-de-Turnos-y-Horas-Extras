@@ -100,6 +100,8 @@ export function crearCorreccionesNomina722({rpc, canWrite, onBusy, onSaved, onEr
       if (requestId !== ticket) return;
       const f = result.revision, expected = operation === 'rechazar' ? 'rechazado' : operation === 'recalcular' ? 'pendiente' : 'aprobado';
       if (!f || f.id !== r.revision.id || f.cedula !== r.revision.cedula || f.fecha !== r.revision.fecha || f.concepto_codigo !== r.revision.concepto_codigo || f.estado !== expected || !result.historial_id) throw new Error('No se confirmo la correccion esperada. Actualiza antes de reintentar.');
+      // Render with enabled actions after the server confirmed the write.
+      onBusy(false);
       await onSaved(f, previous, operation); busy = false; close();
     } catch (error) {
       if (requestId === ticket) {context = null; alert.textContent = 'No se repetira la operacion automaticamente. ' + (error.message || error); onError(error);}
