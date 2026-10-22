@@ -32,24 +32,25 @@ export function modeloRevision(x={}){
  const lista=Array.isArray(ev?.recorrido)?ev.recorrido:Array.isArray(x.recorrido)?x.recorrido:[];
  const eventos=lista.map(v=>({...v,t:minutoCivil(v.hora||v.punch_time,fecha)})).filter(v=>v.t!==null).sort((a,b)=>a.t-b.t);
  const cantidad=finite(ev?.total_marcaciones??x.total_marcaciones)??eventos.length;
- const seleccion=seleccionarPuntoRevision(eventos,cantidad,p);
+ const contiguo=Boolean(b1&&b2&&b1.end===b2.start);
+ const seleccion=seleccionarPuntoRevision(eventos,cantidad,{...p,inicioReferencia:horarioComparable?b1.start:null,finReferencia:horarioComparable?(b2||b1).end:null,bloquesContiguos:contiguo,conflicto_programacion:!horarioComparable});
  const {entrada,salida,usadas,parClaro,punto}=seleccion;
- const base=seleccion.fuente==='punto'?'Punto: '+punto:seleccion.fuente==='porteria_dos'?'Portería: solo dos marcas':seleccion.fuente==='dos_sin_punto'?'Dos marcas: punto sin identificar':'Punto incompleto; sin par de comparación';
+ const base=seleccion.fuente==='multipunto_horario'?'Puntos: '+punto:seleccion.fuente==='punto'?'Punto: '+punto:seleccion.fuente==='porteria_dos'?'Portería: solo dos marcas':seleccion.fuente==='dos_sin_punto'?'Dos marcas: punto sin identificar':'Punto incompleto; sin par de comparación';
  const brutos=entrada!==null&&salida!==null&&salida>entrada&&salida-entrada<=1440?salida-entrada:null;
  const pausa=finite(p.minutos_descanso)??(finite(p.descuento_almuerzo)!==null?Number(p.descuento_almuerzo)*60:confirmado?30:null);
  let neto=null,criterio='No hay un par de marcas suficiente para calcular horas.';
  if(brutos!==null){
    criterio='Intervalo entre marcas; no acredita trabajo continuo.';
    // Split shifts and multiple point movements need an actual pairing rule, not min/max minus lunch.
-   if(!b2&&pausa!==null&&pausa>=0&&pausa<brutos&&(parClaro||eventos.length===2)&&!(punto&&base==='Primera y \u00faltima marca')){neto=brutos-pausa;criterio='Estimado: intervalo seleccionado menos '+pausa+' min. Confirmar pausas y salidas; no son horas aprobadas.';}
-   else if(b2)criterio='Turno partido: revisar cada bloque; no se suma la pausa entre bloques como trabajo.';
+   if((!b2||contiguo)&&pausa!==null&&pausa>=0&&pausa<brutos&&(parClaro||eventos.length===2)&&!(punto&&base==='Primera y \u00faltima marca')){neto=brutos-pausa;criterio='Estimado: intervalo seleccionado menos '+pausa+' min. Confirmar pausas y salidas; no son horas aprobadas.';}
+   else if(b2&&!contiguo)criterio='Turno partido: revisar cada bloque; no se suma la pausa entre bloques como trabajo.';
    else if(punto&&base==='Primera y \u00faltima marca')criterio='No se identificaron entrada y salida en el punto programado. Porter\u00eda solo acredita presencia.';
    else criterio='Hay movimientos o descanso sin verificar. Se muestra el intervalo, no un total neto confirmado.';
  }
- const comparable=seleccion.fuente!=='dos_sin_punto'&&horarioComparable&&entrada!==null&&salida!==null&&!b2;
+ const comparable=seleccion.fuente!=='dos_sin_punto'&&horarioComparable&&entrada!==null&&salida!==null&&(!b2||contiguo);
  const deltaEntrada=comparable&&entrada!==null?entrada-b1.start:null,deltaSalida=comparable&&salida!==null?salida-(b2||b1).end:null;
  const nets=!b1||hayNovedad?null:finite(p.horas_programadas_netas)??(b1?Math.max(0,b1.end-b1.start+(b2?b2.end-b2.start:0)-(pausa??30))/60:null);
- return {seleccion,fecha,p,ev,eventos,usadas,cantidad,entrada,salida,base,punto,brutos,neto,pausa,criterio,comparable,sugerido,b1,b2,netoProgramado:nets===null?null:nets*60,deltaEntrada,deltaSalida,fuente:doc?(doc.documental_711.tipo==='documental_fija'?'Plantilla estipulada por Bienestar':doc.documental_711.tipo==='confirmacion_usuario'?'Horario confirmado por el responsable; lectura documental':doc.documental_711.tipo==='guardada'?'Asignacion guardada':'Deteccion semanal; no asignacion confirmada'):ev?.horario?'Programaci\u00f3n actual':confirmado?'Programaci\u00f3n guardada':sugerido?'Horario sugerido':'Horario sin confirmar',requiereNocturno:requiereRevisionNocturna(x)};
+ return {seleccion,fecha,p,ev,eventos,usadas,cantidad,entrada,salida,base,punto,brutos,neto,pausa,criterio,comparable,sugerido,b1,b2,contiguo,netoProgramado:nets===null?null:nets*60,deltaEntrada,deltaSalida,fuente:doc?(doc.documental_711.tipo==='documental_fija'?'Plantilla estipulada por Bienestar':doc.documental_711.tipo==='confirmacion_usuario'?'Horario confirmado por el responsable; lectura documental':doc.documental_711.tipo==='guardada'?'Asignacion guardada':'Deteccion semanal; no asignacion confirmada'):ev?.horario?'Programaci\u00f3n actual':confirmado?'Programaci\u00f3n guardada':sugerido?'Horario sugerido':'Horario sin confirmar',requiereNocturno:requiereRevisionNocturna(x)};
 }
 export function comparacionCelda(m,lado){
  const ini=lado==='entrada',prog=ini?m.b1?.start:(m.b2||m.b1)?.end,real=ini?m.entrada:m.salida,delta=ini?m.deltaEntrada:m.deltaSalida;

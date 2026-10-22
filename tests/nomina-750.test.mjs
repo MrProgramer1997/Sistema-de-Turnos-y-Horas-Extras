@@ -122,5 +122,5 @@ test('actual table callback preserves original row and other concepts on an addi
 });
 test('page pins the manual module without altering five existing 7.49 mappings',async()=>{
  const html=await readFile(new URL('../pages/horas-extras.html',import.meta.url),'utf8');const map=JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]);
- assert.equal(map.imports['../js/nomina-autorizacion-manual.js?v=746'],'../js/nomina-autorizacion-manual.js?v=750');assert.equal(Object.values(map.imports).filter(v=>v.endsWith('?v=749')).length,5);assert.match(html,/versi.n 7.50/);
+ assert.equal(map.imports['../js/nomina-autorizacion-manual.js?v=746'],'../js/nomina-autorizacion-manual.js?v=750');assert.equal(Object.values(map.imports).filter(v=>v.endsWith('?v=749')).length,5);assert.match(html,/versi.n 7.51/);
 });

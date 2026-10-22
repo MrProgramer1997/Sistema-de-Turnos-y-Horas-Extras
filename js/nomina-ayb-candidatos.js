@@ -13,7 +13,7 @@ export function esAyB721(x={}){
 export function modeloParaNomina721(x={}){
  if(models.has(x))return models.get(x);
  const m=modeloNomina(x);
- if(esAyB721(x)&&!m.b2&&m.seleccion.completa&&m.usadas.length>=2&&m.brutos!==null&&m.brutos<=960&&m.pausa!==null&&m.pausa>=0&&m.pausa<=m.brutos){
+ if(esAyB721(x)&&(!m.b2||m.contiguo)&&m.seleccion.completa&&m.usadas.length>=2&&m.brutos!==null&&m.brutos<=960&&m.pausa!==null&&m.pausa>=0&&m.pausa<=m.brutos){
   m.neto=m.brutos-m.pausa;m.descuentoAplicado=m.pausa;
   m.criterio='Intervalo del punto menos el descanso configurado. Las marcas intermedias se conservan para revision.';
  }
@@ -23,11 +23,11 @@ export function conceptosAyB721(x,calendario){
  if(!esAyB721(x)||x.es_externo_chef||x.jornada_actual?.es_externo_chef)return [];
  const m=modeloParaNomina721(x);if(!m.eventos.length)return [];
  const festivos=new Set(calendario?.festivos?.keys?.()||[]),amounts=new Map();
- const blocks=m.b1?[{...m.b1,subarea:m.p.subarea,ultimo:!m.b2,hasta:m.b2?.start},...(m.b2?[{...m.b2,subarea:m.p.subarea_2,ultimo:true,desde:m.b1.end}]:[])]:[];
+ const blocks=m.contiguo?[{...m.b1,end:m.b2.end,subarea:m.p.subarea,ultimo:true}]:m.b1?[{...m.b1,subarea:m.p.subarea,ultimo:!m.b2,hasta:m.b2?.start},...(m.b2?[{...m.b2,subarea:m.p.subarea_2,ultimo:true,desde:m.b1.end}]:[])]:[];
  let complete=Boolean(blocks.length&&!m.p.novedad_codigo&&!m.p.conflicto_programacion&&!m.ev?.conflicto_horario),last=null;
  for(const b of blocks){
   const ev=m.eventos.filter(e=>(b.desde==null||e.t>=b.desde)&&(b.hasta==null||e.t<b.hasta));
-  const sel=seleccionarPuntoRevision(ev,ev.length,{subarea:b.subarea});
+  const sel=seleccionarPuntoRevision(ev,ev.length,{subarea:b.subarea,inicioReferencia:b.start,finReferencia:b.end,conflicto_programacion:!complete});
   if(sel.entrada===null||sel.salida===null||sel.usadas.length<2||sel.salida-sel.entrada>960||last!==null&&sel.entrada<last){complete=false;continue;}
   last=sel.salida;
   for(const c of tramosCandidatos719({entrada:sel.entrada,salida:sel.salida,inicio:b.start,fin:b.end,festivos})){

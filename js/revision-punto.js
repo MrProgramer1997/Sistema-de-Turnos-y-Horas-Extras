@@ -2,6 +2,7 @@
  * Usa el punto interno; Porteria solo es alternativa con dos marcas de puerta.
  * Los extremos son referencias cronologicas, no sensores de direccion.
  */
+import { seleccionarMultipunto751 } from './nomina-multipunto.js?v=751';
 const text=v=>String(v??'').trim();
 export const normalizarPunto=v=>text(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 export const escaparPunto=v=>text(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,6 +13,8 @@ export const ordenCronologicoRevision=(a,b)=>text(a.fecha).localeCompare(text(b.
 export const etiquetaPunto=v=>text(v.punto||v.area_alias||v.area_biometrico||v.terminal_alias||v.terminal||v.serial);
 export const esPorteria=v=>normalizarPunto([v.punto,v.area_alias,v.area_biometrico,v.terminal_alias,v.terminal].filter(Boolean).join(' ')).includes('PORTER');
 export function seleccionarPuntoRevision(eventos,cantidad,p={}){
+ const multipunto=seleccionarMultipunto751(eventos,cantidad,{inicio:p.inicioReferencia,fin:p.finReferencia,partido:Boolean(p.hora_inicio_2||p.turno_2)&&!p.bloquesContiguos,conflicto:Boolean(p.conflicto_programacion||p.novedad_codigo||p.tipo_registro==='novedad')});
+ if(multipunto)return multipunto;
  const validos=eventos.filter(v=>Number.isFinite(v.t)).slice().sort((a,b)=>a.t-b.t||text(a.id??a.biotime_id).localeCompare(text(b.id??b.biotime_id)));
  const utiles=v=>{const n=normalizarPunto(etiquetaPunto(v));return n&&!/^[A-Z]{2,}[0-9]{6,}$/.test(n);};
  const internos=validos.filter(v=>!esPorteria(v)&&utiles(v)),grupos=new Set(internos.map(v=>normalizarPunto(etiquetaPunto(v))));

@@ -76,3 +76,9 @@ export function proponerDistribucion(rows,objetivo=2520){
   return result;
 }
 export function cambioParaRPC(personaId,r,datos){return {fecha:r.fecha,esperado_id:r.id||null,esperado_updated_at:r.updated_at||null,datos:{...datos,horario_asignado:datos.horario_asignado}};}
+
+// v7.51: retrospective manual scheduling window, based on Colombia civil date.
+export function fechaMinimaEdicionChef751(hoy) {
+ const actual=fechaMas(hoy,0),dow=new Date(actual+'T00:00:00Z').getUTCDay();
+ return fechaMas(actual,-((dow+6)%7)-7);
+}
