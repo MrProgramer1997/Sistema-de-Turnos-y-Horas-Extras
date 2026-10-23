@@ -2,6 +2,7 @@
 (() => {
  const $=id=>document.getElementById(id);
  function view(admin,{historyMode='none',focus=false}={}) {
+  if(window.ingresoAdminEnCurso?.()||window.ingresoAdminRequiereRecarga?.())return;
   $('adminLogin').style.display=admin?'flex':'none';
   $('empleadoLogin').style.display=admin?'none':'flex';
   $('clavePersonal').style.display='none';$('loginSecondary').hidden=false;

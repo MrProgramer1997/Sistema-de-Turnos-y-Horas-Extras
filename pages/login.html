@@ -68,7 +68,8 @@
           <p id="loginDescription">Ingresa con tu cédula y tu contraseña personal.</p>
         </div>
 
-        <div id="mensajeLogin" class="mensaje-login hidden"></div>
+        <div id="mensajeLogin" class="mensaje-login hidden" role="status" aria-live="polite"></div>
+        <button type="button" id="recargarIngresoAdmin" class="login-otra-cuenta" hidden onclick="location.reload()">Recargar el acceso</button>
 
 
 
@@ -153,6 +154,7 @@
         <noscript>Activa JavaScript para ingresar a Mis Turnos.</noscript>
         <div class="login-footer">
           <small>Acceso restringido para personal autorizado</small>
+          <small id="versionAccesoAdmin" style="display:block">Acceso 7.61</small>
         </div>
       </section>
     </div>
@@ -162,7 +164,8 @@
   <div id="loaderOverlay" class="loader-overlay hidden">
     <div class="loader-box">
       <div class="spinner"></div>
-      <p>Validando información...</p>
+      <p id="estadoIngresoAdmin" role="status" aria-live="polite">Validando información...</p>
+      <button type="button" id="cancelarIngresoAdmin" class="login-otra-cuenta" hidden onclick="cancelarIngresoAdminUI()">Cancelar ingreso</button>
     </div>
   </div>
 
@@ -192,7 +195,7 @@
       const box = document.getElementById("mensajeLogin");
       box.className = "mensaje-login";
       box.classList.add(tipo);
-      box.innerHTML = texto;
+      box.textContent = texto;
       box.classList.remove("hidden");
     }
 
@@ -315,41 +318,59 @@
       return valido;
     }
 
+    let adminUIOcupado761 = false;
+    function mostrarEstadoIngresoAdmin(texto) {
+      const estado = document.getElementById("estadoIngresoAdmin");
+      if (estado) estado.textContent = texto;
+    }
+    function cancelarIngresoAdminUI() {
+      window.cancelarIngresoAdmin?.();
+    }
     async function loginAdminConUI() {
+      if (adminUIOcupado761 || window.ingresoAdminEnCurso?.()) return;
+      if (window.ingresoAdminRequiereRecarga?.()) {
+        mostrarMensaje("error", "La autenticacion anterior sigue pendiente. Recarga esta pagina antes de ingresar.");
+        document.getElementById("recargarIngresoAdmin").hidden = false;
+        return;
+      }
       limpiarMensaje();
-
       if (!validarAdminUI()) {
         mostrarMensaje("error", "Por favor complete correctamente los campos requeridos.");
         return;
       }
-
-      let timeoutLoader = null;
-
+      adminUIOcupado761 = true;
+      const form = document.getElementById("adminLogin");
+      const controls = Array.from(form.querySelectorAll("input,select,button"))
+        .map(el => [el, el.disabled]);
       try {
-        mostrarLoader();
         guardarUsuarioRecordado();
-
-        timeoutLoader = setTimeout(() => {
-          ocultarLoader();
-        }, 12000);
-
-        if (typeof loginAdmin === "function") {
-          await loginAdmin();
-          clearTimeout(timeoutLoader);
-        } else {
-          clearTimeout(timeoutLoader);
-          ocultarLoader();
-          mostrarMensaje("error", "No se encontró la función de inicio de sesión administrativo.");
+        controls.forEach(([el]) => { el.disabled = true; });
+        form.setAttribute("aria-busy", "true");
+        document.getElementById("cancelarIngresoAdmin").hidden = false;
+        document.getElementById("recargarIngresoAdmin").hidden = true;
+        mostrarEstadoIngresoAdmin("Verificando acceso administrativo...");
+        mostrarLoader();
+        if (typeof window.loginAdmin !== "function") {
+          mostrarMensaje("error", "No se pudo cargar el acceso administrativo. Recarga la pagina y revisa la conexion.");
+          return;
         }
+        await window.loginAdmin();
       } catch (error) {
-        if (timeoutLoader) clearTimeout(timeoutLoader);
+        mostrarMensaje("error", "No se pudo completar el ingreso. Revisa la conexion y vuelve a intentarlo.");
+        console.warn("Interfaz de ingreso:", error?.name || "Error");
+      } finally {
+        adminUIOcupado761 = false;
         ocultarLoader();
-        mostrarMensaje("error", "Ocurrió un error al intentar iniciar sesión.");
-        console.error(error);
+        document.getElementById("cancelarIngresoAdmin").hidden = true;
+        const pendiente = window.ingresoAdminRequiereRecarga?.() === true;
+        document.getElementById("recargarIngresoAdmin").hidden = !pendiente;
+        controls.forEach(([el, disabled]) => { el.disabled = disabled; });
+        form.removeAttribute("aria-busy");
       }
     }
 
     async function consultarTurnosConUI() {
+      if (adminUIOcupado761 || window.ingresoAdminEnCurso?.() || window.ingresoAdminRequiereRecarga?.()) return;
       limpiarMensaje();
 
       if (!validarEmpleadoUI()) {
@@ -405,6 +426,7 @@
 
 
     function resetearEstadoLoginSeguro() {
+      if (adminUIOcupado761 || window.ingresoAdminEnCurso?.()) return;
       ocultarLoader();
       limpiarMensaje();
       limpiarErrores();
@@ -421,6 +443,7 @@
     });
 
     window.addEventListener("focus", () => {
+      if (adminUIOcupado761 || window.ingresoAdminEnCurso?.()) return;
       ocultarLoader();
     });
 
@@ -470,10 +493,10 @@
     });
   </script>
 
-  <script type="module" src="../js/login-buscador.js?v=7-34"></script>
-  <script src="../js/login-vista.js?v=750"></script>
+  <script type="module" src="../js/login-buscador.js?v=761"></script>
+  <script src="../js/login-vista.js?v=761"></script>
   <script type="module" src="../js/login-pwa.js?v=754"></script>
-  <script type="module" src="../js/auth.js?v=750"></script>
+  <script type="module" src="../js/auth.js?v=761"></script>
 </body>
 
 </html>

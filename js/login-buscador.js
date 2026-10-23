@@ -1,4 +1,5 @@
 import { supabase } from '../supabase/supabaseClient.js';
+import { conLimiteIngreso761 } from './login-admin-resiliente.js?v=761';
 
 /* Directorio dinamico de usuarios administrativos para el login.
    La autenticacion y los permisos siguen siendo validados por Supabase Auth. */
@@ -95,12 +96,17 @@ import { supabase } from '../supabase/supabaseClient.js';
     }
 
     async function cargarDirectorioAdministrativo() {
-      const valorAnterior = select.value;
       try {
-        const { data, error } = await supabase.rpc('listar_directorio_login_v734');
+        const { data, error } = await conLimiteIngreso761(
+          signal => supabase.rpc('listar_directorio_login_v734').abortSignal(signal),
+          { ms: 5000, etapa: 'actualizar la lista de nombres' }
+        );
         if (error) throw error;
         if (!Array.isArray(data) || !data.length) throw new Error('Directorio administrativo vacio');
 
+        // Do not reset a selection made while the directory was loading.
+        if (window.ingresoAdminEnCurso?.()) return;
+        const valorAnterior = select.value, busquedaActual = input.value;
         const otraCuenta = Array.from(select.options).find((o) => o.value === '__otra_cuenta__');
         select.replaceChildren();
 
@@ -132,14 +138,14 @@ import { supabase } from '../supabase/supabaseClient.js';
 
         rebuildEntries();
 
-        if (valorAnterior && Array.from(select.options).some((o) => o.value === valorAnterior)) {
-          select.value = valorAnterior;
-        }
+        select.value = Array.from(select.options).some((o) => o.value === valorAnterior)
+          ? valorAnterior : '';
+        window.alternarCuentaManual?.();
         sync();
+        if (!valorAnterior && busquedaActual) { input.value = busquedaActual; paint(); }
       } catch (error) {
-        console.warn('No fue posible actualizar el directorio del login; se conserva el listado incluido en la pagina.', error);
-        rebuildEntries();
-        sync();
+        // The embedded list and manual account remain usable; do not erase input.
+        console.warn('Directorio temporalmente no disponible; se conserva el listado local.', error?.code || 'DIRECTORIO_ERROR');
       }
     }
 

@@ -1,5 +1,6 @@
 import { loginEmpleadoSeguro } from "./portal-acceso-empleado.js?v=750";
 import { destinoPermitido } from "./permisos-core.js?v=720";
+import { crearIngresoAdmin761, mensajeErrorIngreso761, ErrorIngreso761 } from "./login-admin-resiliente.js?v=761";
 import { supabase } from "../supabase/supabaseClient.js";
 
 function normalizarTexto(valor) {
@@ -135,251 +136,55 @@ function obtenerPermisosPorRol(rol) {
 }
 
 const parametrosRecuperacion = new URLSearchParams(window.location.search);
-const requiereAuthVerificada = parametrosRecuperacion.get('sesion') === 'verificada';
 const retornoSolicitado = parametrosRecuperacion.get('volver');
 const retornoSeguro = ['dashboard.html','horas-extras.html'].includes(retornoSolicitado) ? retornoSolicitado : null;
 
+const ingresoAdmin761 = crearIngresoAdmin761({
+  client: supabase,
+  clearApplicationSession: () => localStorage.removeItem("ccp_sesion"),
+  onStatus: texto => window.mostrarEstadoIngresoAdmin?.(texto),
+  onVerified: ({ user: authUser, empleado, acceso, usuario, correo }) => {
+    const metadata = authUser.app_metadata || {};
+    const rolAuth = normalizarTexto(metadata.rol);
+    const perfilAcceso = normalizarTexto(metadata.perfil_acceso || (rolAuth === "administrador" ? "admin" : rolAuth));
+    const permisos = obtenerPermisosPorRol(perfilAcceso);
+    const sesion = {
+      id: authUser.id, auth_user_id: authUser.id, usuario_admin_id: null,
+      empleado_id: empleado.id, codigo: empleado.codigo || "", cedula: String(empleado.cedula || ""), usuario,
+      nombre_completo: `${empleado.nombres || ""} ${empleado.apellidos || ""}`.trim(),
+      nombres: empleado.nombres || "", apellidos: empleado.apellidos || "", cargo: empleado.cargo || "",
+      centro_costos: empleado.centro_costos || "", area: empleado.area || "", correo, telefono: empleado.telefono || "",
+      rol: perfilAcceso, rol_auth: rolAuth, puede_ver_todo: permisos.puede_ver_todo,
+      areas_permitidas: acceso.areas_permitidas, modulos_permitidos: acceso.modulos_permitidos,
+      puede_administrar: acceso.puede_administrar, activo: true, tipo_ingreso: "admin_auth"
+    };
+    const destino = destinoPermitido(sesion, retornoSeguro || "");
+    if (!destino) throw new ErrorIngreso761("Tu cuenta esta activa, pero no tiene modulos asignados. Contacta a Sistemas.", "LOGIN_NO_MODULES");
+    localStorage.setItem("ccp_sesion", JSON.stringify(sesion));
+    window.mostrarEstadoIngresoAdmin?.("Acceso verificado. Abriendo el panel...");
+    window.location.href = destino;
+  }
+});
+window.ingresoAdminEnCurso = () => ingresoAdmin761.ocupado();
+window.ingresoAdminRequiereRecarga = () => ingresoAdmin761.requiereRecarga();
+window.cancelarIngresoAdmin = () => ingresoAdmin761.cancelar();
+window.addEventListener("pagehide", () => ingresoAdmin761.cancelar());
 window.loginAdmin = async function () {
-  const selectorUsuario = document.getElementById("usuario");
-  const opcionSeleccionada = selectorUsuario?.selectedOptions?.[0];
-  const valorSelector = selectorUsuario?.value.trim().toLowerCase() || "";
+  const selector = document.getElementById("usuario");
+  const valor = String(selector?.value || "").trim().toLowerCase();
   const identidad = typeof window.obtenerIdentidadAdminLogin === "function"
     ? window.obtenerIdentidadAdminLogin()
-    : {
-        correo: valorSelector,
-        usuario: opcionSeleccionada?.dataset?.usuarioLegacy || valorSelector.split("@")[0],
-        soloAuth: opcionSeleccionada?.dataset?.authOnly === "true",
-        error: valorSelector === "__otra_cuenta__" ? "Actualice la página de inicio y vuelva a intentar." : ""
-      };
-  if (identidad.error) {
-    if (typeof ocultarLoader === "function") ocultarLoader();
-    if (typeof mostrarMensaje === "function") mostrarMensaje("error", identidad.error);
-    return false;
-  }
-  const correoAuth = identidad.correo;
-  const usuario = identidad.usuario;
-  const password = document.getElementById("password")?.value.trim() || "";
-
-  if (!correoAuth || !password) {
-    if (typeof ocultarLoader === "function") ocultarLoader();
-    if (typeof mostrarMensaje === "function") {
-      mostrarMensaje("error", "Complete usuario y contraseña.");
-    }
-    return false;
-  }
-
+    : { correo: valor, usuario: valor.split("@")[0], error: valor === "__otra_cuenta__" ? "Selecciona una cuenta valida." : "" };
+  if (identidad.error) { window.mostrarMensaje?.("error", identidad.error); return false; }
   try {
-    // Primer intento: autenticación segura con Supabase Auth.
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: correoAuth,
-      password
+    return await ingresoAdmin761.ingresar({
+      email: identidad.correo, usuario: identidad.usuario,
+      password: document.getElementById("password")?.value || ""
     });
-
-    if (!authError && authData?.user && authData?.session?.access_token) {
-      const authUser = authData.user;
-      const metadata = authUser.app_metadata || {};
-      const empleadoId = metadata.empleado_id || null;
-      const rolAuth = normalizarTexto(metadata.rol);
-      const perfilAcceso = normalizarTexto(metadata.perfil_acceso || (rolAuth === "administrador" ? "admin" : rolAuth));
-
-      if (!empleadoId || !["administrador", "gerencia", "nomina", "aprobador", "auditor"].includes(rolAuth)) {
-        await supabase.auth.signOut({ scope: "local" });
-        if (typeof ocultarLoader === "function") ocultarLoader();
-        if (typeof mostrarMensaje === "function") {
-          mostrarMensaje("error", "La cuenta está autenticada, pero no tiene un perfil autorizado.");
-        }
-        return false;
-      }
-
-      const { data: empleado, error: errorEmpleadoAuth } = await supabase
-        .from("empleados")
-        .select("*")
-        .eq("id", empleadoId)
-        .maybeSingle();
-
-      if (errorEmpleadoAuth || !empleado) {
-        console.error("Error consultando empleado Auth:", errorEmpleadoAuth);
-        await supabase.auth.signOut({ scope: "local" });
-        if (typeof ocultarLoader === "function") ocultarLoader();
-        if (typeof mostrarMensaje === "function") {
-          mostrarMensaje("error", "La cuenta no tiene un empleado válido vinculado.");
-        }
-        return false;
-      }
-
-      const {data:acceso,error:errorAcceso}=await supabase.rpc("consultar_mis_modulos_v720");
-      if(errorAcceso||!acceso?.activo||acceso.user_id!==authUser.id){
-        await supabase.auth.signOut({scope:"local"});
-        if(typeof ocultarLoader==="function")ocultarLoader();
-        if(typeof mostrarMensaje==="function")mostrarMensaje("error","No se pudieron verificar los permisos. Contacta a Sistemas.");
-        return false;
-      }
-      const permisos = obtenerPermisosPorRol(perfilAcceso);
-      const rolCompatible = perfilAcceso;
-
-      const sesion = {
-        id: authUser.id,
-        auth_user_id: authUser.id,
-        usuario_admin_id: null,
-        empleado_id: empleado.id,
-        codigo: empleado.codigo || "",
-        cedula: String(empleado.cedula || ""),
-        usuario,
-        nombre_completo: `${empleado.nombres || ""} ${empleado.apellidos || ""}`.trim(),
-        nombres: empleado.nombres || "",
-        apellidos: empleado.apellidos || "",
-        cargo: empleado.cargo || "",
-        centro_costos: empleado.centro_costos || "",
-        area: empleado.area || "",
-        correo: correoAuth,
-        telefono: empleado.telefono || "",
-        rol: rolCompatible,
-        rol_auth: rolAuth,
-        puede_ver_todo: permisos.puede_ver_todo,
-        areas_permitidas: acceso.areas_permitidas,
-        modulos_permitidos: acceso.modulos_permitidos,
-        puede_administrar: acceso.puede_administrar,
-        activo: true,
-        tipo_ingreso: "admin_auth"
-      };
-
-      localStorage.setItem("ccp_sesion", JSON.stringify(sesion));
-
-      if (typeof mostrarMensaje === "function") {
-        mostrarMensaje("success", `Ingreso correcto como ${rolAuth}. Redirigiendo...`);
-      }
-
-      const destino=destinoPermitido(sesion,retornoSeguro||"");
-      if(!destino){
-        if(typeof ocultarLoader==="function")ocultarLoader();
-        if(typeof mostrarMensaje==="function")mostrarMensaje("info","Tu cuenta está activa, pero no tiene módulos asignados. Solicita el acceso a Sistemas.");
-        return false;
-      }
-      window.location.href=destino;
-      return true;
-    }
-
-    if (authError || requiereAuthVerificada) {
-      if (typeof ocultarLoader === "function") ocultarLoader();
-      if (typeof mostrarMensaje === "function") mostrarMensaje("error", "No se pudo iniciar la sesion segura. Usa la contrasena de tu cuenta Supabase Auth. El acceso anterior no habilita Centro de Control ni Nomina; no se cambio tu contrasena.");
-      return false;
-    }
-
-    // Las cuentas nuevas y Carolina solo usan Auth; no se les habilita acceso heredado.
-    if (identidad.soloAuth) {
-      if (typeof ocultarLoader === "function") ocultarLoader();
-      if (typeof mostrarMensaje === "function") mostrarMensaje("error", "No fue posible iniciar sesión con esa cuenta. Revise el usuario y la contraseña asignados. Si persiste, solicite a Sistemas que revise el acceso.");
-      return false;
-    }
-
-    // Respaldo temporal: conserva el acceso anterior mientras se crean y prueban
-    // las cuentas nuevas. Se retirará después de validar la migración.
-    const { data: usuarioAdmin, error: errorUsuario } = await supabase
-      .from("usuarios_admin")
-      .select("*")
-      .or(`usuario.eq.${usuario},cedula.eq.${usuario}`)
-      .eq("password_hash", password)
-      .eq("activo", true)
-      .maybeSingle();
-
-    if (errorUsuario) {
-      console.error("Error consultando usuarios_admin:", errorUsuario);
-
-      if (typeof ocultarLoader === "function") ocultarLoader();
-      if (typeof mostrarMensaje === "function") {
-        mostrarMensaje("error", "Error consultando el usuario administrativo.");
-      }
-
-      return false;
-    }
-
-    if (!usuarioAdmin) {
-      if (typeof ocultarLoader === "function") ocultarLoader();
-      if (typeof mostrarMensaje === "function") {
-        mostrarMensaje("error", "La contraseña no coincide con la cuenta nueva ni con el acceso anterior. Escríbala sin comillas ni espacios adicionales.");
-      }
-
-      return false;
-    }
-
-    const { data: empleado, error: errorEmpleado } = await supabase
-      .from("empleados")
-      .select("*")
-      .eq("id", usuarioAdmin.empleado_id)
-      .maybeSingle();
-
-    if (errorEmpleado) {
-      console.error("Error consultando empleado vinculado:", errorEmpleado);
-
-      if (typeof ocultarLoader === "function") ocultarLoader();
-      if (typeof mostrarMensaje === "function") {
-        mostrarMensaje("error", "Error consultando el empleado vinculado.");
-      }
-
-      return false;
-    }
-
-    if (!empleado) {
-      if (typeof ocultarLoader === "function") ocultarLoader();
-      if (typeof mostrarMensaje === "function") {
-        mostrarMensaje("error", "El usuario existe, pero no tiene empleado vinculado.");
-      }
-
-      return false;
-    }
-
-    const {error: errorSalidaAnterior} = await supabase.auth.signOut({scope:'local'});
-    if(errorSalidaAnterior) throw new Error('No se pudo cerrar la sesion anterior. Reintenta el ingreso.');
-
-    const permisos = obtenerPermisosPorRol(usuarioAdmin.rol);
-
-    const sesion = {
-      id: usuarioAdmin.id || null,
-      usuario_admin_id: usuarioAdmin.id || null,
-      empleado_id: empleado.id || null,
-      codigo: empleado.codigo || "",
-      cedula: String(empleado.cedula || usuarioAdmin.cedula || ""),
-      usuario: usuarioAdmin.usuario || "",
-      nombre_completo: `${empleado.nombres || ""} ${empleado.apellidos || ""}`.trim(),
-      nombres: empleado.nombres || "",
-      apellidos: empleado.apellidos || "",
-      cargo: empleado.cargo || "",
-      centro_costos: empleado.centro_costos || "",
-      area: empleado.area || "",
-      correo: empleado.correo || "",
-      telefono: empleado.telefono || "",
-      rol: usuarioAdmin.rol || "",
-      puede_ver_todo: permisos.puede_ver_todo,
-      areas_permitidas: permisos.areas_permitidas,
-      modulos_permitidos: permisos.modulos_permitidos,
-      tipo_ingreso: "admin"
-    };
-
-    localStorage.setItem("ccp_sesion", JSON.stringify(sesion));
-
-    await supabase
-      .from("usuarios_admin")
-      .update({
-        ultimo_login: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", usuarioAdmin.id);
-
-    if (typeof mostrarMensaje === "function") {
-      mostrarMensaje("success", `Ingreso correcto como ${usuarioAdmin.rol}. Redirigiendo...`);
-    }
-
-    window.location.href = "dashboard.html";
-    return true;
-  } catch (err) {
-    console.error("Excepción login admin:", err);
-
-    if (typeof ocultarLoader === "function") ocultarLoader();
-
-    if (typeof mostrarMensaje === "function") {
-      mostrarMensaje("error", "Ocurrió un error al iniciar sesión.");
-    }
-
+  } catch (error) {
+    window.mostrarMensaje?.("error", mensajeErrorIngreso761(error, ingresoAdmin761.requiereRecarga()));
+    // No tokens, passwords, profile data or response bodies in browser logs.
+    console.warn("Ingreso administrativo:", error?.code || "LOGIN_ERROR", error?.status || "");
     return false;
   }
 };
