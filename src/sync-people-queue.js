@@ -1,6 +1,7 @@
 require("dotenv").config();
 
 const { createClient } = require("@supabase/supabase-js");
+const { createHash } = require("crypto");
 
 const BIOTIME_URL = process.env.BIOTIME_URL;
 const BIOTIME_USERNAME = process.env.BIOTIME_USERNAME;
@@ -68,6 +69,65 @@ async function getDepartment(token, deptCode) {
   return department;
 }
 
+function normalizeKey(value) {
+  return text(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+}
+
+function positionCode(positionName) {
+  const digest = createHash("sha256").update(normalizeKey(positionName)).digest("hex").slice(0, 10).toUpperCase();
+  return `CCP${digest}`;
+}
+
+async function findPositionByName(token, positionName) {
+  const wanted = normalizeKey(positionName);
+  if (!wanted) return null;
+
+  const url = `${BIOTIME_URL}/personnel/api/positions/?position_name=${encodeURIComponent(positionName)}&page=1&page_size=100`;
+  const response = await fetch(url, { headers: { Authorization: `JWT ${token}` } });
+  if (!response.ok) throw new Error(`Error consultando cargos BioTime: HTTP ${response.status}`);
+  const result = await response.json();
+
+  return (result.data || []).find((position) => normalizeKey(position.position_name) === wanted) || null;
+}
+
+async function createPosition(token, positionName) {
+  const payload = {
+    position_code: positionCode(positionName),
+    position_name: text(positionName).toUpperCase(),
+  };
+
+  const response = await fetch(`${BIOTIME_URL}/personnel/api/positions/`, {
+    method: "POST",
+    headers: { Authorization: `JWT ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.text();
+
+  if (!response.ok) {
+    // Si el codigo ya existia por una ejecucion anterior/interrumpida,
+    // volvemos a consultar por nombre antes de declarar error.
+    const existing = await findPositionByName(token, positionName);
+    if (existing) return existing;
+    throw new Error(`Error creando cargo BioTime ${payload.position_name}: HTTP ${response.status} - ${body}`);
+  }
+
+  try {
+    return JSON.parse(body);
+  } catch {
+    return await findPositionByName(token, positionName);
+  }
+}
+
+async function getOrCreatePosition(token, positionName) {
+  const name = text(positionName);
+  if (!name) return null;
+  return (await findPositionByName(token, name)) || (await createPosition(token, name));
+}
+
 async function getActiveAreaIds() {
   const { data, error } = await supabase
     .from("biotime_terminales")
@@ -79,7 +139,7 @@ async function getActiveAreaIds() {
   return ids;
 }
 
-function buildEmployeePayload(item, department, areaIds) {
+function buildEmployeePayload(item, department, areaIds, position) {
   const p = item.payload || {};
   const names = splitName(item.nombre);
   return {
@@ -87,6 +147,7 @@ function buildEmployeePayload(item, department, areaIds) {
     first_name: text(p.nombres) || names.first_name,
     last_name: text(p.apellidos) || names.last_name,
     department: department.id,
+    position: position?.id || null,
     company: Number(p.codigo_empresa || 1),
     area: areaIds,
     hire_date: text(p.fecha_contratacion) || new Date().toISOString().slice(0, 10),
@@ -174,7 +235,10 @@ async function main() {
       const deptCode = text(p.codigo_departamento) || (item.origen === "cocina_externo" ? "05" : "");
       if (!deptCode) throw new Error("La solicitud no contiene codigo_departamento.");
       const department = await getDepartment(token, deptCode);
-      const payload = buildEmployeePayload(item, department, areaIds);
+      const cargo = text(p.nombre_cargo || p.cargo || item.cargo);
+      const position = cargo ? await getOrCreatePosition(token, cargo) : null;
+      if (cargo && !position?.id) throw new Error(`No se pudo resolver el cargo BioTime: ${cargo}`);
+      const payload = buildEmployeePayload(item, department, areaIds, position);
       const existing = await findBioEmployee(token, item.emp_code);
       if (existing) {
         await updateBioEmployee(token, existing, payload);
@@ -186,6 +250,12 @@ async function main() {
       const assigned = (verified.area || []).map((a) => Number(a.id)).filter(Number.isFinite);
       const missing = areaIds.filter((id) => !assigned.includes(id));
       if (missing.length) throw new Error(`Empleado creado en BioTime pero faltan areas: ${missing.join(",")}`);
+      if (position?.id) {
+        const verifiedPositionId = Number(verified.position?.id ?? verified.position);
+        if (verifiedPositionId !== Number(position.id)) {
+          throw new Error(`Empleado creado en BioTime pero el cargo no quedo asignado: ${cargo}`);
+        }
+      }
       await markSuccess(item, verified);
       console.log(`OK ${item.origen} ${item.emp_code} -> BioTime ${verified.id}`);
     } catch (error) {
