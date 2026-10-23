@@ -8,14 +8,15 @@ window.addEventListener('pageshow',event=>{
 let controlPermisos720=null;
 document.addEventListener("DOMContentLoaded", async () => {
   if (esPaginaLoginSidebar()) return;
+  const sidebarListo=cargarHtmlSidebarSeguro().then(html=>({html}),error=>({error}));
   try {
-    controlPermisos720=await import("./permisos-modulos.js?v=735");
+    controlPermisos720=await import("./permisos-modulos.js?v=762");
     const modulo=controlPermisos720.moduloDeRuta(location.pathname);
     const actual=await controlPermisos720.exigirModulo(modulo);
     if(!actual)return;
     window.addEventListener("ccp-permisos-actualizados",event=>{aplicarPermisosSidebar();controlPermisos720.filtrarEnlaces(event.detail);});
-    let comprobando=false;
-    const validar=async()=>{if(comprobando||document.hidden)return;comprobando=true;try{const s=await controlPermisos720.exigirModulo(modulo,{force:true});if(s)controlPermisos720.filtrarEnlaces(s);}finally{comprobando=false;}};
+    let comprobando=false,ultimaComprobacion=Date.now();
+    const validar=async()=>{if(comprobando||document.hidden||Date.now()-ultimaComprobacion<10000)return;comprobando=true;ultimaComprobacion=Date.now();try{const s=await controlPermisos720.exigirModulo(modulo);if(s)controlPermisos720.filtrarEnlaces(s);}finally{comprobando=false;}};
     window.addEventListener("focus",validar);
     document.addEventListener("visibilitychange",validar);
   }catch(e){console.error("No se pudieron verificar permisos",e);return;}
@@ -36,8 +37,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    const html = await cargarHtmlSidebarSeguro();
-    container.innerHTML = html;
+    const resultado = await sidebarListo;
+    if(resultado.error)throw resultado.error;
+    container.innerHTML = resultado.html;
+    const version=document.createElement('small');version.id='ccpVersionNavegacion762';version.textContent='Navegacion 7.62';version.style.cssText='display:block;padding:12px;color:#b6c9df;font-size:10px';container.querySelector('nav,.sidebar-global')?.append(version);
 
     aplicarPermisosSidebar();
     controlPermisos720.filtrarEnlaces(obtenerSesionActualSidebar());
