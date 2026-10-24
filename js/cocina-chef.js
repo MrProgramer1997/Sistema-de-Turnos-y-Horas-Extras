@@ -1506,11 +1506,20 @@ function obtenerFestivoChef(fechaISO) {
 
 function obtenerJornadaEsperadaChef(fechaISO) {
   const festivo = obtenerFestivoChef(fechaISO);
+  const dia = new Date(`${fechaISO}T00:00:00`).getDay();
+
+  if (festivo && dia === 1) {
+    return {
+      horas: 6.5,
+      tipo: `Lunes festivo - ${festivo.nombre || "Festivo"} / 6,5h netas`,
+      esFestivo: true
+    };
+  }
+
   if (festivo) {
     return { horas: 8, tipo: `Festivo - ${festivo.nombre || "Festivo"} / 8h netas`, esFestivo: true };
   }
 
-  const dia = new Date(`${fechaISO}T00:00:00`).getDay();
   if (dia === 0 || dia === 6) {
     return { horas: 8, tipo: "Sábado/Domingo / 8h netas", esFestivo: false };
   }
@@ -2273,7 +2282,14 @@ function obtenerCatalogoTurnosChefPorFecha(fechaISO) {
   const festivo = festivosSemanaChef.some((festivo) => String(festivo.fecha) === String(fechaISO));
   const fecha = new Date(`${fechaISO}T00:00:00`);
   const dia = fecha.getDay();
-  return festivo || dia === 0 || dia === 6 ? TURNOS_CHEF_8H_NETAS : TURNOS_CHEF_6_5H_NETAS;
+  const lunesFestivo = festivo && dia === 1;
+
+  // Regla 7.56: únicamente los lunes festivos usan la jornada corta
+  // (7 h de permanencia - 30 min = 6,5 h netas).
+  // Sábados, domingos y los demás festivos conservan la jornada larga vigente.
+  return !lunesFestivo && (festivo || dia === 0 || dia === 6)
+    ? TURNOS_CHEF_8H_NETAS
+    : TURNOS_CHEF_6_5H_NETAS;
 }
 
 function obtenerCodigoTurnoChef(codigo, fechaISO, registro = null, bloque = 1) {
