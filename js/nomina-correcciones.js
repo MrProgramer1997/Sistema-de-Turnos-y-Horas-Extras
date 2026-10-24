@@ -52,9 +52,9 @@ export function crearCorreccionesNomina722({rpc, canWrite, onBusy, onSaved, onEr
     const r = context, x = r.revision, body = dialog.querySelector('[data-body]');
     const changingHours = action === 'revisar';
     const canApprove = r.jornada_cerrada && (r.manual || Number.isFinite(r.referencia) && r.referencia > 0);
+    const manual = canManual(current);
     if (changingHours && manual && (!canApprove || x.detalle?.aprobacion_manual_728)) { const target = {...current, ...x, revision_id:x.id}; close(); void onManual(target); return; }
     const options = Array.isArray(r.opciones) ? r.opciones : [];
-    const manual = canManual(current);
     dialog.querySelector('h2').textContent = action === 'rechazar' ? 'Rechazar concepto' : action === 'recalcular' ? 'Recalcular concepto' : 'Revisar concepto';
     body.innerHTML = `<form novalidate>
       <h3>${esc(r.empleado || current.empleado)}</h3><p>${esc(x.fecha)} &middot; <strong>${esc(x.concepto_codigo)} ${esc(x.concepto_nombre)}</strong></p>
