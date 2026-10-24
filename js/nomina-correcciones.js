@@ -52,12 +52,13 @@ export function crearCorreccionesNomina722({rpc, canWrite, onBusy, onSaved, onEr
     const r = context, x = r.revision, body = dialog.querySelector('[data-body]');
     const changingHours = action === 'revisar';
     const canApprove = r.jornada_cerrada && (r.manual || Number.isFinite(r.referencia) && r.referencia > 0);
-    if (changingHours && canManual(current) && (!canApprove || x.detalle?.aprobacion_manual_728)) { const target = {...current, ...x, revision_id:x.id}; close(); void onManual(target); return; }
+    if (changingHours && manual && (!canApprove || x.detalle?.aprobacion_manual_728)) { const target = {...current, ...x, revision_id:x.id}; close(); void onManual(target); return; }
     const options = Array.isArray(r.opciones) ? r.opciones : [];
+    const manual = canManual(current);
     dialog.querySelector('h2').textContent = action === 'rechazar' ? 'Rechazar concepto' : action === 'recalcular' ? 'Recalcular concepto' : 'Revisar concepto';
     body.innerHTML = `<form novalidate>
       <h3>${esc(r.empleado || current.empleado)}</h3><p>${esc(x.fecha)} &middot; <strong>${esc(x.concepto_codigo)} ${esc(x.concepto_nombre)}</strong></p>
-      ${changingHours&&canManual(current)?'<button type="button" class="btn btn-link btn-sm p-0 mb-2" data-cambiar-concepto>Cambiar concepto</button>':''}
+      ${changingHours&&manual?'<button type="button" class="btn btn-link btn-sm p-0 mb-2" data-cambiar-concepto>Cambiar concepto</button>':''}
       <p>Estado: <strong>${esc(x.estado)}</strong> &middot; Horas aprobadas: <strong>${esc(horasCorreccion722(x.horas_aprobadas) || '00:00')}</strong></p>
       ${options.length > 1 && action !== 'rechazar' ? `<label for="nc722Opcion">Turno de referencia</label><select id="nc722Opcion" class="form-select"><option value="">Selecciona un turno</option>${options.map(o => `<option value="${esc(o.key)}" ${o.key === r.horario?.key ? 'selected' : ''}>${esc(o.codigo)} &middot; ${esc(o.inicio)} a ${esc(o.fin)}</option>`).join('')}</select>` : ''}
       ${action === 'recalcular' ? `<p>Referencia actual: <strong>${esc(horasCorreccion722(r.referencia) || 'Por revisar')}</strong>. Al confirmar, este concepto queda <strong>pendiente</strong> y deja de exportarse hasta aprobarlo de nuevo.</p>` : ''}
@@ -73,7 +74,11 @@ export function crearCorreccionesNomina722({rpc, canWrite, onBusy, onSaved, onEr
         <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha y hora</th><th>Punto</th><th>Huellero</th></tr></thead><tbody>${(r.evidencia?.recorrido || []).map(m => `<tr><td>${esc(instant(m.hora))}</td><td>${esc(m.punto || m.area_alias)}</td><td>${esc(m.terminal || m.terminal_alias)}</td></tr>`).join('') || '<tr><td colspan="3">Sin marcaciones disponibles en la referencia.</td></tr>'}</tbody></table></div>
         <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha</th><th>Usuario</th><th>Cambio</th><th>Horas</th></tr></thead><tbody>${r.historial.map(h => `<tr><td>${esc(auditDate(h.created_at))}</td><td>${esc(h.usuario)}</td><td>${esc(h.operacion || h.accion)}: ${esc(h.estado_anterior)} &rarr; ${esc(h.estado_nuevo)}</td><td>${esc(horasCorreccion722(h.horas_aprobadas_anterior) || '00:00')} &rarr; ${esc(horasCorreccion722(h.horas_aprobadas_nueva) || '00:00')}</td></tr>`).join('') || '<tr><td colspan="4">Sin cambios anteriores registrados.</td></tr>'}</tbody></table></div>
       </details><p class="nd-error" role="alert"></p>
-      <footer><button type="button" data-cancel class="btn btn-outline-secondary">Cerrar sin cambios</button><button type="submit" class="btn ${action === 'rechazar' ? 'btn-outline-danger' : 'btn-primary'}" ${changingHours && !canApprove ? 'disabled' : ''}>${action === 'rechazar' ? 'Confirmar rechazo' : action === 'recalcular' ? 'Recalcular y dejar pendiente' : 'Guardar horas aprobadas'}</button></footer>
+      <footer class="flex-wrap">
+        ${manual && action === 'revisar' ? '<button type="button" data-add-concept class="btn btn-outline-success">Añadir otro concepto</button><button type="button" data-recalculate-concept class="btn btn-outline-primary">Recalcular concepto</button>' : ''}
+        <button type="button" data-cancel class="btn btn-outline-secondary">Cerrar sin cambios</button>
+        <button type="submit" class="btn ${action === 'rechazar' ? 'btn-outline-danger' : 'btn-primary'}" ${changingHours && !canApprove ? 'disabled' : ''}>${action === 'rechazar' ? 'Confirmar rechazo' : action === 'recalcular' ? 'Recalcular y dejar pendiente' : 'Guardar horas aprobadas'}</button>
+      </footer>
     </form>`;
     body.querySelector('[data-cancel]').onclick = () => close();
     body.querySelector('#nc722Opcion')?.addEventListener('change', event => load(event.target.value || null));
@@ -82,6 +87,16 @@ export function crearCorreccionesNomina722({rpc, canWrite, onBusy, onSaved, onEr
       if(busy||!canWrite()||!canManual(current))return;
       const target={...current,...x,revision_id:x.id,_tiempoInicial729:body.querySelector('#nc722Horas')?.value||'',_comentarioInicial729:body.querySelector('#nc722Comentario')?.value||''};
       close();void onManual(target);
+    });
+    body.querySelector('[data-add-concept]')?.addEventListener('click',()=>{
+      if(busy||!canWrite()||!canManual(current))return;
+      const target={...current,...x,revision_id:x.id,_nuevoConcepto743:true,_conceptoConservar750:x.concepto_codigo};
+      close();void onManual(target);
+    });
+    body.querySelector('[data-recalculate-concept]')?.addEventListener('click',()=>{
+      if(busy||!canWrite())return;
+      action='recalcular';
+      void load(body.querySelector('#nc722Opcion')?.value||null);
     });
   }
   async function save(event) {
