@@ -42,7 +42,7 @@ export function crearRevisionSugerida719({rpc,canWrite,onBusy,onSaved,onError,ca
   const body=dlg.querySelector('[data-content]');
   body.innerHTML=`<form novalidate><h3>${esc(x.empleado||r.evidencia.empleado)}</h3>
    <p>${esc(x.fecha)} &middot; <strong>${esc(x.concepto_codigo)} ${esc(NOMBRES719[x.concepto_codigo])}</strong></p>
-   ${action==='aprobar'&&canManual(current)?'<button type="button" class="btn btn-link btn-sm p-0 mb-2" data-cambiar-concepto>Cambiar concepto</button>':''}
+   ${action==='aprobar'&&canManual(current)?'<div class="d-flex flex-wrap gap-2 mb-2"><button type="button" class="btn btn-link btn-sm p-0" data-cambiar-concepto>Cambiar concepto</button><button type="button" class="btn btn-outline-success btn-sm" data-add-concept>Añadir otro concepto</button><button type="button" class="btn btn-outline-primary btn-sm" data-recalculate-concept>Recalcular concepto</button></div>':''}
    <label for="ns719Turno">Turno para esta revision</label><select id="ns719Turno" class="form-select"><option value="">Selecciona el turno a validar</option>${options.map(o=>`<option value="${esc(o.key)}" ${r.horario?.key===o.key?'selected':''}>${esc(o.nombre||o.codigo)} &middot; ${esc(o.inicio)} a ${esc(o.fin)} &middot; descanso ${esc(o.pausa)} min</option>`).join('')}</select>
    
    <p><strong>Ingreso:</strong> ${esc(time(r.evidencia.entrada))}<br><strong>Salida:</strong> ${esc(time(r.evidencia.salida))}</p>
@@ -59,6 +59,16 @@ export function crearRevisionSugerida719({rpc,canWrite,onBusy,onSaved,onError,ca
     if(busy||!canWrite()||!canManual(current))return;
     const target={...current,_tiempoInicial729:body.querySelector('#ns719Horas')?.value||'',_comentarioInicial729:body.querySelector('#ns719Comentario')?.value||''};
     close();void onManual(target);
+  });
+  body.querySelector('[data-add-concept]')?.addEventListener('click',()=>{
+    if(busy||!canWrite()||!canManual(current))return;
+    const target={...current,_nuevoConcepto743:true,_conceptoConservar750:current.concepto_codigo};
+    close();void onManual(target);
+  });
+  body.querySelector('[data-recalculate-concept]')?.addEventListener('click',()=>{
+    if(busy||!canWrite())return;
+    const selected=body.querySelector('#ns719Turno')?.value||null;
+    void load(selected,false);
   });
  }
  async function save(ev){
