@@ -3,7 +3,7 @@
 const text=v=>String(v??'').trim();
 const norm=v=>text(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ');
 export function puedeManualNomina746(sesion,fila=null){
- if(sesion?.activo!==true||sesion.tipo_ingreso!=='admin_auth'||!Array.isArray(sesion.modulos_permitidos)||!sesion.modulos_permitidos.includes('horas-extras'))return false;
+ if(sesion?.activo!==true||!(sesion.tipo_ingreso==='admin_auth'||sesion.auth_user_id)||!Array.isArray(sesion.modulos_permitidos)||!sesion.modulos_permitidos.includes('horas-extras'))return false;
  const role=text(sesion.rol_auth||sesion.rol).toLowerCase();
  if(!['administrador','admin','nomina','aprobador'].includes(role))return false;
  if(!fila)return true;
