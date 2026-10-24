@@ -29,8 +29,8 @@ export function crearAutorizacionManual728({rpc, canWrite, canManual, onBusy, on
     if (!keepDraft) returnDraft = null;
     ensure(); current = x; preview = null;
     if (!dialog.open) focus = document.activeElement;
-    const alta = x._nuevoConcepto743 === true; selecting = false;
-    dialog.querySelector('#nm728Titulo').textContent = alta ? 'Añadir y aprobar concepto' : 'Aprobar concepto';
+    const alta = x._nuevoConcepto743 === true, incompleta = x._jornadaIncompleta761 === true; selecting = false;
+    dialog.querySelector('#nm728Titulo').textContent = incompleta ? 'Autorizar con marcación incompleta' : alta ? 'Añadir y aprobar concepto' : 'Aprobar concepto';
     const id = ++serial; dialog.querySelector('[data-close]').disabled = false;
     const body = dialog.querySelector('[data-body]'); body.innerHTML = '<p role="status">Consultando el concepto y sus marcaciones...</p>';
     if (!dialog.open) dialog.showModal();
@@ -56,19 +56,19 @@ export function crearAutorizacionManual728({rpc, canWrite, canManual, onBusy, on
         return `<option value="${esc(c.codigo)}" ${!alta && c.codigo === r.concepto_origen ? 'selected' : ''} ${existing || retained ? 'disabled' : ''}>${esc(c.codigo)} — ${esc(c.nombre)}${existing ? ' (ya registrado: ' + esc(existing.estado) + ')' : retained ? ' (concepto actual; se conserva)' : ''}</option>`;
       }).join('');
       body.innerHTML = `<form novalidate><h3>${esc(r.empleado)}</h3><p>${esc(r.fecha)}${alta ? '' : ` &middot; <strong data-original>${esc(r.concepto_origen)} ${esc(r.concepto_nombre)}</strong>`}</p>
-        ${alta ? '<p class="nd-small" role="note">Se añade un concepto independiente para esta persona y fecha. El concepto anterior conserva su estado; no se aprueba ni se rechaza al abrir esta opción.</p>' : ''}
-        <label for="nm729Concepto">${alta ? 'Nuevo concepto a añadir' : 'Concepto a aprobar'}</label><select id="nm729Concepto" class="form-select" aria-describedby="nm729Cambio">${alta ? '<option value="" selected>Selecciona el concepto</option>' : ''}${choices}</select>
+        ${incompleta ? '<div class="alert alert-warning py-2 small" role="note"><strong>Marcación incompleta.</strong> Esta autorización no crea una entrada ni una salida falsa. El responsable debe seleccionar únicamente el concepto y el tiempo que realmente autoriza; el usuario aprobador, los minutos y las marcaciones recibidas quedan en auditoría.</div>' : alta ? '<p class="nd-small" role="note">Se añade un concepto independiente para esta persona y fecha. El concepto anterior conserva su estado; no se aprueba ni se rechaza al abrir esta opción.</p>' : ''}
+        <label for="nm729Concepto">${alta ? 'Concepto a autorizar' : 'Concepto a aprobar'}</label><select id="nm729Concepto" class="form-select" aria-describedby="nm729Cambio">${alta ? '<option value="" selected>Selecciona el concepto</option>' : ''}${choices}</select>
         <p id="nm729Cambio" class="nd-small" aria-live="polite">Autorizacion del responsable. No necesitas seleccionar un turno.</p>
         ${m ? `<p class="nd-small" data-alimentacion>${esc(textoAlimentacion742(m))}</p>` : ''}
         <label for="nm728Horas">Tiempo NETO de este concepto (alimentacion ya descontada)</label><input id="nm728Horas" class="form-control" type="text" inputmode="text" maxlength="30" placeholder="1 h 26 min" value="${esc(initial)}" autocomplete="off" required>
         <strong id="nm728Tiempo" class="nd-small" aria-live="polite"></strong>
-        <label for="nm728Comentario">Comentario (opcional)</label><textarea id="nm728Comentario" class="form-control" maxlength="2000" rows="2">${esc(x._comentarioInicial729 ?? '')}</textarea>
+        <label for="nm728Comentario">Comentario ${incompleta ? '(obligatorio)' : '(opcional)'}</label><textarea id="nm728Comentario" class="form-control" maxlength="2000" rows="2">${esc(x._comentarioInicial729 ?? '')}</textarea>
         <details class="nd-evidencia"><summary>Ver marcaciones y otros conceptos</summary><p class="nd-small">Las horas ingresadas son netas; no se vuelve a descontar la alimentacion. Se conservan los registros originales, incluidos los dias contiguos como contexto, sin asignarlos automaticamente a esta jornada. Un concepto ya registrado se revisa desde su propia fila y no se sobrescribe al cambiar otro.</p>
         <p>${r.otros.map(o => `${esc(o.codigo)}: ${esc(o.estado)}${o.horas_aprobadas != null ? ' ' + esc(textoHoras728(o.horas_aprobadas)) : ''}`).join('<br>')}</p>
         <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Fecha y hora original</th><th>Punto</th><th>Huellero</th></tr></thead><tbody>${r.marcaciones.map(m => `<tr><td>${esc(text(m.hora).replace('T',' '))}</td><td>${esc(m.punto)}</td><td>${esc(m.terminal)}</td></tr>`).join('') || '<tr><td colspan="3">Sin marcaciones recibidas en este contexto. No se crearan marcaciones.</td></tr>'}</tbody></table></div></details>
         <p class="nd-error" role="alert"></p><footer class="flex-wrap">
           ${!alta ? '<button class="btn btn-outline-primary" type="button" data-add-concept>Añadir otro concepto</button>' : returnDraft ? '<button class="btn btn-outline-secondary" type="button" data-back-concept>Volver al concepto anterior</button>' : ''}
-          <button class="btn btn-success" type="submit" ${alta ? 'disabled' : ''}>${alta ? 'Añadir y aprobar este concepto' : 'Aprobar este concepto'}</button></footer></form>`;
+          <button class="btn btn-success" type="submit" ${alta ? 'disabled' : ''}>${incompleta ? 'Autorizar este concepto' : alta ? 'Añadir y aprobar este concepto' : 'Aprobar este concepto'}</button></footer></form>`;
       enlazarTiempo728(body.querySelector('#nm728Horas'), body.querySelector('#nm728Tiempo'));
       body.querySelector('#nm728Horas').addEventListener('input', () => {body.querySelector('[role="alert"]').textContent = '';});
       const changeConcept = async () => {
@@ -136,6 +136,7 @@ export function crearAutorizacionManual728({rpc, canWrite, canManual, onBusy, on
     }
     let minutes; try {minutes = leerMinutos728(body.querySelector('#nm728Horas').value);} catch(e) {error.textContent = e.message; return;}
     const x = current, id = serial, comment = body.querySelector('#nm728Comentario').value.trim();
+    if (current._jornadaIncompleta761 && !comment) {error.textContent = 'Indica por qué el responsable autoriza esta jornada con marcación incompleta.'; return;}
     if (comment.length > 2000) {error.textContent = 'El comentario puede tener hasta 2000 caracteres.'; return;}
     busy = true; onBusy(true); dialog.querySelectorAll('button,input,select,textarea').forEach(e => {e.disabled = true;});
     try {
