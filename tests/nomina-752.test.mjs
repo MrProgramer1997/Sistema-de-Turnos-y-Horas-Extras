@@ -24,8 +24,9 @@ const longEnds=['14:00','14:30','15:30','16:30','17:30','18:30','19:30','20:30',
 for(const day of [
  {label:'weekday',date:'2026-09-18',holiday:false,ends:shortEnds},
  {label:'Saturday',date:'2026-09-19',holiday:false,ends:longEnds},
- {label:'holiday',date:'2026-10-12',holiday:true,ends:longEnds}
-]) for(let i=0;i<11;i++) test(`752 SQL/frontend parity: ${day.label}, code ${i+1}`,()=>{
+ {label:'Monday holiday',date:'2026-10-12',holiday:true,ends:shortEnds},
+ {label:'non-Monday holiday',date:'2026-12-08',holiday:true,ends:longEnds}
+]) for(let i=0;i<11;i++) test(`756 SQL/frontend parity: ${day.label}, code ${i+1}`,()=>{
  const r=resolve({code:String(i+1),...day});
  assert.equal(r.hora_inicio,starts[i]);assert.equal(r.hora_fin,day.ends[i]);
 });
@@ -81,5 +82,5 @@ test('752 deployment retains 749/750/751 protections with scoped 753 diagnostics
  assert.equal(map['../js/nomina-autorizacion-manual.js?v=746'],'../js/nomina-autorizacion-manual.js?v=750');
  assert.equal(map['../js/revision-punto.js?v=713'],'../js/revision-punto.js?v=751');
  assert.equal(map['../js/nomina-control-pendientes.js?v=713'],'../js/nomina-control-pendientes.js?v=753');
- assert.match(html,/versi.n 7.53/);
+ assert.match(html,/versi.n 7.56/);
 });
