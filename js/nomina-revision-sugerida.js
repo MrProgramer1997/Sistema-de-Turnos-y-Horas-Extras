@@ -77,9 +77,10 @@ export function crearRevisionSugerida719({rpc,canWrite,onBusy,onSaved,onError,ca
   const comment=body.querySelector('#ns719Comentario').value.trim();
   // The explicit submit click is the authorization; no second checkbox.
   const confirmed=action==='aprobar';
-  let hours=null;try{if(action==='aprobar')hours=horasDesdeTexto728(body.querySelector('#ns719Horas').value);}catch(e){error.textContent=e.message;return;}
+  let hours=null,minutes=null;try{if(action==='aprobar'){minutes=leerMinutos728(body.querySelector('#ns719Horas').value);hours=Math.round(minutes/60*100)/100;}}catch(e){error.textContent=e.message;return;}
   const c=context.conceptos.find(z=>z.codigo===current.concepto_codigo);
-  if(action==='aprobar'&&(!Number.isFinite(hours)||hours<=0||!c||!Number.isFinite(c.horas_maximas)||hours>c.horas_maximas||!context.jornada_cerrada)){error.textContent='Indica horas validas para este concepto.';return;}
+  const maxMinutes=Number.isFinite(c?.horas_maximas)?Math.round(c.horas_maximas*60):null;
+  if(action==='aprobar'&&(!Number.isFinite(hours)||hours<=0||!c||!Number.isFinite(c.horas_maximas)||!Number.isFinite(minutes)||minutes>maxMinutes||!context.jornada_cerrada)){error.textContent='Indica horas validas para este concepto.';return;}
   if(action==='comentar'&&!comment){error.textContent='Escribe el comentario que deseas guardar.';return;}
   const ticket=version;busy=true;onBusy(true);dlg.querySelectorAll('button,input,select,textarea').forEach(x=>x.disabled=true);
   try{
