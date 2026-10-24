@@ -1,6 +1,6 @@
 import { puedeManualNomina746 } from './nomina-permisos-manual.js?v=746';
 import { leerOperacionesNomina746, integrarOperaciones746, programacionesEvidencia746 } from './nomina-operaciones.js?v=746';
-import { corteMensualNomina743 } from './nomina-corte.js?v=746';
+import { corteMensualNomina743 } from './nomina-corte.js?v=758';
 import { horasPagoProsof742, pagoProsof742, estadoVisualConcepto742, presentarExtraNeta742 } from './nomina-ajustes-pago.js?v=746';
 import { textoHoras728, textoMinutos728, leerMinutos728, horasDesdeTexto728, horasTextoONaN728, enlazarTiempo728 } from './tiempo-aprobacion.js?v=728';
 import { crearAutorizacionManual728 } from './nomina-autorizacion-manual.js?v=746';
