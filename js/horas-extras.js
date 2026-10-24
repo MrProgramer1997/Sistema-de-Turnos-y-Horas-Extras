@@ -3,7 +3,7 @@ import { leerOperacionesNomina746, integrarOperaciones746, programacionesEvidenc
 import { corteMensualNomina743 } from './nomina-corte.js?v=758';
 import { horasPagoProsof742, pagoProsof742, estadoVisualConcepto742, presentarExtraNeta742 } from './nomina-ajustes-pago.js?v=746';
 import { textoHoras728, textoMinutos728, leerMinutos728, horasDesdeTexto728, horasTextoONaN728, enlazarTiempo728 } from './tiempo-aprobacion.js?v=728';
-import { crearAutorizacionManual728 } from './nomina-autorizacion-manual.js?v=746';
+import { crearAutorizacionManual728 } from './nomina-autorizacion-manual.js?v=761';
 import { aplicarHorariosOficios726, marcarConceptosOficios726 } from './nomina-oficios.js?v=746';
 import { presentarEspecialNeto723 } from './nomina-descanso-especial.js?v=727';
 import { crearCorreccionesNomina722 } from './nomina-correcciones.js?v=746';
@@ -756,12 +756,45 @@ function renderTabla(rows){
 function diferenciaLlegada(x){const m=modeloRevision(x);if(m.deltaEntrada===null)return 'Sin comparación';const n=Math.floor(Math.abs(m.deltaEntrada));return n?`Llegó ${n} min ${m.deltaEntrada>0?'tarde':'antes'}`:'En el minuto previsto';}
 function diferenciaSalida(x){const m=modeloRevision(x);if(m.deltaSalida===null)return 'Sin comparación';const n=Math.floor(Math.abs(m.deltaSalida));return n?`Salió ${n} min ${m.deltaSalida>0?'después':'antes'}`:'En el minuto previsto';}
 function marcasTexto(x){const r=Array.isArray(x.recorrido)?x.recorrido:[];return r.length?r.map(m=>hora(m.hora)).join(", "):`${num(x.total_marcaciones)} marcación(es)`}
+function jornadaIncompletaAutorizable761(x){
+  if(!x||!datosUtilizables()||!puedeAutorizarManual728(x))return false;
+  const fecha=texto(x.fecha).slice(0,10);
+  if(!fecha||fecha>=hoyNomina()||tipoTurno(x)!=="confirmada"||num(x.total_marcaciones)<1)return false;
+  const m=modeloRevision(x);
+  return !m?.b1||m.entrada===null||m.salida===null||m.neto===null;
+}
+function comentarioJornadaIncompleta761(x){
+  const m=modeloRevision(x),faltan=[];
+  if(m?.entrada===null)faltan.push("entrada verificable");
+  if(m?.salida===null)faltan.push("salida verificable");
+  if(!faltan.length)faltan.push("par completo de marcaciones");
+  return `Marcación incompleta: falta ${faltan.join(" y ")}. El responsable autoriza manualmente solo el concepto y tiempo indicados; no se crean ni modifican marcaciones biométricas.`;
+}
+async function autorizarJornadaIncompleta761(clave){
+  const x=jornadas.find(r=>claveDia(r)===clave);
+  if(!jornadaIncompletaAutorizable761(x))return;
+  await visorManual728.mostrar({
+    ...x,
+    concepto_codigo:"P003",
+    revision_id:null,
+    estado_revision:"pendiente",
+    _nuevoConcepto743:true,
+    _jornadaIncompleta761:true,
+    _comentarioInicial729:comentarioJornadaIncompleta761(x)
+  });
+}
 function renderJornadas(rows){
   $("heHead").closest("table").classList.remove("he-revision-comparable");
-  $("heHead").innerHTML="<tr><th>Área</th><th>Empleado</th><th>Fecha</th><th>Turno</th><th>Programado</th><th>Marcaciones</th><th>Entrada</th><th>Salida</th><th>Total neto</th><th>Llegada</th><th>Salida vs. turno</th><th>Estado</th></tr>";
+  $("heHead").innerHTML="<tr><th>Área</th><th>Empleado</th><th>Fecha</th><th>Turno</th><th>Programado</th><th>Marcaciones</th><th>Entrada</th><th>Salida</th><th>Total neto</th><th>Llegada</th><th>Salida vs. turno</th><th>Estado</th><th>Acciones</th></tr>";
   const totalPaginas=Math.max(1,Math.ceil(rows.length/TAMANO_PAGINA));if(pagina>=totalPaginas)pagina=totalPaginas-1;const desde=pagina*TAMANO_PAGINA,visibles=rows.slice(desde,desde+TAMANO_PAGINA);
-  $("heBody").innerHTML=visibles.map(x=>`<tr><td>${html(area(x))}</td><td><strong>${html(empleado(x)||"Sin nombre")}</strong><div class="small text-muted">${html(x.cedula||"")}</div></td><td>${fechaDiaRevision(x.fecha)}${fechaHtml(x,heCalendario)}</td><td>${html(x.turno||((x.total_marcaciones>0)?"Horario observado; sin turno asignado":"Sin programación"))}<div class="mt-1">${badgeTurno(x)}</div>${diagnosticoHorarioHtml(x)}</td><td>${html(hora(x.hora_inicio))}–${html(hora(x.hora_fin))}${x.turno_2?`<div class="small">${html(hora(x.hora_inicio_2))}–${html(hora(x.hora_fin_2))}</div>`:""}</td><td><strong>${num(x.total_marcaciones)}</strong><div class="small text-muted">${html(marcasTexto(x))}</div></td><td>${celdaExtremo(x,"entrada")}</td><td>${celdaExtremo(x,"salida")}</td><td>${celdaTrabajo(x)}</td><td>${comparacionCelda(modeloRevision(x),'entrada')}</td><td>${comparacionCelda(modeloRevision(x),'salida')}</td><td>${badge(texto(x.estado_comparacion||"sin_programacion"))}${etiquetaEstadoMarcacion(x)}</td></tr>`).join("")||'<tr><td colspan="12" class="text-center text-muted py-4">No hay jornadas ni marcaciones para los filtros seleccionados.</td></tr>';
+  $("heBody").innerHTML=visibles.map(x=>{
+    const autorizar=jornadaIncompletaAutorizable761(x)
+      ?`<button type="button" class="btn btn-outline-primary btn-sm" data-action="autorizar-incompleta" data-autorizar-incompleta="${html(claveDia(x))}">Autorizar</button><small class="he-total-criterio">Marcación incompleta</small>`
+      :'<span class="text-muted">—</span>';
+    return `<tr><td>${html(area(x))}</td><td><strong>${html(empleado(x)||"Sin nombre")}</strong><div class="small text-muted">${html(x.cedula||"")}</div></td><td>${fechaDiaRevision(x.fecha)}${fechaHtml(x,heCalendario)}</td><td>${html(x.turno||((x.total_marcaciones>0)?"Horario observado; sin turno asignado":"Sin programación"))}<div class="mt-1">${badgeTurno(x)}</div>${diagnosticoHorarioHtml(x)}</td><td>${html(hora(x.hora_inicio))}–${html(hora(x.hora_fin))}${x.turno_2?`<div class="small">${html(hora(x.hora_inicio_2))}–${html(hora(x.hora_fin_2))}</div>`:""}</td><td><strong>${num(x.total_marcaciones)}</strong><div class="small text-muted">${html(marcasTexto(x))}</div></td><td>${celdaExtremo(x,"entrada")}</td><td>${celdaExtremo(x,"salida")}</td><td>${celdaTrabajo(x)}</td><td>${comparacionCelda(modeloRevision(x),'entrada')}</td><td>${comparacionCelda(modeloRevision(x),'salida')}</td><td>${badge(texto(x.estado_comparacion||"sin_programacion"))}${etiquetaEstadoMarcacion(x)}</td><td>${autorizar}</td></tr>`;
+  }).join("")||'<tr><td colspan="13" class="text-center text-muted py-4">No hay jornadas ni marcaciones para los filtros seleccionados.</td></tr>';
   $("heBody").querySelectorAll("button[data-detalle-dia]").forEach(b=>b.addEventListener("click",()=>abrirDetalleDia(b.dataset.detalleDia)));
+  $("heBody").querySelectorAll("button[data-autorizar-incompleta]").forEach(b=>b.addEventListener("click",()=>autorizarJornadaIncompleta761(b.dataset.autorizarIncompleta)));
   $("hePaginacion").classList.remove("d-none");$("hePaginaInfo").textContent=`Mostrando ${rows.length?desde+1:0}–${Math.min(desde+TAMANO_PAGINA,rows.length)} de ${rows.length} jornadas · ${catalogo.length} empleados activos`;
   $("heAnterior").disabled=pagina===0;$("heSiguiente").disabled=pagina>=totalPaginas-1;
 }
