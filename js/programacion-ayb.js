@@ -781,7 +781,18 @@ function renderGestionPersonalAyb() {
   if (!tbody) return;
   const q = normalizarTextoFiltroAyb(document.getElementById("buscarPersonalDisponibleAyb")?.value || "");
   const lista = personalDisponibleAyb.filter((x) => !q || normalizarTextoFiltroAyb(`${x.nombre||""} ${x.cedula||""} ${x.cargo||""} ${x.centro_costos||""}`).includes(q));
-  tbody.innerHTML = lista.length ? lista.map((x) => `<tr><td><strong>${escaparHtml(x.nombre || "")}</strong><div class="small text-muted">${escaparHtml(x.cedula || "")}</div></td><td>${escaparHtml(x.cargo || "")}</td><td>${escaparHtml(x.centro_costos || "")}</td><td>${x.agregado_ayb ? '<span class="badge text-bg-success">En programación</span>' : '<span class="badge text-bg-secondary">Disponible</span>'}</td><td class="text-end">${x.agregado_ayb ? `<button class="btn btn-sm btn-outline-danger" onclick="window.quitarPersonalAyb('${escaparAtributo(x.cronograma_id)}')">Quitar</button>` : `<button class="btn btn-sm btn-success" onclick="window.agregarPersonalAyb('${escaparAtributo(x.empleado_id)}')">Agregar</button>`}</td></tr>`).join("") : `<tr><td colspan="5" class="text-center text-muted">No hay resultados.</td></tr>`;
+  tbody.innerHTML = lista.length ? lista.map((x) => {
+    const incluidoPorCargo = x.agregado_ayb && !x.cronograma_id;
+    const estado = x.agregado_ayb
+      ? `<span class="badge text-bg-success">${incluidoPorCargo ? "A&B por cargo" : "En programación"}</span>`
+      : '<span class="badge text-bg-secondary">Disponible</span>';
+    const accion = x.agregado_ayb
+      ? (x.cronograma_id
+        ? `<button class="btn btn-sm btn-outline-danger" onclick="window.quitarPersonalAyb('${escaparAtributo(x.cronograma_id)}')">Quitar</button>`
+        : '<span class="small text-muted">Incluido automáticamente</span>')
+      : `<button class="btn btn-sm btn-success" onclick="window.agregarPersonalAyb('${escaparAtributo(x.empleado_id)}')">Agregar</button>`;
+    return `<tr><td><strong>${escaparHtml(x.nombre || "")}</strong><div class="small text-muted">${escaparHtml(x.cedula || "")}</div></td><td>${escaparHtml(x.cargo || "")}</td><td>${escaparHtml(x.centro_costos || "")}</td><td>${estado}</td><td class="text-end">${accion}</td></tr>`;
+  }).join("") : `<tr><td colspan="5" class="text-center text-muted">No hay resultados.</td></tr>`;
 }
 
 window.agregarPersonalAyb = async function(empleadoId) {
