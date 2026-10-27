@@ -38,7 +38,7 @@ function contextualizar(error, fuente, desde, hasta) {
 
 // Two independent reads at most. Scalar blocks run the expensive SQL once,
 // without OFFSET pages or an additional exact-count execution.
-export const PLAN_LECTURA = Object.freeze({marcas:28, general:28, ayb:28, inferidos:7});
+export const PLAN_LECTURA = Object.freeze({marcas:28, general:28, ayb:28, inferidos:31});
 const now = () => globalThis.performance?.now?.() ?? Date.now();
 function enteroPositivo(value, label, max) {
   if(!Number.isSafeInteger(value)||value<1||value>max) throw new Error(label+': valor no valido.');
@@ -134,7 +134,7 @@ export async function leerBloquesNomina(request,{
   fuente,desde,hasta,signal,onProgress=()=>{},chunkDays=7,clock=now
 }) {
   if(!FUENTES_NOMINA.some(([key])=>key===fuente))throw new Error('Fuente de nomina no valida.');
-  enteroPositivo(chunkDays,'Dias por bloque',fuente==='inferidos'?7:32);
+  enteroPositivo(chunkDays,'Dias por bloque',32);
   const dias=diasEntre(desde,hasta),nombre='consultar_fuente_nomina_v721';
   let terminados=0,ancho=chunkDays;
   const trozo=async fechas=>{
