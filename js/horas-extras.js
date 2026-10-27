@@ -25,7 +25,7 @@ import { construirCalendario, calendarioDia, diagnosticoHorario, diagnosticoHora
 import { duracionRevision, nocturnoPosteriorRevision, calculadasCeldaRevision, comparacionCelda, programacionCelda, marcadoCelda, totalCelda, advertenciaNocturna, requiereRevisionNocturna, crearVisorRevision, columnasRevisionExcel } from "./revision-evidencia.js?v=746";
 import { supabase } from "../supabase/supabaseClient.js";
 import { asegurarSesion, rpcConSesion, consultaConSesion, esErrorAcceso, mostrarErrorAcceso, observarSesion, ErrorSesion } from "./nomina-sesion.js?v=717";
-import { cargarFuentesNomina, leerPaginas, diasEntre, recalcularPorDias, prepararCortePorTramos, leerEvidenciasNomina, prepararOConsultarGuardado } from "./nomina-carga.js?v=721";
+import { cargarFuentesNomina, leerPaginas, diasEntre, recalcularPorDias, prepararCortePorTramos, leerEvidenciasNomina, prepararOConsultarGuardado } from "./nomina-carga.js?v=766";
 import { resumenTrabajoDia, duracionTexto, instanteLocal, explicarTurno, resumenConceptosNocturnos, coberturaPorArea } from "./nomina-detalle-jornada.js?v=7-1";
 let heCargando=false,heCargaId=0,heAbort=null,heDisponible=false;
 let heGuardando=false,heRecalculando=false,heLecturaValida=false,heRango=null,heErrorSesion=null;
