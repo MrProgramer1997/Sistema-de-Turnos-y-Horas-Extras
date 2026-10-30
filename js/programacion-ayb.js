@@ -449,6 +449,7 @@ async function guardarCodigoTurnoParticularAyb() {
   const inicio = document.getElementById("inicioParticularAyb")?.value || null;
   const fin = document.getElementById("finParticularAyb")?.value || null;
   if (!codigo || !inicio || !fin) return alert("Código, hora de inicio y hora de fin son obligatorios.");
+  if (codigo === CODIGO_HORARIO_PERSONALIZADO_AYB) return alert("El código PERSONALIZADO está reservado para horarios manuales de una sola asignación.");
   if (TURNOS_CATALOGO_7H_NETAS[codigo] || TURNOS_CATALOGO_8H_NETAS[codigo]) return alert("Ese código pertenece al catálogo estándar. Usa otro código para el turno particular.");
   const { error } = await supabase.from("ayb_codigos_turno").upsert({ codigo, descripcion, hora_inicio: inicio, hora_fin: fin, activo: true, updated_at: new Date().toISOString() }, { onConflict: "codigo" });
   if (error) return alert(`No se pudo guardar el turno particular: ${error.message}`);
