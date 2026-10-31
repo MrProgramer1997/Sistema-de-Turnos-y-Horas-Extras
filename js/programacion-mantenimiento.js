@@ -142,18 +142,24 @@ function renderHeader(){
   $('headerMantenimiento').innerHTML='<th class="empleado-col">Empleado / proceso</th>'+weekDates().map((f,i)=>{
     const fest=festivo(f),dom=dowIso(f)===7,cls=fest?'mant-festivo':dom?'mant-domingo':'';
     return `<th class="${cls}"><span class="mant-dia-nombre">${DIAS[i]}</span><span class="mant-dia-fecha">${fmtDate(f)}${fest?` · ${esc(fest.nombre)}`:''}</span></th>`;
-  }).join('');
+  }).join('')+'<th class="mant-total-col">Horas programadas</th>';
+}
+
+function minutosProgramadosPersona(p){
+  return data.programacion
+    .filter(r=>String(r.empleado_id)===String(p.empleado_id)&&String(r.proceso_id)===String(p.proceso_id)&&r.tipo_registro==='turno')
+    .reduce((acc,r)=>acc+netMinutes(r.hora_inicio,r.hora_fin,r.minutos_descanso),0);
 }
 
 function renderBody(){
   const persons=visiblePersonal();
-  if(!persons.length){$('bodyMantenimiento').innerHTML='<tr><td colspan="8" class="p-4 text-center text-muted">No hay personal para los filtros actuales.</td></tr>';return;}
+  if(!persons.length){$('bodyMantenimiento').innerHTML='<tr><td colspan="9" class="p-4 text-center text-muted">No hay personal para los filtros actuales.</td></tr>';return;}
   let html='',last='';
   for(const p of persons){
-    if(String(p.proceso_id)!==String(last)){html+=`<tr class="mantenimiento-proceso-row"><td colspan="8">${esc(p.proceso_nombre)}</td></tr>`;last=p.proceso_id;}
+    if(String(p.proceso_id)!==String(last)){html+=`<tr class="mantenimiento-proceso-row"><td colspan="9">${esc(p.proceso_nombre)}</td></tr>`;last=p.proceso_id;}
     html+=`<tr><th><div class="mant-empleado-nombre">${esc(p.nombres)} ${esc(p.apellidos)}</div><div class="mant-empleado-meta">${esc(p.codigo||p.cedula||'')} · ${esc(p.cargo||'')}</div></th>`;
     for(const fecha of weekDates())html+=renderCell(p,fecha);
-    html+='</tr>';
+    html+=`<td class="mant-total-col mant-total-cell"><strong>${hhmm(minutosProgramadosPersona(p))}</strong><small>Semana</small></td></tr>`;
   }
   $('bodyMantenimiento').innerHTML=html;
 }
