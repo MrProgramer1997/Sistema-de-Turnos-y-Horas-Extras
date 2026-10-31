@@ -111,7 +111,7 @@ function setWeek(base){desde=mondayOf(base);hasta=addDays(desde,6);$('fechaBaseM
 
 async function load(){
   clearAlert();
-  $('bodyMantenimiento').innerHTML='<tr><td colspan="8" class="p-4 text-center text-muted">Cargando programación...</td></tr>';
+  $('bodyMantenimiento').innerHTML='<tr><td colspan="9" class="p-4 text-center text-muted">Cargando programación...</td></tr>';
   try{
     data=await rpc('consultar_programacion_mantenimiento_v735',{p_desde:desde,p_hasta:hasta});
     fillFilters();render();
