@@ -27,6 +27,11 @@ body{background:var(--mant-bg)}
 .mantenimiento-table tbody th{position:sticky;left:0;background:#fff;z-index:3;min-width:245px;border-right:2px solid #d6e2ef}
 .mantenimiento-proceso-row td{background:#edf5ff!important;color:#004AA1;font-weight:800;border-top:2px solid #BBDFFF}
 .mantenimiento-cell{min-width:145px;padding:7px!important;vertical-align:top}
+.mantenimiento-table .mant-total-col{position:sticky;right:0;z-index:6;min-width:128px;width:128px;background:#eef6ff;border-left:2px solid #bcd4ec;text-align:center}
+.mantenimiento-table thead .mant-total-col{z-index:8;background:#dceeff;color:#004AA1}
+.mantenimiento-table tbody .mant-total-cell{vertical-align:middle;font-size:.86rem;color:#004AA1}
+.mantenimiento-table tbody .mant-total-cell strong{display:block;font-size:1rem}
+.mantenimiento-table tbody .mant-total-cell small{display:block;color:#6b7a8a;font-size:.68rem;margin-top:2px}
 .mant-cell-shell{position:relative;min-height:92px;border:1px solid #d9e4ef;border-radius:10px;background:#fff;overflow:hidden;transition:border-color .15s ease,background .15s ease}
 .mant-cell-shell:hover{border-color:#88C3FF;background:#f5fbff}
 .mant-cell-main{display:block;width:100%;min-height:68px;border:0;background:transparent;text-align:left;padding:8px 8px 4px;font-size:.76rem}
