@@ -1,4 +1,5 @@
 import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
+import {limitarAybChef,esMarcacionPuntoTrabajo} from './centro-control-alcance.js?v=ayb-chef-1';
 /** Centro de Control V2. Motor de lectura: no guarda, liquida ni aprueba horas. */
 export const METRIC_START = '2026-08-23';
 export const HISTORY_START = '2026-08-23';
@@ -59,10 +60,12 @@ export function areaOf(employee, process) {
 export function eventDirection(alias){const s=norm(alias);return /salida/.test(s)?'out':/ingreso|entrada/.test(s)?'in':'unknown';}
 export function noticeLabel(code) {
  const c=norm(code).toUpperCase();
- return ({D:'Descanso',DL:'D\u00eda libre',DESCANSO:'Descanso',VAC:'Vacaciones',INC:'Incapacidad',DFAM:'D\u00eda de la familia',DIA_FAMILIA:'D\u00eda de la familia',VACACIONES:'Vacaciones',INCAPACIDAD:'Incapacidad',PER:'Permiso',PERMISO:'Permiso',LIC:'Licencia',LICENCIA:'Licencia',TC:'Trabajo desde casa',TDC:'Trabajo desde casa',TRABAJO_CASA:'Trabajo desde casa',PASA:'Permiso de salida',ELECCION:'Permiso electoral'})[c] || code || 'Novedad';
+ return ({V:'Vacaciones',DF:'Día de la familia',F:'Día de la familia',COMP:'Compensatorio',NC:'No compensatorio',D:'Descanso',DL:'D\u00eda libre',DESCANSO:'Descanso',VAC:'Vacaciones',INC:'Incapacidad',DFAM:'D\u00eda de la familia',DIA_FAMILIA:'D\u00eda de la familia',VACACIONES:'Vacaciones',INCAPACIDAD:'Incapacidad',PER:'Permiso',PERMISO:'Permiso',LIC:'Licencia',LICENCIA:'Licencia',TC:'Trabajo desde casa',TDC:'Trabajo desde casa',TRABAJO_CASA:'Trabajo desde casa',PASA:'Permiso de salida',ELECCION:'Permiso electoral'})[c] || code || 'Novedad';
 }
-function fullDayNotice(code) {return ['D','DL','DESCANSO','DIA_LIBRE','VAC','VACACIONES','INC','INCAPACIDAD','DFAM','DIA_FAMILIA','TC','TDC','TRABAJO_CASA'].includes(norm(code).toUpperCase());}
-export function buildModel(ctx={}, raw=[], now=bogotaNow()) {
+function fullDayNotice(code) {return ['D','DL','DESCANSO','DIA_LIBRE','V','VAC','VACACIONES','DF','F','COMP','NC','INC','INCAPACIDAD','DFAM','DIA_FAMILIA','TC','TDC','TRABAJO_CASA'].includes(norm(code).toUpperCase());}
+export function buildModel(contexto={}, todasLasMarcas=[], now=bogotaNow()) {
+ // El alcance se aplica a todas las vistas antes de calcular indicadores.
+ const {ctx,marcaciones:raw}=limitarAybChef(contexto,todasLasMarcas);
  const byId=new Map(), byDoc=new Map(), duplicateDocs=new Set(), externalCodes=new Set();
  for(const e of ctx.externals||[])if(e.documento)externalCodes.add(doc(e.documento));
  for(const e of ctx.chefPeople||[])if(e.externo_id||/extern|extra|eventual/.test(norm(e.tipo_personal)))externalCodes.add(doc(e.documento));
@@ -70,27 +73,34 @@ export function buildModel(ctx={}, raw=[], now=bogotaNow()) {
  for(const e of ctx.employees||[]){const key=doc(e.cedula);if(byDoc.has(key))duplicateDocs.add(key);const emp={...e,cedula:key,name:name(e),external:externalCodes.has(key),known:true};byId.set(e.id,emp);byDoc.set(key,emp);}
  const proc=new Map((ctx.processes||[]).map(p=>[p.id,p])), links=new Map();
  for(const l of ctx.links||[]){if(!links.has(l.empleado_id))links.set(l.empleado_id,[]);links.get(l.empleado_id).push(l);}
+ const areaEnFecha=new Map(),areaEnPersonal=new Map();
+ for(const r of ctx.legacy||[]){const c=doc(r.cedula);if(!c)continue;areaEnFecha.set(`${c}|${r.fecha}`,'Alimentos y Bebidas');if(!areaEnPersonal.has(c))areaEnPersonal.set(c,'Alimentos y Bebidas');}
+ const personasChef=new Map((ctx.chefPeople||[]).map(p=>[p.id,p]));
+ for(const r of ctx.chef||[]){const p=personasChef.get(r.cronograma_personal_id);const c=doc(byId.get(p?.empleado_id)?.cedula||p?.documento);if(!c)continue;areaEnFecha.set(`${c}|${r.fecha}`,'Chef');areaEnPersonal.set(c,'Chef');}
  function person(code,date){code=doc(code);const e=byDoc.get(code)||{cedula:code,name:`C\u00f3digo sin vincular: ${code}`,known:false,external:externalCodes.has(code)};
    const matches=(links.get(e.id)||[]).filter(l=>validLink(l,date)&&proc.get(l.proceso_id)?.activo!==false);
    const ps=matches.map(l=>proc.get(l.proceso_id)).filter(Boolean), labels=[...new Set(ps.map(p=>areaOf(e,p).label))];
    const a=labels.length>1?{label:'Asignaci\u00f3n m\u00faltiple',source:'Revisar procesos simult\u00e1neos'}:areaOf(e,ps[0]);
-   return {...e,areaLabel:a.label,areaSource:a.source,duplicate:duplicateDocs.has(code)};
+   const fuente=areaEnFecha.get(`${code}|${date}`)||areaEnPersonal.get(code);
+   return {...e,areaLabel:fuente||a.label,areaSource:fuente?'Programación AYB / Chef':a.source,duplicate:duplicateDocs.has(code)};
  }
  const terms=new Map((ctx.terminals||[]).map(t=>[t.sn,t]));
  const events=[],seen=new Set();let duplicates=0,invalid=0;
  for(const m of raw){if(m.is_attendance===false)continue;const id=String(m.biotime_id??m.id??`${m.emp_code}|${m.punch_time}|${m.terminal_sn}`);if(seen.has(id)){duplicates++;continue;}seen.add(id);
   const t=stamp(m.punch_time);if(t===null||!Number.isFinite(t)){invalid++;continue;}
   const date=new Date(t*60000).toISOString().slice(0,10),tm=terms.get(m.terminal_sn),alias=m.terminal_alias||tm?.alias||'',pt=tm?.area_name||m.area_alias||alias||'Punto sin identificar';
-  events.push({...m,id,t,date,clock:clock(new Date(t*60000).toISOString()),hour:Math.floor((t-dayMinute(date))/60),person:person(m.emp_code,date),point:pt,alias,direction:eventDirection(alias)});
+  const evento={...m,id,t,date,clock:clock(new Date(t*60000).toISOString()),hour:Math.floor((t-dayMinute(date))/60),person:person(m.emp_code,date),point:pt,alias,direction:eventDirection(alias)};
+  evento.workPoint=esMarcacionPuntoTrabajo(evento);
+  events.push(evento);
  }
  events.sort((a,b)=>a.t-b.t||a.id.localeCompare(b.id));
  const perPerson=new Map(),perDay=new Map();for(const ev of events){const k=ev.person.cedula;if(!perPerson.has(k))perPerson.set(k,[]);perPerson.get(k).push(ev);const kd=`${k}|${ev.date}`;if(!perDay.has(kd))perDay.set(kd,[]);perDay.get(kd).push(ev);}
  const schedules=new Map(),codes=new Map((ctx.chefCodes||[]).map(c=>[c.codigo,c])),chefPeople=new Map((ctx.chefPeople||[]).map(p=>[p.id,p]));
  function addSchedule(code,date,s){if(!code||!date)return;const k=`${doc(code)}|${date}`;if(!schedules.has(k))schedules.set(k,[]);schedules.get(k).push({...s,code:doc(code),date});}
- for(const r of ctx.legacy||[])addSchedule(r.cedula,r.fecha,{source:'Programaci\u00f3n A&B',priority:2,begin:r.hora_inicio,end:r.hora_fin,begin2:r.hora_inicio_2,end2:r.hora_fin_2,turn:r.turno,notice:r.novedad_codigo||(/novedad|descanso/.test(norm(r.tipo_registro))?r.turno:''),id:r.id,breakMin:30});
+ for(const r of ctx.legacy||[])addSchedule(r.cedula,r.fecha,{source:'Programaci\u00f3n A&B',priority:2,begin:r.hora_inicio,end:r.hora_fin,begin2:r.hora_inicio_2,end2:r.hora_fin_2,turn:r.turno,notice:r.novedad_codigo||(/novedad|descanso/.test(norm(r.tipo_registro))?r.turno:''),id:r.id,breakMin:30,noticeText:r.novedad_descripcion||''});
  for(const r of ctx.general||[]){if(/cancel|rechaz|borrador/.test(norm(r.estado)))continue;addSchedule(byId.get(r.empleado_id)?.cedula,r.fecha,{source:r.documental_711?(r.documental_711.tipo==='deteccion_semanal'?'Detectado por semana':'Horario documental / asignacion'):'Programaci\u00f3n general',priority:1,begin:r.hora_inicio,end:r.hora_fin,begin2:r.documental_711?r.hora_inicio_2:null,end2:r.documental_711?r.hora_fin_2:null,turn:r.documental_711?(r.turno||'Por confirmar'):proc.get(r.proceso_id)?.nombre||'Turno',notice:r.novedad_codigo||(norm(r.tipo_registro)==='descanso'?'D':''),id:r.id,documental:r.documental_711,forceConflict:Boolean(r.documental_711&&r.conflicto_programacion),assignedNet:r.documental_711?r.horas_programadas_netas:null,breakMin:r.minutos_descanso||0,inferred:/infer/.test(norm(r.origen_programacion))});}
  for(const r of ctx.chef||[]){if(/cancel|rechaz|borrador/.test(norm(r.estado)))continue;const p=chefPeople.get(r.cronograma_personal_id);if(!p)continue;const code=doc(byId.get(p.empleado_id)?.cedula||p.documento),a=codigoAsignado(r,codes.get(r.codigo_turno),1),b=codigoAsignado(r,codes.get(r.codigo_turno_2),2);
-  addSchedule(code,r.fecha,{source:'Programaci\u00f3n Chef',priority:3,begin:a?.hora_inicio,end:a?.hora_fin,begin2:b?.hora_inicio,end2:b?.hora_fin,turn:r.codigo_turno,notice:!a?.hora_inicio?r.codigo_turno:'',id:r.id,breakMin:30,assignedNet:r.horario_asignado?analizarHorario(r.horario_asignado).netos/60:null});}
+  addSchedule(code,r.fecha,{source:'Programaci\u00f3n Chef',priority:3,begin:a?.hora_inicio,end:a?.hora_fin,begin2:b?.hora_inicio,end2:b?.hora_fin,turn:r.codigo_turno,notice:!a?.hora_inicio?r.codigo_turno:'',id:r.id,breakMin:30,noticeText:codes.get(r.codigo_turno)?.descripcion||'',assignedNet:r.horario_asignado?analizarHorario(r.horario_asignado).netos/60:null});}
  const notices=[];
  function addNotice(r,source,code,state){const c=doc(r.cedula||byId.get(r.empleado_id)?.cedula),from=iso(r.fecha_inicio||r.fecha),to=iso(r.fecha_fin||r.fecha_inicio||r.fecha);if(!c||!from||!to||to<from)return;notices.push({id:r.id,code:c,from,to,label:noticeLabel(code),type:code,source,state,full:fullDayNotice(code),person:person(c,from)});}
  for(const r of ctx.requests||[])if(['aprobada','aprobado','autorizada','autorizado'].includes(norm(r.estado)))addNotice(r,'Solicitud aprobada',r.codigo_tipo||r.tipo_solicitud,r.estado);
@@ -99,21 +109,21 @@ export function buildModel(ctx={}, raw=[], now=bogotaNow()) {
  // Rangos continuos de novedades programadas; no se mezclan intervalos con dias de trabajo.
  const programNotice=new Map();
  for(const list of schedules.values()){const best=list.slice().sort((a,b)=>b.priority-a.priority)[0];if(best.notice){const k=`${best.code}|${best.notice}|${best.source}`;if(!programNotice.has(k))programNotice.set(k,[]);programNotice.get(k).push(best);}}
- for(const list of programNotice.values()){list.sort((a,b)=>a.date.localeCompare(b.date));let run=null;for(const s of list){if(run&&s.date===addDays(run.to,1))run.to=s.date;else{if(run)notices.push(run);run={code:s.code,from:s.date,to:s.date,type:s.notice,label:noticeLabel(s.notice),source:s.source,state:'Programada',full:fullDayNotice(s.notice),person:person(s.code,s.date)};}}if(run)notices.push(run);}
+ for(const list of programNotice.values()){list.sort((a,b)=>a.date.localeCompare(b.date));let run=null;for(const s of list){if(run&&s.date===addDays(run.to,1))run.to=s.date;else{if(run)notices.push(run);run={code:s.code,from:s.date,to:s.date,type:s.notice,label:s.noticeText||noticeLabel(s.notice),source:s.source,state:'Programada',full:fullDayNotice(s.notice),person:person(s.code,s.date)};}}if(run)notices.push(run);}
  const getNotices=(code,date)=>notices.filter(n=>n.code===code&&n.from<=date&&n.to>=date);
  const journeys=[], nightEvents=new Set();
  for(const [k,list] of schedules){const sorted=list.slice().sort((a,b)=>b.priority-a.priority),s=sorted[0],same=sorted.filter(x=>x.priority===s.priority),p=person(s.code,s.date),b=timeMin(s.begin),e=timeMin(s.end),n=getNotices(s.code,s.date),exempt=n.find(x=>x.full);
   let start=b===null?null:dayMinute(s.date)+b, end=e===null||start===null?null:dayMinute(s.date)+e;if(end!==null&&end<start)end+=DAY;
   const b2=timeMin(s.begin2),e2=timeMin(s.end2);if(b2!==null&&e2!==null&&start!==null){let end2=dayMinute(s.date)+e2;if(e2<b2)end2+=DAY;if(end2<start)end2+=DAY;end=Math.max(end??0,end2);}
-  const conflict=Boolean(s.forceConflict)||p.duplicate||same.some(x=>[x.begin,x.end,x.notice].join('|')!==[s.begin,s.end,s.notice].join('|'));
+  const conflict=Boolean(s.forceConflict)||p.duplicate||sorted.some(x=>[x.begin,x.end,x.notice].join('|')!==[s.begin,s.end,s.notice].join('|'));
   let status='sin_horario',entry=null,delta=null;
-  if(exempt)status='justificada';
+  if(exempt||(b===null&&s.notice))status='justificada';
   else if(s.inferred)status='inferida';
   else if(conflict)status='conflicto';
   else if(start!==null&&end!==null&&end>start&&end-start<=20*60){
     if(start>stamp(now))status='futura';
     else{const marks=(perPerson.get(s.code)||[]).filter(x=>x.t>=start-240&&x.t<=end&&x.t<=stamp(now));
-      entry=marks.find(x=>x.direction!=='out')||null;
+      entry=marks.find(x=>x.workPoint&&x.direction!=='out')||null;
       if(entry){delta=Math.trunc(entry.t)-start;status=delta>=1?'tarde':'puntual';}
       else status=(marks.length||(perDay.get(k)||[]).length)?'sin_entrada':end>stamp(now)?'en_espera':'sin_marca';
     }
@@ -126,7 +136,7 @@ export function buildModel(ctx={}, raw=[], now=bogotaNow()) {
  const coverageKeys=new Set(journeys.map(j=>`${j.code}|${j.date}`));
  for(const [k,allEvs] of perDay)if(!coverageKeys.has(k)){const evs=allEvs.filter(e=>!nightEvents.has(e.id));if(!evs.length)continue;const ev=evs[0];journeys.push({code:ev.person.cedula,date:ev.date,person:ev.person,status:'sin_programacion',dayEvents:evs,entry:null,delta:null,notices:getNotices(ev.person.cedula,ev.date),source:'Sin programaci\u00f3n'});}
  journeys.sort((a,b)=>b.date.localeCompare(a.date)||a.person.name.localeCompare(b.person.name));
- return {ctx,raw,events,journeys,notices,person,now,today:iso(now),byDoc,perDay,diagnostic:{duplicates,invalid,rawCount:raw.length,usedCount:events.length}};
+ return {ctx,raw,events,journeys,notices,person,now,today:iso(now),byDoc,perDay,diagnostic:{duplicates,invalid,rawCount:raw.length,sourceCount:todasLasMarcas.length,usedCount:events.length}};
 }
 export function matchPerson(p,f={}){if(f.population==='club'&&(p.external||!p.known))return false;if(f.population==='external'&&!p.external)return false;if(f.area&&p.areaLabel!==f.area)return false;const q=norm(f.search);return !q||norm(`${p.name} ${p.cedula} ${p.codigo||''} ${p.cargo||''}`).includes(q);}
 export function selectedEvents(model,f,metric=true){return model.events.filter(e=>e.date>=f.from&&e.date<=f.to&&e.t<=stamp(model.now)&&(!metric||e.date>=METRIC_START)&&matchPerson(e.person,f));}
@@ -138,8 +148,10 @@ export function areaFlow(evs){const map=new Map();for(const e of evs){const labe
 export function heatmap(evs,by='point'){const map=new Map();for(const e of evs){const label=by==='area'?e.person.areaLabel:e.point;if(!map.has(label))map.set(label,Array.from({length:24},()=>new Set()));map.get(label)[e.hour].add(`${e.date}|${e.person.cedula}`);}return [...map].sort((a,b)=>a[0].localeCompare(b[0])).map(([label,hours])=>({label,hours:hours.map(s=>s.size)}));}
 export function punctuality(model,f){const js=selectedJourneys(model,{...f,population:'club'}),areas=new Map(),emps=new Map();
  for(const j of js){const label=j.person.areaLabel;if(!areas.has(label))areas.set(label,{label,seen:new Set(),scheduled:0,comparable:0,onTime:0,late:0,minutes:0,unplanned:0,justified:0,missing:0});const a=areas.get(label);a.seen.add(j.code);if(j.start!==null&&j.start!==undefined&&!['justificada','futura','inferida','conflicto'].includes(j.status))a.scheduled++;if(j.status==='sin_programacion')a.unplanned++;if(j.status==='justificada')a.justified++;if(['sin_marca','sin_entrada'].includes(j.status))a.missing++;
+  if(!emps.has(j.code))emps.set(j.code,{...j.person,late:0,onTime:0,comparable:0,minutes:0,days:[]});
+  const emp=emps.get(j.code);emp.days.push(j);
   if(!['tarde','puntual'].includes(j.status))continue;a.comparable++;a.onTime+=j.status==='puntual'?1:0;a.late+=j.status==='tarde'?1:0;a.minutes+=Math.max(0,j.delta||0);
-  if(!emps.has(j.code))emps.set(j.code,{...j.person,late:0,onTime:0,comparable:0,minutes:0,days:[]});const e=emps.get(j.code);e.comparable++;e.onTime+=j.status==='puntual'?1:0;e.late+=j.status==='tarde'?1:0;e.minutes+=Math.max(0,j.delta||0);e.days.push(j);
+  emp.comparable++;emp.onTime+=j.status==='puntual'?1:0;emp.late+=j.status==='tarde'?1:0;emp.minutes+=Math.max(0,j.delta||0);
  }
- return {journeys:js,areas:[...areas.values()].map(a=>({...a,people:a.seen.size,rate:a.comparable?100*a.onTime/a.comparable:null,coverage:a.scheduled?100*a.comparable/a.scheduled:null})),employees:[...emps.values()].map(e=>({...e,lateRate:100*e.late/e.comparable})).sort((a,b)=>b.late-a.late||b.minutes-a.minutes||a.name.localeCompare(b.name))};}
+ return {journeys:js,areas:[...areas.values()].map(a=>({...a,people:a.seen.size,rate:a.comparable?100*a.onTime/a.comparable:null,coverage:a.scheduled?100*a.comparable/a.scheduled:null})),employees:[...emps.values()].map(e=>({...e,lateRate:e.comparable?100*e.late/e.comparable:null})).sort((a,b)=>b.late-a.late||b.minutes-a.minutes||a.name.localeCompare(b.name))};}
 export function mergeNotices(model,f){const grouped=new Map();for(const n of model.notices){if(n.from>f.to||n.to<f.from||!matchPerson(n.person,f))continue;const k=`${n.code}|${n.type}|${n.from}|${n.to}`;if(!grouped.has(k))grouped.set(k,{...n,sources:[n.source]});else grouped.get(k).sources.push(n.source);}return [...grouped.values()].sort((a,b)=>b.to.localeCompare(a.to)||a.person.name.localeCompare(b.person.name));}
