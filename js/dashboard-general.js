@@ -2,7 +2,7 @@ import { exigirModulo } from "./permisos-modulos.js?v=720";
 import { cargarDocumentados, contextoDocumentalCC } from './horarios-documentados-api.js?v=711';
 import { supabase } from '../supabase/supabaseClient.js';
 import { asegurarSesion, rpcConSesion, esErrorAcceso, mostrarErrorAcceso, observarSesion, ErrorSesion } from './sesion-protegida.js?v=sesion-6-2-1';
-import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,mergeNotices} from './centro-control-metricas.js?v=711';
+import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,mergeNotices} from './centro-control-metricas.js?v=ayb-chef-1';
 
 // Centro de Control: lectura operativa. No aprueba, liquida ni altera marcaciones.
 const $=id=>document.getElementById(id);
@@ -93,8 +93,8 @@ function renderTopAndDaily(){
   $('ccDailyChart').innerHTML=chartBars(daily.map(d=>({...d,label:d.date.slice(8,10)+'/'+d.date.slice(5,7),today:d.date===s.model.today,tooltip:`${pretty(d.date)}: ${d.people} personas únicas; ${d.marks} marcaciones`})),'label','people');
   const todayEvents=selectedEvents(s.model,{...f,from:s.model.today,to:s.model.today}),points=new Map();for(const e of todayEvents)points.set(e.point,(points.get(e.point)||0)+1);const point=[...points].sort((a,b)=>b[1]-a[1])[0];
   $('ccInsights').innerHTML=[best&&best.people?`<strong>Mayor ingreso registrado:</strong> ${pretty(best.date)}, con <strong>${num(best.people)} personas</strong>.<small>Personas con al menos una marcación bajo el filtro actual.</small>`:'Sin actividad registrada en este período.',point?`<strong>${esc(point[0])}</strong> registró el mayor movimiento de hoy: <strong>${num(point[1])} marcas</strong>.<small>Punto biométrico; no área laboral.</small>`:'Hoy no tiene actividad dentro de la lectura y filtros actuales.'].map(t=>`<div class="cc-insight">${t}</div>`).join('');
-  const coverage=[];if(f.from<METRIC_START)coverage.push('Los registros anteriores al 27/08 permanecen disponibles como histórico, fuera de los indicadores.');if(f.population!=='club')coverage.push('La puntualidad oficial siempre compara personal del Club; Tendencias sí respeta el tipo de personal seleccionado.');if(!a.comparable&&a.people)coverage.push('Hay presencia sin jornadas comparables; se conservan las marcas sin inventar horarios.');$('ccCoverage').hidden=!coverage.length;txt('ccCoverage',coverage.join(' '));
-  txt('ccIntegrity',`Control de lectura: ${num(s.loaded.total)} registros recibidos de ${num(s.loaded.total)} esperados, hasta ID ${s.loaded.ceiling}. No se eliminaron marcaciones. La clasificación laboral usa proceso asignado y, si falta, área / centro de costos / cargo.`);
+  const coverage=[];if(f.from<METRIC_START)coverage.push('Los registros anteriores al 27/08 permanecen disponibles como histórico, fuera de los indicadores.');if(f.population!=='club')coverage.push('La puntualidad oficial compara únicamente empleados del Club programados en AYB y Chef.');if(!a.comparable&&a.people)coverage.push('Hay presencia sin jornadas comparables; se conservan las marcas sin inventar horarios.');$('ccCoverage').hidden=!coverage.length;txt('ccCoverage',coverage.join(' '));
+  txt('ccIntegrity',`Control de lectura: ${num(s.loaded.total)} marcaciones recibidas de la consulta autorizada. Se procesan ${num(s.model.diagnostic.usedCount)} marcas de empleados programados en AYB/Chef. No se eliminaron registros. Solo la entrada en biométrico interno es válida para puntualidad.`);
 }
 function renderAreaMovement(){
   const base=filters();let f,scope=s.areaScope;
@@ -132,7 +132,9 @@ function eventsForJourney(j){
 }
 function workedSummary(j){
   const evs=eventsForJourney(j);if(!evs.length)return {events:[],first:null,last:null,elapsed:null,net:null,criterion:'Sin marcaciones'};
-  const first=evs.find(e=>e.direction!=='out')||evs[0];const rev=[...evs].reverse();const lastOut=rev.find(e=>e.direction==='out'&&e.t>first.t);const last=lastOut||rev.find(e=>e.t>first.t)||null;
+  const internas=evs.filter(e=>e.workPoint),first=internas.find(e=>e.direction!=='out')||null;
+  if(!first)return {events:evs,first:null,last:null,elapsed:null,net:null,criterion:'Sin marcacion interna verificable'};
+  const rev=[...internas].reverse(),lastOut=rev.find(e=>e.direction==='out'&&e.t>first.t),last=lastOut||rev.find(e=>e.t>first.t)||null;
   if(!last)return {events:evs,first,last:null,elapsed:null,net:null,criterion:'Una sola marcación; no calculable'};
   const elapsed=Math.max(0,(last.t-first.t)/60),breakMin=Math.max(0,Number(j.breakMin||0)),net=Math.max(0,elapsed-breakMin/60);
   return {events:evs,first,last,elapsed,net,criterion:lastOut?'Entrada y salida biométrica':'Primera y última marcación; revisar salida',breakMin};
@@ -144,8 +146,24 @@ function renderPunctuality(){
   $('ccPunctAreas').innerHTML=table(['Área','Puntualidad','A tiempo','Tarde','Base comparable','Cobertura de horarios','Sin programación / con marca','Novedades'],p.areas.sort((a,b)=>a.label.localeCompare(b.label)).map(a=>[`<strong>${esc(a.label)}</strong>`,a.rate===null?'Sin base':`${num(a.rate,1)}%${a.comparable<5?'<small>Base menor de 5 jornadas</small>':''}`,num(a.onTime),num(a.late),num(a.comparable),a.scheduled?`${num(a.coverage,1)}%<small>${a.comparable} / ${a.scheduled} con horario evaluable</small>`:'No calculable',num(a.unplanned),num(a.justified)]));
   $('ccLatePeople').innerHTML=table(['Empleado','Área','Días tarde','Días comparables','Tardanzas / base','Minutos acumulados','Horas realizadas','Detalle'],p.employees.filter(e=>e.late>0).map(e=>{const w=employeeWorked(e.days);return [`<button class="cc-link" data-person="${esc(e.cedula)}" data-context="punctuality">${esc(e.name)}</button><small>${esc(e.cedula)}</small>`,esc(e.areaLabel),`<strong>${e.late}</strong>`,e.comparable,`${num(e.lateRate,1)}%`,num(e.minutes),w.calculable?`${num(w.total,2)} h<small>${w.calculable} jornadas calculables</small>`:'No calculable',`<button class="cc-link" data-person="${esc(e.cedula)}" data-context="punctuality">Comparar turnos y marcas</button>`];}));
 }
-function renderNotices(){const rows=mergeNotices(s.model,filters());$('ccNotices').innerHTML=table(['Empleado','Área','Causa','Desde','Hasta registrado','Fuente / estado'],rows.map(n=>[`<button class="cc-link" data-person="${esc(n.code)}">${esc(n.person.name)}</button>`,esc(n.person.areaLabel),esc(n.label),pretty(n.from),pretty(n.to),`${esc([...new Set(n.sources)].join(' / '))}<small>${esc(n.state)}${n.full?'':' · No exime por sí sola toda la jornada'}</small>`]));}
-function render(){if(!s.model)return;renderTrends();renderPunctuality();renderNotices();}
+function renderDailyEmployees(){
+  const f=punctualRange(),p=punctuality(s.model,f),q=$('ccEmployeeState')?.value||'all';
+  const rows=p.journeys.filter(j=>q==='all'||(q==='late'?j.status==='tarde':q==='ok'?j.status==='puntual':q==='notice'?j.status==='justificada':q==='pending'?['sin_marca','sin_entrada','en_espera','conflicto','sin_horario'].includes(j.status):j.status===q))
+    .sort((a,b)=>b.date.localeCompare(a.date)||({tarde:0,sin_marca:1,sin_entrada:1,en_espera:2,puntual:3,justificada:4}[a.status]??5)-({tarde:0,sin_marca:1,sin_entrada:1,en_espera:2,puntual:3,justificada:4}[b.status]??5)||a.person.name.localeCompare(b.person.name));
+  $('ccEmployeeDaily').innerHTML=table(['Fecha','Empleado','Programación','Horario','Entrada punto','Diferencia','Estado / novedad','Detalle'],rows.map(j=>[
+    pretty(j.date),
+    `<button class="cc-link" data-person="${esc(j.code)}" data-context="punctuality">${esc(j.person.name)}</button><small>${esc(j.person.cedula)}</small>`,
+    `${esc(j.person.areaLabel)}<small>${esc(j.source||'')}</small>`,
+    j.begin?esc(j.begin.slice(0,5))+' — '+esc(j.end!=null?clock(new Date(j.end*60000).toISOString()):'—'):'—',
+    j.entry?`${esc(j.entry.clock)}<small>${esc(j.entry.point)}</small>`:'No verificada',
+    j.delta==null?'—':j.delta>0?`${num(j.delta)} min tarde`:j.delta<0?`${num(-j.delta)} min antes`:'Hora exacta',
+    statusCell(j)+(j.notices?.length?`<small>${esc(causes(j))}</small>`:''),
+    `<button class="cc-link" data-journey="${esc(j.code)}" data-date="${j.date}">Ver marcaciones</button>`
+  ]));
+  txt('ccEmployeeCount',`${num(rows.length)} jornadas · AYB y Chef`);
+}
+function renderNotices(){const rows=mergeNotices(s.model,{...filters(),population:'club'});$('ccNotices').innerHTML=table(['Empleado','Área','Causa','Desde','Hasta registrado','Fuente / estado'],rows.map(n=>[`<button class="cc-link" data-person="${esc(n.code)}">${esc(n.person.name)}</button>`,esc(n.person.areaLabel),esc(n.label),pretty(n.from),pretty(n.to),`${esc([...new Set(n.sources)].join(' / '))}<small>${esc(n.state)}${n.full?'':' · No exime por sí sola toda la jornada'}</small>`]));}
+function render(){if(!s.model)return;renderTrends();renderPunctuality();renderDailyEmployees();renderNotices();}
 
 function showDialog(title,subtitle,html){txt('ccDialogTitle',title);txt('ccDialogSubtitle',subtitle);$('ccDialogBody').innerHTML=html;if(!$('ccDialog').open)$('ccDialog').showModal();}
 function openAreaDetail(label,scope='period'){
@@ -163,7 +181,7 @@ function openPerson(code,context='period'){
 function openJourney(code,date){
   const j=s.model.journeys.find(x=>x.code===code&&x.date===date),p=s.model.person(code,date);if(!j){showDialog('Recorrido',`${pretty(date)} · ${p.name}`,empty('No se encontró la jornada seleccionada.'));return;}
   const w=workedSummary(j),programado=j.begin?`${j.begin.slice(0,5)} — ${j.end!==null&&j.end!==undefined?clock(new Date(j.end*60000).toISOString()):'—'}`:'Sin horario comparable';
-  const cards=`<div class="cc-work-summary"><div><span>Turno programado</span><strong>${esc(programado)}</strong></div><div><span>Primera marcación</span><strong>${esc(w.first?.clock||'—')}</strong></div><div><span>Última marcación</span><strong>${esc(w.last?.clock||'—')}</strong></div><div><span>Total horas realizadas</span><strong>${w.net===null?'No calculable':num(w.net,2)+' h'}</strong><small>${esc(w.criterion)}</small></div></div>`;
+  const cards=`<div class="cc-work-summary"><div><span>Turno programado</span><strong>${esc(programado)}</strong></div><div><span>Entrada al punto</span><strong>${esc(j.entry?.clock||'—')}</strong><small>${esc(j.entry?.point||'Sin marca interna verificable')}</small></div><div><span>Última marcación</span><strong>${esc(w.last?.clock||'—')}</strong></div><div><span>Total horas realizadas</span><strong>${w.net===null?'No calculable':num(w.net,2)+' h'}</strong><small>${esc(w.criterion)}</small></div></div>`;
   const route=`<div class="cc-history"><div class="cc-route">${w.events.map(e=>`<span class="${e.direction==='out'?'out':''}">${esc(e.clock)} · ${esc(e.point)}<em>${esc(e.alias)} · ID ${esc(e.id)}${e.date!==date?' · '+pretty(e.date):''}</em></span>`).join('')||empty('No hay marcaciones en esa jornada.')}</div></div>`;
   showDialog(`Recorrido · ${p.name}`,`${pretty(date)} · ${p.areaLabel}`,`${cards}<p>${statusCell(j)} ${esc(causes(j)||'Sin novedad registrada.')}</p>${route}<p class="cc-footnote">Las marcaciones originales se conservan. Si no hay una salida identificable, se usa la última marca como estimación y se señala expresamente. Una sola marca nunca produce horas trabajadas.</p>`);
 }
@@ -177,7 +195,7 @@ function exportPunctExcel(){
   const areas=[['Área','Puntualidad %','A tiempo','Tarde','Base comparable','Jornadas con horario','Cobertura %','Sin programación con marca','Novedades'],...p.areas.sort((a,b)=>a.label.localeCompare(b.label)).map(a=>[a.label,a.rate===null?'':Number(a.rate.toFixed(2)),a.onTime,a.late,a.comparable,a.scheduled,a.coverage===null?'':Number(a.coverage.toFixed(2)),a.unplanned,a.justified])];
   const latePeople=[['Cédula','Empleado','Área','Días tarde','Días comparables','Tardanzas %','Minutos acumulados','Jornadas con horas calculables','Total horas realizadas estimadas'],...p.employees.filter(e=>e.late>0).map(e=>{const w=employeeWorked(e.days);return [e.cedula,e.name,e.areaLabel,e.late,e.comparable,Number(e.lateRate.toFixed(2)),e.minutes,w.calculable,w.calculable?Number(w.total.toFixed(2)):''];})];
   const detail=[['Fecha','Cédula','Empleado','Área','Fuente programación','Inicio programado','Fin programado','Primera marcación','Última marcación','Punto de entrada','Minutos diferencia','Estado','Marcaciones','Horas transcurridas','Descanso descontado min','Horas realizadas estimadas','Criterio horas','Causa / vigencia']];
-  for(const j of p.journeys){const w=workedSummary(j);detail.push([j.date,j.code,j.person.name,j.person.areaLabel,j.source,j.begin||'',j.end!==null&&j.end!==undefined?clock(new Date(j.end*60000).toISOString()):'',w.first?.clock||'',w.last?.clock||'',w.first?.alias||w.first?.point||'',j.delta??'',stateLabels[j.status]?.[0]||j.status,w.events.length,w.elapsed===null?'':Number(w.elapsed.toFixed(2)),w.breakMin??'',w.net===null?'':Number(w.net.toFixed(2)),w.criterion,causes(j)]);}
+  for(const j of p.journeys){const w=workedSummary(j);detail.push([j.date,j.code,j.person.name,j.person.areaLabel,j.source,j.begin||'',j.end!==null&&j.end!==undefined?clock(new Date(j.end*60000).toISOString()):'',j.entry?.clock||'',w.last?.clock||'',j.entry?.alias||j.entry?.point||'',j.delta??'',stateLabels[j.status]?.[0]||j.status,w.events.length,w.elapsed===null?'':Number(w.elapsed.toFixed(2)),w.breakMin??'',w.net===null?'':Number(w.net.toFixed(2)),w.criterion,causes(j)]);}
   const ws1=XLSX.utils.aoa_to_sheet(areas.map(r=>r.map(safeCell))),ws2=XLSX.utils.aoa_to_sheet(latePeople.map(r=>r.map(safeCell))),ws3=XLSX.utils.aoa_to_sheet(detail.map(r=>r.map(safeCell)));
   setWidths(ws1,[28,14,11,11,16,18,14,24,12]);setWidths(ws2,[16,34,24,12,16,14,18,24,28]);setWidths(ws3,[12,16,34,24,24,17,17,17,17,24,16,24,12,18,22,22,34,42]);
   XLSX.utils.book_append_sheet(wb,ws1,'Áreas');XLSX.utils.book_append_sheet(wb,ws2,'Ranking tardanzas');XLSX.utils.book_append_sheet(wb,ws3,'Detalle jornadas');
@@ -189,11 +207,11 @@ function realtime(){if(s.channel)return;s.channel=supabase.channel('cc-lectura-v
 function scheduleRefresh(){clearTimeout(s.debounce);s.debounce=setTimeout(()=>{if(document.visibilityState==='visible'&&!$('ccRefresh').disabled)load(true);},1800);}
 function events(){
   $('ccFilterForm').addEventListener('submit',e=>{e.preventDefault();s.areaScope='period';load();});$('ccRefresh').addEventListener('click',()=>load());
-  for(const id of ['ccArea','ccPopulation','ccPunctRange'])$(id).addEventListener('change',()=>render());let searchTimer;$('ccSearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>render(),160);});
+  for(const id of ['ccArea','ccPopulation','ccPunctRange','ccEmployeeState'])$(id).addEventListener('change',()=>render());let searchTimer;$('ccSearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>render(),160);});
   $('ccAreaScopePeriod').addEventListener('click',()=>{s.areaScope='period';renderAreaMovement();});$('ccAreaScopeToday').addEventListener('click',()=>{s.areaScope='today';renderAreaMovement();});
   $('ccExportPunct').addEventListener('click',exportPunctExcel);$('ccDialogClose').addEventListener('click',()=>$('ccDialog').close());
   document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.preset){preset(b.dataset.preset);return;}if(b.dataset.tab){switchTab(b.dataset.tab);return;}if(!s.model)return;if(b.dataset.open)openKpi(b.dataset.open);if(b.dataset.areaDetail)openAreaDetail(b.dataset.areaDetail,b.dataset.areaScope||'period');if(b.dataset.person)openPerson(b.dataset.person,b.dataset.context||'period');if(b.dataset.journey)openJourney(b.dataset.journey,b.dataset.date);});
 }
-function limpiarDatosPorSesion(){s.model=null;s.loaded=null;clearInterval(s.timer);clearTimeout(s.debounce);for(const id of ['ccPeople','ccTopArea','ccRate'])txt(id,'—');for(const id of ['ccDailyChart','ccInsights','ccAreaComparison','ccPunctSummary','ccPunctAreas','ccLatePeople','ccNotices','ccWeekdayChart','ccPeriodComparison','ccAttendanceRanking','ccDialogBody','ccIntegrity'])if($(id))$(id).replaceChildren();if($('ccDialog')?.open)$('ccDialog').close();if(s.channel){supabase.removeChannel(s.channel);s.channel=null;}txt('ccLive','Sesión pendiente de verificar');}
+function limpiarDatosPorSesion(){s.model=null;s.loaded=null;clearInterval(s.timer);clearTimeout(s.debounce);for(const id of ['ccPeople','ccTopArea','ccRate'])txt(id,'—');for(const id of ['ccDailyChart','ccInsights','ccAreaComparison','ccPunctSummary','ccPunctAreas','ccLatePeople','ccEmployeeDaily','ccNotices','ccWeekdayChart','ccPeriodComparison','ccAttendanceRanking','ccDialogBody','ccIntegrity'])if($(id))$(id).replaceChildren();if($('ccDialog')?.open)$('ccDialog').close();if(s.channel){supabase.removeChannel(s.channel);s.channel=null;}txt('ccLive','Sesión pendiente de verificar');}
 async function init(){if(!await exigirModulo("dashboard"))return;const today=iso(bogotaNow());$('ccFrom').value=monthStart(today);$('ccTo').value=today;events();let session;try{session=JSON.parse(localStorage.getItem('ccp_sesion')||'null');}catch{}txt('ccUser',session?.nombre_completo||session?.usuario||'Sesión por verificar');observarSesion(()=>{s.abort?.abort();s.loadToken++;limpiarDatosPorSesion();$('ccRefresh').disabled=false;mostrarErrorAcceso($('ccError'),new ErrorSesion('AUTH_REQUIRED','Tu sesión cambió o terminó. Vuelve a ingresar para consultar tu información.'),()=>load());txt('ccStatus','Se requiere iniciar sesión');});await load();if(s.model)realtime();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
