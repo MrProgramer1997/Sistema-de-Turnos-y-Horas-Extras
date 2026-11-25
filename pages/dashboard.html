@@ -13,8 +13,8 @@
     <header class="cc-header">
       <div>
         <span class="cc-eyebrow">CLUB CAMPESTRE PEREIRA &nbsp; / &nbsp; CENTRO DE CONTROL</span>
-        <h1>Tendencias y puntualidad</h1><p id="ccDocStatus" class="cc-status" role="status"></p>
-        <p>Lectura de presencia, movimiento por área y cumplimiento frente a la programación.</p>
+        <h1>Puntualidad AYB y Chef</h1><p id="ccDocStatus" class="cc-status" role="status"></p>
+        <p>Seguimiento de empleados programados en Alimentos y Bebidas y Chef. La puntualidad se verifica en el punto interno de trabajo.</p>
       </div>
       <div class="cc-header-actions">
         <span id="ccUser" class="cc-user"></span>
@@ -46,7 +46,7 @@
     <section class="cc-kpis" aria-label="Indicadores principales">
       <button data-open="people" class="cc-kpi"><span>PERSONAS CON MARCACIÓN</span><strong id="ccPeople">—</strong><small>Únicas en el período · ver detalle</small></button>
       <button data-tab="trends" class="cc-kpi"><span>ÁREA CON MAYOR FLUJO</span><strong id="ccTopArea" class="cc-word">—</strong><small id="ccTopAreaHint">Personas distintas, no número de marcas</small></button>
-      <button data-tab="punctuality" class="cc-kpi"><span>PUNTUALIDAD DEL CLUB</span><strong id="ccRate">—</strong><small id="ccRateHint">Solo jornadas comparables</small></button>
+      <button data-tab="punctuality" class="cc-kpi"><span>PUNTUALIDAD AYB Y CHEF</span><strong id="ccRate">—</strong><small id="ccRateHint">Solo marcas en punto de trabajo</small></button>
     </section>
 
     <nav class="cc-tabs" aria-label="Secciones">
@@ -99,7 +99,7 @@
     <section id="ccPanel-punctuality" class="cc-panel" hidden>
       <article class="cc-card">
         <div class="cc-card-head">
-          <div><h2>Puntualidad frente a la programación</h2><p>Compara la primera entrada biométrica con el inicio de turno guardado. No inventa horarios cuando falta programación.</p></div>
+          <div><h2>Puntualidad frente a la programación</h2><p>Compara el horario programado con la primera marcación válida en el punto interno de trabajo; no utiliza Portería como llegada laboral.</p></div>
           <label>Comparar<select id="ccPunctRange"><option value="month">Mes de la fecha Hasta</option><option value="period">Período del filtro</option></select></label>
         </div>
         <div id="ccPunctSummary" class="cc-insights horizontal"></div>
@@ -107,8 +107,26 @@
       </article>
 
       <article class="cc-card">
-        <div class="cc-card-head"><div><h2>Comparación de todas las áreas</h2><p>Puntualidad, tardanzas y base comparable por área.</p></div></div>
+        <div class="cc-card-head"><div><h2>Comparación AYB y Chef</h2><p>Puntualidad, tardanzas y jornadas comparables por programación.</p></div></div>
         <div id="ccPunctAreas" class="cc-table-scroll"></div>
+      </article>
+
+      <article class="cc-card">
+        <div class="cc-card-head">
+          <div><h2>Estado de cada empleado</h2><p>Por fecha: turno, marcación en el punto, minutos de retraso y novedades. Selecciona un empleado para consultar su historial.</p></div>
+          <label>Estado
+            <select id="ccEmployeeState">
+              <option value="all">Todos los estados</option>
+              <option value="late">Llegaron tarde</option>
+              <option value="ok">Llegaron a tiempo</option>
+              <option value="pending">Sin entrada / por revisar</option>
+              <option value="notice">Descanso o novedad</option>
+              <option value="sin_programacion">Marcó sin programación</option>
+            </select>
+          </label>
+        </div>
+        <p class="cc-card-caption" id="ccEmployeeCount"></p>
+        <div id="ccEmployeeDaily" class="cc-table-scroll"></div>
       </article>
 
       <article class="cc-card">
@@ -129,11 +147,11 @@
 
     <details class="cc-method">
       <summary>Alcance de los datos y cómo se calculan los indicadores</summary>
-      <p>Métricas desde el 27/08/2026. Los registros del 23 al 26/08 siguen disponibles como histórico, pero no participan en indicadores. Una marcación prueba presencia en un punto, no permanencia continua. El cálculo de horas realizadas que aparece en el detalle usa la primera y la última marcación verificable de la jornada y descuenta el descanso programado cuando corresponde; se presenta como estimación operativa, no como liquidación de nómina.</p>
+      <p>Métricas desde el 23/08/2026. Esta versión limita la lectura operativa a personas programadas en AYB y Chef. Una marcación prueba presencia en un punto, no permanencia continua. Portería no cuenta como entrada al punto de trabajo. El cálculo de horas realizadas que aparece en el detalle usa las marcas internas verificables de la jornada y descuenta el descanso programado cuando corresponde; se presenta como estimación operativa, no como liquidación de nómina.</p>
       <div id="ccIntegrity"></div>
     </details>
 
-    <footer class="cc-footer">Centro de Control · Tendencias y puntualidad · Sin cambios en marcaciones ni aprobaciones</footer>
+    <footer class="cc-footer">Centro de Control · Puntualidad AYB y Chef · Sin cambios en marcaciones ni aprobaciones</footer>
   </main>
 
   <dialog id="ccDialog" class="cc-dialog">
@@ -143,6 +161,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="../js/layout.js?v=750"></script>
-  <script type="module" src="../js/dashboard-general.js?v=permisos-720"></script>
+  <script type="module" src="../js/dashboard-general.js?v=ayb-chef-1"></script>
 </body>
 </html>
