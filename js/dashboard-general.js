@@ -15,7 +15,7 @@ const monthEnd=d=>new Date(Date.UTC(+String(d).slice(0,4),+String(d).slice(5,7),
 const inRange=(d,r)=>d>=r.from&&d<=r.to;
 const maxDate=(...v)=>v.filter(Boolean).sort().at(-1);
 const minDate=(...v)=>v.filter(Boolean).sort()[0];
-const stateLabels={puntual:['A tiempo','ok'],tarde:['Llegada tarde','bad'],justificada:['Descanso / novedad','info'],sin_programacion:['Sin programación','warn'],sin_marca:['Sin marcación; revisar','warn'],sin_entrada:['Sin entrada verificable','warn'],en_espera:['Jornada en curso','info'],futura:['Programación futura',''],inferida:['Horario inferido; excluido',''],conflicto:['Programaciones en conflicto','warn'],sin_horario:['Sin horario comparable','']};
+const stateLabels={puntual:['A tiempo','ok'],tarde:['Llegada tarde','bad'],justificada:['Descanso / novedad','info'],sin_programacion:['Sin programación','warn'],sin_marca:['Sin marcación; revisar','warn'],sin_entrada:['Sin entrada verificable','warn'],en_espera:['Jornada en curso','info'],futura:['Programación futura',''],inferida:['Horario inferido; excluido',''],conflicto:['Programaciones en conflicto','warn'],sin_horario:['Sin horario comparable',''],sin_punto:['Punto sin validar','warn']};
 const s={model:null,range:null,tab:'trends',areaScope:'period',loadToken:0,abort:null,channel:null,timer:null,debounce:null,lastLoaded:0,loaded:null};
 
 function pill(label,cl=''){return `<span class="cc-pill ${cl}">${esc(label)}</span>`;}
@@ -148,7 +148,7 @@ function renderPunctuality(){
 }
 function renderDailyEmployees(){
   const f=punctualRange(),p=punctuality(s.model,f),q=$('ccEmployeeState')?.value||'all';
-  const rows=p.journeys.filter(j=>q==='all'||(q==='late'?j.status==='tarde':q==='ok'?j.status==='puntual':q==='notice'?j.status==='justificada':q==='pending'?['sin_marca','sin_entrada','en_espera','conflicto','sin_horario'].includes(j.status):j.status===q))
+  const rows=p.journeys.filter(j=>q==='all'||(q==='late'?j.status==='tarde':q==='ok'?j.status==='puntual':q==='notice'?j.status==='justificada':q==='pending'?['sin_marca','sin_entrada','en_espera','conflicto','sin_horario','sin_punto'].includes(j.status):j.status===q))
     .sort((a,b)=>b.date.localeCompare(a.date)||({tarde:0,sin_marca:1,sin_entrada:1,en_espera:2,puntual:3,justificada:4}[a.status]??5)-({tarde:0,sin_marca:1,sin_entrada:1,en_espera:2,puntual:3,justificada:4}[b.status]??5)||a.person.name.localeCompare(b.person.name));
   $('ccEmployeeDaily').innerHTML=table(['Fecha','Empleado','Programación','Horario','Entrada punto','Diferencia','Estado / novedad','Detalle'],rows.map(j=>[
     pretty(j.date),
