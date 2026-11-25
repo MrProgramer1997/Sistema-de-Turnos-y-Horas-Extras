@@ -1,5 +1,5 @@
 import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
-import {limitarAybChef,esMarcacionPuntoTrabajo} from './centro-control-alcance.js?v=ayb-chef-1';
+import {limitarAybChef,esMarcacionPuntoTrabajo,puntoValidoParaTurno,equipoEsperado} from './centro-control-alcance.js?v=ayb-chef-1';
 /** Centro de Control V2. Motor de lectura: no guarda, liquida ni aprueba horas. */
 export const METRIC_START = '2026-08-23';
 export const HISTORY_START = '2026-08-23';
@@ -97,10 +97,10 @@ export function buildModel(contexto={}, todasLasMarcas=[], now=bogotaNow()) {
  const perPerson=new Map(),perDay=new Map();for(const ev of events){const k=ev.person.cedula;if(!perPerson.has(k))perPerson.set(k,[]);perPerson.get(k).push(ev);const kd=`${k}|${ev.date}`;if(!perDay.has(kd))perDay.set(kd,[]);perDay.get(kd).push(ev);}
  const schedules=new Map(),codes=new Map((ctx.chefCodes||[]).map(c=>[c.codigo,c])),chefPeople=new Map((ctx.chefPeople||[]).map(p=>[p.id,p]));
  function addSchedule(code,date,s){if(!code||!date)return;const k=`${doc(code)}|${date}`;if(!schedules.has(k))schedules.set(k,[]);schedules.get(k).push({...s,code:doc(code),date});}
- for(const r of ctx.legacy||[])addSchedule(r.cedula,r.fecha,{source:'Programaci\u00f3n A&B',priority:2,begin:r.hora_inicio,end:r.hora_fin,begin2:r.hora_inicio_2,end2:r.hora_fin_2,turn:r.turno,notice:r.novedad_codigo||(/novedad|descanso/.test(norm(r.tipo_registro))?r.turno:''),id:r.id,breakMin:30,noticeText:r.novedad_descripcion||''});
+ for(const r of ctx.legacy||[])addSchedule(r.cedula,r.fecha,{source:'Programaci\u00f3n A&B',priority:2,begin:r.hora_inicio,end:r.hora_fin,begin2:r.hora_inicio_2,end2:r.hora_fin_2,turn:r.turno,notice:r.novedad_codigo||(/novedad|descanso/.test(norm(r.tipo_registro))?r.turno:''),id:r.id,breakMin:30,noticeText:r.novedad_descripcion||'',subarea:r.subarea||'',subarea2:r.subarea_2||''});
  for(const r of ctx.general||[]){if(/cancel|rechaz|borrador/.test(norm(r.estado)))continue;addSchedule(byId.get(r.empleado_id)?.cedula,r.fecha,{source:r.documental_711?(r.documental_711.tipo==='deteccion_semanal'?'Detectado por semana':'Horario documental / asignacion'):'Programaci\u00f3n general',priority:1,begin:r.hora_inicio,end:r.hora_fin,begin2:r.documental_711?r.hora_inicio_2:null,end2:r.documental_711?r.hora_fin_2:null,turn:r.documental_711?(r.turno||'Por confirmar'):proc.get(r.proceso_id)?.nombre||'Turno',notice:r.novedad_codigo||(norm(r.tipo_registro)==='descanso'?'D':''),id:r.id,documental:r.documental_711,forceConflict:Boolean(r.documental_711&&r.conflicto_programacion),assignedNet:r.documental_711?r.horas_programadas_netas:null,breakMin:r.minutos_descanso||0,inferred:/infer/.test(norm(r.origen_programacion))});}
  for(const r of ctx.chef||[]){if(/cancel|rechaz|borrador/.test(norm(r.estado)))continue;const p=chefPeople.get(r.cronograma_personal_id);if(!p)continue;const code=doc(byId.get(p.empleado_id)?.cedula||p.documento),a=codigoAsignado(r,codes.get(r.codigo_turno),1),b=codigoAsignado(r,codes.get(r.codigo_turno_2),2);
-  addSchedule(code,r.fecha,{source:'Programaci\u00f3n Chef',priority:3,begin:a?.hora_inicio,end:a?.hora_fin,begin2:b?.hora_inicio,end2:b?.hora_fin,turn:r.codigo_turno,notice:!a?.hora_inicio?r.codigo_turno:'',id:r.id,breakMin:30,noticeText:codes.get(r.codigo_turno)?.descripcion||'',assignedNet:r.horario_asignado?analizarHorario(r.horario_asignado).netos/60:null});}
+  addSchedule(code,r.fecha,{source:'Programaci\u00f3n Chef',priority:3,begin:a?.hora_inicio,end:a?.hora_fin,begin2:b?.hora_inicio,end2:b?.hora_fin,turn:r.codigo_turno,notice:!a?.hora_inicio?r.codigo_turno:'',id:r.id,breakMin:30,noticeText:codes.get(r.codigo_turno)?.descripcion||'',subarea:r.area_cocina||'',subarea2:r.area_cocina_2||'',assignedNet:r.horario_asignado?analizarHorario(r.horario_asignado).netos/60:null});}
  const notices=[];
  function addNotice(r,source,code,state){const c=doc(r.cedula||byId.get(r.empleado_id)?.cedula),from=iso(r.fecha_inicio||r.fecha),to=iso(r.fecha_fin||r.fecha_inicio||r.fecha);if(!c||!from||!to||to<from)return;notices.push({id:r.id,code:c,from,to,label:noticeLabel(code),type:code,source,state,full:fullDayNotice(code),person:person(c,from)});}
  for(const r of ctx.requests||[])if(['aprobada','aprobado','autorizada','autorizado'].includes(norm(r.estado)))addNotice(r,'Solicitud aprobada',r.codigo_tipo||r.tipo_solicitud,r.estado);
@@ -120,10 +120,11 @@ export function buildModel(contexto={}, todasLasMarcas=[], now=bogotaNow()) {
   if(exempt||(b===null&&s.notice))status='justificada';
   else if(s.inferred)status='inferida';
   else if(conflict)status='conflicto';
+  else if(b!==null&&!equipoEsperado(s.subarea))status='sin_punto';
   else if(start!==null&&end!==null&&end>start&&end-start<=20*60){
     if(start>stamp(now))status='futura';
     else{const marks=(perPerson.get(s.code)||[]).filter(x=>x.t>=start-240&&x.t<=end&&x.t<=stamp(now));
-      entry=marks.find(x=>x.workPoint&&x.direction!=='out')||null;
+      entry=marks.find(x=>puntoValidoParaTurno(x,s.subarea)&&x.direction!=='out')||null;
       if(entry){delta=Math.trunc(entry.t)-start;status=delta>=1?'tarde':'puntual';}
       else status=(marks.length||(perDay.get(k)||[]).length)?'sin_entrada':end>stamp(now)?'en_espera':'sin_marca';
     }
