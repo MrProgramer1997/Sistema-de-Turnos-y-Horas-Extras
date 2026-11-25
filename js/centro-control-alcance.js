@@ -42,6 +42,22 @@ export function limitarAybChef(contexto = {}, marcaciones = []) {
   return {ctx, marcaciones: marcaciones.filter(m => autorizados.has(documento(m.emp_code))), codigos: autorizados};
 }
 const EQUIPOS_AYB_CHEF = new Set(['HY 19', 'ADMINISTRACION', 'TENIS', 'PISCINA']);
+export function equipoEsperado(subarea='') {
+  const s=normal(subarea);
+  if(!s)return null;
+  if(/TENIS/.test(s))return 'TENIS';
+  if(/PISCINA/.test(s))return 'PISCINA';
+  if(/HOYO 19|BAR DEPORTIVO|HELADERIA|CAFE|SAMANES|CARRO BAR/.test(s))return 'HY 19';
+  if(/RIALTO|PORCIONAMIENTO|FRIA|STEWARD/.test(s))return 'ADMINISTRACION';
+  // Eventos y puntos sin terminal propio requieren revisión explícita.
+  return null;
+}
+export function puntoValidoParaTurno(evento,subarea='') {
+  if(!esMarcacionPuntoTrabajo(evento))return false;
+  const esperado=equipoEsperado(subarea);
+  if(!esperado)return false;
+  return normal(evento.alias||evento.terminal_alias)===esperado;
+}
 export function esMarcacionPuntoTrabajo(evento) {
   const equipo = normal(evento?.alias || evento?.terminal_alias);
   const punto = normal(evento?.point || evento?.area_alias);
