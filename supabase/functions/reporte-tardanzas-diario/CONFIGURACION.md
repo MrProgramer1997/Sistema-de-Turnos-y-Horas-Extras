@@ -127,7 +127,7 @@ Variables requeridas en Supabase:
 | `MS365_CLIENT_SECRET` | Valor secreto de la aplicación; protegido |
 | `REPORT_CRON_TOKEN` | Token privado (32+ caracteres) de invocación |
 | `REPORT_TEST_ENABLED` | `true` únicamente durante prueba |
-| `REPORT_ENABLED` | Mantener `false` hasta pasar prueba y autorizar |
+| `REPORT_ENABLED` | Obsoleto desde el cambio a control seguro en BD; no gobierna envíos |
  
 El mismo `REPORT_CRON_TOKEN` debe guardarse en **Supabase Vault** bajo el
 nombre `tardanzas_cron_token` para que Cron pueda invocar la función.
@@ -185,35 +185,77 @@ y reporte normal. Son datos históricos de prueba, no fechas para el Cron.
    confirmada**. Comprobar la bandeja de entrada y las trazas de Exchange.
 8. Volver a `REPORT_TEST_ENABLED=false`.
 
-## 7. Activación diaria
+## 7. Activación diaria y primera recuperación histórica (26/11/2026)
 
-Solo tras prueba satisfactoria, verificar 5 destinatarios y autorizar operación:
+La prueba Microsoft Graph fue recibida por Innovación. El usuario autorizó
+poner en marcha el envío diario a los cinco destinatarios y recuperar
+las fechas **22, 23, 24 y 25 de noviembre**. Para mantener la auditoría,
+la activación depende ahora del control de base de datos
+`public.cc_reporte_tardanzas_control` (RLS activo, sin permisos a
+`anon` ni `authenticated`) y **no** de la variable heredada
+`REPORT_ENABLED`. Esta última ya no gobierna el envío.
 
-1. Establecer `REPORT_ENABLED=true` en Supabase.
-2. Activar Cron existente (horario ya registrado 13:00 UTC):
+Sólo después de desplegar la Edge Function y pasar las pruebas:
 
 ```sql
-DO $$
+UPDATE public.cc_reporte_tardanzas_control
+ SET envio_habilitado = true,
+     recuperacion_hasta = TIMESTAMPTZ '2026-11-27 05:00:00+00',
+     actualizado_en = now()
+ WHERE clave = 'principal';
+```
+
+La recuperación histórica usa la cabecera privada `X-Report-Token`,
+método POST y el cuerpo `{"mode":"backfill","date":"2026-11-22"}`
+(o 23, 24 y 25). **Solo** se permiten esas cuatro fechas y la ventana
+expira a las 00:00 del 27/11 Colombia. El 22 se envía la lista de tardanzas;
+el 23, alerta AYB incompleto; el 24-25, alertas sin programación.
+
+Cada envío productivo crea una reserva `UNIQUE(fecha,audiencia)` en
+`public.cc_reporte_tardanzas_envios` **antes de llamar a Microsoft Graph**.
+Una fecha ya registrada no se envía otra vez. Un estado `preparando` o
+`error` requiere revisar el correo enviado y la auditoría antes de
+cualquier recuperación manual. El código HTTP 202 de Graph
+significa correo aceptado por el servicio, no entrega final confirmada.
+
+Tras los envíos iniciales, activar el Cron a las 13:00 UTC:
+
+```sql
+DO $
 BEGIN
   PERFORM cron.alter_job(
     job_id := (SELECT jobid FROM cron.job
                WHERE jobname='cc_reporte_tardanzas_ayb_chef'),
     active := true
   );
-END $$;
+END $;
 ```
 
-Verificar:
+Supervisión:
 
 ```sql
-SELECT jobid,jobname,schedule,active
-FROM cron.job WHERE jobname='cc_reporte_tardanzas_ayb_chef';
+SELECT jobname,schedule,active FROM cron.job
+WHERE jobname='cc_reporte_tardanzas_ayb_chef';
+
+SELECT fecha,tipo,estado,codigo_proveedor,creado_en,actualizado_en
+FROM public.cc_reporte_tardanzas_envios ORDER BY fecha DESC;
 ```
 
-Ante cualquier incidencia, invertir `active := false`. No ejecutar envíos
-manuales de producción repetidos, porque Microsoft Graph **no ofrece la misma
-garantía de idempotencia** que el proveedor anterior. Implementar un registro
-de envíos duradero antes de habilitar reintentos o correos manuales.
+Desactivación inmediata y segura:
+
+```sql
+UPDATE public.cc_reporte_tardanzas_control
+SET envio_habilitado=false,recuperacion_hasta=NULL,actualizado_en=now()
+WHERE clave='principal';
+
+SELECT cron.alter_job(
+  job_id := (SELECT jobid FROM cron.job
+             WHERE jobname='cc_reporte_tardanzas_ayb_chef'),active:=false);
+```
+
+No habilitar reenvíos automáticos: Microsoft Graph no ofrece garantía
+nativa de idempotencia. El registro privado debe revisarse si hubo
+errores después de una aceptación HTTP 202.
 
 ## Referencias
 
