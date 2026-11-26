@@ -77,7 +77,7 @@ export function buildModel(contexto={}, todasLasMarcas=[], now=bogotaNow()) {
  for(const r of ctx.legacy||[]){const c=doc(r.cedula);if(!c)continue;areaEnFecha.set(`${c}|${r.fecha}`,'Alimentos y Bebidas');if(!areaEnPersonal.has(c))areaEnPersonal.set(c,'Alimentos y Bebidas');}
  const personasChef=new Map((ctx.chefPeople||[]).map(p=>[p.id,p]));
  for(const r of ctx.chef||[]){const p=personasChef.get(r.cronograma_personal_id);const c=doc(byId.get(p?.empleado_id)?.cedula||p?.documento);if(!c)continue;areaEnFecha.set(`${c}|${r.fecha}`,'Chef');areaEnPersonal.set(c,'Chef');}
- function person(code,date){code=doc(code);const e=byDoc.get(code)||{cedula:code,name:`C\u00f3digo sin vincular: ${code}`,known:false,external:externalCodes.has(code)};
+ function person(code,date){code=doc(code);const chefFicha=(ctx.chefPeople||[]).find(p=>doc(p.documento)===code);const e=byDoc.get(code)||{cedula:code,name:chefFicha?.nombre_visible||`C\u00f3digo sin vincular: ${code}`,known:false,external:externalCodes.has(code)};
    const matches=(links.get(e.id)||[]).filter(l=>validLink(l,date)&&proc.get(l.proceso_id)?.activo!==false);
    const ps=matches.map(l=>proc.get(l.proceso_id)).filter(Boolean), labels=[...new Set(ps.map(p=>areaOf(e,p).label))];
    const a=labels.length>1?{label:'Asignaci\u00f3n m\u00faltiple',source:'Revisar procesos simult\u00e1neos'}:areaOf(e,ps[0]);
