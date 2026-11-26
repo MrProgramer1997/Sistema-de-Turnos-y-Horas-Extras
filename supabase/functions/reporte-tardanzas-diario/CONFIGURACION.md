@@ -1,152 +1,178 @@
-# Reporte diario de tardanzas AYB y Chef
+# Informe de tardanzas AYB / Chef — Microsoft 365
 
-Estado inicial: **Edge Function desplegada con envío deshabilitado** y trabajo
-Supabase Cron **creado, pero inactivo**. No se envían correos hasta completar
-las comprobaciones siguientes.
+## Estado y parámetros aprobados
 
-## Diseño
+- **Remitente oficial:** `reportes@campestrepereira.com`
+- **Hora:** 8:00 a. m. Colombia (13:00 UTC), todos los días
+- **Período:** el día calendario inmediatamente anterior en `America/Bogota`
+- **Prueba:** solamente `analistainnovacion@campestrepereira.com`
+- **Producción:** cinco destinatarios institucionales ya definidos en `destinatarios.js`
+- **Cron:** `cc_reporte_tardanzas_ayb_chef`, **inactivo hasta autorizar el envío**.
+- **Correo:** Microsoft Graph / Exchange Online; **no utiliza Resend**.
+- La función usa el mismo cálculo del Centro de Control: primera marcación
+  válida en el punto de trabajo; excluye Portería y las novedades justificadas.
 
-- Fecha: día anterior en `America/Bogota`.
-- Hora programada: **8:00 a. m. Colombia (13:00 UTC)**, todos los días.
-- Fuentes: programación AYB, programación Chef (fija), novedades y marcas BioTime.
-- Cálculo: se reutiliza `buildModel/punctuality` del Centro de Control.
-- Marcación válida: solo ingreso al punto de trabajo, nunca Portería.
-- No se cuentan como tardanza: descansos, incapacidades, conflictos, días sin
-  programación, falta de marcas y puntos biométricos aún no validados.
-- Si no hay programación ese día, no se envía un falso reporte de cero tardanzas.
-- No modifica tablas operativas, horarios ni marcaciones.
-- No se registran diagnósticos médicos en los correos.
+## 1. Verificar que el usuario realmente tenga un buzón
 
-## 1. Proveedor de email
+En **Centro de administración de Exchange** > Destinatarios > Buzones,
+confirmar que aparece `reportes@campestrepereira.com`.
+Crear el usuario en Microsoft 365 **no demuestra por sí solo** que Exchange haya
+aprovisionado el buzón: debe tener una licencia Exchange Online compatible
+(o configurar un buzón compartido conforme a las políticas de la organización).
 
-Supabase no entrega una dirección de correo transaccional para enviar estos
-informes. Se utilizará Resend como proveedor saliente y se deberá **verificar
-el dominio del remitente** mediante sus registros DNS. Por ejemplo, se puede
-verificar un subdominio de envíos independiente del dominio corporativo,
-sin interferir con Microsoft 365.
-No modificar los MX ni sobrescribir el SPF principal sin revisión de Sistemas.
+Verificar:
+- Dirección SMTP principal `reportes@campestrepereira.com`
+- Estado de buzón y licencia
+- Que el remitente tenga permiso de enviar desde su propio buzón.
 
-En **Supabase > Edge Functions > Secrets** configurar los siguientes nombres
-con valores privados. Nunca copiarlos al repositorio:
+No compartir contraseñas en tickets, chats ni GitHub.
 
-| Variable | Valor |
-|---|---|
-| `RESEND_API_KEY` | API Key de Resend con permiso de envío |
-| `REPORT_FROM_EMAIL` | Remitente del dominio verificado |
-| `REPORT_TEST_ENABLED` | `false` por defecto. Permitir `true` solo mientras se realice la prueba privada |
-| `REPORT_CRON_TOKEN` | Token aleatorio y exclusivo de mínimo 32 caracteres |
-| `REPORT_ENABLED` | `false` hasta validar las pruebas |
+## 2. Registrar aplicación en Microsoft Entra
 
-Los **únicos destinatarios permitidos para la operación normal** ya están
-definidos en `destinatarios.js`:
+Abrir https://entra.microsoft.com -> **Entra ID** -> **Registros de aplicaciones**
+-> **Nuevo registro**:
 
-- analistainnovacion@campestrepereira.com
-- sistemas@campestrepereira.com
-- directorayb@campestrepereira.com
-- maitre@campestrepereira.com
-- dirbienestar@campestrepereira.com
+- Nombre: `CCCP - Reportes de puntualidad`
+- Tipos de cuenta: **Solo este directorio organizativo** (single tenant).
+- URI de redireccionamiento: **vacía** (no se necesita login interactivo).
 
-En modo `test` el **único destinatario** es
-`analistainnovacion@campestrepereira.com`. Los otros cuatro no reciben pruebas.
+Guardar los identificadores públicos de la pantalla de información general:
 
-`SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` son variables internas del
-entorno Supabase Edge Functions; no copiarlas al navegador ni a GitHub.
+1. **Id. de directorio (inquilino)** → `MS365_TENANT_ID`
+2. **Id. de aplicación (cliente)** → `MS365_CLIENT_ID`
 
-## 2. Registrar el mismo token en Vault
+La integración usa el flujo OAuth2 `client_credentials`, no la contraseña del
+usuario. Conservar el acceso condicionado a la aplicación y al buzón remitente.
 
-Solo un administrador autorizado debe ejecutar en SQL Editor:
+## 3. Limitar la aplicación a UN SOLO buzón antes de enviar
 
-```sql
-select vault.create_secret(
-  'PEGAR_AQUI_MISMO_TOKEN_ALEATORIO_QUE_REPORT_CRON_TOKEN',
-  'tardanzas_cron_token',
-  'Autenticacion del cron de tardanzas AYB/Chef'
-);
+**Muy importante:** otorgar `Mail.Send` **de aplicación** con consentimiento
+global en Microsoft Entra permite enviar como **cualquier** buzón del tenant.
+La configuración preferente es **Exchange Online RBAC for Applications**, que
+otorga únicamente `Application Mail.Send` para un alcance restringido.
+
+No otorgar adicionalmente un `Mail.Send` sin alcance en Entra: los permisos
+Entra y Exchange RBAC son acumulativos y se perdería la restricción.
+
+Un administrador de Exchange autorizado debe:
+
+1. Localizar el **Object ID del Service Principal** en
+   **Entra > Aplicaciones empresariales > CCCP - Reportes de puntualidad**.
+   NO confundirlo con el Object ID de `Registros de aplicaciones`.
+2. Conectarse a Exchange Online PowerShell.
+3. Crear el Service Principal de Exchange para el App ID y el Object ID.
+4. Crear un `Management Scope` que contenga **únicamente el buzón reportes**;
+   comprobar que ese filtro devuelve una sola identidad.
+5. Asignar `Application Mail.Send` para ese scope.
+6. Ejecutar `Test-ServicePrincipalAuthorization` contra `reportes@` y contra
+   otro buzón: el primero debe estar dentro y el otro fuera.
+
+Ejemplo **orientativo**, para ejecutar **solo después de confirmar los IDs y
+el alias real del buzón**:
+
+```powershell
+Connect-ExchangeOnline
+Get-Mailbox "reportes@campestrepereira.com" |
+  Format-List PrimarySmtpAddress,Alias,RecipientTypeDetails
+
+# Usar los valores reales obtenidos en Entra:
+New-ServicePrincipal -AppId "<APPLICATION_CLIENT_ID>" `
+  -ObjectId "<ENTERPRISE_APP_SERVICE_PRINCIPAL_OBJECT_ID>" `
+  -DisplayName "CCCP-Reportes-Puntualidad"
+
+# Reemplazar <ALIAS_VERIFICADO> por el alias comprobado del buzón:
+New-ManagementScope -Name "CCCP-Solo-Reportes-Campestre" `
+  -RecipientRestrictionFilter "Alias -eq '<ALIAS_VERIFICADO>'"
+
+# COMPROBAR que el scope solo incluye reportes antes de asignar permisos:
+Get-Recipient -RecipientPreviewFilter (Get-ManagementScope
+  "CCCP-Solo-Reportes-Campestre").RecipientFilter
+
+New-ManagementRoleAssignment -App "<APPLICATION_CLIENT_ID>" `
+  -Role "Application Mail.Send" `
+  -CustomResourceScope "CCCP-Solo-Reportes-Campestre"
+
+Test-ServicePrincipalAuthorization -Identity "<APPLICATION_CLIENT_ID>" `
+  -Resource "reportes@campestrepereira.com"
 ```
 
-La función usa `X-Report-Token` como autenticación exclusiva. `verify_jwt=false`
-está justificado porque el endpoint implementa su propio secreto obligatorio y,
-sin la variable `REPORT_ENABLED=true`, ninguna petición puede enviar email.
+Revisar con el administrador la identidad y los permisos antes de la asignación.
+Referencia: https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac
 
-## 3. Vista previa sin enviar
+## 4. Credencial de la aplicación
 
-En Edge Functions > `reporte-tardanzas-diario` > Test enviar:
+La versión preparada de la Edge Function admite **un secreto de cliente** para
+la prueba controlada. Microsoft recomienda **certificado** para entornos de
+producción; planificar el cambio a certificado y su rotación según política TI.
 
-- Método `POST`
-- Cabecera `X-Report-Token: <TOKEN_PRIVADO>`
-- JSON `{"mode":"preview","date":"2026-11-22"}` (día con programación)
+En Entra > Registros de aplicaciones > la aplicación >
+**Certificados y secretos** > **Nuevo secreto de cliente**. Guardar el
+**Valor** del secreto (no su ID) exclusivamente en
+**Supabase > Edge Functions > Secrets** con el nombre `MS365_CLIENT_SECRET`.
+No compartir ni publicar el valor.
 
-Validar que `turnos` sea mayor que 0 y contrastar tres casos en el Centro de
-Control. Los días sin programación devolverán `sin_programacion` y HTTP 409.
-La vista previa **nunca** envía correos.
+Variables requeridas en Supabase:
 
-## 4. Prueba real de envío aislado
+| Nombre | Uso |
+| --- | --- |
+| `MS365_TENANT_ID` | GUID del inquilino Microsoft |
+| `MS365_CLIENT_ID` | GUID de la aplicación |
+| `MS365_CLIENT_SECRET` | Valor secreto de la aplicación; protegido |
+| `REPORT_CRON_TOKEN` | Token privado (32+ caracteres) de invocación |
+| `REPORT_TEST_ENABLED` | `true` únicamente durante prueba |
+| `REPORT_ENABLED` | Mantener `false` hasta pasar prueba y autorizar |
+ 
+El mismo `REPORT_CRON_TOKEN` debe guardarse en **Supabase Vault** bajo el
+nombre `tardanzas_cron_token` para que Cron pueda invocar la función.
 
-Tras instalar `RESEND_API_KEY`, verificar `REPORT_FROM_EMAIL` y guardar
-`REPORT_CRON_TOKEN` (el mismo en Secrets y Vault):
+## 5. Prueba controlada a un solo destinatario
 
-1. Mantener **`REPORT_ENABLED=false`**, Cron inactivo.
-2. Cambiar temporalmente **`REPORT_TEST_ENABLED=true`**.
-3. En Edge Functions > `reporte-tardanzas-diario` > Test:
-   - Método POST.
-   - Cabecera privada `X-Report-Token` con el token.
-   - JSON: `{"mode":"test","date":"2026-11-22"}`.
-4. Confirmar **un solo destinatario** y la recepción efectiva en
-   `analistainnovacion@campestrepereira.com`.
-5. Volver a establecer **`REPORT_TEST_ENABLED=false`**.
+1. Verificar remitente y restricciones RBAC de Exchange.
+2. Comprobar que la aplicación puede autenticarse en Graph.
+3. Mantener el **Cron inactivo** y `REPORT_ENABLED=false`.
+4. Cambiar temporalmente `REPORT_TEST_ENABLED=true`.
+5. Ejecutar desde **Edge Functions > reporte-tardanzas-diario > Test**
+   usando método POST:
+   - Header: `X-Report-Token: <valor privado>`
+   - Body: `{"mode":"test","date":"2026-11-22"}`
+6. El único destinatario debe ser `analistainnovacion@campestrepereira.com`.
+7. Graph devuelve **202 Accepted**, que significa aceptación, **no entrega
+   confirmada**. Comprobar la bandeja de entrada y las trazas de Exchange.
+8. Volver a `REPORT_TEST_ENABLED=false`.
 
-La prueba utiliza una fecha que tiene turnos programados, porque el 25/11
-carece de programación nueva en AYB/Chef. El asunto se marca con
-`[PRUEBA]`. No activa los envíos automáticos ni envía a los otros cuatro.
+## 6. Activación diaria
 
-## 5. Activación controlada
+Solo tras prueba satisfactoria, verificar 5 destinatarios y autorizar operación:
 
-Solo tras verificar dominio, la vista previa, remitente y destinatarios:
-
-1. Cambiar `REPORT_ENABLED` a `true` en Secrets.
-2. Activar el Cron que ya fue registrado y está inactivo:
+1. Establecer `REPORT_ENABLED=true` en Supabase.
+2. Activar Cron existente (horario ya registrado 13:00 UTC):
 
 ```sql
 DO $$
 BEGIN
   PERFORM cron.alter_job(
-    job_id := (
-      select jobid from cron.job
-      where jobname='cc_reporte_tardanzas_ayb_chef'
-    ),
+    job_id := (SELECT jobid FROM cron.job
+               WHERE jobname='cc_reporte_tardanzas_ayb_chef'),
     active := true
   );
 END $$;
 ```
 
-El Cron invoca a las **13:00 UTC** (8:00 a. m. Colombia) la función con `{"mode":"send"}`.
-No acepta fechas arbitrarias para enviar: solo genera **ayer** según Colombia.
-La petición a Resend incluye `Idempotency-Key` para impedir duplicados en los
-reintentos durante la ventana de 24 horas del proveedor.
-
-## 6. Verificación y reversión
+Verificar:
 
 ```sql
-select jobid,jobname,schedule,active
-from cron.job
-where jobname='cc_reporte_tardanzas_ayb_chef';
+SELECT jobid,jobname,schedule,active
+FROM cron.job WHERE jobname='cc_reporte_tardanzas_ayb_chef';
 ```
 
-Revisar `cron.job_run_details` y los logs de la Edge Function. Si hay una
-incidencia, desactivar inmediatamente:
+Ante cualquier incidencia, invertir `active := false`. No ejecutar envíos
+manuales de producción repetidos, porque Microsoft Graph **no ofrece la misma
+garantía de idempotencia** que el proveedor anterior. Implementar un registro
+de envíos duradero antes de habilitar reintentos o correos manuales.
 
-```sql
-DO $$
-BEGIN
-  PERFORM cron.alter_job(
-    job_id := (
-      select jobid from cron.job
-      where jobname='cc_reporte_tardanzas_ayb_chef'
-    ),
-    active := false
-  );
-END $$;
-```
+## Referencias
 
-Este procedimiento no modifica datos históricos, permisos RLS de las tablas
-operativas ni la lógica de horas extras.
+- https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app
+- https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow
+- https://learn.microsoft.com/en-us/graph/api/user-sendmail?view=graph-rest-1.0
+- https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac

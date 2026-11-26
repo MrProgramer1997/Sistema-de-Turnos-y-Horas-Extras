@@ -1,11 +1,14 @@
 import {addDays,bogotaNow} from './centro-control-metricas.js';
 import {informeDelDia,correoHTML} from './resumen.js';
 import {destinatariosPara} from './destinatarios.js';
+import {enviarCorreoGraph,GraphDeliveryError,GRAPH_SENDER} from './microsoft-graph-mail.js';
 
 /* Edge Function independiente. No modifica turnos ni marcaciones.
  * Auth: REPORT_CRON_TOKEN (>=32 caracteres) en X-Report-Token.
  * Por seguridad el envío está deshabilitado hasta REPORT_ENABLED=true.
- * El proveedor Resend y los destinatarios se configuran en Secrets de Supabase.
+ * Microsoft Graph envía desde reportes@campestrepereira.com.
+ * Entra: limitar el acceso a ese buzón con Exchange Application RBAC.
+ * Los destinatarios están definidos en la lista institucional cerrada.
  */
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{
  status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}
@@ -85,26 +88,25 @@ Deno.serve(async (req:Request)=>{
      return json({status:'prueba_desactivada',fecha,message:'REPORT_TEST_ENABLED debe ser true para ejecutar una prueba de envío'},503);
    if(!prueba&&env('REPORT_ENABLED')!=='true')
      return json({status:'desactivado',fecha,message:'Falta autorizar REPORT_ENABLED=true'},503);
-   const key=env('RESEND_API_KEY'),from=env('REPORT_FROM_EMAIL');
    const to=destinatariosPara(prueba?'test':'send');
-   if(!key||!from||!/^\S+@\S+\.\S+$/.test(from))
-     return json({status:'sin_proveedor',fecha,message:'Configurar Resend y remitente verificado'},503);
    const dateDisplay=fecha.split('-').reverse().join('/');
-   const resp=await fetch('https://api.resend.com/emails',{
-     method:'POST',
-     headers:{'Content-Type':'application/json',Authorization:'Bearer '+key,
-       'Idempotency-Key':(prueba?'ccp-tardanzas-prueba-':'ccp-tardanzas-ayer-')+fecha},
-     body:JSON.stringify({
-       from,to,subject:`${prueba?'[PRUEBA] ':''}Puntualidad AYB/Chef | ${dateDisplay} | ${info.tardanzas} tardanzas verificadas`,
-       html:correoHTML(info)
-     })
-   });
-   if(!resp.ok){console.error('tardanzas_diario: Resend fallo HTTP',resp.status);
-     return json({status:'error_envio',fecha,proveedor_http:resp.status},502);}
-   const data=await resp.json();
-   console.log('tardanzas_diario: registrado',prueba?'PRUEBA':'PRODUCCION','fecha',fecha,'tardes',info.tardanzas,'comparables',info.comparables);
-   return json({status:prueba?'prueba_enviada':'enviado',fecha,tardanzas:info.tardanzas,comparables:info.comparables,
-     destinatarios:to.length,proveedor_id:String(data.id||'')});
+   const subject=`${prueba?'[PRUEBA] ':''}Puntualidad AYB/Chef | ${dateDisplay} | ${info.tardanzas} tardanzas verificadas`;
+   let aceptacion;
+   try{
+     aceptacion=await enviarCorreoGraph({to,subject,html:correoHTML(info)});
+   }catch(error){
+     if(error instanceof GraphDeliveryError){
+       console.error('tardanzas_diario: Graph',error.stage,'HTTP',error.status);
+       return json({status:'error_envio',fecha,etapa:error.stage,proveedor_http:error.status},502);
+     }
+     throw error;
+   }
+   // Microsoft Graph devuelve 202 Accepted: aún no confirma entrega final.
+   console.log('tardanzas_diario: Graph aceptó',prueba?'PRUEBA':'PRODUCCION',
+     'fecha',fecha,'tardes',info.tardanzas,'comparables',info.comparables);
+   return json({status:prueba?'prueba_aceptada':'envio_aceptado',
+     fecha,tardanzas:info.tardanzas,comparables:info.comparables,
+     destinatarios:to.length,remitente:GRAPH_SENDER,proveedor_http:aceptacion.http_status});
  }catch(error){
    console.error('tardanzas_diario: problema de generación',error instanceof Error?error.message:'Error desconocido');
    return json({status:'error_lectura',message:'No se envió; revisar registros internos'},500);
