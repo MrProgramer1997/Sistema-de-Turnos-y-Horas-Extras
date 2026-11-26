@@ -22,7 +22,7 @@ async function listRows(table:string,select:string,filters:Filter[]=[],max=12000
  const page=750;
  for(let offset=0;offset<max;offset+=page){
    const qp=new URLSearchParams({select});
-   for(const [name,op,value] of filters)qp.set(name,op+'.'+value);
+   for(const [name,op,value] of filters)qp.set(name,op?op+'.'+value:value);
    const response=await fetch(url+'/rest/v1/'+table+'?'+qp.toString(),{
       headers:{apikey:key,Authorization:'Bearer '+key,Range:`${offset}-${offset+page-1}`,Accept:'application/json'}
    });
