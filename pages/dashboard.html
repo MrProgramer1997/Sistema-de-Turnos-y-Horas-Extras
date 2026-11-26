@@ -27,13 +27,14 @@
         <button data-preset="today" class="selected">Hoy</button>
         <button data-preset="week">Esta semana</button>
         <button data-preset="month">Este mes</button>
+        <button data-preset="history">Desde 23/08/2026</button>
         <span id="ccRangeLabel"></span>
       </div>
       <form id="ccFilterForm" class="cc-filters">
         <label>Desde<input id="ccFrom" type="date" required></label>
         <label>Hasta<input id="ccTo" type="date" required></label>
-        <label>Área del empleado<select id="ccArea"><option value="">Todas las áreas</option></select></label>
-        <label>Personal<select id="ccPopulation"><option value="club">Personal del Club</option><option value="external">Externos / extras</option><option value="all">Todos, incluidos sin vínculo</option></select></label>
+        <label>Programación<select id="ccArea"><option value="">AYB y Chef</option></select></label>
+        
         <label class="cc-search">Buscar empleado<input id="ccSearch" type="search" placeholder="Nombre, cédula o código" autocomplete="off"></label>
         <button class="cc-button primary" type="submit">Consultar</button>
       </form>
@@ -52,6 +53,7 @@
     <nav class="cc-tabs" aria-label="Secciones">
       <button data-tab="trends" aria-selected="false">Tendencias</button>
       <button data-tab="punctuality" class="selected" aria-selected="true">Quién llega tarde</button>
+      <button data-tab="merit" aria-selected="false">El más puntual</button>
       <button data-tab="notices" aria-selected="false">Novedades</button>
     </nav>
 
@@ -127,6 +129,11 @@
         </div>
         <p class="cc-card-caption" id="ccEmployeeCount"></p>
         <div id="ccEmployeeDaily" class="cc-table-scroll"></div>
+        <div class="cc-segmented" aria-label="Páginas de jornadas">
+          <button id="ccEmployeePrev" type="button">Anterior</button>
+          <span id="ccEmployeePageLabel" class="cc-card-caption"></span>
+          <button id="ccEmployeeNext" type="button">Siguiente</button>
+        </div>
       </article>
 
       <article class="cc-card">
@@ -135,6 +142,22 @@
           <button id="ccExportPunct" class="cc-button">Descargar Excel</button>
         </div>
         <div id="ccLatePeople" class="cc-table-scroll"></div>
+      </article>
+    </section>
+
+    <section id="ccPanel-merit" class="cc-panel" hidden>
+      <article class="cc-card">
+        <div class="cc-card-head">
+          <div><h2>El más puntual · mérito por asistencia</h2>
+            <p>Clasificación del 1 al último, según el rango consultado. Se evalúan las jornadas programadas
+              y con entrada válida al punto de trabajo. Los días libres y novedades no cuentan como tardanza.</p>
+          </div>
+        </div>
+        <div id="ccMeritSummary" class="cc-insights horizontal"></div>
+        <p class="cc-footnote">Para reconocimiento se requieren al menos cinco jornadas comparables y cero registros por revisar.
+          Un día sin marcación no se considera automáticamente tardanza. Con períodos cortos la clasificación es provisional.
+          Se ordena por puntualidad, cobertura de asistencia verificada, cantidad de jornadas comparables y minutos de retraso.</p>
+        <div id="ccMeritPeople" class="cc-table-scroll"></div>
       </article>
     </section>
 
@@ -147,7 +170,7 @@
 
     <details class="cc-method">
       <summary>Alcance de los datos y cómo se calculan los indicadores</summary>
-      <p>Métricas desde el 23/08/2026. Esta versión limita la lectura operativa a personas programadas en AYB y Chef. Una marcación prueba presencia en un punto, no permanencia continua. Portería no cuenta como entrada al punto de trabajo. El cálculo de horas realizadas que aparece en el detalle usa las marcas internas verificables de la jornada y descuenta el descanso programado cuando corresponde; se presenta como estimación operativa, no como liquidación de nómina.</p>
+      <p>Métricas desde el 23/08/2026. Las consultas largas se dividen en bloques con verificación de integridad. Esta versión limita la lectura operativa a personal del Club programado en AYB o Chef. Una marcación prueba presencia en un punto, no permanencia continua. Portería no cuenta como entrada o salida laboral; solo aparece en el recorrido de auditoría. El cálculo de horas realizadas que aparece en el detalle usa las marcas internas verificables de la jornada y no se realiza sin turno confirmado y descuenta el descanso programado cuando corresponde; se presenta como estimación operativa, no como liquidación de nómina.</p>
       <div id="ccIntegrity"></div>
     </details>
 
@@ -161,6 +184,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="../js/layout.js?v=750"></script>
-  <script type="module" src="../js/dashboard-general.js?v=ayb-chef-1"></script>
+  <script type="module" src="../js/dashboard-general.js?v=ayb-chef-2"></script>
 </body>
 </html>
