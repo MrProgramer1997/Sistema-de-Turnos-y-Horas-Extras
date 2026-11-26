@@ -44,3 +44,24 @@ test('se consultan exclusivamente documentos de turnos AYB y Chef fijo',()=>{
  ];
  assert.deepEqual(documentosProgramados(legacy,chef,chefPeople,employees),['101','202']);
 });
+
+test('mantiene simultáneamente filtros gte y lt para la misma fecha',async()=>{
+ const called=[];
+ const req=async(url)=>{
+   const params=new URL(url).searchParams;
+   called.push({dates:params.getAll('punch_time'),employee:params.get('emp_code')});
+   return {ok:true,status:200,json:async()=>[{biotime_id:1}]};
+ };
+ await consultarPaginado({
+   baseUrl:'https://example.supabase.co',serviceKey:'test',
+   table:'biotime_marcaciones',select:'biotime_id',pageSize:500,max:12000,fetchFn:req,
+   filters:[
+     ['punch_time','gte','2026-11-21T00:00:00'],
+     ['punch_time','lt','2026-11-24T00:00:00'],
+     ['is_attendance','eq','true'],
+     ['emp_code','in','(101,202)']
+   ]
+ });
+ assert.deepEqual(called[0].dates,['gte.2026-11-21T00:00:00','lt.2026-11-24T00:00:00']);
+ assert.equal(called[0].employee,'in.(101,202)');
+});
