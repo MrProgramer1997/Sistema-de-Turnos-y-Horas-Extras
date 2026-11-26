@@ -1,0 +1,30 @@
+name: Validacion puntualidad AYB y Chef
+on:
+  push:
+    branches: [feature/centro-control-ayb-chef-puntualidad]
+  pull_request:
+    paths:
+      - 'js/centro-control-*.js'
+      - 'js/dashboard-general.js'
+      - 'pages/dashboard.html'
+      - 'tests/centro-control-*.test.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check js/centro-control-alcance.js
+          node --check js/centro-control-metricas.js
+          node --check js/dashboard-general.js
+      - name: Regression tests
+        run: node --test tests/centro-control-ayb-chef.test.mjs tests/centro-control-engine.test.mjs
