@@ -13,7 +13,7 @@ export function informeDelDia(ctx,marcaciones,fecha,ahora=bogotaNow()){
     punto:j.entry?.point||'',minutos:Math.max(0,Math.trunc(j.delta||0))
   })).sort((a,b)=>b.minutos-a.minutos||a.nombre.localeCompare(b.nombre));
   const cont=estado=>turnos.filter(j=>j.status===estado).length;
-  const pend=turnos.filter(j=>['sin_marca','sin_entrada','sin_punto','conflicto','sin_horario','en_espera','inferida'].includes(j.status)).length;
+  const pend=turnos.filter(j=>['sin_marca','sin_entrada','sin_punto','conflicto','sin_horario','en_espera','inferida','novedad_no_comparable','novedad_no_justificada'].includes(j.status)).length;
   return {
     fecha,turnos:turnos.length,comparables:cont('tarde')+cont('puntual'),
     tardanzas:tardes.length,puntuales:cont('puntual'),pendientes:pend,
