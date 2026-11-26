@@ -48,11 +48,37 @@ test('una novedad Chef de descanso no se convierte en tardanza',()=>{
  const model=buildModel({...ctx,chef:[{...ctx.chef[0],codigo_turno:'D'}],chefCodes:[...ctx.chefCodes,{codigo:'D',hora_inicio:null,hora_fin:null}]},marks,ahora);
  assert.equal(model.journeys.find(j=>j.code==='202').status,'justificada');
 });
-test('evento AYB sin equipo de trabajo identificable queda en revision',()=>{
+test('Eventos usa el punto real de trabajo: Hoyo 19, no Portería',()=>{
  const model=buildModel({...ctx,legacy:[{...ctx.legacy[0],subarea:'Eventos'}]},marks,ahora);
  const j=model.journeys.find(j=>j.code==='101');
- assert.equal(j.status,'sin_punto');
- assert.equal(j.entry,null);
+ assert.equal(j.status,'tarde');
+ assert.equal(j.entry.point,'HOYO 19');
+ assert.equal(Math.trunc(j.delta),5);
+});
+
+test('Evento en Rialto evalúa el biométrico Administración sin fijar sede',()=>{
+ const r={...ctx.legacy[0],subarea:'Eventos'};
+ const marks=[{biotime_id:10,emp_code:'101',punch_time:fecha+'T07:55:00',terminal_sn:'gate'},
+  {biotime_id:11,emp_code:'101',punch_time:fecha+'T08:03:00',terminal_sn:'adm'}];
+ const model=buildModel({...ctx,legacy:[r]},marks,ahora);
+ const j=model.journeys.find(j=>j.code==='101');
+ assert.equal(j.entry.point,'Bodega');
+ assert.equal(j.status,'tarde');
+ assert.equal(Math.trunc(j.delta),3);
+});
+
+test('Evento sin entrada interna conserva estado por revisar; Portería no valida puntualidad',()=>{
+ const r={...ctx.legacy[0],subarea:'Eventos'};
+ const gateOnly=marks.filter(m=>m.emp_code==='101'&&m.terminal_sn==='gate');
+ const withGate=buildModel({...ctx,legacy:[r]},gateOnly,ahora);
+ assert.equal(withGate.journeys.find(j=>j.code==='101').status,'sin_entrada');
+ const without=buildModel({...ctx,legacy:[r]},[],ahora);
+ assert.equal(without.journeys.find(j=>j.code==='101').status,'sin_marca');
+});
+
+test('Otras subáreas desconocidas siguen sin punto validado',()=>{
+ const model=buildModel({...ctx,legacy:[{...ctx.legacy[0],subarea:'Steward'}]},marks,ahora);
+ assert.equal(model.journeys.find(j=>j.code==='101').status,'sin_punto');
 });
 
 test('solo Porteria: no se atribuye tardanza laboral',()=>{
