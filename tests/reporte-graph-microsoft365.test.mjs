@@ -85,3 +85,15 @@ test('diagnóstico de token válido no envía correo ni retorna token',async()=>
  assert.match(urls[0],/login\.microsoftonline\.com/);
  assert.deepEqual(r,{ok:true,status:'credenciales_validas',http_status:200});
 });
+
+test('Microsoft Graph acepta cuatro correos corporativos y rechaza cinco',()=>{
+ const approved=[
+  'analistainnovacion@campestrepereira.com',
+  'maitre@campestrepereira.com',
+  'dirbienestar@campestrepereira.com',
+  'chef@campestrepereira.com'
+ ];
+ const email=prepararCorreoGraph({...content,to:approved});
+ assert.deepEqual(email.message.toRecipients.map(x=>x.emailAddress.address),approved);
+ assert.throws(()=>prepararCorreoGraph({...content,to:[...approved,'otro@campestrepereira.com']}),/corporativos inválidos/);
+});

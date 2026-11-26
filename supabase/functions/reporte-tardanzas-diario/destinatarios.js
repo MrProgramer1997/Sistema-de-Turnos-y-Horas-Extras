@@ -3,10 +3,9 @@
 export const DESTINATARIO_PRUEBA='analistainnovacion@campestrepereira.com';
 export const DESTINATARIOS_DIARIOS=Object.freeze([
   'analistainnovacion@campestrepereira.com',
-  'sistemas@campestrepereira.com',
-  'directorayb@campestrepereira.com',
   'maitre@campestrepereira.com',
-  'dirbienestar@campestrepereira.com'
+  'dirbienestar@campestrepereira.com',
+  'chef@campestrepereira.com'
 ]);
 export function destinatariosPara(modo){
   if(modo==='test')return [DESTINATARIO_PRUEBA];

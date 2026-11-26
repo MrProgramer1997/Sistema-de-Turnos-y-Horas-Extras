@@ -6,14 +6,22 @@
 - **Hora:** 8:00 a. m. Colombia (13:00 UTC), todos los días
 - **Período:** el día calendario inmediatamente anterior en `America/Bogota`
 - **Prueba:** solamente `analistainnovacion@campestrepereira.com`
-- **Producción:** cinco destinatarios institucionales ya definidos en `destinatarios.js`
+- **Producción:** cuatro destinatarios institucionales ya definidos en `destinatarios.js`
+  - analistainnovacion@campestrepereira.com
+  - maitre@campestrepereira.com
+  - dirbienestar@campestrepereira.com
+  - chef@campestrepereira.com
+- **Cambio de distribución 26/11/2026:** se excluyen de los reportes futuros
+  `sistemas@campestrepereira.com` y `directorayb@campestrepereira.com`.
+  Solo cambia la lista de distribución, no el remitente ni el historial.
+
 - **Cron:** `cc_reporte_tardanzas_ayb_chef`, **inactivo hasta autorizar el envío**.
 - **Correo:** Microsoft Graph / Exchange Online; **no utiliza Resend**.
 - La función usa el mismo cálculo del Centro de Control: primera marcación
   válida en el punto de trabajo; excluye Portería y las novedades justificadas.
 - **Programación faltante:** si no existe programación válida en AYB o Chef,
   en vez de callar o decir "cero tardanzas", envía **un aviso de programación
-  faltante** a los mismos cinco destinatarios, desde el mismo remitente y a
+  faltante** a los mismos cuatro destinatarios, desde el mismo remitente y a
   la misma hora programada. Distingue las fuentes ausentes.
 - No se considera ausencia de programación cuando falla una consulta a la base
   de datos. En ese caso el proceso devuelve error de lectura y no envía
@@ -149,7 +157,7 @@ anterior, antes de intentar calcular tardanzas:
 - **Fallo de consulta / datos inconsistentes:** devuelve error técnico;
   NO afirma que falten turnos ni envía un listado incompleto.
 
-Destinatarios: los cinco definidos en `destinatarios.js`. El modo `test`
+Destinatarios: los cuatro definidos en `destinatarios.js`. El modo `test`
 permanece restringido a `analistainnovacion@campestrepereira.com`.
 
 Para revisar la lógica **sin enviar correo**, usar `POST` con el encabezado
@@ -188,7 +196,7 @@ y reporte normal. Son datos históricos de prueba, no fechas para el Cron.
 ## 7. Activación diaria y primera recuperación histórica (26/11/2026)
 
 La prueba Microsoft Graph fue recibida por Innovación. El usuario autorizó
-poner en marcha el envío diario a los cinco destinatarios y recuperar
+poner en marcha el envío diario a los cuatro destinatarios y recuperar
 las fechas **22, 23, 24 y 25 de noviembre**. Para mantener la auditoría,
 la activación depende ahora del control de base de datos
 `public.cc_reporte_tardanzas_control` (RLS activo, sin permisos a
