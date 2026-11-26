@@ -1,5 +1,5 @@
 import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
-import {limitarAybChef,esMarcacionPuntoTrabajo,puntoValidoParaTurno,equipoEsperado} from './centro-control-alcance.js?v=ayb-chef-1';
+import {limitarAybChef,esMarcacionPuntoTrabajo,puntoValidoParaTurno,equipoEsperado} from './centro-control-alcance.js?v=ayb-chef-2';
 /** Centro de Control V2. Motor de lectura: no guarda, liquida ni aprueba horas. */
 export const METRIC_START = '2026-08-23';
 export const HISTORY_START = '2026-08-23';
@@ -21,7 +21,7 @@ export function stamp(v) {
 }
 export const dayMinute = date => Date.parse(`${iso(date)}T00:00:00Z`)/60000;
 export const addDays = (date,n) => new Date((dayMinute(date)+n*DAY)*60000).toISOString().slice(0,10);
-export function dates(from,to) {const a=[];for(let d=from;d&&d<=to&&a.length<100;d=addDays(d,1))a.push(d);return a;}
+export function dates(from,to) {const a=[];for(let d=from;d&&d<=to&&a.length<5000;d=addDays(d,1))a.push(d);return a;}
 export const clock = v => {const m=String(v??'').match(/(?:T|\s|^)(\d{2}:\d{2})/);return m?.[1]||'\u2014';};
 export function timeMin(v){const m=String(v??'').match(/^(\d{2}):(\d{2})/);return m&&+m[1]<24&&+m[2]<60?+m[1]*60 + +m[2]:null;}
 const name = e => [e.nombres,e.apellidos].filter(Boolean).join(' ').trim() || e.nombre_visible || e.nombre || e.cedula;
@@ -110,7 +110,9 @@ export function buildModel(contexto={}, todasLasMarcas=[], now=bogotaNow()) {
  const programNotice=new Map();
  for(const list of schedules.values()){const best=list.slice().sort((a,b)=>b.priority-a.priority)[0];if(best.notice){const k=`${best.code}|${best.notice}|${best.source}`;if(!programNotice.has(k))programNotice.set(k,[]);programNotice.get(k).push(best);}}
  for(const list of programNotice.values()){list.sort((a,b)=>a.date.localeCompare(b.date));let run=null;for(const s of list){if(run&&s.date===addDays(run.to,1))run.to=s.date;else{if(run)notices.push(run);run={code:s.code,from:s.date,to:s.date,type:s.notice,label:s.noticeText||noticeLabel(s.notice),source:s.source,state:'Programada',full:fullDayNotice(s.notice),person:person(s.code,s.date)};}}if(run)notices.push(run);}
- const getNotices=(code,date)=>notices.filter(n=>n.code===code&&n.from<=date&&n.to>=date);
+ const noticesByDoc=new Map();
+ for(const n of notices){if(!noticesByDoc.has(n.code))noticesByDoc.set(n.code,[]);noticesByDoc.get(n.code).push(n);}
+ const getNotices=(code,date)=>(noticesByDoc.get(code)||[]).filter(n=>n.from<=date&&n.to>=date);
  const journeys=[], nightEvents=new Set();
  for(const [k,list] of schedules){const sorted=list.slice().sort((a,b)=>b.priority-a.priority),s=sorted[0],same=sorted.filter(x=>x.priority===s.priority),p=person(s.code,s.date),b=timeMin(s.begin),e=timeMin(s.end),n=getNotices(s.code,s.date),exempt=n.find(x=>x.full);
   let start=b===null?null:dayMinute(s.date)+b, end=e===null||start===null?null:dayMinute(s.date)+e;if(end!==null&&end<start)end+=DAY;
@@ -137,13 +139,20 @@ export function buildModel(contexto={}, todasLasMarcas=[], now=bogotaNow()) {
  const coverageKeys=new Set(journeys.map(j=>`${j.code}|${j.date}`));
  for(const [k,allEvs] of perDay)if(!coverageKeys.has(k)){const evs=allEvs.filter(e=>!nightEvents.has(e.id));if(!evs.length)continue;const ev=evs[0];journeys.push({code:ev.person.cedula,date:ev.date,person:ev.person,status:'sin_programacion',dayEvents:evs,entry:null,delta:null,notices:getNotices(ev.person.cedula,ev.date),source:'Sin programaci\u00f3n'});}
  journeys.sort((a,b)=>b.date.localeCompare(a.date)||a.person.name.localeCompare(b.person.name));
- return {ctx,raw,events,journeys,notices,person,now,today:iso(now),byDoc,perDay,diagnostic:{duplicates,invalid,rawCount:raw.length,sourceCount:todasLasMarcas.length,usedCount:events.length}};
+ return {ctx,raw,events,journeys,notices,person,now,today:iso(now),byDoc,perDay,perPerson,diagnostic:{duplicates,invalid,rawCount:raw.length,sourceCount:todasLasMarcas.length,usedCount:events.length}};
 }
 export function matchPerson(p,f={}){if(f.population==='club'&&(p.external||!p.known))return false;if(f.population==='external'&&!p.external)return false;if(f.area&&p.areaLabel!==f.area)return false;const q=norm(f.search);return !q||norm(`${p.name} ${p.cedula} ${p.codigo||''} ${p.cargo||''}`).includes(q);}
 export function selectedEvents(model,f,metric=true){return model.events.filter(e=>e.date>=f.from&&e.date<=f.to&&e.t<=stamp(model.now)&&(!metric||e.date>=METRIC_START)&&matchPerson(e.person,f));}
 export function selectedJourneys(model,f){return model.journeys.filter(j=>j.date>=f.from&&j.date<=f.to&&j.date>=METRIC_START&&j.date<=model.today&&matchPerson(j.person,f));}
 export function summary(model,f){const evs=selectedEvents(model,f),js=selectedJourneys(model,f),people=new Set(evs.map(e=>e.person.cedula)),comparable=js.filter(j=>['tarde','puntual'].includes(j.status));return {events:evs,journeys:js,people:people.size,personDays:new Set(evs.map(e=>`${e.person.cedula}|${e.date}`)).size,comparable:comparable.length,late:comparable.filter(j=>j.status==='tarde').length,onTime:comparable.filter(j=>j.status==='puntual').length,unplanned:js.filter(j=>j.status==='sin_programacion').length,justified:js.filter(j=>j.status==='justificada').length,missing:js.filter(j=>['sin_marca','sin_entrada'].includes(j.status)).length,rate:comparable.length?100*comparable.filter(j=>j.status==='puntual').length/comparable.length:null};}
-export function dailyFlow(evs,from,to){return dates(from,to).map(date=>{const a=evs.filter(e=>e.date===date);return {date,people:new Set(a.map(e=>e.person.cedula)).size,marks:a.length};});}
+export function dailyFlow(evs,from,to){
+ const days=new Map();
+ for(const e of evs){
+   if(!days.has(e.date))days.set(e.date,{people:new Set(),marks:0});
+   const d=days.get(e.date);d.people.add(e.person.cedula);d.marks++;
+ }
+ return dates(from,to).map(date=>({date,people:days.get(date)?.people.size||0,marks:days.get(date)?.marks||0}));
+}
 export function areaFlow(evs){const map=new Map();for(const e of evs){const label=e.person.areaLabel;if(!map.has(label))map.set(label,{label,people:new Set(),days:new Set(),hours:new Map(),marks:0});const a=map.get(label);a.people.add(e.person.cedula);a.days.add(`${e.date}|${e.person.cedula}`);a.marks++;if(!a.hours.has(e.hour))a.hours.set(e.hour,new Set());a.hours.get(e.hour).add(`${e.date}|${e.person.cedula}`);}
  return [...map.values()].map(a=>({...a,people:a.people.size,personDays:a.days.size,peak:[...a.hours].map(([hour,s])=>({hour,count:s.size})).sort((a,b)=>b.count-a.count||a.hour-b.hour)[0]})).sort((a,b)=>b.people-a.people||a.label.localeCompare(b.label));}
 export function heatmap(evs,by='point'){const map=new Map();for(const e of evs){const label=by==='area'?e.person.areaLabel:e.point;if(!map.has(label))map.set(label,Array.from({length:24},()=>new Set()));map.get(label)[e.hour].add(`${e.date}|${e.person.cedula}`);}return [...map].sort((a,b)=>a[0].localeCompare(b[0])).map(([label,hours])=>({label,hours:hours.map(s=>s.size)}));}
@@ -155,4 +164,30 @@ export function punctuality(model,f){const js=selectedJourneys(model,{...f,popul
   emp.comparable++;emp.onTime+=j.status==='puntual'?1:0;emp.late+=j.status==='tarde'?1:0;emp.minutes+=Math.max(0,j.delta||0);
  }
  return {journeys:js,areas:[...areas.values()].map(a=>({...a,people:a.seen.size,rate:a.comparable?100*a.onTime/a.comparable:null,coverage:a.scheduled?100*a.comparable/a.scheduled:null})),employees:[...emps.values()].map(e=>({...e,lateRate:e.comparable?100*e.late/e.comparable:null})).sort((a,b)=>b.late-a.late||b.minutes-a.minutes||a.name.localeCompare(b.name))};}
+/** Orden para reconocimiento operacional: comparables, no novedades.
+ * Una jornada sin marcas no se clasifica como tardanza; se muestra como pendiente.
+ * El mérito requiere 5 jornadas comparables y ninguna jornada pendiente.
+ */
+export function rankingMerito(model,f,minimo=5){
+ const p=punctuality(model,f);
+ const rows=p.employees.map(e=>{
+   const programadas=e.days.filter(j=>j.start!=null&&
+     !['justificada','futura','inferida','sin_programacion','en_espera'].includes(j.status));
+   const pendientes=programadas.filter(j=>!['puntual','tarde'].includes(j.status)).length;
+   const asistencia=programadas.length?100*e.comparable/programadas.length:null;
+   const puntual=e.comparable?100*e.onTime/e.comparable:null;
+   const baseSuficiente=e.comparable>=minimo;
+   const verificado=baseSuficiente&&pendientes===0;
+   return {...e,programadas:programadas.length,pendientes,asistencia,puntual,
+     merito:verificado&&e.late===0,baseSuficiente,verificado};
+ });
+ rows.sort((a,b)=>
+   Number(b.verificado)-Number(a.verificado)
+   ||(b.puntual??-1)-(a.puntual??-1)
+   ||(b.asistencia??-1)-(a.asistencia??-1)
+   ||b.comparable-a.comparable
+   ||a.minutes-b.minutes
+   ||a.name.localeCompare(b.name));
+ return rows.map((x,i)=>({...x,posicion:i+1}));
+}
 export function mergeNotices(model,f){const grouped=new Map();for(const n of model.notices){if(n.from>f.to||n.to<f.from||!matchPerson(n.person,f))continue;const k=`${n.code}|${n.type}|${n.from}|${n.to}`;if(!grouped.has(k))grouped.set(k,{...n,sources:[n.source]});else grouped.get(k).sources.push(n.source);}return [...grouped.values()].sort((a,b)=>b.to.localeCompare(a.to)||a.person.name.localeCompare(b.person.name));}
