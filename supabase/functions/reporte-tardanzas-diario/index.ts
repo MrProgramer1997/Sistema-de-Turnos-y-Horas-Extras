@@ -3,6 +3,7 @@ import {informeDelDia,correoHTML} from './resumen.js';
 import {destinatariosPara} from './destinatarios.js';
 import {enviarCorreoGraph,GraphDeliveryError,GRAPH_SENDER,diagnosticarAutenticacionGraph} from './microsoft-graph-mail.js';
 import {consultarPaginado,documentosProgramados} from './consulta-paginada.js';
+import {evaluarProgramacion,avisoProgramacionFaltante} from './alerta-programacion.js';
 
 /* Edge Function independiente. No modifica turnos ni marcaciones.
  * Auth: REPORT_CRON_TOKEN (>=32 caracteres) en X-Report-Token.
@@ -76,22 +77,28 @@ Deno.serve(async (req:Request)=>{
  if(!allowedDate(fecha)||fecha<'2026-08-23'||fecha>ayer)return json({error:'Fecha inválida'},400);
  try{
    const {ctx,marks}=await readDay(fecha);
-   const info=informeDelDia(ctx,marks,fecha,bogotaNow());
-   if(info.turnos===0){
-     console.warn('tardanzas_diario: NO_PROGRAMACION, fecha',fecha);
-     return json({status:'sin_programacion',fecha,message:'No se encontraron turnos AYB/Chef. No se envía un resultado engañoso.'},409);
-   }
-   if(preview)return json({status:'vista_previa',...info,html:correoHTML(info)});
+   const programacion=evaluarProgramacion(ctx,fecha);
+   const info=programacion.completa?informeDelDia(ctx,marks,fecha,bogotaNow()):null;
+   // Una fecha sin programación en una o ambas áreas produce AVISO operativo,
+   // nunca un falso "0 tardanzas". Una lectura DB fallida sigue siendo HTTP 500.
+   if(programacion.completa&&info.turnos===0)
+     throw new Error('Programaciones presentes pero no interpretables; se requiere validación');
+   const alerta=programacion.completa?null:avisoProgramacionFaltante(programacion,fecha);
+   const dateDisplay=fecha.split('-').reverse().join('/');
+   const subject=alerta?.subject||
+     `Puntualidad AYB/Chef | ${dateDisplay} | ${info.tardanzas} tardanzas verificadas`;
+   const html=alerta?.html||correoHTML(info);
+   if(preview)return json(alerta
+     ?{status:'vista_previa_alerta',fecha,programacion,asunto:subject,html}
+     :{status:'vista_previa',...info,html});
    if(prueba&&env('REPORT_TEST_ENABLED')!=='true')
      return json({status:'prueba_desactivada',fecha,message:'REPORT_TEST_ENABLED debe ser true para ejecutar una prueba de envío'},503);
    if(!prueba&&env('REPORT_ENABLED')!=='true')
      return json({status:'desactivado',fecha,message:'Falta autorizar REPORT_ENABLED=true'},503);
    const to=destinatariosPara(prueba?'test':'send');
-   const dateDisplay=fecha.split('-').reverse().join('/');
-   const subject=`${prueba?'[PRUEBA] ':''}Puntualidad AYB/Chef | ${dateDisplay} | ${info.tardanzas} tardanzas verificadas`;
    let aceptacion;
    try{
-     aceptacion=await enviarCorreoGraph({to,subject,html:correoHTML(info)});
+     aceptacion=await enviarCorreoGraph({to,subject:prueba?'[PRUEBA] '+subject:subject,html});
    }catch(error){
      if(error instanceof GraphDeliveryError){
        console.error('tardanzas_diario: Graph',error.stage,'HTTP',error.status);
@@ -101,9 +108,13 @@ Deno.serve(async (req:Request)=>{
    }
    // Microsoft Graph devuelve 202 Accepted: aún no confirma entrega final.
    console.log('tardanzas_diario: Graph aceptó',prueba?'PRUEBA':'PRODUCCION',
-     'fecha',fecha,'tardes',info.tardanzas,'comparables',info.comparables);
-   return json({status:prueba?'prueba_aceptada':'envio_aceptado',
-     fecha,tardanzas:info.tardanzas,comparables:info.comparables,
+     'fecha',fecha,'tipo',alerta?'alerta_programacion':'puntualidad',
+     'faltan',programacion.faltan.join(',')||'ninguna');
+   return json({status:alerta?(prueba?'prueba_alerta_aceptada':'alerta_aceptada'):
+                              (prueba?'prueba_aceptada':'envio_aceptado'),
+     fecha,
+     ...(alerta?{tipo:'alerta_programacion',faltan:programacion.faltan,
+       empleados_programados:programacion.empleados}:{tardanzas:info.tardanzas,comparables:info.comparables}),
      destinatarios:to.length,remitente:GRAPH_SENDER,proveedor_http:aceptacion.http_status});
  }catch(error){
    console.error('tardanzas_diario: problema de generación',error instanceof Error?error.message:'Error desconocido');
