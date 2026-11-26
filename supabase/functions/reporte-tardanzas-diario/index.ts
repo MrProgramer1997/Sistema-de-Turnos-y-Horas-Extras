@@ -81,13 +81,17 @@ Deno.serve(async (req:Request)=>{
    const info=programacion.completa?informeDelDia(ctx,marks,fecha,bogotaNow()):null;
    // Una fecha sin programación en una o ambas áreas produce AVISO operativo,
    // nunca un falso "0 tardanzas". Una lectura DB fallida sigue siendo HTTP 500.
-   if(programacion.completa&&info.turnos===0)
+   if(info&&info.turnos===0)
      throw new Error('Programaciones presentes pero no interpretables; se requiere validación');
    const alerta=programacion.completa?null:avisoProgramacionFaltante(programacion,fecha);
    const dateDisplay=fecha.split('-').reverse().join('/');
-   const subject=alerta?.subject||
-     `Puntualidad AYB/Chef | ${dateDisplay} | ${info.tardanzas} tardanzas verificadas`;
-   const html=alerta?.html||correoHTML(info);
+   const mensajeNormal=info
+     ?{subject:`Puntualidad AYB/Chef | ${dateDisplay} | ${info.tardanzas} tardanzas verificadas`,
+       html:correoHTML(info)}
+     :null;
+   const mensaje=alerta||mensajeNormal;
+   if(!mensaje)throw new Error('No se pudo construir el informe ni el aviso operativo');
+   const {subject,html}=mensaje;
    if(preview)return json(alerta
      ?{status:'vista_previa_alerta',fecha,programacion,asunto:subject,html}
      :{status:'vista_previa',...info,html});
@@ -113,8 +117,9 @@ Deno.serve(async (req:Request)=>{
    return json({status:alerta?(prueba?'prueba_alerta_aceptada':'alerta_aceptada'):
                               (prueba?'prueba_aceptada':'envio_aceptado'),
      fecha,
-     ...(alerta?{tipo:'alerta_programacion',faltan:programacion.faltan,
-       empleados_programados:programacion.empleados}:{tardanzas:info.tardanzas,comparables:info.comparables}),
+     ...(info?{tardanzas:info.tardanzas,comparables:info.comparables}:
+       {tipo:'alerta_programacion',faltan:programacion.faltan,
+        empleados_programados:programacion.empleados}),
      destinatarios:to.length,remitente:GRAPH_SENDER,proveedor_http:aceptacion.http_status});
  }catch(error){
    console.error('tardanzas_diario: problema de generación',error instanceof Error?error.message:'Error desconocido');
