@@ -1,5 +1,6 @@
 import {addDays,bogotaNow} from './centro-control-metricas.js';
 import {informeDelDia,correoHTML} from './resumen.js';
+import {destinatariosPara} from './destinatarios.js';
 
 /* Edge Function independiente. No modifica turnos ni marcaciones.
  * Auth: REPORT_CRON_TOKEN (>=32 caracteres) en X-Report-Token.
@@ -65,10 +66,12 @@ Deno.serve(async (req:Request)=>{
  if(provided!==secret)return json({error:'No autorizado'},401);
  let input:{mode?:string,date?:string}={};
  try{input=await req.json()}catch{return json({error:'Cuerpo JSON inválido'},400)}
- const preview=input.mode==='preview';
- if(input.mode!=='send'&&!preview)return json({error:'Modo no permitido'},400);
+ const preview=input.mode==='preview',prueba=input.mode==='test';
+ if(input.mode!=='send'&&!preview&&!prueba)return json({error:'Modo no permitido'},400);
  const ayer=addDays(todayBogota(),-1);
- const fecha=preview&&input.date?input.date:ayer;
+ // La prueba permite verificar un día histórico con programación real;
+ // producción SIEMPRE calcula ayer y jamás permite elegir otra fecha.
+ const fecha=(preview||prueba)&&input.date?input.date:ayer;
  if(!allowedDate(fecha)||fecha<'2026-08-23'||fecha>ayer)return json({error:'Fecha inválida'},400);
  try{
    const {ctx,marks}=await readDay(fecha);
@@ -78,27 +81,30 @@ Deno.serve(async (req:Request)=>{
      return json({status:'sin_programacion',fecha,message:'No se encontraron turnos AYB/Chef. No se envía un resultado engañoso.'},409);
    }
    if(preview)return json({status:'vista_previa',...info,html:correoHTML(info)});
-   if(env('REPORT_ENABLED')!=='true')return json({status:'desactivado',fecha,message:'Falta autorizar REPORT_ENABLED=true'},503);
+   if(prueba&&env('REPORT_TEST_ENABLED')!=='true')
+     return json({status:'prueba_desactivada',fecha,message:'REPORT_TEST_ENABLED debe ser true para ejecutar una prueba de envío'},503);
+   if(!prueba&&env('REPORT_ENABLED')!=='true')
+     return json({status:'desactivado',fecha,message:'Falta autorizar REPORT_ENABLED=true'},503);
    const key=env('RESEND_API_KEY'),from=env('REPORT_FROM_EMAIL');
-   const to=env('REPORT_TO_EMAILS').split(',').map(x=>x.trim()).filter(Boolean);
-   if(!key||!from||to.length!==5||to.some(x=>!/^\S+@campestrepereira\.com$/i.test(x))||new Set(to.map(x=>x.toLowerCase())).size!==5)
-     return json({status:'sin_proveedor',fecha,message:'Configurar Resend, remitente verificado y cinco destinatarios'},503);
+   const to=destinatariosPara(prueba?'test':'send');
+   if(!key||!from||!/^\S+@\S+\.\S+$/.test(from))
+     return json({status:'sin_proveedor',fecha,message:'Configurar Resend y remitente verificado'},503);
    const dateDisplay=fecha.split('-').reverse().join('/');
    const resp=await fetch('https://api.resend.com/emails',{
      method:'POST',
      headers:{'Content-Type':'application/json',Authorization:'Bearer '+key,
-       'Idempotency-Key':'ccp-tardanzas-ayer-'+fecha},
+       'Idempotency-Key':(prueba?'ccp-tardanzas-prueba-':'ccp-tardanzas-ayer-')+fecha},
      body:JSON.stringify({
-       from,to,subject:`Puntualidad AYB/Chef | ${dateDisplay} | ${info.tardanzas} tardanzas verificadas`,
+       from,to,subject:`${prueba?'[PRUEBA] ':''}Puntualidad AYB/Chef | ${dateDisplay} | ${info.tardanzas} tardanzas verificadas`,
        html:correoHTML(info)
      })
    });
    if(!resp.ok){console.error('tardanzas_diario: Resend fallo HTTP',resp.status);
      return json({status:'error_envio',fecha,proveedor_http:resp.status},502);}
    const data=await resp.json();
-   console.log('tardanzas_diario: registrado para',fecha,'tardes',info.tardanzas,'comparables',info.comparables);
-   return json({status:'enviado',fecha,tardanzas:info.tardanzas,comparables:info.comparables,
-     proveedor_id:String(data.id||'')});
+   console.log('tardanzas_diario: registrado',prueba?'PRUEBA':'PRODUCCION','fecha',fecha,'tardes',info.tardanzas,'comparables',info.comparables);
+   return json({status:prueba?'prueba_enviada':'enviado',fecha,tardanzas:info.tardanzas,comparables:info.comparables,
+     destinatarios:to.length,proveedor_id:String(data.id||'')});
  }catch(error){
    console.error('tardanzas_diario: problema de generación',error instanceof Error?error.message:'Error desconocido');
    return json({status:'error_lectura',message:'No se envió; revisar registros internos'},500);

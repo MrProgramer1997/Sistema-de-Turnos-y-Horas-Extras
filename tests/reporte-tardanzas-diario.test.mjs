@@ -60,3 +60,22 @@ test('sin programación nunca se presenta falsamente como ausencia de tardanzas'
  assert.equal(p.turnos,0);
  assert.equal(p.tardanzas,0);
 });
+
+import {destinatariosPara,DESTINATARIO_PRUEBA,DESTINATARIOS_DIARIOS} from '../supabase/functions/reporte-tardanzas-diario/destinatarios.js';
+test('la prueba solo puede enviarse al correo de Innovación',()=>{
+ const testTo=destinatariosPara('test');
+ assert.deepEqual(testTo,['analistainnovacion@campestrepereira.com']);
+ assert.equal(testTo.length,1);
+ assert.equal(testTo[0],DESTINATARIO_PRUEBA);
+});
+test('el informe diario se restringe exactamente a los cinco destinatarios definidos',()=>{
+ const expected=[
+   'analistainnovacion@campestrepereira.com','sistemas@campestrepereira.com',
+   'directorayb@campestrepereira.com','maitre@campestrepereira.com',
+   'dirbienestar@campestrepereira.com'
+ ];
+ assert.deepEqual(destinatariosPara('send'),expected);
+ assert.deepEqual(DESTINATARIOS_DIARIOS,expected);
+ assert.equal(new Set(expected).size,5);
+ assert.throws(()=>destinatariosPara('preview'),/no permitido/i);
+});
