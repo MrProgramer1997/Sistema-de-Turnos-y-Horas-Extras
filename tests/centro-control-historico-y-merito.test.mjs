@@ -77,3 +77,31 @@ test('ranking 1 al último: mérito exige asistencia verificable, no premia un s
   assert.equal(ranked[2].pendientes,5);
   assert.equal(ranked[2].verificado,false);
 });
+
+test('ranking: 100% de puntualidad verificada antecede a alguien con llegadas tarde, aunque tenga pendientes',()=>{
+ const d=fecha=>`2026-11-${String(fecha).padStart(2,'0')}`;
+ const person=(cedula,name)=>({cedula,name,areaLabel:'Alimentos y Bebidas',external:false,known:true});
+ const p100=person('D','Daniela'),p80=person('L','Lisneidy'),p2=person('N','Poca muestra');
+ const journeys=[];
+ const add=(p,n,status,delta=0)=>{
+   journeys.push({code:p.cedula,person:p,date:d(n),status,start:8*60,end:16*60,
+     delta,source:'Programación A&B',entry:status==='puntual'||status==='tarde'?{clock:'08:00'}:null});
+ };
+ // Daniela: 16 de 16 comparables puntuales + dos días sin marca que requieren revisión.
+ for(let n=1;n<=16;n++)add(p100,n,'puntual');
+ add(p100,17,'sin_marca');add(p100,18,'sin_marca');
+ // Lisneidy: 12 puntuales y 3 tardanzas sin pendientes; antes aparecía adelante.
+ for(let n=1;n<=12;n++)add(p80,n,'puntual');
+ for(let n=13;n<=15;n++)add(p80,n,'tarde',n-10);
+ // Un solo par de jornadas puntuales no cumple la muestra mínima.
+ add(p2,1,'puntual');add(p2,2,'puntual');
+ const result=rankingMerito({journeys,today:'2026-11-26'},{
+   from:'2026-11-01',to:'2026-11-26'});
+ assert.deepEqual(result.map(e=>e.cedula),['D','L','N']);
+ assert.equal(result[0].puntual,100);
+ assert.equal(result[0].pendientes,2);
+ assert.equal(result[0].merito,false); // No se otorga reconocimiento hasta revisar las dos marcas.
+ assert.equal(result[1].puntual,80);
+ assert.equal(result[1].pendientes,0);
+ assert.equal(result[2].baseSuficiente,false);
+});
