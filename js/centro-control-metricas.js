@@ -1,5 +1,5 @@
 import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
-import {limitarAybChef,esMarcacionPuntoTrabajo,puntoValidoParaTurno,equipoEsperado,esServicioUbicacionVariable} from './centro-control-alcance.js?v=ayb-chef-2';
+import {limitarAybChef,esMarcacionPuntoTrabajo,puntoValidoParaTurno,equipoEsperado,esServicioUbicacionVariable} from './centro-control-alcance.js?v=ayb-chef-3';
 /** Centro de Control V2. Motor de lectura: no guarda, liquida ni aprueba horas. */
 export const METRIC_START = '2026-08-23';
 export const HISTORY_START = '2026-08-23';
