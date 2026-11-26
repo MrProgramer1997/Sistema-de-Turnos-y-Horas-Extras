@@ -1,0 +1,34 @@
+name: Verificar reporte diario de tardanzas
+on:
+  push:
+    branches:
+      - feature/reporte-diario-tardanzas-ayb-chef
+  pull_request:
+    paths:
+      - 'supabase/functions/reporte-tardanzas-diario/**'
+      - 'tests/reporte-tardanzas-diario.test.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Comprobar Edge Function
+        run: deno check supabase/functions/reporte-tardanzas-diario/index.ts
+      - name: Sintaxis JavaScript
+        run: |
+          node --check supabase/functions/reporte-tardanzas-diario/resumen.js
+          node --check supabase/functions/reporte-tardanzas-diario/centro-control-metricas.js
+          node --check supabase/functions/reporte-tardanzas-diario/centro-control-alcance.js
+      - name: Casos funcionales
+        run: node --test tests/reporte-tardanzas-diario.test.mjs
