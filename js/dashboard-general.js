@@ -244,7 +244,16 @@ function openAreaDetail(label,scope='period'){
   const base=filters(),f=scope==='today'?{...base,from:s.model.today,to:s.model.today}:base,evs=selectedEvents(s.model,f).filter(e=>e.person.areaLabel===label),groups=new Map();
   for(const e of evs){const k=`${e.date}|${e.person.cedula}`;if(!groups.has(k))groups.set(k,{date:e.date,p:e.person,events:[]});groups.get(k).events.push(e);}
   const rows=[...groups.values()].sort((a,b)=>b.date.localeCompare(a.date)||a.p.name.localeCompare(b.p.name));
-  showDialog(label,`${rows.length} jornadas-persona · ${scope==='today'?pretty(s.model.today):pretty(f.from)+' — '+pretty(f.to)}`,table(['Fecha','Empleado','Primera marca','Última marca','Registros','Abrir persona'],rows.map(x=>{x.events.sort((a,b)=>a.t-b.t);return [pretty(x.date),`<strong>${esc(x.p.name)}</strong><small>${esc(x.p.cedula)}</small>`,esc(x.events[0]?.clock||'—'),esc(x.events.at(-1)?.clock||'—'),num(x.events.length),`<button class="cc-link" data-person="${esc(x.p.cedula)}">Comparar con turno</button>`];})));
+  showDialog(label,`${rows.length} jornadas-persona · ${scope==='today'?pretty(s.model.today):pretty(f.from)+' — '+pretty(f.to)}`,
+    table(['Fecha','Empleado','Entrada en punto','Última en punto','Registros totales','Detalle'],
+      rows.map(x=>{
+        const j=s.model.journeys.find(j=>j.code===x.p.cedula&&j.date===x.date);
+        const w=j?workedSummary(j):null;
+        const marca=e=>e?`${esc(e.clock)}<small>${esc(e.point)}</small>`:'—';
+        return [pretty(x.date),`<strong>${esc(x.p.name)}</strong><small>${esc(x.p.cedula)}</small>`,
+          marca(j?.entry||w?.first),marca(w?.last),num(x.events.length),
+          `<button class="cc-link" data-person="${esc(x.p.cedula)}">Comparar con turno</button>`];
+      })));
 }
 function openPerson(code,context='period'){
   const range=context==='punctuality'?punctualRange():filters(),p=s.model.person(code,range.to);
@@ -329,7 +338,7 @@ function exportPunctExcel(){
 }
 
 function preset(which){const today=iso(bogotaNow());$('ccTo').value=today;$('ccFrom').value=which==='today'?today:which==='month'?monthStart(today):which==='history'?HISTORY_START:addDays(today,-((new Date(today+'T00:00:00Z').getUTCDay()+6)%7));document.querySelectorAll('[data-preset]').forEach(b=>b.classList.toggle('selected',b.dataset.preset===which));if(which==='today')s.areaScope='today';load();}
-function realtime(){if(s.channel)return;s.channel=supabase.channel('cc-lectura-v2').on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_actualizacion_eventos',filter:'id=eq.centro_control'},()=>scheduleRefresh()).subscribe(status=>txt('ccLive',status==='SUBSCRIBED'?'Actualización automática conectada':'Respaldo automático cada minuto'));s.timer=setInterval(()=>{if(document.visibilityState==='visible'&&Date.now()-s.lastLoaded>55000)scheduleRefresh();},60000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-s.lastLoaded>60000)scheduleRefresh();});window.addEventListener('beforeunload',()=>{s.abort?.abort();clearInterval(s.timer);clearTimeout(s.debounce);if(s.channel)supabase.removeChannel(s.channel);});}
+function realtime(){if(s.channel)return;s.channel=supabase.channel('cc-lectura-v2').on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_actualizacion_eventos',filter:'id=eq.centro_control'},()=>scheduleRefresh()).subscribe(status=>txt('ccLive',s.range&&(dayMinute(s.range.to)-dayMinute(s.range.from))/1440>31?'Histórico: actualizar manualmente':status==='SUBSCRIBED'?'Actualización automática conectada':'Respaldo automático cada minuto'));s.timer=setInterval(()=>{if(document.visibilityState==='visible'&&Date.now()-s.lastLoaded>55000)scheduleRefresh();},60000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-s.lastLoaded>60000)scheduleRefresh();});window.addEventListener('beforeunload',()=>{s.abort?.abort();clearInterval(s.timer);clearTimeout(s.debounce);if(s.channel)supabase.removeChannel(s.channel);});}
 function scheduleRefresh(){if(s.range&&(dayMinute(s.range.to)-dayMinute(s.range.from))/1440>31)return;clearTimeout(s.debounce);s.debounce=setTimeout(()=>{if(document.visibilityState==='visible'&&!$('ccRefresh').disabled)load(true);},1800);}
 function events(){
   $('ccFilterForm').addEventListener('submit',e=>{e.preventDefault();s.areaScope='period';load();});$('ccRefresh').addEventListener('click',()=>load());
