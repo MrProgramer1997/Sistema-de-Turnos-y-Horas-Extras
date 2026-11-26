@@ -37,7 +37,7 @@ async function rpc(name,args,signal){
 async function loadMarks(from,to,signal,token){let cursor=0,ceiling=null,total=null,all=[];const ids=new Set();
   for(let page=0;page<150;page++){
     if(signal.aborted)throw new DOMException('Consulta cancelada','AbortError');
-    const data=await rpc('consultar_centro_control_marcaciones_v2',{p_desde:from,p_hasta:to,p_despues:cursor,p_hasta_id:ceiling,p_limite:1500},signal);
+    const data=await rpc('consultar_centro_control_marcaciones_ayb_chef_v1',{p_desde:from,p_hasta:to,p_despues:cursor,p_hasta_id:ceiling,p_limite:1500},signal);
     if(total===null){total=Number(data.total);ceiling=Number(data.hasta_id);if(!Number.isFinite(total)||total<0)throw new Error('No se recibió el control total de marcaciones');}
     const batch=data.registros;if(!Array.isArray(batch))throw new Error('Formato de marcaciones inesperado');
     for(const row of batch){const id=String(row.biotime_id);if(ids.has(id))throw new Error('Se repitió un ID al paginar. Se conserva la consulta anterior.');ids.add(id);all.push(row);}
