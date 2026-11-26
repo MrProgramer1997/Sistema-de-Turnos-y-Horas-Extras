@@ -2,6 +2,7 @@ import {addDays,bogotaNow} from './centro-control-metricas.js';
 import {informeDelDia,correoHTML} from './resumen.js';
 import {destinatariosPara} from './destinatarios.js';
 import {enviarCorreoGraph,GraphDeliveryError,GRAPH_SENDER} from './microsoft-graph-mail.js';
+import {consultarPaginado,documentosProgramados} from './consulta-paginada.js';
 
 /* Edge Function independiente. No modifica turnos ni marcaciones.
  * Auth: REPORT_CRON_TOKEN (>=32 caracteres) en X-Report-Token.
@@ -20,28 +21,13 @@ const env=(key:string)=>Deno.env.get(key)?.trim()||'';
 const todayBogota=()=>bogotaNow().slice(0,10);
 
 async function listRows(table:string,select:string,filters:Filter[]=[],max=12000){
- const url=env('SUPABASE_URL'),key=env('SUPABASE_SERVICE_ROLE_KEY');
- if(!url||!key)throw new Error('La conexión interna de Supabase no está disponible');
- const rows:Record<string,unknown>[]=[];
- const page=750;
- for(let offset=0;offset<max;offset+=page){
-   const qp=new URLSearchParams({select});
-   for(const [name,op,value] of filters)qp.set(name,op?op+'.'+value:value);
-   const response=await fetch(url+'/rest/v1/'+table+'?'+qp.toString(),{
-      headers:{apikey:key,Authorization:'Bearer '+key,Range:`${offset}-${offset+page-1}`,Accept:'application/json'}
-   });
-   if(!response.ok)throw new Error('No fue posible leer '+table+' (HTTP '+response.status+')');
-   const batch=await response.json();
-   if(!Array.isArray(batch))throw new Error('Respuesta no esperada en '+table);
-   rows.push(...batch);
-   if(batch.length<page)return rows;
- }
- throw new Error('Demasiados registros al consultar '+table+'; no enviar parcial');
+ return consultarPaginado({baseUrl:env('SUPABASE_URL'),serviceKey:env('SUPABASE_SERVICE_ROLE_KEY'),
+   table,select,filters,max,pageSize:500});
 }
 
 async function readDay(fecha:string){
  const prev=addDays(fecha,-1),next2=addDays(fecha,2);
- const [legacy,chef,chefPeople,chefCodes,employees,terminals,requests,notices,appliedNotices,marks]=await Promise.all([
+ const [legacy,chef,chefPeople,chefCodes,employees,terminals,requests,notices,appliedNotices]=await Promise.all([
    listRows('programacion_turnos','id,cedula,nombre,fecha,area,subarea,subarea_2,cargo,turno,turno_2,hora_inicio,hora_fin,hora_inicio_2,hora_fin_2,tipo_registro,novedad_codigo,novedad_descripcion',[['fecha','eq',fecha]],3000),
    listRows('cocina_programacion_turnos','id,cronograma_personal_id,fecha,area_cocina,area_cocina_2,codigo_turno,codigo_turno_2,estado,origen_programacion,horario_asignado',[['fecha','eq',fecha]],2000),
    listRows('cocina_cronograma_personal','id,empleado_id,externo_id,documento,nombre_visible,tipo_personal,activo',[],5000),
@@ -50,13 +36,18 @@ async function readDay(fecha:string){
    listRows('biotime_terminales','id,sn,alias,area_name,is_attendance',[],200),
    listRows('solicitudes_empleado','id,empleado_id,cedula,fecha_inicio,fecha_fin,tipo_solicitud,codigo_tipo,estado',[['fecha_inicio','lte',fecha],['or','',`(fecha_fin.is.null,fecha_fin.gte.${fecha})`]],10000),
    listRows('novedades_personal','id,empleado_id,cedula,fecha_inicio,fecha_fin,codigo,descripcion,estado',[['fecha_inicio','lte',fecha],['or','',`(fecha_fin.is.null,fecha_fin.gte.${fecha})`]],10000),
-   listRows('novedades_programacion','id,empleado_id,cedula,fecha_inicio,fecha_fin,tipo_novedad,estado',[['fecha_inicio','lte',fecha],['or','',`(fecha_fin.is.null,fecha_fin.gte.${fecha})`]],10000),
-   listRows('biotime_marcaciones','biotime_id,emp_code,punch_time,terminal_sn,terminal_alias,area_alias,is_attendance',[
-     ['punch_time','gte',prev+'T00:00:00'],['punch_time','lt',next2+'T00:00:00'],['is_attendance','eq','true']
-   ],30000)
+   listRows('novedades_programacion','id,empleado_id,cedula,fecha_inicio,fecha_fin,tipo_novedad,estado',[['fecha_inicio','lte',fecha],['or','',`(fecha_fin.is.null,fecha_fin.gte.${fecha})`]],10000)
  ]);
- // Las marcas de Portería se conservan como trazabilidad; el motor sólo
- // usa terminales del punto de trabajo para calcular minutos de tardanza.
+ const codes=documentosProgramados(legacy,chef,chefPeople,employees);
+ if(codes.some(x=>!/^[A-Za-z0-9_-]+$/.test(x)))throw new Error('Código de empleado inválido en programación');
+ // Solo marcas de personas programadas AYB y Chef fijo. No se alteran marcas ni filtros por terminal.
+ const marks=codes.length?await listRows('biotime_marcaciones',
+   'biotime_id,emp_code,punch_time,terminal_sn,terminal_alias,area_alias,is_attendance',[
+    ['punch_time','gte',prev+'T00:00:00'],['punch_time','lt',next2+'T00:00:00'],
+    ['is_attendance','eq','true'],['emp_code','in',`(${codes.join(',')})`]
+   ],12000):[];
+ console.log('tardanzas_diario: lectura correcta',fecha,'programaciones',legacy.length+chef.length,
+   'personas_programadas',codes.length,'marcas_aplicables',marks.length);
  return {ctx:{legacy,chef,chefPeople,chefCodes,employees,terminals,requests,notices,appliedNotices,
    general:[],links:[],processes:[],externals:[],extraQueue:[]},marks};
 }
