@@ -7,7 +7,7 @@ las comprobaciones siguientes.
 ## Diseño
 
 - Fecha: día anterior en `America/Bogota`.
-- Hora sugerida: 7:00 a. m. Colombia (12:00 UTC).
+- Hora programada: **8:00 a. m. Colombia (13:00 UTC)**, todos los días.
 - Fuentes: programación AYB, programación Chef (fija), novedades y marcas BioTime.
 - Cálculo: se reutiliza `buildModel/punctuality` del Centro de Control.
 - Marcación válida: solo ingreso al punto de trabajo, nunca Portería.
@@ -19,8 +19,11 @@ las comprobaciones siguientes.
 
 ## 1. Proveedor de email
 
-Crear cuenta en Resend (o emplear un proveedor corporativo aprobado) y **verificar
-el dominio remitente** mediante sus registros DNS, sin afectar Microsoft 365.
+Supabase no entrega una dirección de correo transaccional para enviar estos
+informes. Se utilizará Resend como proveedor saliente y se deberá **verificar
+el dominio del remitente** mediante sus registros DNS. Por ejemplo, se puede
+verificar un subdominio de envíos independiente del dominio corporativo,
+sin interferir con Microsoft 365.
 No modificar los MX ni sobrescribir el SPF principal sin revisión de Sistemas.
 
 En **Supabase > Edge Functions > Secrets** configurar los siguientes nombres
@@ -30,9 +33,21 @@ con valores privados. Nunca copiarlos al repositorio:
 |---|---|
 | `RESEND_API_KEY` | API Key de Resend con permiso de envío |
 | `REPORT_FROM_EMAIL` | Remitente del dominio verificado |
-| `REPORT_TO_EMAILS` | Exactamente cinco destinatarios internos, separados por comas |
+| `REPORT_TEST_ENABLED` | `false` por defecto. Permitir `true` solo mientras se realice la prueba privada |
 | `REPORT_CRON_TOKEN` | Token aleatorio y exclusivo de mínimo 32 caracteres |
 | `REPORT_ENABLED` | `false` hasta validar las pruebas |
+
+Los **únicos destinatarios permitidos para la operación normal** ya están
+definidos en `destinatarios.js`:
+
+- analistainnovacion@campestrepereira.com
+- sistemas@campestrepereira.com
+- directorayb@campestrepereira.com
+- maitre@campestrepereira.com
+- dirbienestar@campestrepereira.com
+
+En modo `test` el **único destinatario** es
+`analistainnovacion@campestrepereira.com`. Los otros cuatro no reciben pruebas.
 
 `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` son variables internas del
 entorno Supabase Edge Functions; no copiarlas al navegador ni a GitHub.
@@ -65,7 +80,26 @@ Validar que `turnos` sea mayor que 0 y contrastar tres casos en el Centro de
 Control. Los días sin programación devolverán `sin_programacion` y HTTP 409.
 La vista previa **nunca** envía correos.
 
-## 4. Activación controlada
+## 4. Prueba real de envío aislado
+
+Tras instalar `RESEND_API_KEY`, verificar `REPORT_FROM_EMAIL` y guardar
+`REPORT_CRON_TOKEN` (el mismo en Secrets y Vault):
+
+1. Mantener **`REPORT_ENABLED=false`**, Cron inactivo.
+2. Cambiar temporalmente **`REPORT_TEST_ENABLED=true`**.
+3. En Edge Functions > `reporte-tardanzas-diario` > Test:
+   - Método POST.
+   - Cabecera privada `X-Report-Token` con el token.
+   - JSON: `{"mode":"test","date":"2026-11-22"}`.
+4. Confirmar **un solo destinatario** y la recepción efectiva en
+   `analistainnovacion@campestrepereira.com`.
+5. Volver a establecer **`REPORT_TEST_ENABLED=false`**.
+
+La prueba utiliza una fecha que tiene turnos programados, porque el 25/11
+carece de programación nueva en AYB/Chef. El asunto se marca con
+`[PRUEBA]`. No activa los envíos automáticos ni envía a los otros cuatro.
+
+## 5. Activación controlada
 
 Solo tras verificar dominio, la vista previa, remitente y destinatarios:
 
@@ -85,12 +119,12 @@ BEGIN
 END $$;
 ```
 
-El Cron invoca a las 12:00 UTC la función con `{"mode":"send"}`.
+El Cron invoca a las **13:00 UTC** (8:00 a. m. Colombia) la función con `{"mode":"send"}`.
 No acepta fechas arbitrarias para enviar: solo genera **ayer** según Colombia.
 La petición a Resend incluye `Idempotency-Key` para impedir duplicados en los
 reintentos durante la ventana de 24 horas del proveedor.
 
-## 5. Verificación y reversión
+## 6. Verificación y reversión
 
 ```sql
 select jobid,jobname,schedule,active
