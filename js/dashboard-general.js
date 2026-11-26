@@ -3,7 +3,7 @@ import { supabase } from '../supabase/supabaseClient.js';
 import {extremosDePunto} from './centro-control-alcance.js?v=ayb-chef-2';
 import {dividirHistorico,unirContextos,unirMarcaciones} from './centro-control-historico.js?v=ayb-chef-2';
 import { asegurarSesion, rpcConSesion, esErrorAcceso, mostrarErrorAcceso, observarSesion, ErrorSesion } from './sesion-protegida.js?v=sesion-6-2-1';
-import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,rankingMerito,mergeNotices} from './centro-control-metricas.js?v=ayb-chef-3';
+import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,rankingMerito,mergeNotices} from './centro-control-metricas.js?v=ayb-chef-4';
 
 // Centro de Control: lectura operativa. No aprueba, liquida ni altera marcaciones.
 const $=id=>document.getElementById(id);
