@@ -12,7 +12,7 @@ export function limitarAybChef(contexto = {}, marcaciones = []) {
   const empleadosPorId = new Map((contexto.employees || []).map(e => [e.id, e]));
   const personasChef = new Map((contexto.chefPeople || []).map(p => [p.id, p]));
   const ayb = (contexto.legacy || []).filter(esProgramacionAyb);
-  const chef = (contexto.chef || []).filter(r => !cancelado(r) && personasChef.has(r.cronograma_personal_id));
+  const chef = (contexto.chef || []).filter(r => {const p=personasChef.get(r.cronograma_personal_id);return !cancelado(r) && p && !p.externo_id && !/extern|extra|eventual/.test(normal(p.tipo_personal).toLowerCase());});
   const codigoChef = r => {
     const p = personasChef.get(r.cronograma_personal_id);
     return documento(empleadosPorId.get(p?.empleado_id)?.cedula || p?.documento);
@@ -31,7 +31,7 @@ export function limitarAybChef(contexto = {}, marcaciones = []) {
     legacy: ayb.filter(empleadoAutorizado),
     chef: chef.filter(r => autorizados.has(codigoChef(r))),
     general: [], // Programación general de otras áreas NO entra en puntualidad.
-    chefPeople: (contexto.chefPeople || []).filter(p => autorizados.has(documento(empleadosPorId.get(p.empleado_id)?.cedula || p.documento))),
+    chefPeople: (contexto.chefPeople || []).filter(p => !p.externo_id && !/extern|extra|eventual/.test(normal(p.tipo_personal).toLowerCase()) && autorizados.has(documento(empleadosPorId.get(p.empleado_id)?.cedula || p.documento))),
     links: (contexto.links || []).filter(l => ids.has(l.empleado_id)),
     externals: (contexto.externals || []).filter(porCodigo),
     extraQueue: (contexto.extraQueue || []).filter(porCodigo),
