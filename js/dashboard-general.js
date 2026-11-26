@@ -1,5 +1,6 @@
 import { exigirModulo } from "./permisos-modulos.js?v=720";
 import { supabase } from '../supabase/supabaseClient.js';
+import {puntoValidoParaTurno} from './centro-control-alcance.js?v=ayb-chef-1';
 import { asegurarSesion, rpcConSesion, esErrorAcceso, mostrarErrorAcceso, observarSesion, ErrorSesion } from './sesion-protegida.js?v=sesion-6-2-1';
 import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,mergeNotices} from './centro-control-metricas.js?v=ayb-chef-1';
 
@@ -129,8 +130,9 @@ function eventsForJourney(j){
 }
 function workedSummary(j){
   const evs=eventsForJourney(j);if(!evs.length)return {events:[],first:null,last:null,elapsed:null,net:null,criterion:'Sin marcaciones'};
-  const internas=evs.filter(e=>e.workPoint),first=internas.find(e=>e.direction!=='out')||null;
+  const internas=evs.filter(e=>puntoValidoParaTurno(e,j.subarea)),first=internas.find(e=>e.direction!=='out')||null;
   if(!first)return {events:evs,first:null,last:null,elapsed:null,net:null,criterion:'Sin marcacion interna verificable'};
+  if(j.begin2&&j.end2)return {events:evs,first,last:null,elapsed:null,net:null,criterion:'Turno partido: revisar bloques por separado'};
   const rev=[...internas].reverse(),lastOut=rev.find(e=>e.direction==='out'&&e.t>first.t),last=lastOut||rev.find(e=>e.t>first.t)||null;
   if(!last)return {events:evs,first,last:null,elapsed:null,net:null,criterion:'Una sola marcación; no calculable'};
   const elapsed=Math.max(0,(last.t-first.t)/60),breakMin=Math.max(0,Number(j.breakMin||0)),net=Math.max(0,elapsed-breakMin/60);
