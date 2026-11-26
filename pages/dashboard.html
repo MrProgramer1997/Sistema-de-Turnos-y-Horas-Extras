@@ -24,9 +24,9 @@
 
     <section class="cc-toolbar" aria-label="Filtros del Centro de Control">
       <div class="cc-presets">
-        <button data-preset="today">Hoy</button>
+        <button data-preset="today" class="selected">Hoy</button>
         <button data-preset="week">Esta semana</button>
-        <button data-preset="month" class="selected">Este mes</button>
+        <button data-preset="month">Este mes</button>
         <span id="ccRangeLabel"></span>
       </div>
       <form id="ccFilterForm" class="cc-filters">
@@ -50,12 +50,12 @@
     </section>
 
     <nav class="cc-tabs" aria-label="Secciones">
-      <button data-tab="trends" class="selected" aria-selected="true">Tendencias</button>
-      <button data-tab="punctuality" aria-selected="false">Puntualidad</button>
+      <button data-tab="trends" aria-selected="false">Tendencias</button>
+      <button data-tab="punctuality" class="selected" aria-selected="true">Quién llega tarde</button>
       <button data-tab="notices" aria-selected="false">Novedades</button>
     </nav>
 
-    <section id="ccPanel-trends" class="cc-panel">
+    <section id="ccPanel-trends" class="cc-panel" hidden>
       <div class="cc-two-col">
         <article class="cc-card">
           <div class="cc-card-head"><div><h2>Personas con marcación por día</h2><p>Una persona cuenta una sola vez por día, aunque registre varias marcaciones.</p></div><span class="cc-tag">PERSONAS</span></div>
@@ -96,11 +96,11 @@
       </article>
     </section>
 
-    <section id="ccPanel-punctuality" class="cc-panel" hidden>
+    <section id="ccPanel-punctuality" class="cc-panel">
       <article class="cc-card">
         <div class="cc-card-head">
           <div><h2>Puntualidad frente a la programación</h2><p>Compara el horario programado con la primera marcación válida en el punto interno de trabajo; no utiliza Portería como llegada laboral.</p></div>
-          <label>Comparar<select id="ccPunctRange"><option value="month">Mes de la fecha Hasta</option><option value="period">Período del filtro</option></select></label>
+          <label>Comparar<select id="ccPunctRange"><option value="period">Período del filtro</option><option value="month">Mes de la fecha Hasta</option></select></label>
         </div>
         <div id="ccPunctSummary" class="cc-insights horizontal"></div>
         <p class="cc-footnote">Descansos, novedades de día completo, jornadas futuras, conflictos y turnos inferidos no entran en el porcentaje. Una ausencia de marcación no se convierte en tardanza.</p>
