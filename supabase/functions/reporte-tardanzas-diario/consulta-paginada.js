@@ -2,6 +2,7 @@
  * Deliberadamente sin claves expuestas ni estado persistente.
  * Evita el bug del header Range que repetia la misma pagina al consultar.
  */
+/** @param {{baseUrl:string,serviceKey:string,table:string,select:string,filters?:Array<[string,string,string]>,max?:number,pageSize?:number,fetchFn?:typeof fetch}} args */
 export async function consultarPaginado({baseUrl,serviceKey,table,select,filters=[],max=12000,pageSize=500,fetchFn=fetch}){
  if(!baseUrl||!serviceKey)throw new Error('Conexión interna a Supabase no disponible');
  if(!/^[a-z][a-z0-9_]*$/.test(table)||!Number.isSafeInteger(max)||max<1||
