@@ -164,9 +164,11 @@ export function punctuality(model,f){const js=selectedJourneys(model,{...f,popul
   emp.comparable++;emp.onTime+=j.status==='puntual'?1:0;emp.late+=j.status==='tarde'?1:0;emp.minutes+=Math.max(0,j.delta||0);
  }
  return {journeys:js,areas:[...areas.values()].map(a=>({...a,people:a.seen.size,rate:a.comparable?100*a.onTime/a.comparable:null,coverage:a.scheduled?100*a.comparable/a.scheduled:null})),employees:[...emps.values()].map(e=>({...e,lateRate:e.comparable?100*e.late/e.comparable:null})).sort((a,b)=>b.late-a.late||b.minutes-a.minutes||a.name.localeCompare(b.name))};}
-/** Orden para reconocimiento operacional: comparables, no novedades.
- * Una jornada sin marcas no se clasifica como tardanza; se muestra como pendiente.
- * El mérito requiere 5 jornadas comparables y ninguna jornada pendiente.
+/** Orden del ranking: primero muestra de al menos 5 jornadas, despues
+ * puntualidad verificada (%); cobertura de asistencia y volumen desempatan.
+ * Jornadas por revisar NO cuentan como tardanza; afectan el merito, pero no
+ * pueden elevar al primer lugar a alguien con menor puntualidad.
+ * El reconocimiento exige 5 jornadas comparables y cero pendientes.
  */
 export function rankingMerito(model,f,minimo=5){
  const p=punctuality(model,f);
@@ -182,10 +184,11 @@ export function rankingMerito(model,f,minimo=5){
      merito:verificado&&e.late===0,baseSuficiente,verificado};
  });
  rows.sort((a,b)=>
-   Number(b.verificado)-Number(a.verificado)
+   Number(b.baseSuficiente)-Number(a.baseSuficiente)
    ||(b.puntual??-1)-(a.puntual??-1)
    ||(b.asistencia??-1)-(a.asistencia??-1)
    ||b.comparable-a.comparable
+   ||a.pendientes-b.pendientes
    ||a.minutes-b.minutes
    ||a.name.localeCompare(b.name));
  return rows.map((x,i)=>({...x,posicion:i+1}));
