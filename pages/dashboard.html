@@ -13,8 +13,8 @@
     <header class="cc-header">
       <div>
         <span class="cc-eyebrow">CLUB CAMPESTRE PEREIRA &nbsp; / &nbsp; CENTRO DE CONTROL</span>
-        <h1>Tendencias y puntualidad</h1><p id="ccDocStatus" class="cc-status" role="status"></p>
-        <p>Lectura de presencia, movimiento por área y cumplimiento frente a la programación.</p>
+        <h1>Puntualidad AYB y Chef</h1><p id="ccDocStatus" class="cc-status" role="status"></p>
+        <p>Seguimiento de empleados programados en Alimentos y Bebidas y Chef. La puntualidad se verifica en el punto interno de trabajo.</p>
       </div>
       <div class="cc-header-actions">
         <span id="ccUser" class="cc-user"></span>
@@ -24,16 +24,17 @@
 
     <section class="cc-toolbar" aria-label="Filtros del Centro de Control">
       <div class="cc-presets">
-        <button data-preset="today">Hoy</button>
+        <button data-preset="today" class="selected">Hoy</button>
         <button data-preset="week">Esta semana</button>
-        <button data-preset="month" class="selected">Este mes</button>
+        <button data-preset="month">Este mes</button>
+        <button data-preset="history">Desde 23/08/2026</button>
         <span id="ccRangeLabel"></span>
       </div>
       <form id="ccFilterForm" class="cc-filters">
         <label>Desde<input id="ccFrom" type="date" required></label>
         <label>Hasta<input id="ccTo" type="date" required></label>
-        <label>Área del empleado<select id="ccArea"><option value="">Todas las áreas</option></select></label>
-        <label>Personal<select id="ccPopulation"><option value="club">Personal del Club</option><option value="external">Externos / extras</option><option value="all">Todos, incluidos sin vínculo</option></select></label>
+        <label>Programación<select id="ccArea"><option value="">AYB y Chef</option></select></label>
+        
         <label class="cc-search">Buscar empleado<input id="ccSearch" type="search" placeholder="Nombre, cédula o código" autocomplete="off"></label>
         <button class="cc-button primary" type="submit">Consultar</button>
       </form>
@@ -46,16 +47,17 @@
     <section class="cc-kpis" aria-label="Indicadores principales">
       <button data-open="people" class="cc-kpi"><span>PERSONAS CON MARCACIÓN</span><strong id="ccPeople">—</strong><small>Únicas en el período · ver detalle</small></button>
       <button data-tab="trends" class="cc-kpi"><span>ÁREA CON MAYOR FLUJO</span><strong id="ccTopArea" class="cc-word">—</strong><small id="ccTopAreaHint">Personas distintas, no número de marcas</small></button>
-      <button data-tab="punctuality" class="cc-kpi"><span>PUNTUALIDAD DEL CLUB</span><strong id="ccRate">—</strong><small id="ccRateHint">Solo jornadas comparables</small></button>
+      <button data-tab="punctuality" class="cc-kpi"><span>PUNTUALIDAD AYB Y CHEF</span><strong id="ccRate">—</strong><small id="ccRateHint">Solo marcas en punto de trabajo</small></button>
     </section>
 
     <nav class="cc-tabs" aria-label="Secciones">
-      <button data-tab="trends" class="selected" aria-selected="true">Tendencias</button>
-      <button data-tab="punctuality" aria-selected="false">Puntualidad</button>
+      <button data-tab="trends" aria-selected="false">Tendencias</button>
+      <button data-tab="punctuality" class="selected" aria-selected="true">Quién llega tarde</button>
+      <button data-tab="merit" aria-selected="false">El más puntual</button>
       <button data-tab="notices" aria-selected="false">Novedades</button>
     </nav>
 
-    <section id="ccPanel-trends" class="cc-panel">
+    <section id="ccPanel-trends" class="cc-panel" hidden>
       <div class="cc-two-col">
         <article class="cc-card">
           <div class="cc-card-head"><div><h2>Personas con marcación por día</h2><p>Una persona cuenta una sola vez por día, aunque registre varias marcaciones.</p></div><span class="cc-tag">PERSONAS</span></div>
@@ -96,19 +98,42 @@
       </article>
     </section>
 
-    <section id="ccPanel-punctuality" class="cc-panel" hidden>
+    <section id="ccPanel-punctuality" class="cc-panel">
       <article class="cc-card">
         <div class="cc-card-head">
-          <div><h2>Puntualidad frente a la programación</h2><p>Compara la primera entrada biométrica con el inicio de turno guardado. No inventa horarios cuando falta programación.</p></div>
-          <label>Comparar<select id="ccPunctRange"><option value="month">Mes de la fecha Hasta</option><option value="period">Período del filtro</option></select></label>
+          <div><h2>Puntualidad frente a la programación</h2><p>Compara el horario programado con la primera marcación válida en el punto interno de trabajo; no utiliza Portería como llegada laboral.</p></div>
+          <label>Comparar<select id="ccPunctRange"><option value="period">Período del filtro</option><option value="month">Mes de la fecha Hasta</option></select></label>
         </div>
         <div id="ccPunctSummary" class="cc-insights horizontal"></div>
         <p class="cc-footnote">Descansos, novedades de día completo, jornadas futuras, conflictos y turnos inferidos no entran en el porcentaje. Una ausencia de marcación no se convierte en tardanza.</p>
       </article>
 
       <article class="cc-card">
-        <div class="cc-card-head"><div><h2>Comparación de todas las áreas</h2><p>Puntualidad, tardanzas y base comparable por área.</p></div></div>
+        <div class="cc-card-head"><div><h2>Comparación AYB y Chef</h2><p>Puntualidad, tardanzas y jornadas comparables por programación.</p></div></div>
         <div id="ccPunctAreas" class="cc-table-scroll"></div>
+      </article>
+
+      <article class="cc-card">
+        <div class="cc-card-head">
+          <div><h2>Estado de cada empleado</h2><p>Por fecha: turno, marcación en el punto, minutos de retraso y novedades. Selecciona un empleado para consultar su historial.</p></div>
+          <label>Estado
+            <select id="ccEmployeeState">
+              <option value="all">Todos los estados</option>
+              <option value="late">Llegaron tarde</option>
+              <option value="ok">Llegaron a tiempo</option>
+              <option value="pending">Sin entrada / por revisar</option>
+              <option value="notice">Descanso o novedad</option>
+              <option value="sin_programacion">Marcó sin programación</option>
+            </select>
+          </label>
+        </div>
+        <p class="cc-card-caption" id="ccEmployeeCount"></p>
+        <div id="ccEmployeeDaily" class="cc-table-scroll"></div>
+        <div class="cc-segmented" aria-label="Páginas de jornadas">
+          <button id="ccEmployeePrev" type="button">Anterior</button>
+          <span id="ccEmployeePageLabel" class="cc-card-caption"></span>
+          <button id="ccEmployeeNext" type="button">Siguiente</button>
+        </div>
       </article>
 
       <article class="cc-card">
@@ -117,6 +142,22 @@
           <button id="ccExportPunct" class="cc-button">Descargar Excel</button>
         </div>
         <div id="ccLatePeople" class="cc-table-scroll"></div>
+      </article>
+    </section>
+
+    <section id="ccPanel-merit" class="cc-panel" hidden>
+      <article class="cc-card">
+        <div class="cc-card-head">
+          <div><h2>El más puntual · mérito por asistencia</h2>
+            <p>Clasificación del 1 al último, según el rango consultado. Se evalúan las jornadas programadas
+              y con entrada válida al punto de trabajo. Los días libres y novedades no cuentan como tardanza.</p>
+          </div>
+        </div>
+        <div id="ccMeritSummary" class="cc-insights horizontal"></div>
+        <p class="cc-footnote">Para reconocimiento se requieren al menos cinco jornadas comparables y cero registros por revisar.
+          Un día sin marcación no se considera automáticamente tardanza. Con períodos cortos la clasificación es provisional.
+          Se ordena por puntualidad, cobertura de asistencia verificada, cantidad de jornadas comparables y minutos de retraso.</p>
+        <div id="ccMeritPeople" class="cc-table-scroll"></div>
       </article>
     </section>
 
@@ -129,11 +170,11 @@
 
     <details class="cc-method">
       <summary>Alcance de los datos y cómo se calculan los indicadores</summary>
-      <p>Métricas desde el 27/08/2026. Los registros del 23 al 26/08 siguen disponibles como histórico, pero no participan en indicadores. Una marcación prueba presencia en un punto, no permanencia continua. El cálculo de horas realizadas que aparece en el detalle usa la primera y la última marcación verificable de la jornada y descuenta el descanso programado cuando corresponde; se presenta como estimación operativa, no como liquidación de nómina.</p>
+      <p>Métricas desde el 23/08/2026. Las consultas largas se dividen en bloques con verificación de integridad. Esta versión limita la lectura operativa a personal del Club programado en AYB o Chef. Una marcación prueba presencia en un punto, no permanencia continua. Portería no cuenta como entrada o salida laboral; solo aparece en el recorrido de auditoría. El cálculo de horas realizadas que aparece en el detalle usa las marcas internas verificables de la jornada y no se realiza sin turno confirmado y descuenta el descanso programado cuando corresponde; se presenta como estimación operativa, no como liquidación de nómina.</p>
       <div id="ccIntegrity"></div>
     </details>
 
-    <footer class="cc-footer">Centro de Control · Tendencias y puntualidad · Sin cambios en marcaciones ni aprobaciones</footer>
+    <footer class="cc-footer">Centro de Control · Puntualidad AYB y Chef · Sin cambios en marcaciones ni aprobaciones</footer>
   </main>
 
   <dialog id="ccDialog" class="cc-dialog">
@@ -143,6 +184,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="../js/layout.js?v=750"></script>
-  <script type="module" src="../js/dashboard-general.js?v=permisos-720"></script>
+  <script type="module" src="../js/dashboard-general.js?v=ayb-chef-2"></script>
 </body>
 </html>
