@@ -22,7 +22,7 @@ export function informeDelDia(ctx,marcaciones,fecha,ahora=bogotaNow()){
       estado:j.status==='novedad_no_justificada'
         ?'Novedad no justificada (NNJ)'
         :'Justificación pendiente de validar'
-    })).sort((a,b)=>a.nombre.localeCompare(b.nombre);
+    })).sort((a,b)=>a.nombre.localeCompare(b.nombre));
   const pend=turnos.filter(j=>['sin_marca','sin_entrada','sin_punto','conflicto','sin_horario','en_espera','inferida','novedad_no_comparable','novedad_no_justificada'].includes(j.status)).length;
   return {
     fecha,turnos:turnos.length,comparables:cont('tarde')+cont('puntual'),
