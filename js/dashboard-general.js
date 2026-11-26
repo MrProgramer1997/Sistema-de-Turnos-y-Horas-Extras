@@ -1,9 +1,9 @@
 import { exigirModulo } from "./permisos-modulos.js?v=720";
 import { supabase } from '../supabase/supabaseClient.js';
-import {puntoValidoParaTurno,esMarcacionPuntoTrabajo} from './centro-control-alcance.js?v=ayb-chef-2';
+import {extremosDePunto} from './centro-control-alcance.js?v=ayb-chef-2';
 import {dividirHistorico,unirContextos,unirMarcaciones} from './centro-control-historico.js?v=ayb-chef-2';
 import { asegurarSesion, rpcConSesion, esErrorAcceso, mostrarErrorAcceso, observarSesion, ErrorSesion } from './sesion-protegida.js?v=sesion-6-2-1';
-import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,mergeNotices} from './centro-control-metricas.js?v=ayb-chef-1';
+import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,rankingMerito,mergeNotices} from './centro-control-metricas.js?v=ayb-chef-2';
 
 // Centro de Control: lectura operativa. No aprueba, liquida ni altera marcaciones.
 const $=id=>document.getElementById(id);
@@ -111,7 +111,7 @@ function renderTopAndDaily(){
   $('ccDailyChart').innerHTML=chartBars(daily.map(d=>({...d,label:d.date.slice(8,10)+'/'+d.date.slice(5,7),today:d.date===s.model.today,tooltip:`${pretty(d.date)}: ${d.people} personas únicas; ${d.marks} marcaciones`})),'label','people');
   const todayEvents=selectedEvents(s.model,{...f,from:s.model.today,to:s.model.today}),points=new Map();for(const e of todayEvents)points.set(e.point,(points.get(e.point)||0)+1);const point=[...points].sort((a,b)=>b[1]-a[1])[0];
   $('ccInsights').innerHTML=[best&&best.people?`<strong>Mayor ingreso registrado:</strong> ${pretty(best.date)}, con <strong>${num(best.people)} personas</strong>.<small>Personas con al menos una marcación bajo el filtro actual.</small>`:'Sin actividad registrada en este período.',point?`<strong>${esc(point[0])}</strong> registró el mayor movimiento de hoy: <strong>${num(point[1])} marcas</strong>.<small>Punto biométrico; no área laboral.</small>`:'Hoy no tiene actividad dentro de la lectura y filtros actuales.'].map(t=>`<div class="cc-insight">${t}</div>`).join('');
-  const coverage=[];if(f.from<METRIC_START)coverage.push('Los registros anteriores al 27/08 permanecen disponibles como histórico, fuera de los indicadores.');if(f.population!=='club')coverage.push('La puntualidad oficial compara únicamente empleados del Club programados en AYB y Chef.');if(!a.comparable&&a.people)coverage.push('Hay presencia sin jornadas comparables; se conservan las marcas sin inventar horarios.');$('ccCoverage').hidden=!coverage.length;txt('ccCoverage',coverage.join(' '));
+  const coverage=[];if(f.from<METRIC_START)coverage.push('Histórico disponible desde 23/08/2026; no se calculan fechas anteriores.');if(f.population!=='club')coverage.push('La puntualidad oficial compara únicamente empleados del Club programados en AYB y Chef.');if(!a.comparable&&a.people)coverage.push('Hay presencia sin jornadas comparables; se conservan las marcas sin inventar horarios.');$('ccCoverage').hidden=!coverage.length;txt('ccCoverage',coverage.join(' '));
   txt('ccIntegrity',`Control de lectura: ${num(s.loaded.total)} marcaciones recibidas de la consulta autorizada. Se procesan ${num(s.model.diagnostic.usedCount)} marcas de empleados programados en AYB/Chef. No se eliminaron registros. Solo la entrada en biométrico interno es válida para puntualidad.`);
 }
 function renderAreaMovement(){
@@ -144,20 +144,23 @@ function renderTrends(){
 function causes(j){return (j.notices||[]).map(n=>`${n.label}: ${pretty(n.from)} hasta ${pretty(n.to)} (${n.source})`).join('; ');}
 function statusCell(j){const [label,cl]=stateLabels[j.status]||[j.status,''];return pill(label,cl);}
 function eventsForJourney(j){
-  const all=(s.model.events||[]).filter(e=>e.person.cedula===j.code);const day0=dayMinute(j.date);
+  const all=s.model.perPerson?.get(j.code)||[];const day0=dayMinute(j.date);
   if(j.start!==null&&j.start!==undefined&&j.end!==null&&j.end!==undefined)return all.filter(e=>e.t>=j.start-240&&e.t<=j.end+240).sort((a,b)=>a.t-b.t);
   return all.filter(e=>e.t>=day0&&e.t<day0+1440).sort((a,b)=>a.t-b.t);
 }
 function workedSummary(j){
-  const evs=eventsForJourney(j);if(!evs.length)return {events:[],first:null,last:null,elapsed:null,net:null,criterion:'Sin marcaciones'};
-  const internas=evs.filter(e=>puntoValidoParaTurno(e,j.subarea)),first=internas.find(e=>e.direction!=='out')||null;
-  if(!first)return {events:evs,first:null,last:null,elapsed:null,net:null,criterion:'Sin marcacion interna verificable'};
-  if(j.begin2&&j.end2)return {events:evs,first,last:null,elapsed:null,net:null,criterion:'Turno partido: revisar bloques por separado'};
-  const rev=[...internas].reverse(),lastOut=rev.find(e=>e.direction==='out'&&e.t>first.t),last=lastOut||rev.find(e=>e.t>first.t)||null;
-  if(!last)return {events:evs,first,last:null,elapsed:null,net:null,criterion:'Una sola marcación; no calculable'};
+  const evs=eventsForJourney(j),pt=extremosDePunto(j,evs),first=pt.primera,last=pt.ultima;
+  const base={events:evs,first,last,elapsed:null,net:null,criterion:'',breakMin:null,reference:pt.referencia};
+  if(!first)return {...base,criterion:evs.length?'Sin entrada verificable en el punto de trabajo':'Sin marcaciones'};
+  if(!pt.esperado||j.start==null||j.end==null)
+    return {...base,criterion:pt.referencia?'Marcas internas de referencia; sin turno programado':'Punto u horario no validado'};
+  if(j.begin2&&j.end2)return {...base,criterion:'Turno partido; verificar ambos bloques'};
+  if(!last)return {...base,criterion:'Una sola marcación interna; horas no calculables'};
   const elapsed=Math.max(0,(last.t-first.t)/60),breakMin=Math.max(0,Number(j.breakMin||0)),net=Math.max(0,elapsed-breakMin/60);
-  return {events:evs,first,last,elapsed,net,criterion:lastOut?'Entrada y salida biométrica':'Primera y última marcación; revisar salida',breakMin};
+  return {...base,elapsed,net,breakMin,
+    criterion:last.direction==='out'?'Entrada y salida en punto de trabajo':'Primera y última marca internas; salida por verificar'};
 }
+
 function employeeWorked(days=[]){let total=0,calculable=0;for(const j of days){const w=workedSummary(j);if(w.net!==null){total+=w.net;calculable++;}}return {total,calculable};}
 function renderPunctuality(){
   const f=punctualRange(),p=punctuality(s.model,f),comp=p.areas.reduce((sum,a)=>sum+a.comparable,0),late=p.areas.reduce((sum,a)=>sum+a.late,0),mins=p.areas.reduce((sum,a)=>sum+a.minutes,0);
@@ -221,16 +224,18 @@ function exportPunctExcel(){
   XLSX.writeFile(wb,`Puntualidad_Centro_Control_${f.from}_${f.to}.xlsx`);
 }
 
-function preset(which){const today=iso(bogotaNow());$('ccTo').value=today;$('ccFrom').value=which==='today'?today:which==='month'?monthStart(today):addDays(today,-((new Date(today+'T00:00:00Z').getUTCDay()+6)%7));document.querySelectorAll('[data-preset]').forEach(b=>b.classList.toggle('selected',b.dataset.preset===which));if(which==='today')s.areaScope='today';load();}
+function preset(which){const today=iso(bogotaNow());$('ccTo').value=today;$('ccFrom').value=which==='today'?today:which==='month'?monthStart(today):which==='history'?HISTORY_START:addDays(today,-((new Date(today+'T00:00:00Z').getUTCDay()+6)%7));document.querySelectorAll('[data-preset]').forEach(b=>b.classList.toggle('selected',b.dataset.preset===which));if(which==='today')s.areaScope='today';load();}
 function realtime(){if(s.channel)return;s.channel=supabase.channel('cc-lectura-v2').on('postgres_changes',{event:'UPDATE',schema:'public',table:'app_actualizacion_eventos',filter:'id=eq.centro_control'},()=>scheduleRefresh()).subscribe(status=>txt('ccLive',status==='SUBSCRIBED'?'Actualización automática conectada':'Respaldo automático cada minuto'));s.timer=setInterval(()=>{if(document.visibilityState==='visible'&&Date.now()-s.lastLoaded>55000)scheduleRefresh();},60000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-s.lastLoaded>60000)scheduleRefresh();});window.addEventListener('beforeunload',()=>{s.abort?.abort();clearInterval(s.timer);clearTimeout(s.debounce);if(s.channel)supabase.removeChannel(s.channel);});}
-function scheduleRefresh(){clearTimeout(s.debounce);s.debounce=setTimeout(()=>{if(document.visibilityState==='visible'&&!$('ccRefresh').disabled)load(true);},1800);}
+function scheduleRefresh(){if(s.range&&(dayMinute(s.range.to)-dayMinute(s.range.from))/1440>31)return;clearTimeout(s.debounce);s.debounce=setTimeout(()=>{if(document.visibilityState==='visible'&&!$('ccRefresh').disabled)load(true);},1800);}
 function events(){
   $('ccFilterForm').addEventListener('submit',e=>{e.preventDefault();s.areaScope='period';load();});$('ccRefresh').addEventListener('click',()=>load());
-  for(const id of ['ccArea','ccPopulation','ccPunctRange','ccEmployeeState'])$(id).addEventListener('change',()=>render());let searchTimer;$('ccSearch').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>render(),160);});
+  for(const id of ['ccArea','ccPunctRange','ccEmployeeState'])$(id).addEventListener('change',()=>{s.page=1;render();});let searchTimer;$('ccSearch').addEventListener('input',()=>{s.page=1;clearTimeout(searchTimer);searchTimer=setTimeout(()=>render(),160);});
   $('ccAreaScopePeriod').addEventListener('click',()=>{s.areaScope='period';renderAreaMovement();});$('ccAreaScopeToday').addEventListener('click',()=>{s.areaScope='today';renderAreaMovement();});
+  $('ccEmployeePrev').addEventListener('click',()=>{s.page=Math.max(1,s.page-1);renderDailyEmployees();});
+  $('ccEmployeeNext').addEventListener('click',()=>{s.page+=1;renderDailyEmployees();});
   $('ccExportPunct').addEventListener('click',exportPunctExcel);$('ccDialogClose').addEventListener('click',()=>$('ccDialog').close());
   document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.preset){preset(b.dataset.preset);return;}if(b.dataset.tab){switchTab(b.dataset.tab);return;}if(!s.model)return;if(b.dataset.open)openKpi(b.dataset.open);if(b.dataset.areaDetail)openAreaDetail(b.dataset.areaDetail,b.dataset.areaScope||'period');if(b.dataset.person)openPerson(b.dataset.person,b.dataset.context||'period');if(b.dataset.journey)openJourney(b.dataset.journey,b.dataset.date);});
 }
-function limpiarDatosPorSesion(){s.model=null;s.loaded=null;clearInterval(s.timer);clearTimeout(s.debounce);for(const id of ['ccPeople','ccTopArea','ccRate'])txt(id,'—');for(const id of ['ccDailyChart','ccInsights','ccAreaComparison','ccPunctSummary','ccPunctAreas','ccLatePeople','ccEmployeeDaily','ccNotices','ccWeekdayChart','ccPeriodComparison','ccAttendanceRanking','ccDialogBody','ccIntegrity'])if($(id))$(id).replaceChildren();if($('ccDialog')?.open)$('ccDialog').close();if(s.channel){supabase.removeChannel(s.channel);s.channel=null;}txt('ccLive','Sesión pendiente de verificar');}
+function limpiarDatosPorSesion(){s.model=null;s.loaded=null;clearInterval(s.timer);clearTimeout(s.debounce);for(const id of ['ccPeople','ccTopArea','ccRate'])txt(id,'—');for(const id of ['ccDailyChart','ccInsights','ccAreaComparison','ccPunctSummary','ccPunctAreas','ccLatePeople','ccEmployeeDaily','ccMeritSummary','ccMeritPeople','ccNotices','ccWeekdayChart','ccPeriodComparison','ccAttendanceRanking','ccDialogBody','ccIntegrity'])if($(id))$(id).replaceChildren();if($('ccDialog')?.open)$('ccDialog').close();if(s.channel){supabase.removeChannel(s.channel);s.channel=null;}txt('ccLive','Sesión pendiente de verificar');}
 async function init(){if(!await exigirModulo("dashboard"))return;const today=iso(bogotaNow());$('ccFrom').value=today;$('ccTo').value=today;events();switchTab('punctuality');let session;try{session=JSON.parse(localStorage.getItem('ccp_sesion')||'null');}catch{}txt('ccUser',session?.nombre_completo||session?.usuario||'Sesión por verificar');observarSesion(()=>{s.abort?.abort();s.loadToken++;limpiarDatosPorSesion();$('ccRefresh').disabled=false;mostrarErrorAcceso($('ccError'),new ErrorSesion('AUTH_REQUIRED','Tu sesión cambió o terminó. Vuelve a ingresar para consultar tu información.'),()=>load());txt('ccStatus','Se requiere iniciar sesión');});await load();if(s.model)realtime();}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
