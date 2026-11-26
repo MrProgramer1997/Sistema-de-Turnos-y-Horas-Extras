@@ -166,7 +166,15 @@ function renderPunctuality(){
   const f=punctualRange(),p=punctuality(s.model,f),comp=p.areas.reduce((sum,a)=>sum+a.comparable,0),late=p.areas.reduce((sum,a)=>sum+a.late,0),mins=p.areas.reduce((sum,a)=>sum+a.minutes,0);
   $('ccPunctSummary').innerHTML=[[`${pretty(f.from)} — ${pretty(f.to)}`,'Período de puntualidad'],[num(comp),'Jornadas comparables'],[num(late),'Jornadas con tardanza'],[num(mins)+' min','Retraso acumulado; no descuento automático']].map(([v,l])=>`<div class="cc-insight"><strong style="font-size:${l==='Período de puntualidad'?'15':'23'}px">${esc(v)}</strong><small>${esc(l)}</small></div>`).join('');
   $('ccPunctAreas').innerHTML=table(['Área','Puntualidad','A tiempo','Tarde','Base comparable','Cobertura de horarios','Sin programación / con marca','Novedades'],p.areas.sort((a,b)=>a.label.localeCompare(b.label)).map(a=>[`<strong>${esc(a.label)}</strong>`,a.rate===null?'Sin base':`${num(a.rate,1)}%${a.comparable<5?'<small>Base menor de 5 jornadas</small>':''}`,num(a.onTime),num(a.late),num(a.comparable),a.scheduled?`${num(a.coverage,1)}%<small>${a.comparable} / ${a.scheduled} con horario evaluable</small>`:'No calculable',num(a.unplanned),num(a.justified)]));
-  $('ccLatePeople').innerHTML=table(['Empleado','Área','Días tarde','Días comparables','Tardanzas / base','Minutos acumulados','Horas realizadas','Detalle'],p.employees.filter(e=>e.late>0).map(e=>{const w=employeeWorked(e.days);return [`<button class="cc-link" data-person="${esc(e.cedula)}" data-context="punctuality">${esc(e.name)}</button><small>${esc(e.cedula)}</small>`,esc(e.areaLabel),`<strong>${e.late}</strong>`,e.comparable,`${num(e.lateRate,1)}%`,num(e.minutes),w.calculable?`${num(w.total,2)} h<small>${w.calculable} jornadas calculables</small>`:'No calculable',`<button class="cc-link" data-person="${esc(e.cedula)}" data-context="punctuality">Comparar turnos y marcas</button>`];}));
+  $('ccLatePeople').innerHTML=table(
+    ['Empleado','Programación','Días tarde','Jornadas comparables','Tardanzas / base','Minutos acumulados','Detalle'],
+    p.employees.filter(e=>e.late>0).map(e=>[
+      `<button class="cc-link" data-person="${esc(e.cedula)}" data-context="punctuality">${esc(e.name)}</button><small>${esc(e.cedula)}</small>`,
+      esc(e.areaLabel),`<strong>${num(e.late)}</strong>`,num(e.comparable),
+      `${num(e.lateRate,1)}%`,`${num(e.minutes)} min`,
+      `<button class="cc-link" data-person="${esc(e.cedula)}" data-context="punctuality">Revisar historial</button>`
+    ])
+  );
 }
 function renderDailyEmployees(){
   const f=punctualRange(),p=punctuality(s.model,f),q=$('ccEmployeeState')?.value||'all';
@@ -291,16 +299,33 @@ function openKpi(kind){if(kind!=='people')return;const seen=new Map();for(const 
 function safeCell(v){if(typeof v==='string'&&/^[=+@\-\t\r]/.test(v))return "'"+v;return v??'';}
 function setWidths(ws,widths){ws['!cols']=widths.map(w=>({wch:w}));}
 function exportPunctExcel(){
-  if(!s.model)return;const XLSX=window.XLSX;if(!XLSX){alert('No se pudo cargar el componente de Excel. Recarga la página con conexión a Internet.');return;}
-  const f=punctualRange(),p=punctuality(s.model,f),wb=XLSX.utils.book_new();
-  const areas=[['Área','Puntualidad %','A tiempo','Tarde','Base comparable','Jornadas con horario','Cobertura %','Sin programación con marca','Novedades'],...p.areas.sort((a,b)=>a.label.localeCompare(b.label)).map(a=>[a.label,a.rate===null?'':Number(a.rate.toFixed(2)),a.onTime,a.late,a.comparable,a.scheduled,a.coverage===null?'':Number(a.coverage.toFixed(2)),a.unplanned,a.justified])];
-  const latePeople=[['Cédula','Empleado','Área','Días tarde','Días comparables','Tardanzas %','Minutos acumulados','Jornadas con horas calculables','Total horas realizadas estimadas'],...p.employees.filter(e=>e.late>0).map(e=>{const w=employeeWorked(e.days);return [e.cedula,e.name,e.areaLabel,e.late,e.comparable,Number(e.lateRate.toFixed(2)),e.minutes,w.calculable,w.calculable?Number(w.total.toFixed(2)):''];})];
-  const detail=[['Fecha','Cédula','Empleado','Área','Fuente programación','Inicio programado','Fin programado','Primera marcación','Última marcación','Punto de entrada','Minutos diferencia','Estado','Marcaciones','Horas transcurridas','Descanso descontado min','Horas realizadas estimadas','Criterio horas','Causa / vigencia']];
-  for(const j of p.journeys){const w=workedSummary(j);detail.push([j.date,j.code,j.person.name,j.person.areaLabel,j.source,j.begin||'',j.end!==null&&j.end!==undefined?clock(new Date(j.end*60000).toISOString()):'',j.entry?.clock||'',w.last?.clock||'',j.entry?.alias||j.entry?.point||'',j.delta??'',stateLabels[j.status]?.[0]||j.status,w.events.length,w.elapsed===null?'':Number(w.elapsed.toFixed(2)),w.breakMin??'',w.net===null?'':Number(w.net.toFixed(2)),w.criterion,causes(j)]);}
-  const ws1=XLSX.utils.aoa_to_sheet(areas.map(r=>r.map(safeCell))),ws2=XLSX.utils.aoa_to_sheet(latePeople.map(r=>r.map(safeCell))),ws3=XLSX.utils.aoa_to_sheet(detail.map(r=>r.map(safeCell)));
-  setWidths(ws1,[28,14,11,11,16,18,14,24,12]);setWidths(ws2,[16,34,24,12,16,14,18,24,28]);setWidths(ws3,[12,16,34,24,24,17,17,17,17,24,16,24,12,18,22,22,34,42]);
-  XLSX.utils.book_append_sheet(wb,ws1,'Áreas');XLSX.utils.book_append_sheet(wb,ws2,'Ranking tardanzas');XLSX.utils.book_append_sheet(wb,ws3,'Detalle jornadas');
-  XLSX.writeFile(wb,`Puntualidad_Centro_Control_${f.from}_${f.to}.xlsx`);
+  if(!s.model)return;const XLSX=window.XLSX;
+  if(!XLSX){alert('No se pudo cargar Excel. Recarga la página con conexión a Internet.');return;}
+  const f=punctualRange(),p=punctuality(s.model,f),ranking=rankingMerito(s.model,f),wb=XLSX.utils.book_new();
+  const areas=[['Área','Puntualidad %','A tiempo','Tarde','Base comparable','Jornadas con horario','Cobertura %','Sin programación con marca','Novedades'],
+    ...p.areas.sort((a,b)=>a.label.localeCompare(b.label)).map(a=>[a.label,a.rate===null?'':Number(a.rate.toFixed(2)),a.onTime,a.late,a.comparable,a.scheduled,a.coverage===null?'':Number(a.coverage.toFixed(2)),a.unplanned,a.justified])];
+  const latePeople=[['Cédula','Empleado','Programación','Días tarde','Jornadas comparables','Tardanzas %','Minutos acumulados'],
+    ...p.employees.filter(e=>e.late>0).map(e=>[e.cedula,e.name,e.areaLabel,e.late,e.comparable,Number(e.lateRate.toFixed(2)),e.minutes])];
+  const detail=[['Fecha','Cédula','Empleado','Programación','Fuente','Inicio programado','Fin programado','Entrada en punto','Punto entrada','Última en punto','Punto última','Diferencia min','Estado','Total marcaciones','Horas estimadas','Criterio','Novedad']];
+  for(const j of p.journeys){
+    const w=workedSummary(j),entry=j.entry||w.first;
+    detail.push([j.date,j.code,j.person.name,j.person.areaLabel,j.source,
+      j.begin||'',j.end!=null?clock(new Date(j.end*60000).toISOString()):'',
+      entry?.clock||'',entry?.point||'',w.last?.clock||'',w.last?.point||'',
+      j.delta??'',stateLabels[j.status]?.[0]||j.status,w.events.length,
+      w.net==null?'':Number(w.net.toFixed(2)),w.criterion,causes(j)]);
+  }
+  const merits=[['Posición','Cédula','Empleado','Programación','Puntualidad %','A tiempo','Comparables','Días tarde','Asistencia verificada %','Pendientes','Minutos tarde','Mérito'],
+    ...ranking.map(e=>[e.posicion,e.cedula,e.name,e.areaLabel,
+      e.puntual==null?'':Number(e.puntual.toFixed(2)),e.onTime,e.comparable,e.late,
+      e.asistencia==null?'':Number(e.asistencia.toFixed(2)),e.pendientes,e.minutes,
+      e.merito?'Mérito verificable':!e.baseSuficiente?'Base insuficiente':e.pendientes?'Por revisar':'En seguimiento'])];
+  const exportSheet=(rows,name,widths)=>{const ws=XLSX.utils.aoa_to_sheet(rows.map(r=>r.map(safeCell)));setWidths(ws,widths);XLSX.utils.book_append_sheet(wb,ws,name);};
+  exportSheet(areas,'Áreas',[28,14,11,11,16,18,14,24,12]);
+  exportSheet(latePeople,'Tardanzas',[17,34,22,14,17,14,20]);
+  exportSheet(detail,'Detalle jornadas',[13,16,34,22,22,16,16,16,22,17,22,15,20,18,16,33,40]);
+  exportSheet(merits,'El más puntual',[11,16,34,22,16,12,13,13,20,14,17,24]);
+  XLSX.writeFile(wb,`Puntualidad_AYB_Chef_${f.from}_${f.to}.xlsx`);
 }
 
 function preset(which){const today=iso(bogotaNow());$('ccTo').value=today;$('ccFrom').value=which==='today'?today:which==='month'?monthStart(today):which==='history'?HISTORY_START:addDays(today,-((new Date(today+'T00:00:00Z').getUTCDay()+6)%7));document.querySelectorAll('[data-preset]').forEach(b=>b.classList.toggle('selected',b.dataset.preset===which));if(which==='today')s.areaScope='today';load();}
