@@ -60,7 +60,7 @@ export function areaOf(employee, process) {
 export function eventDirection(alias){const s=norm(alias);return /salida/.test(s)?'out':/ingreso|entrada/.test(s)?'in':'unknown';}
 export function noticeLabel(code) {
  const c=norm(code).toUpperCase();
- return ({V:'Vacaciones',DF:'Día de la familia',F:'Día de la familia',COMP:'Compensatorio',NC:'No compensatorio',D:'Descanso',DL:'D\u00eda libre',DESCANSO:'Descanso',VAC:'Vacaciones',INC:'Incapacidad',DFAM:'D\u00eda de la familia',DIA_FAMILIA:'D\u00eda de la familia',VACACIONES:'Vacaciones',INCAPACIDAD:'Incapacidad',PER:'Permiso',PERMISO:'Permiso',LIC:'Licencia',LICENCIA:'Licencia',TC:'Trabajo desde casa',TDC:'Trabajo desde casa',TRABAJO_CASA:'Trabajo desde casa',PASA:'Permiso de salida',ELECCION:'Permiso electoral'})[c] || code || 'Novedad';
+ return ({V:'Vacaciones',DF:'Día de la familia',F:'Día de la familia',COMP:'Compensatorio',NC:'No compensatorio',D:'Descanso',DL:'D\u00eda libre',DESCANSO:'Descanso',VAC:'Vacaciones',INC:'Incapacidad',DFAM:'D\u00eda de la familia',DIA_FAMILIA:'D\u00eda de la familia',VACACIONES:'Vacaciones',INCAPACIDAD:'Incapacidad',PER:'Permiso',PERMISO:'Permiso',LIC:'Licencia',LICENCIA:'Licencia',TC:'Trabajo desde casa',TDC:'Trabajo desde casa',TRABAJO_CASA:'Trabajo desde casa',PASA:'Permiso de salida',ELECCION:'Permiso electoral',NNJ:'Novedad no justificada'})[c] || code || 'Novedad';
 }
 function fullDayNotice(code) {return ['D','DL','DESCANSO','DIA_LIBRE','V','VAC','VACACIONES','DF','F','COMP','NC','INC','INCAPACIDAD','DFAM','DIA_FAMILIA','TC','TDC','TRABAJO_CASA'].includes(norm(code).toUpperCase());}
 export function buildModel(contexto={}, todasLasMarcas=[], now=bogotaNow()) {
@@ -119,7 +119,10 @@ export function buildModel(contexto={}, todasLasMarcas=[], now=bogotaNow()) {
   const b2=timeMin(s.begin2),e2=timeMin(s.end2);if(b2!==null&&e2!==null&&start!==null){let end2=dayMinute(s.date)+e2;if(e2<b2)end2+=DAY;if(end2<start)end2+=DAY;end=Math.max(end??0,end2);}
   const conflict=Boolean(s.forceConflict)||p.duplicate||sorted.some(x=>[x.begin,x.end,x.notice].join('|')!==[s.begin,s.end,s.notice].join('|'));
   let status='sin_horario',entry=null,delta=null;
-  if(exempt||(b===null&&s.notice))status='justificada';
+  // No se debe equiparar una novedad sin horario con justificación plena.
+   if(norm(s.notice).toUpperCase()==='NNJ')status='novedad_no_justificada';
+   else if(exempt)status='justificada';
+   else if(b===null&&s.notice)status='novedad_no_comparable';
   else if(s.inferred)status='inferida';
   else if(conflict)status='conflicto';
   else if(b!==null&&!equipoEsperado(s.subarea))status='sin_punto';
@@ -157,7 +160,7 @@ export function areaFlow(evs){const map=new Map();for(const e of evs){const labe
  return [...map.values()].map(a=>({...a,people:a.people.size,personDays:a.days.size,peak:[...a.hours].map(([hour,s])=>({hour,count:s.size})).sort((a,b)=>b.count-a.count||a.hour-b.hour)[0]})).sort((a,b)=>b.people-a.people||a.label.localeCompare(b.label));}
 export function heatmap(evs,by='point'){const map=new Map();for(const e of evs){const label=by==='area'?e.person.areaLabel:e.point;if(!map.has(label))map.set(label,Array.from({length:24},()=>new Set()));map.get(label)[e.hour].add(`${e.date}|${e.person.cedula}`);}return [...map].sort((a,b)=>a[0].localeCompare(b[0])).map(([label,hours])=>({label,hours:hours.map(s=>s.size)}));}
 export function punctuality(model,f){const js=selectedJourneys(model,{...f,population:'club'}),areas=new Map(),emps=new Map();
- for(const j of js){const label=j.person.areaLabel;if(!areas.has(label))areas.set(label,{label,seen:new Set(),scheduled:0,comparable:0,onTime:0,late:0,minutes:0,unplanned:0,justified:0,missing:0});const a=areas.get(label);a.seen.add(j.code);if(j.start!==null&&j.start!==undefined&&!['justificada','futura','inferida','conflicto'].includes(j.status))a.scheduled++;if(j.status==='sin_programacion')a.unplanned++;if(j.status==='justificada')a.justified++;if(['sin_marca','sin_entrada'].includes(j.status))a.missing++;
+ for(const j of js){const label=j.person.areaLabel;if(!areas.has(label))areas.set(label,{label,seen:new Set(),scheduled:0,comparable:0,onTime:0,late:0,minutes:0,unplanned:0,justified:0,missing:0,novedadesPorRevisar:0});const a=areas.get(label);a.seen.add(j.code);if(j.start!==null&&j.start!==undefined&&!['justificada','futura','inferida','conflicto'].includes(j.status))a.scheduled++;if(j.status==='sin_programacion')a.unplanned++;if(j.status==='justificada')a.justified++;if(['novedad_no_comparable','novedad_no_justificada'].includes(j.status))a.novedadesPorRevisar++;if(['sin_marca','sin_entrada'].includes(j.status))a.missing++;
   if(!emps.has(j.code))emps.set(j.code,{...j.person,late:0,onTime:0,comparable:0,minutes:0,days:[]});
   const emp=emps.get(j.code);emp.days.push(j);
   if(!['tarde','puntual'].includes(j.status))continue;a.comparable++;a.onTime+=j.status==='puntual'?1:0;a.late+=j.status==='tarde'?1:0;a.minutes+=Math.max(0,j.delta||0);
@@ -175,7 +178,8 @@ export function rankingMerito(model,f,minimo=5){
  const rows=p.employees.map(e=>{
    const programadas=e.days.filter(j=>j.start!=null&&
      !['justificada','futura','inferida','sin_programacion','en_espera'].includes(j.status));
-   const pendientes=programadas.filter(j=>!['puntual','tarde'].includes(j.status)).length;
+   const pendientes=programadas.filter(j=>!['puntual','tarde'].includes(j.status)).length
+      +e.days.filter(j=>['novedad_no_comparable','novedad_no_justificada'].includes(j.status)).length;
    const asistencia=programadas.length?100*e.comparable/programadas.length:null;
    const puntual=e.comparable?100*e.onTime/e.comparable:null;
    const baseSuficiente=e.comparable>=minimo;
