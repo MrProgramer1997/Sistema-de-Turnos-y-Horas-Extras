@@ -39,6 +39,43 @@ test('usa mismo motor de puntualidad: Portería no evita tardanza y otras áreas
  assert.equal(p.filas[0].entrada,'08:05');
  assert.equal(p.filas[0].punto,'HOYO 19');
 });
+test('reporta entrada de Eventos en el punto real y no la de Portería',()=>{
+ const x={...ctx,legacy:[{...ctx.legacy[0],subarea:'Eventos'}]};
+ const p=informeDelDia(x,marks,d,d+'T22:00:00');
+ assert.equal(p.tardanzas,1);
+ assert.equal(p.filas[0].entrada,'08:05');
+ assert.equal(p.filas[0].punto,'HOYO 19');
+ assert.equal(p.filas[0].subarea,'Eventos');
+});
+
+test('la notificación distingue la declaración NNJ de una ausencia inferida',()=>{
+ const nov={...ctx.legacy[0],tipo_registro:'novedad',novedad_codigo:'NNJ',novedad_descripcion:'NNJ',hora_inicio:null,hora_fin:null,turno:'NNJ'};
+ const p=informeDelDia({...ctx,legacy:[nov]},marks,d,d+'T22:00:00');
+ assert.equal(p.novedadesNoJustificadas,1);
+ assert.equal(p.justificacionesPendientes,0);
+ assert.equal(p.pendientes,1);
+ assert.equal(p.tardanzas,0);
+ assert.equal(p.novedades,0);
+ assert.equal(p.novedadesPorValidar[0].estado,'Novedad no justificada (NNJ)');
+ const html=correoHTML(p);
+ assert.ok(html.includes('Novedad no justificada (NNJ)'));
+ assert.ok(html.includes('Persona AYB'));
+ assert.ok(html.includes('NO se clasifican como llegadas tarde ni como faltas laborales automáticas'));
+});
+
+test('permiso electoral sin cobertura de jornada completa se muestra pendiente de validar, no NNJ',()=>{
+ const nov={...ctx.legacy[0],tipo_registro:'novedad',novedad_codigo:'ELECCION',novedad_descripcion:'ELECCION',hora_inicio:null,hora_fin:null,turno:'ELECCION'};
+ const p=informeDelDia({...ctx,legacy:[nov]},marks,d,d+'T22:00:00');
+ assert.equal(p.justificacionesPendientes,1);
+ assert.equal(p.novedadesNoJustificadas,0);
+ assert.equal(p.tardanzas,0);
+ assert.equal(p.novedades,0);
+ const html=correoHTML(p);
+ assert.ok(html.includes('Justificación pendiente de validar'));
+ assert.ok(html.includes('Concepto registrado'));
+ assert.ok(html.includes('ELECCION'));
+});
+
 test('las novedades justificadas no generan tardanza ni datos médicos',()=>{
  const x={...ctx,legacy:[{...ctx.legacy[0],novedad_codigo:'INC',hora_inicio:null,hora_fin:null}]};
  const p=informeDelDia(x,marks,d,d+'T22:00:00');
