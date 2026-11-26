@@ -20,6 +20,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Comprobar Edge Function
+        run: deno check supabase/functions/reporte-tardanzas-diario/index.ts
       - name: Sintaxis JavaScript
         run: |
           node --check supabase/functions/reporte-tardanzas-diario/resumen.js
