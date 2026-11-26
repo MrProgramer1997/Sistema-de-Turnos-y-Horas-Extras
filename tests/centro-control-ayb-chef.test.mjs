@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {limitarAybChef,esMarcacionPuntoTrabajo,puntoValidoParaTurno,equipoEsperado} from '../js/centro-control-alcance.js';
+import {limitarAybChef,esMarcacionPuntoTrabajo,puntoValidoParaTurno,equipoEsperado,esServicioUbicacionVariable,extremosDePunto} from '../js/centro-control-alcance.js';
 
 const employee=(id,cedula,area)=>({id,cedula,area,nombres:id});
 test('solo programacion AYB y Chef; no incluye otras areas',()=>{
@@ -31,7 +31,33 @@ test('Porteria y dispositivos ajenos no determinan llegada',()=>{
  assert.equal(puntoValidoParaTurno({alias:'Tenis'},'Tenis'),true);
  assert.equal(equipoEsperado('Eventos'),null);
 });
-test('no inventa un punto para subareas sin correspondencia validada',()=>{
- assert.equal(puntoValidoParaTurno({alias:'Administracion'},'Eventos'),false);
+test('Eventos es servicio de ubicación variable: su punto válido es donde marca',()=>{
+ assert.equal(esServicioUbicacionVariable('Eventos'),true);
+ assert.equal(esServicioUbicacionVariable('Evento'),true);
+ assert.equal(esServicioUbicacionVariable('Hoyo 19'),false);
+ for(const terminal of ['Administracion','Hy 19','Tenis','Piscina'])
+   assert.equal(puntoValidoParaTurno({alias:terminal},'Eventos'),true);
+ assert.equal(puntoValidoParaTurno({alias:'Ingreso Porteria',point:'Porteria'},'Eventos'),false);
+ assert.equal(puntoValidoParaTurno({alias:'Cuarto de Tacos'},'Eventos'),false);
  assert.equal(puntoValidoParaTurno({alias:'Hy 19'},''),false);
+});
+test('la salida de Eventos se toma del mismo biométrico de la entrada real',()=>{
+ const mk=(t,terminal_sn,alias,point)=>({t,terminal_sn,alias,point,direction:'unknown'});
+ const entrada=mk(100,'adm','Administracion','Bodega');
+ const jornada={status:'tarde',subarea:'Eventos',entry:entrada};
+ const evs=[mk(90,'pt','Ingreso Porteria','Porteria'),entrada,
+   mk(150,'hy','Hy 19','HOYO 19'),mk(200,'adm','Administracion','Bodega'),
+   mk(210,'pt','Salida Porteria','Porteria')];
+ const r=extremosDePunto(jornada,evs);
+ assert.equal(r.primera,entrada);
+ assert.equal(r.ultima.t,200);
+ assert.equal(r.ultima.point,'Bodega');
+ assert.equal(r.variable,true);
+ assert.equal(r.marcasPunto.length,2);
+ const noEntry=extremosDePunto({status:'sin_marca',subarea:'Eventos'},evs);
+ assert.equal(noEntry.primera,null);
+ assert.equal(noEntry.ultima,null);
+});
+test('otras subareas sin mapeo no adquieren un punto ficticio',()=>{
+ assert.equal(puntoValidoParaTurno({alias:'Administracion'},'Steward'),false);
 });
