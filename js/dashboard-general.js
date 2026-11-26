@@ -170,22 +170,66 @@ function renderPunctuality(){
 }
 function renderDailyEmployees(){
   const f=punctualRange(),p=punctuality(s.model,f),q=$('ccEmployeeState')?.value||'all';
-  const rows=p.journeys.filter(j=>q==='all'||(q==='late'?j.status==='tarde':q==='ok'?j.status==='puntual':q==='notice'?j.status==='justificada':q==='pending'?['sin_marca','sin_entrada','en_espera','conflicto','sin_horario','sin_punto'].includes(j.status):j.status===q))
-    .sort((a,b)=>b.date.localeCompare(a.date)||({tarde:0,sin_marca:1,sin_entrada:1,en_espera:2,puntual:3,justificada:4}[a.status]??5)-({tarde:0,sin_marca:1,sin_entrada:1,en_espera:2,puntual:3,justificada:4}[b.status]??5)||a.person.name.localeCompare(b.person.name));
-  $('ccEmployeeDaily').innerHTML=table(['Fecha','Empleado','Programación','Horario','Entrada punto','Diferencia','Estado / novedad','Detalle'],rows.map(j=>[
-    pretty(j.date),
-    `<button class="cc-link" data-person="${esc(j.code)}" data-context="punctuality">${esc(j.person.name)}</button><small>${esc(j.person.cedula)}</small>`,
-    `${esc(j.person.areaLabel)}<small>${esc(j.source||'')}</small>`,
-    j.begin?esc(j.begin.slice(0,5))+' — '+esc(j.end!=null?clock(new Date(j.end*60000).toISOString()):'—'):'—',
-    j.entry?`${esc(j.entry.clock)}<small>${esc(j.entry.point)}</small>`:'No verificada',
-    j.delta==null?'—':j.delta>0?`${num(j.delta)} min tarde`:j.delta<0?`${num(-j.delta)} min antes`:'Hora exacta',
-    statusCell(j)+(j.notices?.length?`<small>${esc(causes(j))}</small>`:''),
-    `<button class="cc-link" data-journey="${esc(j.code)}" data-date="${j.date}">Ver marcaciones</button>`
-  ]));
-  txt('ccEmployeeCount',`${num(rows.length)} jornadas · AYB y Chef`);
+  const all=p.journeys.filter(j=>q==='all'||(q==='late'?j.status==='tarde':q==='ok'?j.status==='puntual':
+    q==='notice'?j.status==='justificada':q==='pending'?
+      ['sin_marca','sin_entrada','en_espera','conflicto','sin_horario','sin_punto'].includes(j.status):j.status===q))
+    .sort((a,b)=>b.date.localeCompare(a.date)||({tarde:0,sin_marca:1,sin_entrada:1,en_espera:2,puntual:3,justificada:4}[a.status]??5)-
+      ({tarde:0,sin_marca:1,sin_entrada:1,en_espera:2,puntual:3,justificada:4}[b.status]??5)||
+      a.person.name.localeCompare(b.person.name));
+  const paginas=Math.max(1,Math.ceil(all.length/s.pageSize));
+  s.page=Math.min(Math.max(1,s.page),paginas);
+  const offset=(s.page-1)*s.pageSize,rows=all.slice(offset,offset+s.pageSize);
+  $('ccEmployeeDaily').innerHTML=table(['Fecha','Empleado','Programación','Horario','Entrada en punto','Última en punto','Diferencia','Estado / novedad','Detalle'],rows.map(j=>{
+    const w=workedSummary(j);
+    const cell=e=>e?`${esc(e.clock)}<small>${esc(e.point)}${w.reference?' · Sin turno':''}</small>`:'—';
+    return [
+      pretty(j.date),
+      `<button class="cc-link" data-person="${esc(j.code)}" data-context="punctuality">${esc(j.person.name)}</button><small>${esc(j.code)}</small>`,
+      `${esc(j.person.areaLabel)}<small>${esc(j.source||'')}</small>`,
+      j.begin?esc(j.begin.slice(0,5))+' — '+esc(j.end!=null?clock(new Date(j.end*60000).toISOString()):'—'):'Sin horario',
+      cell(j.entry||w.first),cell(w.last),
+      j.delta==null?'No comparable':j.delta>0?`${num(j.delta)} min tarde`:j.delta<0?`${num(-j.delta)} min antes`:'Hora exacta',
+      statusCell(j)+(j.notices?.length?`<small>${esc(causes(j))}</small>`:''),
+      `<button class="cc-link" data-journey="${esc(j.code)}" data-date="${j.date}">Ver recorrido</button>`
+    ];
+  }));
+  txt('ccEmployeeCount',`${num(all.length)} jornadas AYB/Chef, ${num(rows.length)} visibles en esta página`);
+  txt('ccEmployeePageLabel',`Página ${s.page} de ${paginas}`);
+  $('ccEmployeePrev').disabled=s.page<=1;
+  $('ccEmployeeNext').disabled=s.page>=paginas;
 }
+function renderMerit(){
+  const f=punctualRange(),personas=rankingMerito(s.model,f),meritos=personas.filter(x=>x.merito).length;
+  const evaluables=personas.filter(x=>x.verificado).length;
+  $('ccMeritSummary').innerHTML=[
+    [num(personas.length),'Empleados en la clasificación'],
+    [num(evaluables),'Con base y asistencia verificada'],
+    [num(meritos),'Con puntualidad completa y mérito']
+  ].map(([valor,texto])=>`<div class="cc-insight"><strong>${valor}</strong><small>${esc(texto)}</small></div>`).join('');
+  $('ccMeritPeople').innerHTML=table(
+    ['#','Empleado','Programación','Puntualidad','Jornadas puntuales','Días tarde','Asistencia verificada','Minutos tarde','Reconocimiento','Detalle'],
+    personas.map(x=>{
+      const estado=x.merito?pill('Mérito verificable','ok'):
+        !x.baseSuficiente?pill('Base insuficiente','warn'):
+        x.pendientes?pill('Jornadas por revisar','warn'):pill('En seguimiento','info');
+      return [
+        `<strong>${num(x.posicion)}</strong>`,
+        `<button class="cc-link" data-person="${esc(x.cedula)}" data-context="punctuality">${esc(x.name)}</button><small>${esc(x.cedula)}</small>`,
+        esc(x.areaLabel),
+        x.puntual==null?'Sin base':`${num(x.puntual,1)}%`,
+        `${num(x.onTime)} de ${num(x.comparable)}`,
+        num(x.late),
+        x.asistencia==null?'Sin base':`${num(x.asistencia,1)}%<small>${num(x.pendientes)} pendientes</small>`,
+        `${num(x.minutes)} min`,
+        estado,
+        `<button class="cc-link" data-person="${esc(x.cedula)}" data-context="punctuality">Ver historial</button>`
+      ];
+    })
+  );
+}
+
 function renderNotices(){const rows=mergeNotices(s.model,{...filters(),population:'club'});$('ccNotices').innerHTML=table(['Empleado','Área','Causa','Desde','Hasta registrado','Fuente / estado'],rows.map(n=>[`<button class="cc-link" data-person="${esc(n.code)}">${esc(n.person.name)}</button>`,esc(n.person.areaLabel),esc(n.label),pretty(n.from),pretty(n.to),`${esc([...new Set(n.sources)].join(' / '))}<small>${esc(n.state)}${n.full?'':' · No exime por sí sola toda la jornada'}</small>`]));}
-function render(){if(!s.model)return;renderTrends();renderPunctuality();renderDailyEmployees();renderNotices();}
+function render(){if(!s.model)return;renderTrends();renderPunctuality();renderDailyEmployees();renderMerit();renderNotices();}
 
 function showDialog(title,subtitle,html){txt('ccDialogTitle',title);txt('ccDialogSubtitle',subtitle);$('ccDialogBody').innerHTML=html;if(!$('ccDialog').open)$('ccDialog').showModal();}
 function openAreaDetail(label,scope='period'){
