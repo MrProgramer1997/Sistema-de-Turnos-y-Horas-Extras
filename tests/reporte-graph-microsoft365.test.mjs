@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {GRAPH_SENDER,GraphDeliveryError,prepararCorreoGraph,enviarCorreoGraph} from '../supabase/functions/reporte-tardanzas-diario/microsoft-graph-mail.js';
+import {GRAPH_SENDER,GraphDeliveryError,prepararCorreoGraph,enviarCorreoGraph,diagnosticarAutenticacionGraph} from '../supabase/functions/reporte-tardanzas-diario/microsoft-graph-mail.js';
 import {destinatariosPara} from '../supabase/functions/reporte-tardanzas-diario/destinatarios.js';
 
 const TENANT='12345678-1234-4234-a234-123456789abc';
@@ -60,4 +60,28 @@ test('Un HTTP 200 de Graph no equivale al 202 aceptado',async()=>{
  await assert.rejects(enviarCorreoGraph(content,{env,fetch:async()=>{
    calls++;return calls===1?{ok:true,status:200,json:async()=>({access_token:'mock'})}:{ok:true,status:200};
  }}),e=>e instanceof GraphDeliveryError&&e.stage==='envío'&&e.status===200);
+});
+
+test('diagnóstico devuelve solo código AADSTS y nunca el texto ni la contraseña',async()=>{
+ let calls=0;
+ const r=await diagnosticarAutenticacionGraph({env,fetch:async()=>{
+   calls++;
+   return {ok:false,status:401,json:async()=>({
+     error:'invalid_client',error_codes:[7000215],
+     error_description:'El valor secreto es inválido y contiene texto sensible'
+   })};
+ }});
+ assert.equal(calls,1);
+ assert.deepEqual(r,{ok:false,status:'oauth_rechazado',http_status:401,aadsts:'AADSTS7000215'});
+ assert.ok(!JSON.stringify(r).includes('sensible'));
+ assert.ok(!JSON.stringify(r).includes(SECRET));
+});
+test('diagnóstico de token válido no envía correo ni retorna token',async()=>{
+ const urls=[];
+ const r=await diagnosticarAutenticacionGraph({env,fetch:async url=>{
+   urls.push(url);return {ok:true,status:200,json:async()=>({access_token:'mock-privado'})};
+ }});
+ assert.equal(urls.length,1);
+ assert.match(urls[0],/login\.microsoftonline\.com/);
+ assert.deepEqual(r,{ok:true,status:'credenciales_validas',http_status:200});
 });

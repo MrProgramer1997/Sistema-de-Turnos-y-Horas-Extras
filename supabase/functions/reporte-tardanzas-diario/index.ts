@@ -1,7 +1,7 @@
 import {addDays,bogotaNow} from './centro-control-metricas.js';
 import {informeDelDia,correoHTML} from './resumen.js';
 import {destinatariosPara} from './destinatarios.js';
-import {enviarCorreoGraph,GraphDeliveryError,GRAPH_SENDER} from './microsoft-graph-mail.js';
+import {enviarCorreoGraph,GraphDeliveryError,GRAPH_SENDER,diagnosticarAutenticacionGraph} from './microsoft-graph-mail.js';
 import {consultarPaginado,documentosProgramados} from './consulta-paginada.js';
 
 /* Edge Function independiente. No modifica turnos ni marcaciones.
@@ -60,8 +60,15 @@ Deno.serve(async (req:Request)=>{
  if(provided!==secret)return json({error:'No autorizado'},401);
  let input:{mode?:string,date?:string}={};
  try{input=await req.json()}catch{return json({error:'Cuerpo JSON inválido'},400)}
- const preview=input.mode==='preview',prueba=input.mode==='test';
- if(input.mode!=='send'&&!preview&&!prueba)return json({error:'Modo no permitido'},400);
+ const preview=input.mode==='preview',prueba=input.mode==='test',diagnose=input.mode==='diagnose';
+ if(input.mode!=='send'&&!preview&&!prueba&&!diagnose)return json({error:'Modo no permitido'},400);
+ // Verifica OAuth sin consultar empleados, guardar credenciales ni generar correo.
+ if(diagnose){
+   if(env('REPORT_TEST_ENABLED')!=='true')return json({status:'diagnostico_desactivado'},503);
+   const result=await diagnosticarAutenticacionGraph();
+   console.log('tardanzas_diario: diagnostico OAuth',result.status,result.aadsts||'',result.http_status||'');
+   return json(result,result.ok?200:502);
+ }
  const ayer=addDays(todayBogota(),-1);
  // La prueba permite verificar un día histórico con programación real;
  // producción SIEMPRE calcula ayer y jamás permite elegir otra fecha.
