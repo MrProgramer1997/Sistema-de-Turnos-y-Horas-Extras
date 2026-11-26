@@ -4,10 +4,11 @@ import {destinatariosPara} from './destinatarios.js';
 import {enviarCorreoGraph,GraphDeliveryError,GRAPH_SENDER,diagnosticarAutenticacionGraph} from './microsoft-graph-mail.js';
 import {consultarPaginado,documentosProgramados} from './consulta-paginada.js';
 import {evaluarProgramacion,avisoProgramacionFaltante} from './alerta-programacion.js';
+import {consultarControlEnvio,recuperacionPermitida,reservarEnvio,finalizarEnvio} from './control-envios.js';
 
 /* Edge Function independiente. No modifica turnos ni marcaciones.
  * Auth: REPORT_CRON_TOKEN (>=32 caracteres) en X-Report-Token.
- * Por seguridad el envío está deshabilitado hasta REPORT_ENABLED=true.
+ * Activación y duplicados controlados por las tablas RLS privadas de reportes.
  * Microsoft Graph envía desde reportes@campestrepereira.com.
  * Entra: limitar el acceso a ese buzón con Exchange Application RBAC.
  * Los destinatarios están definidos en la lista institucional cerrada.
@@ -61,8 +62,10 @@ Deno.serve(async (req:Request)=>{
  if(provided!==secret)return json({error:'No autorizado'},401);
  let input:{mode?:string,date?:string}={};
  try{input=await req.json()}catch{return json({error:'Cuerpo JSON inválido'},400)}
- const preview=input.mode==='preview',prueba=input.mode==='test',diagnose=input.mode==='diagnose';
- if(input.mode!=='send'&&!preview&&!prueba&&!diagnose)return json({error:'Modo no permitido'},400);
+ const preview=input.mode==='preview',prueba=input.mode==='test',
+       diagnose=input.mode==='diagnose',backfill=input.mode==='backfill';
+ if(input.mode!=='send'&&!preview&&!prueba&&!diagnose&&!backfill)
+   return json({error:'Modo no permitido'},400);
  // Verifica OAuth sin consultar empleados, guardar credenciales ni generar correo.
  if(diagnose){
    if(env('REPORT_TEST_ENABLED')!=='true')return json({status:'diagnostico_desactivado'},503);
@@ -71,11 +74,20 @@ Deno.serve(async (req:Request)=>{
    return json(result,result.ok?200:502);
  }
  const ayer=addDays(todayBogota(),-1);
- // La prueba permite verificar un día histórico con programación real;
- // producción SIEMPRE calcula ayer y jamás permite elegir otra fecha.
- const fecha=(preview||prueba)&&input.date?input.date:ayer;
- if(!allowedDate(fecha)||fecha<'2026-08-23'||fecha>ayer)return json({error:'Fecha inválida'},400);
+ // Operación normal: ayer según Colombia. Backfill restringido al arranque
+ // inicial aprobado del 22 al 25/11/2026, con expiración adicional en DB.
+ if((input.mode==='send'&&input.date)||(backfill&&!input.date))
+   return json({error:'Fecha no permitida para el modo solicitado'},400);
+ const fecha=(preview||prueba||backfill)&&input.date?input.date:ayer;
+ if(!allowedDate(fecha)||fecha<'2026-08-23'||fecha>ayer)
+   return json({error:'Fecha inválida'},400);
  try{
+   if(!preview&&!prueba){
+     const control=await consultarControlEnvio();
+     if(!control.habilitado)return json({status:'desactivado',fecha,message:'Control de envíos desactivado'},503);
+     if(backfill&&!recuperacionPermitida(control,fecha))
+       return json({status:'recuperacion_no_autorizada',fecha},403);
+   }
    const {ctx,marks}=await readDay(fecha);
    const programacion=evaluarProgramacion(ctx,fecha);
    const info=programacion.completa?informeDelDia(ctx,marks,fecha,bogotaNow()):null;
@@ -97,13 +109,26 @@ Deno.serve(async (req:Request)=>{
      :{status:'vista_previa',...info,html});
    if(prueba&&env('REPORT_TEST_ENABLED')!=='true')
      return json({status:'prueba_desactivada',fecha,message:'REPORT_TEST_ENABLED debe ser true para ejecutar una prueba de envío'},503);
-   if(!prueba&&env('REPORT_ENABLED')!=='true')
-     return json({status:'desactivado',fecha,message:'Falta autorizar REPORT_ENABLED=true'},503);
    const to=destinatariosPara(prueba?'test':'send');
+   // Reservar una sola vez por fecha en producción: si ya se aceptó o hay
+   // un intento en curso no repetimos el correo sin auditoría manual.
+   let envioId:string|null=null;
+   if(!prueba){
+     const reservado=await reservarEnvio({fecha,tipo:alerta?'alerta_programacion':'puntualidad'});
+     if(!reservado.reservado)
+       return json({status:'omitido_duplicado',fecha,motivo:'Fecha ya procesada; revisar auditoría de envíos'},200);
+     envioId=reservado.id;
+   }
    let aceptacion;
    try{
      aceptacion=await enviarCorreoGraph({to,subject:prueba?'[PRUEBA] '+subject:subject,html});
    }catch(error){
+     if(envioId){
+       try{await finalizarEnvio({id:envioId,aceptado:false,
+         httpStatus:error instanceof GraphDeliveryError?error.status:0,
+         error:error instanceof GraphDeliveryError?error.stage:'error no clasificado'});}
+       catch(ledgerError){console.error('tardanzas_diario: fallo al registrar intento de envío');}
+     }
      if(error instanceof GraphDeliveryError){
        console.error('tardanzas_diario: Graph',error.stage,'HTTP',error.status);
        return json({status:'error_envio',fecha,etapa:error.stage,proveedor_http:error.status},502);
@@ -111,6 +136,13 @@ Deno.serve(async (req:Request)=>{
      throw error;
    }
    // Microsoft Graph devuelve 202 Accepted: aún no confirma entrega final.
+   // Si falla registrar el resultado, la reserva permanece y bloquea reenvíos.
+   if(envioId){
+     try{await finalizarEnvio({id:envioId,aceptado:true,httpStatus:aceptacion.http_status});}
+     catch(_){console.error('tardanzas_diario: Graph aceptó, pero auditoría requiere revisión');
+       return json({status:'aceptado_pendiente_auditoria',fecha,destinatarios:to.length,
+         proveedor_http:aceptacion.http_status},202);}
+   }
    console.log('tardanzas_diario: Graph aceptó',prueba?'PRUEBA':'PRODUCCION',
      'fecha',fecha,'tipo',alerta?'alerta_programacion':'puntualidad',
      'faltan',programacion.faltan.join(',')||'ninguna');

@@ -10,6 +10,7 @@ on:
       - 'tests/reporte-graph-microsoft365.test.mjs'
       - 'tests/reporte-consulta-paginada.test.mjs'
       - 'tests/reporte-alerta-programacion.test.mjs'
+      - 'tests/reporte-control-envios.test.mjs'
   workflow_dispatch:
 
 permissions:
@@ -32,9 +33,10 @@ jobs:
         run: |
           node --check supabase/functions/reporte-tardanzas-diario/resumen.js
           node --check supabase/functions/reporte-tardanzas-diario/alerta-programacion.js
+          node --check supabase/functions/reporte-tardanzas-diario/control-envios.js
           node --check supabase/functions/reporte-tardanzas-diario/consulta-paginada.js
           node --check supabase/functions/reporte-tardanzas-diario/microsoft-graph-mail.js
           node --check supabase/functions/reporte-tardanzas-diario/centro-control-metricas.js
           node --check supabase/functions/reporte-tardanzas-diario/centro-control-alcance.js
       - name: Casos funcionales
-        run: node --test tests/reporte-tardanzas-diario.test.mjs tests/reporte-graph-microsoft365.test.mjs tests/reporte-consulta-paginada.test.mjs tests/reporte-alerta-programacion.test.mjs
+        run: node --test tests/reporte-tardanzas-diario.test.mjs tests/reporte-graph-microsoft365.test.mjs tests/reporte-consulta-paginada.test.mjs tests/reporte-alerta-programacion.test.mjs tests/reporte-control-envios.test.mjs
