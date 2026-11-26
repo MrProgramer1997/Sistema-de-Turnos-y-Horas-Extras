@@ -48,8 +48,8 @@ export function equipoEsperado(subarea='') {
   if(/TENIS/.test(s))return 'TENIS';
   if(/PISCINA/.test(s))return 'PISCINA';
   if(/HOYO 19|BAR DEPORTIVO|HELADERIA|CAFE|SAMANES|CARRO BAR/.test(s))return 'HY 19';
-  if(/RIALTO|PORCIONAMIENTO|FRIA|STEWARD/.test(s))return 'ADMINISTRACION';
-  // Eventos y puntos sin terminal propio requieren revisión explícita.
+  if(/RIALTO|PORCIONAMIENTO|FRIA/.test(s))return 'ADMINISTRACION';
+  // Eventos, Steward y zonas con terminales múltiples requieren revisión explícita.
   return null;
 }
 export function puntoValidoParaTurno(evento,subarea='') {
@@ -66,4 +66,20 @@ export function esMarcacionPuntoTrabajo(evento) {
   // El alias del dispositivo prevalece sobre el texto libre del área.
   if (equipo) return EQUIPOS_AYB_CHEF.has(equipo);
   return ['HOYO 19', 'BODEGA', 'TENIS', 'PISCINA'].includes(punto);
+}
+
+/* Primer/último registro en el punto de trabajo.
+ * No se considera Portería como entrada/salida laboral. Si falta
+ * programación, se muestran marcas internas como referencia, SIN liquidar horas.
+ */
+export function extremosDePunto(jornada={},eventos=[]){
+  const esperado=equipoEsperado(jornada.subarea);
+  const esSinTurno=jornada.status==='sin_programacion';
+  const validos=eventos.filter(e=>esperado?puntoValidoParaTurno(e,jornada.subarea):esSinTurno&&esMarcacionPuntoTrabajo(e))
+    .slice().sort((a,b)=>a.t-b.t);
+  const primera=esperado&&jornada.entry
+    ?jornada.entry
+    :validos.find(e=>e.direction!=='out')||null;
+  const ultima=primera?[...validos].reverse().find(e=>e.t>primera.t)||null:null;
+  return {primera,ultima,esperado,referencia:!esperado&&esSinTurno,marcasPunto:validos};
 }
