@@ -239,17 +239,52 @@ function openAreaDetail(label,scope='period'){
   showDialog(label,`${rows.length} jornadas-persona · ${scope==='today'?pretty(s.model.today):pretty(f.from)+' — '+pretty(f.to)}`,table(['Fecha','Empleado','Primera marca','Última marca','Registros','Abrir persona'],rows.map(x=>{x.events.sort((a,b)=>a.t-b.t);return [pretty(x.date),`<strong>${esc(x.p.name)}</strong><small>${esc(x.p.cedula)}</small>`,esc(x.events[0]?.clock||'—'),esc(x.events.at(-1)?.clock||'—'),num(x.events.length),`<button class="cc-link" data-person="${esc(x.p.cedula)}">Comparar con turno</button>`];})));
 }
 function openPerson(code,context='period'){
-  const range=context==='punctuality'?punctualRange():filters(),p=s.model.person(code,range.to),js=s.model.journeys.filter(j=>j.code===code&&inRange(j.date,range)).sort((a,b)=>b.date.localeCompare(a.date));
-  let total=0,calc=0;const rows=js.map(j=>{const w=workedSummary(j);if(w.net!==null){total+=w.net;calc++;}return [pretty(j.date),j.begin?`${esc(j.begin.slice(0,5))} — ${esc(j.end!==null&&j.end!==undefined?clock(new Date(j.end*60000).toISOString()):'—')}<small>${esc(j.source)}</small>`:esc(j.source),w.first?`${esc(w.first.clock)}<small>${esc(w.first.alias||w.first.point)}</small>`:'—',w.last?esc(w.last.clock):'—',j.delta===null||j.delta===undefined?'No comparable':j.delta>0?`${num(j.delta)} min tarde`:j.delta<0?`${num(-j.delta)} min antes`:'Hora exacta',w.net===null?'No calculable':`${num(w.net,2)} h<small>${esc(w.criterion)}</small>`,statusCell(j),`<button class="cc-link" data-journey="${esc(code)}" data-date="${j.date}">Abrir recorrido</button>`];});
-  const summary=`<div class="cc-work-summary"><div><span>Jornadas mostradas</span><strong>${num(js.length)}</strong></div><div><span>Con horas calculables</span><strong>${num(calc)}</strong></div><div><span>Total horas realizadas estimadas</span><strong>${calc?num(total,2)+' h':'No calculable'}</strong></div></div><p class="cc-footnote compact">El total usa biometría disponible y descuenta el descanso programado cuando corresponde. Es control operativo, no liquidación de nómina.</p>`;
-  showDialog(p.name,`${p.areaLabel} · ${p.cedula} · ${p.areaSource}`,summary+table(['Fecha','Turno guardado','Primera marca','Última marca','Diferencia','Horas realizadas','Estado','Recorrido'],rows));
+  const range=context==='punctuality'?punctualRange():filters(),p=s.model.person(code,range.to);
+  const js=s.model.journeys.filter(j=>j.code===code&&inRange(j.date,range)).sort((a,b)=>b.date.localeCompare(a.date));
+  let total=0,calc=0;const late=js.filter(j=>j.status==='tarde');
+  const lateMinutes=late.reduce((n,j)=>n+Math.max(0,j.delta||0),0);
+  const rows=js.map(j=>{
+    const w=workedSummary(j);
+    if(w.net!==null){total+=w.net;calc++;}
+    const marca=x=>x?`${esc(x.clock)}<small>${esc(x.point)}${w.reference?' · Sin turno programado':''}</small>`:'—';
+    return [
+      pretty(j.date),
+      j.begin?`${esc(j.begin.slice(0,5))} — ${esc(j.end!=null?clock(new Date(j.end*60000).toISOString()):'—')}<small>${esc(j.source)}</small>`:esc(j.source),
+      marca(j.entry||w.first),marca(w.last),
+      j.delta==null?'No comparable':j.delta>0?`${num(j.delta)} min tarde`:j.delta<0?`${num(-j.delta)} min antes`:'Hora exacta',
+      w.net===null?`No calculable<small>${esc(w.criterion)}</small>`:`${num(w.net,2)} h<small>${esc(w.criterion)}</small>`,
+      statusCell(j),
+      `<button class="cc-link" data-journey="${esc(code)}" data-date="${j.date}">Abrir recorrido</button>`
+    ];
+  });
+  const cabecera=`<div class="cc-work-summary">
+    <div><span>Jornadas mostradas</span><strong>${num(js.length)}</strong></div>
+    <div><span>Horas calculables</span><strong>${num(calc)} jornadas</strong></div>
+    <div><span>Total horas internas estimadas</span><strong>${calc?num(total,2)+' h':'No calculable'}</strong></div>
+  </div><p class="cc-footnote compact">Referencia operativa, no liquidación de nómina. Portería queda solamente en el recorrido.</p>`;
+  const cierre=`<div class="cc-work-summary">
+    <div><span>Días que llegó tarde</span><strong>${num(late.length)}</strong></div>
+    <div><span>Total minutos acumulados de tardanza</span><strong>${num(lateMinutes)} min</strong></div>
+    <div><span>Jornadas puntuales</span><strong>${num(js.filter(j=>j.status==='puntual').length)}</strong></div>
+  </div><p class="cc-footnote compact">Solo se acumulan minutos cuando existe una entrada validada frente a un horario programado; las novedades y los días sin turno no se penalizan.</p>`;
+  showDialog(p.name,`${p.areaLabel} · ${p.cedula} · ${p.areaSource}`,
+    cabecera+table(['Fecha','Turno guardado','Entrada en punto','Última en punto','Diferencia','Horas estimadas','Estado','Recorrido'],rows)+cierre);
 }
 function openJourney(code,date){
-  const j=s.model.journeys.find(x=>x.code===code&&x.date===date),p=s.model.person(code,date);if(!j){showDialog('Recorrido',`${pretty(date)} · ${p.name}`,empty('No se encontró la jornada seleccionada.'));return;}
-  const w=workedSummary(j),programado=j.begin?`${j.begin.slice(0,5)} — ${j.end!==null&&j.end!==undefined?clock(new Date(j.end*60000).toISOString()):'—'}`:'Sin horario comparable';
-  const cards=`<div class="cc-work-summary"><div><span>Turno programado</span><strong>${esc(programado)}</strong></div><div><span>Entrada al punto</span><strong>${esc(j.entry?.clock||'—')}</strong><small>${esc(j.entry?.point||'Sin marca interna verificable')}</small></div><div><span>Última marcación</span><strong>${esc(w.last?.clock||'—')}</strong></div><div><span>Total horas realizadas</span><strong>${w.net===null?'No calculable':num(w.net,2)+' h'}</strong><small>${esc(w.criterion)}</small></div></div>`;
-  const route=`<div class="cc-history"><div class="cc-route">${w.events.map(e=>`<span class="${e.direction==='out'?'out':''}">${esc(e.clock)} · ${esc(e.point)}<em>${esc(e.alias)} · ID ${esc(e.id)}${e.date!==date?' · '+pretty(e.date):''}</em></span>`).join('')||empty('No hay marcaciones en esa jornada.')}</div></div>`;
-  showDialog(`Recorrido · ${p.name}`,`${pretty(date)} · ${p.areaLabel}`,`${cards}<p>${statusCell(j)} ${esc(causes(j)||'Sin novedad registrada.')}</p>${route}<p class="cc-footnote">Las marcaciones originales se conservan. Si no hay una salida identificable, se usa la última marca como estimación y se señala expresamente. Una sola marca nunca produce horas trabajadas.</p>`);
+  const j=s.model.journeys.find(x=>x.code===code&&x.date===date),p=s.model.person(code,date);
+  if(!j){showDialog('Recorrido',`${pretty(date)} · ${p.name}`,empty('No se encontró la jornada seleccionada.'));return;}
+  const w=workedSummary(j),programado=j.begin?`${j.begin.slice(0,5)} — ${j.end!=null?clock(new Date(j.end*60000).toISOString()):'—'}`:'Sin horario comparable';
+  const entrada=j.entry||w.first;
+  const cards=`<div class="cc-work-summary">
+    <div><span>Turno programado</span><strong>${esc(programado)}</strong></div>
+    <div><span>Entrada en punto</span><strong>${esc(entrada?.clock||'—')}</strong><small>${esc(entrada?.point||'Sin marca interna verificable')}</small></div>
+    <div><span>Última en punto</span><strong>${esc(w.last?.clock||'—')}</strong><small>${esc(w.last?.point||'Sin marca interna verificable')}</small></div>
+    <div><span>Horas internas estimadas</span><strong>${w.net===null?'No calculable':num(w.net,2)+' h'}</strong><small>${esc(w.criterion)}</small></div>
+  </div>`;
+  const route=`<div class="cc-history"><div class="cc-route">${w.events.map(e=>`<span class="${e.direction==='out'?'out':''}">${esc(e.clock)} · ${esc(e.point)}<em>${esc(e.alias)} · ID ${esc(e.id)}${e.date!==date?' · '+pretty(e.date):''}${/porter/i.test(e.alias+' '+e.point)?' · Portería (solo recorrido)':''}</em></span>`).join('')||empty('No hay marcaciones en esa jornada.')}</div></div>`;
+  showDialog(`Recorrido · ${p.name}`,`${pretty(date)} · ${p.areaLabel}`,
+    `${cards}<p>${statusCell(j)} ${esc(causes(j)||'Sin novedad registrada.')}</p>${route}
+      <p class="cc-footnote">Las marcas originales se conservan. Portería no determina entrada ni salida laboral. Si no hay turno confirmado o una marca interna suficiente, no se calculan horas.</p>`);
 }
 function openKpi(kind){if(kind!=='people')return;const seen=new Map();for(const e of selectedEvents(s.model,filters()))seen.set(e.person.cedula,e.person);showDialog('Personas con marcación','Personas únicas del filtro',table(['Empleado','Documento','Área','Clasificación','Detalle'],[...seen.values()].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>[`<button class="cc-link" data-person="${esc(p.cedula)}">${esc(p.name)}</button>`,esc(p.cedula),esc(p.areaLabel),p.external?'Externo / extra':p.known?'Personal del Club':'Sin vínculo',`<button class="cc-link" data-person="${esc(p.cedula)}">Comparar con turno</button>`])));}
 
