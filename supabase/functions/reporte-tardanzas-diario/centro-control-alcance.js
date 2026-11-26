@@ -42,6 +42,10 @@ export function limitarAybChef(contexto = {}, marcaciones = []) {
   return {ctx, marcaciones: marcaciones.filter(m => autorizados.has(documento(m.emp_code))), codigos: autorizados};
 }
 const EQUIPOS_AYB_CHEF = new Set(['HY 19', 'ADMINISTRACION', 'TENIS', 'PISCINA']);
+// Eventos es un tipo de servicio, NO una sede fisica ni un terminal fijo.
+// Solo para la subarea exacta Evento(s), el primer registro en cualquier
+// biometrico interno AYB/Chef autorizado determina el punto de ingreso.
+export const esServicioUbicacionVariable = subarea => /^(EVENTO|EVENTOS)$/.test(normal(subarea));
 export function equipoEsperado(subarea='') {
   const s=normal(subarea);
   if(!s)return null;
@@ -49,11 +53,12 @@ export function equipoEsperado(subarea='') {
   if(/PISCINA/.test(s))return 'PISCINA';
   if(/HOYO 19|BAR DEPORTIVO|HELADERIA|CAFE|SAMANES|CARRO BAR/.test(s))return 'HY 19';
   if(/RIALTO|PORCIONAMIENTO|FRIA/.test(s))return 'ADMINISTRACION';
-  // Eventos, Steward y zonas con terminales múltiples requieren revisión explícita.
+  // Steward y otras zonas sin correspondencia requieren revisión explícita.
   return null;
 }
 export function puntoValidoParaTurno(evento,subarea='') {
   if(!esMarcacionPuntoTrabajo(evento))return false;
+  if(esServicioUbicacionVariable(subarea))return true;
   const esperado=equipoEsperado(subarea);
   if(!esperado)return false;
   return normal(evento.alias||evento.terminal_alias)===esperado;
@@ -72,14 +77,29 @@ export function esMarcacionPuntoTrabajo(evento) {
  * No se considera Portería como entrada/salida laboral. Si falta
  * programación, se muestran marcas internas como referencia, SIN liquidar horas.
  */
+function esMismoEquipo(a,b){
+  const as=texto(a?.terminal_sn),bs=texto(b?.terminal_sn);
+  if(as&&bs)return as===bs;
+  const aliasA=normal(a?.alias||a?.terminal_alias);
+  const aliasB=normal(b?.alias||b?.terminal_alias);
+  return Boolean(aliasA&&aliasB&&aliasA===aliasB);
+}
 export function extremosDePunto(jornada={},eventos=[]){
-  const esperado=equipoEsperado(jornada.subarea);
+  const variable=esServicioUbicacionVariable(jornada.subarea);
+  const esperado=equipoEsperado(jornada.subarea)||(variable?'PUNTO_DE_MARCACION':null);
   const esSinTurno=jornada.status==='sin_programacion';
-  const validos=eventos.filter(e=>esperado?puntoValidoParaTurno(e,jornada.subarea):esSinTurno&&esMarcacionPuntoTrabajo(e))
+  // En Eventos la sede se obtiene de la ENTRADA real y las demás
+  // marcas laborales solo se emparejan en ese mismo dispositivo.
+  // Sin entrada confirmada no se inventa un punto ni horas trabajadas.
+  const validos=eventos.filter(e=>
+      variable?(Boolean(jornada.entry)&&esMarcacionPuntoTrabajo(e)&&esMismoEquipo(e,jornada.entry)):
+      esperado?puntoValidoParaTurno(e,jornada.subarea):
+      esSinTurno&&esMarcacionPuntoTrabajo(e))
     .slice().sort((a,b)=>a.t-b.t);
   const primera=esperado&&jornada.entry
     ?jornada.entry
     :validos.find(e=>e.direction!=='out')||null;
   const ultima=primera?[...validos].reverse().find(e=>e.t>primera.t)||null:null;
-  return {primera,ultima,esperado,referencia:!esperado&&esSinTurno,marcasPunto:validos};
+  return {primera,ultima,esperado,referencia:!esperado&&esSinTurno,
+    variable,marcasPunto:validos};
 }
