@@ -1,6 +1,7 @@
 import { exigirModulo } from "./permisos-modulos.js?v=720";
 import { supabase } from '../supabase/supabaseClient.js';
-import {puntoValidoParaTurno} from './centro-control-alcance.js?v=ayb-chef-1';
+import {puntoValidoParaTurno,esMarcacionPuntoTrabajo} from './centro-control-alcance.js?v=ayb-chef-2';
+import {dividirHistorico,unirContextos,unirMarcaciones} from './centro-control-historico.js?v=ayb-chef-2';
 import { asegurarSesion, rpcConSesion, esErrorAcceso, mostrarErrorAcceso, observarSesion, ErrorSesion } from './sesion-protegida.js?v=sesion-6-2-1';
 import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,mergeNotices} from './centro-control-metricas.js?v=ayb-chef-1';
 
@@ -16,12 +17,12 @@ const inRange=(d,r)=>d>=r.from&&d<=r.to;
 const maxDate=(...v)=>v.filter(Boolean).sort().at(-1);
 const minDate=(...v)=>v.filter(Boolean).sort()[0];
 const stateLabels={puntual:['A tiempo','ok'],tarde:['Llegada tarde','bad'],justificada:['Descanso / novedad','info'],sin_programacion:['Sin programación','warn'],sin_marca:['Sin marcación; revisar','warn'],sin_entrada:['Sin entrada verificable','warn'],en_espera:['Jornada en curso','info'],futura:['Programación futura',''],inferida:['Horario inferido; excluido',''],conflicto:['Programaciones en conflicto','warn'],sin_horario:['Sin horario comparable',''],sin_punto:['Punto sin validar','warn']};
-const s={model:null,range:null,tab:'punctuality',areaScope:'period',loadToken:0,abort:null,channel:null,timer:null,debounce:null,lastLoaded:0,loaded:null};
+const s={model:null,range:null,tab:'punctuality',areaScope:'period',page:1,pageSize:75,loadToken:0,abort:null,channel:null,timer:null,debounce:null,lastLoaded:0,loaded:null};
 
 function pill(label,cl=''){return `<span class="cc-pill ${cl}">${esc(label)}</span>`;}
 function empty(message='No hay registros para estos filtros.'){return `<p class="cc-empty">${esc(message)}</p>`;}
 function table(headers,rows){return rows.length?`<div class="cc-table-scroll"><table class="cc-table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:empty();}
-function filters(extra={}){return {...(s.range||{from:$('ccFrom').value,to:$('ccTo').value}),population:$('ccPopulation').value,area:$('ccArea').value,search:$('ccSearch').value.trim(),...extra};}
+function filters(extra={}){return {...(s.range||{from:$('ccFrom').value,to:$('ccTo').value}),population:'club',area:$('ccArea').value,search:$('ccSearch').value.trim(),...extra};}
 function previousMonthRange(d){const y=+String(d).slice(0,4),m=+String(d).slice(5,7);const start=new Date(Date.UTC(y,m-2,1)).toISOString().slice(0,10);return {from:start,to:monthEnd(start)};}
 function punctualRange(){const r=filters({population:'club'});return $('ccPunctRange').value==='month'?{...r,from:monthStart(r.to),to:minDate(monthEnd(r.to),s.model.today)}:r;}
 function error(message){$('ccError').hidden=false;txt('ccError',message);}
@@ -34,14 +35,14 @@ async function rpc(name,args,signal){
   if(res.data===null||res.data===undefined)throw new Error(`${name}: respuesta vacía del servidor`);
   return res.data;
 }
-async function loadMarks(from,to,signal,token){let cursor=0,ceiling=null,total=null,all=[];const ids=new Set();
+async function loadMarks(from,to,signal,token,position,totalBlocks){let cursor=0,ceiling=null,total=null,all=[];const ids=new Set();
   for(let page=0;page<150;page++){
     if(signal.aborted)throw new DOMException('Consulta cancelada','AbortError');
     const data=await rpc('consultar_centro_control_marcaciones_ayb_chef_v1',{p_desde:from,p_hasta:to,p_despues:cursor,p_hasta_id:ceiling,p_limite:1500},signal);
     if(total===null){total=Number(data.total);ceiling=Number(data.hasta_id);if(!Number.isFinite(total)||total<0)throw new Error('No se recibió el control total de marcaciones');}
     const batch=data.registros;if(!Array.isArray(batch))throw new Error('Formato de marcaciones inesperado');
     for(const row of batch){const id=String(row.biotime_id);if(ids.has(id))throw new Error('Se repitió un ID al paginar. Se conserva la consulta anterior.');ids.add(id);all.push(row);}
-    if(token===s.loadToken)txt('ccStatus',`Leyendo marcaciones: ${num(all.length)} de ${num(total)}...`);
+    if(token===s.loadToken)txt('ccStatus',`Bloque ${position}/${totalBlocks}: ${num(all.length)} de ${num(total)} marcaciones...`);
     if(all.length===total)return {rows:all,total,ceiling};
     if(!batch.length||Number(data.cursor)<=cursor||all.length>total)throw new Error('La lectura no coincide con el total de Supabase. No se publicarán métricas parciales.');
     cursor=Number(data.cursor);
@@ -50,36 +51,55 @@ async function loadMarks(from,to,signal,token){let cursor=0,ceiling=null,total=n
 }
 async function load(silent=false){
   const requested={from:$('ccFrom').value,to:$('ccTo').value};
-  const span=(dayMinute(requested.to)-dayMinute(requested.from))/1440;
-  if(!Number.isFinite(span)||span<0||span>61){error('Selecciona un rango válido de hasta 62 días.');return;}
-  const now=bogotaNow(),today=iso(now),prevMonth=previousMonthRange(requested.to);
-  let from=maxDate(HISTORY_START,minDate(requested.from,monthStart(requested.to),prevMonth.from));
-  let to=maxDate(requested.to,monthEnd(requested.to)<today?monthEnd(requested.to):today);
-  from=addDays(from,-1);to=addDays(to,1);
+  const today=iso(bogotaNow()),duration=dayMinute(requested.to)-dayMinute(requested.from);
+  if(!requested.from||!requested.to||!Number.isFinite(duration)||duration<0||
+      requested.to<HISTORY_START||requested.to>today){
+    error('Selecciona fechas válidas entre el 23/08/2026 y hoy.');return;
+  }
+  // Incluye marcas de turnos nocturnos en ambos extremos.
+  const from=addDays(maxDate(HISTORY_START,minDate(requested.from,monthStart(requested.to))),-1);
+  const to=addDays(requested.to,1);
+  const rangos=dividirHistorico(from,to,28);
   const token=++s.loadToken;s.abort?.abort();s.abort=new AbortController();const signal=s.abort.signal;
-  const timeout=setTimeout(()=>s.abort?.signal===signal&&s.abort.abort(),45000);
-  $('ccRefresh').disabled=true;if(!silent)clearError();txt('ccStatus','Consultando personal, programación, novedades y marcaciones...');
+  const timeout=setTimeout(()=>s.abort?.signal===signal&&s.abort.abort(),rangos.length>2?180000:80000);
+  $('ccRefresh').disabled=true;if(!silent)clearError();
+  txt('ccStatus',`Consultando AYB y Chef en ${rangos.length} bloque(s); espera la lectura completa...`);
   try{
     await asegurarSesion();
-    const [ctx,marks]=await Promise.all([rpc('consultar_centro_control_contexto_v2',{p_desde:from,p_hasta:to},signal),loadMarks(from,to,signal,token)]);
+    const resultados=new Array(rangos.length);
+    let index=0,completed=0;
+    async function worker(){
+      while(index<rangos.length){
+        if(signal.aborted)throw new DOMException('Consulta cancelada','AbortError');
+        const i=index++,range=rangos[i];
+        const [ctx,marks]=await Promise.all([
+          rpc('consultar_centro_control_contexto_v2',{p_desde:range.from,p_hasta:range.to},signal),
+          loadMarks(range.from,range.to,signal,token,i+1,rangos.length)
+        ]);
+        resultados[i]={ctx,marks};
+        if(token===s.loadToken)txt('ccStatus',`Histórico: ${++completed} de ${rangos.length} bloque(s) completos...`);
+      }
+    }
+    await Promise.all(Array.from({length:Math.min(2,rangos.length)},()=>worker()));
     if(token!==s.loadToken)return;
-    // No consultar horarios documentales generales: el alcance es solo AYB y Chef.
-    txt('ccDocStatus','Se comparan exclusivamente jornadas programadas en AYB y Chef; Portería no determina puntualidad.');
-    const model=buildModel(ctx,marks.rows,ctx.server_time?bogotaNow(new Date(ctx.server_time)):now);
-    if(model.diagnostic.invalid)throw new Error('Hay marcas con fecha inválida; revisa la fuente antes de calcular indicadores.');
-    s.model=model;s.range=requested;s.loaded={from,to,total:marks.total,ceiling:marks.ceiling};s.lastLoaded=Date.now();
+    const ctx=unirContextos(resultados.map(r=>r.ctx));
+    const marks=unirMarcaciones(resultados.map(r=>r.marks));
+    txt('ccDocStatus','Únicamente AYB y Programación Chef. Entradas y salidas laborales verificadas en el punto de trabajo; Portería solo como recorrido.');
+    const model=buildModel(ctx,marks.rows,ctx.server_time?bogotaNow(new Date(ctx.server_time)):bogotaNow());
+    if(model.diagnostic.invalid)throw new Error('Hay marcaciones con fecha inválida; revisa la fuente antes de calcular.');
+    s.model=model;s.range=requested;s.loaded={from,to,total:marks.total,ceiling:null};s.page=1;s.lastLoaded=Date.now();
     populateAreas();render();clearError();realtime();
-    txt('ccStatus',`Actualizado ${clock(model.now)} (Colombia) · ${num(marks.total)} marcaciones leídas completas`);
+    txt('ccStatus',`Actualizado ${clock(model.now)} (Colombia) · ${num(marks.total)} marcaciones AYB/Chef verificadas · ${rangos.length} bloques`);
   }catch(e){
     if(token!==s.loadToken)return;
     console.error('Centro de Control',e);
     if(esErrorAcceso(e)){limpiarDatosPorSesion();mostrarErrorAcceso($('ccError'),e,()=>load());}
-    else error(e.name==='AbortError'?'La consulta superó el tiempo de espera. Se conservan los datos anteriores; pulsa Actualizar.':`No se actualizó el Centro de Control. ${e.message}. No se reemplazaron los datos por ceros.`);
+    else error(e.name==='AbortError'?'La consulta histórica superó el tiempo máximo. Se conservan los datos anteriores; intenta un intervalo menor.':`No se actualizó el Centro de Control. ${e.message}. Se conservan los datos previos.`);
     txt('ccStatus',s.model?'Mostrando la última lectura completada':'Lectura no disponible');
   }finally{clearTimeout(timeout);if(token===s.loadToken)$('ccRefresh').disabled=false;}
 }
 
-function populateAreas(){const prior=$('ccArea').value;const areas=new Set();for(const e of s.model.ctx.employees||[])areas.add(s.model.person(e.cedula,s.range.to).areaLabel);for(const ev of s.model.events)areas.add(ev.person.areaLabel);$('ccArea').innerHTML='<option value="">Todas las áreas</option>'+[...areas].sort((a,b)=>a.localeCompare(b)).map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join('');if(areas.has(prior))$('ccArea').value=prior;}
+function populateAreas(){const prior=$('ccArea').value;const areas=new Set();for(const e of s.model.ctx.employees||[]){const p=s.model.person(e.cedula,s.range.to);if(!p.external&&p.known)areas.add(p.areaLabel);}$('ccArea').innerHTML='<option value="">Todas las áreas</option>'+[...areas].sort((a,b)=>a.localeCompare(b)).map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join('');if(areas.has(prior))$('ccArea').value=prior;}
 function chartBars(data,labelKey,valueKey){if(!data.length)return empty();const w=Math.max(570,data.length*35+55),h=240,pad=37,bottom=205,top=22,max=Math.max(1,...data.map(x=>x[valueKey])),bw=(w-pad-15)/data.length;let content='';for(let k=0;k<=4;k++){const y=bottom-(bottom-top)*k/4;content+=`<line class="cc-grid" x1="${pad}" y1="${y}" x2="${w}" y2="${y}"/><text class="cc-axis" x="${pad-7}" y="${y+3}" text-anchor="end">${num(max*k/4)}</text>`;}data.forEach((x,i)=>{const height=(bottom-top)*x[valueKey]/max,xx=pad+i*bw+bw*.18;content+=`<g><title>${esc(x.tooltip||`${x[labelKey]}: ${num(x[valueKey],1)} personas`)}</title><rect class="cc-bar${x.today?' today':''}" x="${xx}" y="${bottom-height}" width="${Math.max(3,bw*.64)}" height="${height}" rx="3"/><text class="cc-bar-label" x="${xx+bw*.32}" y="${bottom-height-6}" text-anchor="middle">${num(x[valueKey],1)}</text><text class="cc-axis" x="${xx+bw*.32}" y="226" text-anchor="middle">${esc(x[labelKey])}</text></g>`;});return `<div class="cc-svg-scroll"><svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Gráfica de personas por fecha" style="min-width:${Math.min(w,1300)}px">${content}</svg></div>`;}
 function allAreaFlow(evs,f){const rows=areaFlow(evs),seen=new Set(rows.map(x=>x.label));for(const e of s.model.ctx.employees||[]){if(e.estado===false)continue;const p=s.model.person(e.cedula,f.to);if(matchPerson(p,f)&&!seen.has(p.areaLabel)){seen.add(p.areaLabel);rows.push({label:p.areaLabel,people:0,personDays:0,marks:0});}}return rows.sort((a,b)=>b.people-a.people||a.label.localeCompare(b.label));}
 function areaTable(evs,f,scope){const rows=allAreaFlow(evs,f),max=Math.max(1,...rows.map(x=>x.people));return table(['Área laboral','Personas distintas','Días-persona','Registros','Detalle'],rows.map(a=>[`<button class="cc-link" data-area-detail="${esc(a.label)}" data-area-scope="${scope}">${esc(a.label)}</button>`,`<strong>${num(a.people)}</strong><div class="cc-progress"><i style="width:${a.people/max*100}%"></i></div>`,num(a.personDays),num(a.marks),a.people?`<button class="cc-link" data-area-detail="${esc(a.label)}" data-area-scope="${scope}">Quiénes vinieron</button>`:'—']));}
