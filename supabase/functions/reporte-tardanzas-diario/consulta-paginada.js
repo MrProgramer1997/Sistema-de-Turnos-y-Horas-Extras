@@ -13,7 +13,8 @@ export async function consultarPaginado({baseUrl,serviceKey,table,select,filters
  for(let offset=0;offset<max;){
    const limit=Math.min(pageSize,max-offset);
    const qp=new URLSearchParams({select,order,limit:String(limit),offset:String(offset)});
-   for(const [name,op,value] of filters)qp.set(name,op?op+'.'+value:value);
+   // Varios filtros de la misma columna (gte y lt) deben coexistir; set() borraba el primero.
+   for(const [name,op,value] of filters)qp.append(name,op?op+'.'+value:value);
    const res=await fetchFn(baseUrl+'/rest/v1/'+table+'?'+qp.toString(),{
       headers:{apikey:serviceKey,Authorization:'Bearer '+serviceKey,Accept:'application/json'}
    });
