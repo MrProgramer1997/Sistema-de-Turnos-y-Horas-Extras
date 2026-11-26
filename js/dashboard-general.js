@@ -73,7 +73,7 @@ async function load(silent=false){
         if(signal.aborted)throw new DOMException('Consulta cancelada','AbortError');
         const i=index++,range=rangos[i];
         const [ctx,marks]=await Promise.all([
-          rpc('consultar_centro_control_contexto_v2',{p_desde:range.from,p_hasta:range.to},signal),
+          rpc('consultar_centro_control_contexto_ayb_chef_v1',{p_desde:range.from,p_hasta:range.to},signal),
           loadMarks(range.from,range.to,signal,token,i+1,rangos.length)
         ]);
         resultados[i]={ctx,marks};
