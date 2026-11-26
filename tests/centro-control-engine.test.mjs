@@ -54,3 +54,21 @@ test('evento AYB sin equipo de trabajo identificable queda en revision',()=>{
  assert.equal(j.status,'sin_punto');
  assert.equal(j.entry,null);
 });
+
+test('solo Porteria: no se atribuye tardanza laboral',()=>{
+ const model=buildModel(ctx,marks.filter(x=>x.emp_code==='101'&&x.terminal_sn==='gate'),ahora);
+ const a=model.journeys.find(x=>x.code==='101');
+ assert.equal(a.status,'sin_entrada');
+ assert.equal(a.entry,null);
+});
+test('si falta marcacion no se inventa llegada tarde',()=>{
+ const model=buildModel(ctx,[],ahora);
+ assert.equal(model.journeys.find(x=>x.code==='101').status,'sin_marca');
+ assert.equal(model.journeys.find(x=>x.code==='202').status,'sin_marca');
+});
+test('marcacion AYB en dia no programado conserva evidencia sin clasificar tardanza',()=>{
+ const day='2026-11-26';
+ const data=[...marks,{biotime_id:20,emp_code:'101',punch_time:day+'T08:10:00',terminal_sn:'hy'}];
+ const model=buildModel(ctx,data,day+'T18:00:00');
+ assert.equal(model.journeys.find(x=>x.code==='101'&&x.date===day).status,'sin_programacion');
+});
