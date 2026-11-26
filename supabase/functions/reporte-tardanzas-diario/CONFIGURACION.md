@@ -11,6 +11,13 @@
 - **Correo:** Microsoft Graph / Exchange Online; **no utiliza Resend**.
 - La función usa el mismo cálculo del Centro de Control: primera marcación
   válida en el punto de trabajo; excluye Portería y las novedades justificadas.
+- **Programación faltante:** si no existe programación válida en AYB o Chef,
+  en vez de callar o decir "cero tardanzas", envía **un aviso de programación
+  faltante** a los mismos cinco destinatarios, desde el mismo remitente y a
+  la misma hora programada. Distingue las fuentes ausentes.
+- No se considera ausencia de programación cuando falla una consulta a la base
+  de datos. En ese caso el proceso devuelve error de lectura y no envía
+  afirmaciones incorrectas.
 
 ## 1. Verificar que el usuario realmente tenga un buzón
 
@@ -125,7 +132,45 @@ Variables requeridas en Supabase:
 El mismo `REPORT_CRON_TOKEN` debe guardarse en **Supabase Vault** bajo el
 nombre `tardanzas_cron_token` para que Cron pueda invocar la función.
 
-## 5. Prueba controlada a un solo destinatario
+## 5. Aviso por falta de programación
+
+El proceso diario revisa las programaciones AYB y Chef fijo para la fecha
+anterior, antes de intentar calcular tardanzas:
+
+- **AYB = 0; Chef = 0:** correo con asunto
+  `ALERTA: Programación no registrada (AYB y Programación Chef) | DD/MM/AAAA`.
+  Indica que no se puede construir el informe de tardanzas por falta de ambos
+  horarios. No presenta una tabla de tardanzas ni un falso total de cero.
+- **Solo AYB o Chef sin programación:** mensaje
+  `ALERTA: Programación incompleta (...)` indicando qué área necesita acción.
+  No presenta listado consolidado parcial como si fuera completo.
+- **Ambas fuentes con programación:** informe habitual de puntualidad con
+  las marcaciones válidas de los puntos de trabajo.
+- **Fallo de consulta / datos inconsistentes:** devuelve error técnico;
+  NO afirma que falten turnos ni envía un listado incompleto.
+
+Destinatarios: los cinco definidos en `destinatarios.js`. El modo `test`
+permanece restringido a `analistainnovacion@campestrepereira.com`.
+
+Para revisar la lógica **sin enviar correo**, usar `POST` con el encabezado
+`X-Report-Token` y uno de estos cuerpos:
+
+```json
+{"mode":"preview","date":"2026-11-25"}
+```
+
+```json
+{"mode":"preview","date":"2026-11-23"}
+```
+
+```json
+{"mode":"preview","date":"2026-11-22"}
+```
+
+Se esperan respectivamente: alerta por ambas fuentes, alerta por solo AYB
+y reporte normal. Son datos históricos de prueba, no fechas para el Cron.
+
+## 6. Prueba controlada a un solo destinatario
 
 1. Verificar remitente y restricciones RBAC de Exchange.
 2. Comprobar que la aplicación puede autenticarse en Graph.
@@ -140,7 +185,7 @@ nombre `tardanzas_cron_token` para que Cron pueda invocar la función.
    confirmada**. Comprobar la bandeja de entrada y las trazas de Exchange.
 8. Volver a `REPORT_TEST_ENABLED=false`.
 
-## 6. Activación diaria
+## 7. Activación diaria
 
 Solo tras prueba satisfactoria, verificar 5 destinatarios y autorizar operación:
 
