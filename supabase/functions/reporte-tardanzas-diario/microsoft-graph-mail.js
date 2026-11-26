@@ -8,7 +8,7 @@ const isGuid=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const email=v=>typeof v==='string'&&/^[^\s@]+@campestrepereira\.com$/i.test(v);
 
 export function prepararCorreoGraph({to,subject,html}){
- if(!Array.isArray(to)||to.length===0||to.length>5||to.some(x=>!email(x))||
+ if(!Array.isArray(to)||to.length===0||to.length>4||to.some(x=>!email(x))||
      new Set(to.map(x=>x.toLowerCase())).size!==to.length){
    throw new Error('Destinatarios corporativos inválidos');
  }
