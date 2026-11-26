@@ -1,9 +1,9 @@
 import { exigirModulo } from "./permisos-modulos.js?v=720";
 import { supabase } from '../supabase/supabaseClient.js';
-import {extremosDePunto} from './centro-control-alcance.js?v=ayb-chef-2';
+import {extremosDePunto} from './centro-control-alcance.js?v=ayb-chef-3';
 import {dividirHistorico,unirContextos,unirMarcaciones} from './centro-control-historico.js?v=ayb-chef-2';
 import { asegurarSesion, rpcConSesion, esErrorAcceso, mostrarErrorAcceso, observarSesion, ErrorSesion } from './sesion-protegida.js?v=sesion-6-2-1';
-import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,rankingMerito,mergeNotices} from './centro-control-metricas.js?v=ayb-chef-4';
+import {METRIC_START,HISTORY_START,bogotaNow,iso,addDays,dates,dayMinute,clock,norm,buildModel,matchPerson,selectedEvents,summary,dailyFlow,areaFlow,punctuality,rankingMerito,mergeNotices} from './centro-control-metricas.js?v=ayb-chef-5';
 
 // Centro de Control: lectura operativa. No aprueba, liquida ni altera marcaciones.
 const $=id=>document.getElementById(id);
@@ -16,7 +16,7 @@ const monthEnd=d=>new Date(Date.UTC(+String(d).slice(0,4),+String(d).slice(5,7),
 const inRange=(d,r)=>d>=r.from&&d<=r.to;
 const maxDate=(...v)=>v.filter(Boolean).sort().at(-1);
 const minDate=(...v)=>v.filter(Boolean).sort()[0];
-const stateLabels={puntual:['A tiempo','ok'],tarde:['Llegada tarde','bad'],justificada:['Descanso / novedad','info'],sin_programacion:['Sin programación','warn'],sin_marca:['Sin marcación; revisar','warn'],sin_entrada:['Sin entrada verificable','warn'],en_espera:['Jornada en curso','info'],futura:['Programación futura',''],inferida:['Horario inferido; excluido',''],conflicto:['Programaciones en conflicto','warn'],sin_horario:['Sin horario comparable',''],novedad_no_comparable:['Novedad sin horario comparable','warn'],novedad_no_justificada:['Novedad no justificada; revisar','warn'],sin_punto:['Punto sin validar','warn']};
+const stateLabels={puntual:['A tiempo','ok'],tarde:['Llegada tarde','bad'],justificada:['Descanso / novedad','info'],sin_programacion:['Sin programación','warn'],sin_marca:['Sin marcación; revisar','warn'],sin_entrada:['Sin entrada verificable','warn'],en_espera:['Jornada en curso','info'],futura:['Programación futura',''],inferida:['Horario inferido; excluido',''],conflicto:['Programaciones en conflicto','warn'],sin_horario:['Sin horario comparable',''],novedad_no_comparable:['Justificación pendiente de validar','warn'],novedad_no_justificada:['Novedad no justificada (NNJ)','warn'],sin_punto:['Punto sin validar','warn']};
 const s={model:null,range:null,tab:'punctuality',areaScope:'period',page:1,pageSize:75,loadToken:0,abort:null,channel:null,timer:null,debounce:null,lastLoaded:0,loaded:null};
 
 function pill(label,cl=''){return `<span class="cc-pill ${cl}">${esc(label)}</span>`;}
@@ -165,7 +165,7 @@ function employeeWorked(days=[]){let total=0,calculable=0;for(const j of days){c
 function renderPunctuality(){
   const f=punctualRange(),p=punctuality(s.model,f),comp=p.areas.reduce((sum,a)=>sum+a.comparable,0),late=p.areas.reduce((sum,a)=>sum+a.late,0),mins=p.areas.reduce((sum,a)=>sum+a.minutes,0);
   $('ccPunctSummary').innerHTML=[[`${pretty(f.from)} — ${pretty(f.to)}`,'Período de puntualidad'],[num(comp),'Jornadas comparables'],[num(late),'Jornadas con tardanza'],[num(mins)+' min','Retraso acumulado; no descuento automático']].map(([v,l])=>`<div class="cc-insight"><strong style="font-size:${l==='Período de puntualidad'?'15':'23'}px">${esc(v)}</strong><small>${esc(l)}</small></div>`).join('');
-  $('ccPunctAreas').innerHTML=table(['Área','Puntualidad','A tiempo','Tarde','Base comparable','Cobertura de horarios','Sin programación / con marca','Novedades justificadas','Novedades sin horario comparable'],p.areas.sort((a,b)=>a.label.localeCompare(b.label)).map(a=>[`<strong>${esc(a.label)}</strong>`,a.rate===null?'Sin base':`${num(a.rate,1)}%${a.comparable<5?'<small>Base menor de 5 jornadas</small>':''}`,num(a.onTime),num(a.late),num(a.comparable),a.scheduled?`${num(a.coverage,1)}%<small>${a.comparable} / ${a.scheduled} con horario evaluable</small>`:'No calculable',num(a.unplanned),num(a.justified),num(a.novedadesPorRevisar)]));
+  $('ccPunctAreas').innerHTML=table(['Área','Puntualidad','A tiempo','Tarde','Base comparable','Cobertura de horarios','Sin programación / con marca','Novedades justificadas','Justificaciones pendientes','Novedades no justificadas'],p.areas.sort((a,b)=>a.label.localeCompare(b.label)).map(a=>[`<strong>${esc(a.label)}</strong>`,a.rate===null?'Sin base':`${num(a.rate,1)}%${a.comparable<5?'<small>Base menor de 5 jornadas</small>':''}`,num(a.onTime),num(a.late),num(a.comparable),a.scheduled?`${num(a.coverage,1)}%<small>${a.comparable} / ${a.scheduled} con horario evaluable</small>`:'No calculable',num(a.unplanned),num(a.justified),num(a.justificacionesPendientes),num(a.novedadesNoJustificadas)]));
   $('ccLatePeople').innerHTML=table(
     ['Empleado','Programación','Días tarde','Jornadas comparables','Tardanzas / base','Minutos acumulados','Detalle'],
     p.employees.filter(e=>e.late>0).map(e=>[
@@ -236,7 +236,7 @@ function renderMerit(){
   );
 }
 
-function renderNotices(){const rows=mergeNotices(s.model,{...filters(),population:'club'});$('ccNotices').innerHTML=table(['Empleado','Área','Causa','Desde','Hasta registrado','Fuente / estado'],rows.map(n=>[`<button class="cc-link" data-person="${esc(n.code)}">${esc(n.person.name)}</button>`,esc(n.person.areaLabel),esc(n.label),pretty(n.from),pretty(n.to),`${esc([...new Set(n.sources)].join(' / '))}<small>${esc(n.state)}${n.full?'':' · No exime por sí sola toda la jornada'}</small>`]));}
+function renderNotices(){const rows=mergeNotices(s.model,{...filters(),population:'club'});$('ccNotices').innerHTML=table(['Empleado','Área','Causa','Desde','Hasta registrado','Fuente / estado'],rows.map(n=>[`<button class="cc-link" data-person="${esc(n.code)}">${esc(n.person.name)}</button>`,esc(n.person.areaLabel),esc(n.label),pretty(n.from),pretty(n.to),`${esc([...new Set(n.sources)].join(' / '))}<small>${esc(n.state)}${norm(n.type)==='nnj'?' · No justificada; revisar':n.full?'':' · Justificación de jornada completa sin validar'}</small>`]));}
 function render(){if(!s.model)return;renderTrends();renderPunctuality();renderDailyEmployees();renderMerit();renderNotices();}
 
 function showDialog(title,subtitle,html){txt('ccDialogTitle',title);txt('ccDialogSubtitle',subtitle);$('ccDialogBody').innerHTML=html;if(!$('ccDialog').open)$('ccDialog').showModal();}
