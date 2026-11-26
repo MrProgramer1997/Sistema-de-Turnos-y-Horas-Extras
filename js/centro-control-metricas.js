@@ -1,5 +1,5 @@
 import {codigoAsignado,analizarHorario} from "./cocina-planificacion-core.js?v=chef-7-3";
-import {limitarAybChef,esMarcacionPuntoTrabajo,puntoValidoParaTurno,equipoEsperado} from './centro-control-alcance.js?v=ayb-chef-2';
+import {limitarAybChef,esMarcacionPuntoTrabajo,puntoValidoParaTurno,equipoEsperado,esServicioUbicacionVariable} from './centro-control-alcance.js?v=ayb-chef-3';
 /** Centro de Control V2. Motor de lectura: no guarda, liquida ni aprueba horas. */
 export const METRIC_START = '2026-08-23';
 export const HISTORY_START = '2026-08-23';
@@ -125,7 +125,8 @@ export function buildModel(contexto={}, todasLasMarcas=[], now=bogotaNow()) {
    else if(b===null&&s.notice)status='novedad_no_comparable';
   else if(s.inferred)status='inferida';
   else if(conflict)status='conflicto';
-  else if(b!==null&&!equipoEsperado(s.subarea))status='sin_punto';
+  else if(b!==null&&!equipoEsperado(s.subarea)&&!esServicioUbicacionVariable(s.subarea))
+     status='sin_punto';
   else if(start!==null&&end!==null&&end>start&&end-start<=20*60){
     if(start>stamp(now))status='futura';
     else{const marks=(perPerson.get(s.code)||[]).filter(x=>x.t>=start-240&&x.t<=end&&x.t<=stamp(now));
@@ -160,7 +161,10 @@ export function areaFlow(evs){const map=new Map();for(const e of evs){const labe
  return [...map.values()].map(a=>({...a,people:a.people.size,personDays:a.days.size,peak:[...a.hours].map(([hour,s])=>({hour,count:s.size})).sort((a,b)=>b.count-a.count||a.hour-b.hour)[0]})).sort((a,b)=>b.people-a.people||a.label.localeCompare(b.label));}
 export function heatmap(evs,by='point'){const map=new Map();for(const e of evs){const label=by==='area'?e.person.areaLabel:e.point;if(!map.has(label))map.set(label,Array.from({length:24},()=>new Set()));map.get(label)[e.hour].add(`${e.date}|${e.person.cedula}`);}return [...map].sort((a,b)=>a[0].localeCompare(b[0])).map(([label,hours])=>({label,hours:hours.map(s=>s.size)}));}
 export function punctuality(model,f){const js=selectedJourneys(model,{...f,population:'club'}),areas=new Map(),emps=new Map();
- for(const j of js){const label=j.person.areaLabel;if(!areas.has(label))areas.set(label,{label,seen:new Set(),scheduled:0,comparable:0,onTime:0,late:0,minutes:0,unplanned:0,justified:0,missing:0,novedadesPorRevisar:0});const a=areas.get(label);a.seen.add(j.code);if(j.start!==null&&j.start!==undefined&&!['justificada','futura','inferida','conflicto'].includes(j.status))a.scheduled++;if(j.status==='sin_programacion')a.unplanned++;if(j.status==='justificada')a.justified++;if(['novedad_no_comparable','novedad_no_justificada'].includes(j.status))a.novedadesPorRevisar++;if(['sin_marca','sin_entrada'].includes(j.status))a.missing++;
+ for(const j of js){const label=j.person.areaLabel;if(!areas.has(label))areas.set(label,{label,seen:new Set(),scheduled:0,comparable:0,onTime:0,late:0,minutes:0,unplanned:0,justified:0,missing:0,novedadesPorRevisar:0,novedadesNoJustificadas:0,justificacionesPendientes:0});const a=areas.get(label);a.seen.add(j.code);if(j.start!==null&&j.start!==undefined&&!['justificada','futura','inferida','conflicto'].includes(j.status))a.scheduled++;if(j.status==='sin_programacion')a.unplanned++;if(j.status==='justificada')a.justified++;if(['novedad_no_comparable','novedad_no_justificada'].includes(j.status))
+     a.novedadesPorRevisar++;
+   if(j.status==='novedad_no_justificada')a.novedadesNoJustificadas++;
+   if(j.status==='novedad_no_comparable')a.justificacionesPendientes++;if(['sin_marca','sin_entrada'].includes(j.status))a.missing++;
   if(!emps.has(j.code))emps.set(j.code,{...j.person,late:0,onTime:0,comparable:0,minutes:0,days:[]});
   const emp=emps.get(j.code);emp.days.push(j);
   if(!['tarde','puntual'].includes(j.status))continue;a.comparable++;a.onTime+=j.status==='puntual'?1:0;a.late+=j.status==='tarde'?1:0;a.minutes+=Math.max(0,j.delta||0);
