@@ -109,7 +109,7 @@ export function buildModel(contexto={}, todasLasMarcas=[], now=bogotaNow()) {
  // Rangos continuos de novedades programadas; no se mezclan intervalos con dias de trabajo.
  const programNotice=new Map();
  for(const list of schedules.values()){const best=list.slice().sort((a,b)=>b.priority-a.priority)[0];if(best.notice){const k=`${best.code}|${best.notice}|${best.source}`;if(!programNotice.has(k))programNotice.set(k,[]);programNotice.get(k).push(best);}}
- for(const list of programNotice.values()){list.sort((a,b)=>a.date.localeCompare(b.date));let run=null;for(const s of list){if(run&&s.date===addDays(run.to,1))run.to=s.date;else{if(run)notices.push(run);run={code:s.code,from:s.date,to:s.date,type:s.notice,label:s.noticeText||noticeLabel(s.notice),source:s.source,state:'Programada',full:fullDayNotice(s.notice),person:person(s.code,s.date)};}}if(run)notices.push(run);}
+ for(const list of programNotice.values()){list.sort((a,b)=>a.date.localeCompare(b.date));let run=null;for(const s of list){if(run&&s.date===addDays(run.to,1))run.to=s.date;else{if(run)notices.push(run);run={code:s.code,from:s.date,to:s.date,type:s.notice,label:s.noticeText&&norm(s.noticeText)!==norm(s.notice)?s.noticeText:noticeLabel(s.notice),source:s.source,state:'Programada',full:fullDayNotice(s.notice),person:person(s.code,s.date)};}}if(run)notices.push(run);}
  const noticesByDoc=new Map();
  for(const n of notices){if(!noticesByDoc.has(n.code))noticesByDoc.set(n.code,[]);noticesByDoc.get(n.code).push(n);}
  const getNotices=(code,date)=>(noticesByDoc.get(code)||[]).filter(n=>n.from<=date&&n.to>=date);
