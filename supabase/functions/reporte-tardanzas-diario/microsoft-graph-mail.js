@@ -63,3 +63,34 @@ export async function enviarCorreoGraph(correo,options={}){
  if(result.status!==202)throw new GraphDeliveryError('envío',result.status);
  return {accepted:true,http_status:202,from:GRAPH_SENDER,to:correo.to.length};
 }
+
+/** Diagnóstico SIN enviar correo ni exponer token, secreto ni respuesta completa de Entra.
+ * Solo informa el código AADSTS y el estado HTTP.
+ */
+export async function diagnosticarAutenticacionGraph(options={}){
+ const readEnv=options.env||((key)=>Deno.env.get(key)?.trim()||'');
+ const request=options.fetch||fetch;
+ const tenant=readEnv('MS365_TENANT_ID'),client=readEnv('MS365_CLIENT_ID'),secret=readEnv('MS365_CLIENT_SECRET');
+ if(!isGuid(tenant)||!isGuid(client)||secret.length<12)
+   return {ok:false,status:'configuracion_incompleta'};
+ const data=new URLSearchParams({
+   client_id:client,client_secret:secret,
+   grant_type:'client_credentials',scope:'https://graph.microsoft.com/.default'
+ });
+ try{
+   const res=await request(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,{
+     method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:data.toString()
+   });
+   let payload={};
+   try{payload=await res.json()}catch{payload={}}
+   if(!res.ok){
+     const raw=String(payload.error_codes?.[0]||String(payload.error_description||'').match(/AADSTS(\d{5,8})/)?.[1]||'');
+     const aadsts=/^\d{5,8}$/.test(raw)?'AADSTS'+raw:'no_identificado';
+     return {ok:false,status:'oauth_rechazado',http_status:res.status,aadsts};
+   }
+   return {ok:typeof payload.access_token==='string'&&payload.access_token.length>0,
+     status:payload.access_token?'credenciales_validas':'respuesta_sin_token',http_status:res.status};
+ }catch(_){
+   return {ok:false,status:'conexion_oauth_no_disponible'};
+ }
+}
