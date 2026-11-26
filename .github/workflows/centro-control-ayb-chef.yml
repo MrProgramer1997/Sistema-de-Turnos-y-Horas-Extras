@@ -24,7 +24,8 @@ jobs:
       - name: Syntax checks
         run: |
           node --check js/centro-control-alcance.js
+          node --check js/centro-control-historico.js
           node --check js/centro-control-metricas.js
           node --check js/dashboard-general.js
       - name: Regression tests
-        run: node --test tests/centro-control-ayb-chef.test.mjs tests/centro-control-engine.test.mjs
+        run: node --test tests/centro-control-*.test.mjs
