@@ -81,7 +81,7 @@ Deno.serve(async (req:Request)=>{
    if(env('REPORT_ENABLED')!=='true')return json({status:'desactivado',fecha,message:'Falta autorizar REPORT_ENABLED=true'},503);
    const key=env('RESEND_API_KEY'),from=env('REPORT_FROM_EMAIL');
    const to=env('REPORT_TO_EMAILS').split(',').map(x=>x.trim()).filter(Boolean);
-   if(!key||!from||to.length!==5||to.some(x=>!/^\S+@\S+\.\S+$/.test(x)))
+   if(!key||!from||to.length!==5||to.some(x=>!/^\S+@campestrepereira\.com$/i.test(x))||new Set(to.map(x=>x.toLowerCase())).size!==5)
      return json({status:'sin_proveedor',fecha,message:'Configurar Resend, remitente verificado y cinco destinatarios'},503);
    const dateDisplay=fecha.split('-').reverse().join('/');
    const resp=await fetch('https://api.resend.com/emails',{
