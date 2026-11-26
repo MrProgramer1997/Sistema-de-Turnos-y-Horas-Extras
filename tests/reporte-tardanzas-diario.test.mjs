@@ -68,14 +68,17 @@ test('la prueba solo puede enviarse al correo de Innovación',()=>{
  assert.equal(testTo.length,1);
  assert.equal(testTo[0],DESTINATARIO_PRUEBA);
 });
-test('el informe diario se restringe exactamente a los cinco destinatarios definidos',()=>{
+test('el informe diario se restringe exactamente a los cuatro destinatarios aprobados',()=>{
  const expected=[
-   'analistainnovacion@campestrepereira.com','sistemas@campestrepereira.com',
-   'directorayb@campestrepereira.com','maitre@campestrepereira.com',
-   'dirbienestar@campestrepereira.com'
+   'analistainnovacion@campestrepereira.com',
+   'maitre@campestrepereira.com',
+   'dirbienestar@campestrepereira.com',
+   'chef@campestrepereira.com'
  ];
  assert.deepEqual(destinatariosPara('send'),expected);
  assert.deepEqual(DESTINATARIOS_DIARIOS,expected);
- assert.equal(new Set(expected).size,5);
+ assert.equal(new Set(expected).size,4);
+ assert.equal(destinatariosPara('send').includes('sistemas@campestrepereira.com'),false);
+ assert.equal(destinatariosPara('send').includes('directorayb@campestrepereira.com'),false);
  assert.throws(()=>destinatariosPara('preview'),/no permitido/i);
 });
