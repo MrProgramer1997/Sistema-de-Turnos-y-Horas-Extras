@@ -261,15 +261,27 @@ function generarUsuarioSugerido(empleado) {
 }
 
 function generarPasswordTemporal() {
-  const caracteres = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let codigo = "";
-
-  for (let i = 0; i < 4; i++) {
-    codigo += caracteres[Math.floor(Math.random() * caracteres.length)];
+  if (typeof globalThis.crypto?.getRandomValues !== "function") {
+    throw new Error("Este navegador no permite generar contraseñas seguras.");
   }
-
-  const numero = Math.floor(100 + Math.random() * 900);
-  return `CCP2026@${codigo}${numero}`;
+  const categorias = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnopqrstuvwxyz", "23456789", "!@#$%*-_+?"];
+  const caracteres = categorias.join("");
+  const limite = 256 - (256 % caracteres.length);
+  let password;
+  do {
+    password = "";
+    while (password.length < 20) {
+      const bytes = new Uint8Array(32);
+      globalThis.crypto.getRandomValues(bytes);
+      for (const byte of bytes) {
+        // Discard the incomplete byte range to avoid modulo bias.
+        if (byte < limite) password += caracteres[byte % caracteres.length];
+        if (password.length === 20) break;
+      }
+    }
+    // Rejection keeps category positions random, without a predictable prefix.
+  } while (!categorias.every(categoria => [...password].some(letra => categoria.includes(letra))));
+  return password;
 }
 
 function generarPasswordCreacion() {
