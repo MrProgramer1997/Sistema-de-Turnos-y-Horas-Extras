@@ -6,13 +6,21 @@ if (!KEY) {
 }
 
 const chef = {
-  nombre: "MARIA ANGELICA ESCOBAR RODRIGUEZ",
-  email: "mescobar@turnos.club",
-  password: "Me8#C4fL7q",
+  nombre: process.env.CHEF_ACCOUNT_NAME,
+  email: process.env.CHEF_ACCOUNT_EMAIL,
+  password: process.env.CHEF_TEMP_PASSWORD,
   rol: "aprobador",
   areas: ["ALIMENTOS Y BEBIDAS", "CHEF"],
-  empleadoId: "75e07608-0b94-49a1-a8df-140dfc8d448b"
+  empleadoId: process.env.CHEF_EMPLOYEE_ID
 };
+
+// One-time administrative tool. Do not store provisioning data or credentials in Git.
+for (const name of ["CHEF_ACCOUNT_NAME", "CHEF_ACCOUNT_EMAIL", "CHEF_TEMP_PASSWORD", "CHEF_EMPLOYEE_ID"]) {
+  if (!process.env[name]?.trim()) {
+    console.error(`Falta la variable de entorno ${name}.`);
+    process.exit(1);
+  }
+}
 
 const headers = {
   apikey: KEY,
